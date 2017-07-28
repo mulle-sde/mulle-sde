@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_VERSION=0.0.1
+MULLE_SDE_VERSION=0.0.2
 
 MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
 MULLE_EXECUTABLE_FUNCTIONS_MAX="4"
@@ -39,7 +39,7 @@ usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE} [path|url]
+   ${MULLE_EXECUTABLE} [options] [path|url] [mulle-bootstrap-flags]
 
    Create a virtual environment for project in directory.
    If the directory at path does not exist and the path looks like an url,
@@ -117,7 +117,8 @@ main()
 {
    local OPTION_MAKE_FLAGS="NO"
    local OPTION_DIRECTORY
-   local OPTION_INHERIT="NO"
+   local OPTION_INHERIT="YES"
+   local MULLE_BOOTSTRAP_FLAGS
 
    while [ $# -ne 0 ]
    do
@@ -146,7 +147,6 @@ main()
             OPTION_INHERIT="NO"
          ;;
 
-
          # argument gitflags
          -*)
             fail "unknown option $1"
@@ -161,6 +161,7 @@ main()
    done
 
    core_setup_trace "${MULLE_TRACE}"
+   export MULLE_TRACE
 
    #
    # lets do this for now
@@ -172,6 +173,7 @@ main()
 
    local arg
    local directory
+   local url
 
    arg="$1"
    if [ -z "${arg}" ]
@@ -183,12 +185,12 @@ main()
 
    if [ -z "${OPTION_DIRECTORY}" ]
    then
-      if [ -d "${arg}/.bootstrap" ]
+      if [ -d "${arg}" ]
       then
-         ( cd "${arg}" ; run_shell )
-         return $?
+         directory="$arg"
+      else
+         directory="`basename -- "${arg}"`" || return 1
       fi
-      directory="`basename -- "${arg}"`" || return 1
    else
       directory="${OPTION_DIRECTORY}"
    fi
