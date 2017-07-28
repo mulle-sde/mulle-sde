@@ -1,0 +1,3 @@
+set( SCRIPTS
+mulle-sde
+)

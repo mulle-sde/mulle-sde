@@ -1,0 +1,256 @@
+#! /usr/bin/env bash
+#
+#   Copyright (c) 2015 Nat! - Mulle kybernetiK
+#   All rights reserved.
+#
+#   Redistribution and use in source and binary forms, with or without
+#   modification, are permitted provided that the following conditions are met:
+#
+#   Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+#
+#   Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+#   Neither the name of Mulle kybernetiK nor the names of its contributors
+#   may be used to endorse or promote products derived from this software
+#   without specific prior written permission.
+#
+#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#   POSSIBILITY OF SUCH DAMAGE.
+#
+MULLE_SDE_VERSION=0.0.1
+
+MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
+MULLE_EXECUTABLE_FUNCTIONS_MAX="4"
+
+
+usage()
+{
+    cat <<EOF >&2
+Usage:
+   ${MULLE_EXECUTABLE} [path|url]
+
+   Create a virtual environment for project in directory.
+   If the directory at path does not exist and the path looks like an url,
+   ${MULLE_EXECUTABLE} will attempt to git clone the project from that url.
+
+Options:
+   -m        : set CPPFLAGS and LDFLAGS in environment for make
+   -d <dir>  : specify different directory, than the one taken from the url
+   -ni       : don't inherit PATH, LD_LIBRARY_PATH and related environment
+EOF
+  exit 1
+}
+
+
+run_shell()
+{
+   #
+   # could pimp this up with CPPFLAGS and LDFLAGS too
+   # but do I want this ?
+   #
+   local options
+
+   options="run"
+   if [ "${OPTION_MAKE_FLAGS}" = "YES" ]
+   then
+      options="${options} make"
+   fi
+
+   local env_string
+   local cmd_string
+   local pathoptions
+
+   if [ "${OPTION_INHERIT}" = "NO" ]
+   then
+      pathoptions="-ni"
+   fi
+   env_string="`mulle-bootstrap paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
+   cmd_string="${SHELL:-/usr/bin/env bash}"
+
+   local path
+   local name
+
+   path="`mulle-bootstrap master-path`" || return 1
+   name="`basename -- "${path}"`"
+
+   local prompt_string
+
+   case "${cmd_string}" in
+      *bash|*dash)
+         case "${PS1}" in
+            *\\h[*)
+               prompt_string="PS1='${PS1}'"
+            ;;
+
+            *\\h*)
+               prompt_string="PS1='$(sed "s/\\\\h/\\\\h\\[${name}\\]/" <<< "${PS1}")"
+            ;;
+
+            *)
+               prompt_string="PS1='\u@\h[${name}] \W$ '"
+            ;;
+         esac
+      ;;
+   esac
+
+   eval_exekutor "MULLE_BOOTSTRAP_VIRTUAL_ROOT='${path}'" \
+                 "${env_string}" \
+                 "${prompt_string}" \
+                  "'${cmd_string}'" \
+                  "$@"
+}
+
+
+main()
+{
+   local OPTION_MAKE_FLAGS="NO"
+   local OPTION_DIRECTORY
+   local OPTION_INHERIT="NO"
+
+   while [ $# -ne 0 ]
+   do
+      if core_technical_flags "$1"
+      then
+         shift
+         continue
+      fi
+
+      case "$1" in
+         -h|--help)
+            usage
+         ;;
+
+         -m|--make)
+            OPTION_MAKE_FLAGS="YES"
+         ;;
+
+         -d|--directory)
+            [ $# -eq 1 ] && fail "missing argument to $1"
+
+            OPTION_DIRECTORY="$1"
+         ;;
+
+         -ni|--no-inherit)
+            OPTION_INHERIT="NO"
+         ;;
+
+
+         # argument gitflags
+         -*)
+            fail "unknown option $1"
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   core_setup_trace "${MULLE_TRACE}"
+
+   #
+   # lets do this for now
+   #
+   if [ ! -z "${MULLE_BOOTSTRAP_VIRTUAL_ROOT}" ]
+   then
+      fail "You are already in the mulle-bootstrap virtual environment \"${MULLE_BOOTSTRAP_VIRTUAL_ROOT}\". Environments don't stack."
+   fi
+
+   local arg
+   local directory
+
+   arg="$1"
+   if [ -z "${arg}" ]
+   then
+      run_shell
+      return $?
+   fi
+   shift
+
+   if [ -z "${OPTION_DIRECTORY}" ]
+   then
+      if [ -d "${arg}/.bootstrap" ]
+      then
+         ( cd "${arg}" ; run_shell )
+         return $?
+      fi
+      directory="`basename -- "${arg}"`" || return 1
+   else
+      directory="${OPTION_DIRECTORY}"
+   fi
+
+   if [ ! -d "${directory}/.bootstrap" ]
+   then
+      if [ -z "`command -v git`" ]
+      then
+         fail "git not installed, can't clone stuff for you"
+      fi
+
+      case "${arg}" in
+         *:*)
+            git clone "${arg}" || return 1
+         ;;
+
+         *)
+            git clone "https://github.com/${arg}" "${directory}" || return 1
+         ;;
+      esac
+   fi
+
+   if [ ! -d "${directory}/.bootstrap.auto" ]
+   then
+      ( cd "${directory}" ; run_shell mulle-bootstrap "$@")
+   fi
+
+   ( cd "${directory}" ; run_shell )
+   return $?
+}
+
+
+
+_init()
+{
+   libexecpath="`mulle-bootstrap library-path 2> /dev/null`"
+   if [ -z "${libexecpath}" ]
+   then
+      echo "Fatal Error: Could not find mulle-bootstrap library for ${MULLE_EXECUTABLE}" >&2
+      exit 1
+   fi
+
+   . ${libexecpath}/mulle-bootstrap-logging.sh || internal_fail "mulle-bootstrap-logging.sh not found"
+   . ${libexecpath}/mulle-bootstrap-functions.sh || internal_fail "mulle-bootstrap-functions.sh not found"
+   . ${libexecpath}/mulle-bootstrap-core-options.sh || internal_fail "mulle-bootstrap-core-options.sh not found"
+}
+
+
+MULLE_EXECUTABLE="`basename -- "$0"`"
+MULLE_ARGUMENTS="$@"
+MULLE_EXECUTABLE_FAIL_PREFIX="${MULLE_EXECUTABLE}"
+MULLE_EXECUTABLE_PID="$$"
+
+
+set -o pipefail
+
+_init "$@" # needs params
+
+
+#
+# combine all coverage files into one and sort -u it
+#
+
+main "$@"
+
