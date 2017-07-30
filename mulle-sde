@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_VERSION=0.0.2
+MULLE_SDE_VERSION=0.0.3
 
 MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
 MULLE_EXECUTABLE_FUNCTIONS_MAX="4"
@@ -118,6 +118,8 @@ main()
    local OPTION_MAKE_FLAGS="NO"
    local OPTION_DIRECTORY
    local OPTION_INHERIT="YES"
+   local OPTION_BOOTSTRAP="YES"
+
    local MULLE_BOOTSTRAP_FLAGS
 
    while [ $# -ne 0 ]
@@ -145,6 +147,10 @@ main()
 
          -ni|--no-inherit)
             OPTION_INHERIT="NO"
+         ;;
+
+         -nb|--no-bootstrap)
+            OPTION_BOOTSTRAP="NO"
          ;;
 
          # argument gitflags
@@ -176,20 +182,20 @@ main()
    local url
 
    arg="$1"
-   if [ -z "${arg}" ]
-   then
-      run_shell
-      return $?
-   fi
-   shift
+   [ $# -ne 0 ] && shift
 
    if [ -z "${OPTION_DIRECTORY}" ]
    then
-      if [ -d "${arg}" ]
+      if [ -z "${arg}" ]
       then
-         directory="$arg"
+         directory="${OPTION_DIRECTORY:-${PWD}}"
       else
-         directory="`basename -- "${arg}"`" || return 1
+         if [ -d "${arg}" ]
+         then
+            directory="$arg"
+         else
+            directory="`basename -- "${arg}"`" || return 1
+         fi
       fi
    else
       directory="${OPTION_DIRECTORY}"
@@ -203,21 +209,33 @@ main()
       fi
 
       case "${arg}" in
+         "")
+            url=""
+         ;;
+
          *:*)
-            git clone "${arg}" || return 1
+            url="${arg}"
          ;;
 
          *)
-            git clone "https://github.com/${arg}" "${directory}" || return 1
+            url="https://github.com/${arg}"
          ;;
       esac
+
+      if [ ! -z "${url}" ]
+      then
+         log_verbose "Cloning from URL \"${arg}\" into \"${directory}\"..."
+         git clone "${url}" "${directory}" || return 1
+      fi
    fi
 
-   if [ ! -d "${directory}/.bootstrap.auto" ]
+   if [ "${OPTION_BOOTSTRAP}" = "YES" -a ! -d "${directory}/.bootstrap.auto" ]
    then
+      log_fluff "Running mulle-bootstrap in \"${directory}\"..."
       ( cd "${directory}" ; run_shell mulle-bootstrap "$@")
    fi
 
+   log_fluff "Run shell in \"${directory}\"..."
    ( cd "${directory}" ; run_shell )
    return $?
 }
