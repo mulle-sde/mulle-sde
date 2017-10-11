@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_VERSION=0.1.1
+MULLE_SDE_VERSION=0.2.0
 
 MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
 MULLE_EXECUTABLE_FUNCTIONS_MAX="4"
@@ -99,7 +99,8 @@ run_shell()
       *bash|*dash)
          initfile="`mktemp .environment.XXXXXXX`" || exit 1
          echo "${env_string}" > "${initfile}"
-         echo "( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
+         echo "[ -f \".environment.sh\" ] && . \".environment.sh\"" >> "${initfile}"
+         echo "# ( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
          cmd_options="--rcfile '${initfile}'"
       ;;
    esac
@@ -131,7 +132,7 @@ run_shell()
 
   if [ -f "${initfile}" ]
   then
-     rm "${initfile}"
+      : # rm "${initfile}"
   fi
 }
 
@@ -142,8 +143,6 @@ main()
    local OPTION_DIRECTORY
    local OPTION_INHERIT="YES"
    local OPTION_BOOTSTRAP="YES"
-
-   local MULLE_BOOTSTRAP_FLAGS
 
    while [ $# -ne 0 ]
    do
@@ -258,14 +257,21 @@ main()
       fi
    fi
 
-   if [ "${OPTION_BOOTSTRAP}" = "YES" -a ! -d "${directory}/.bootstrap.auto" ]
+   if [ "${OPTION_BOOTSTRAP}" = "YES" ] && \
+      [ -d "${directory}/.bootstrap" -o  -d "${directory}/.bootstrap.local" ] && \
+      [ ! -d "${directory}/.bootstrap.auto" ]
    then
+      local exepath
+
+      # weird, but if there is a mulle-bootstrap folder in the top directory
+      # you can't run mulle-bootstrap via bash so resolve before
+      exepath="`command -v mulle-bootstrap`"
       log_fluff "Running mulle-bootstrap in \"${directory}\"..."
-      ( cd "${directory}" ; run_shell mulle-bootstrap "$@")
+      ( cd "${directory}" ; run_shell "${exepath}" )
    fi
 
    log_fluff "Run shell in \"${directory}\"..."
-   ( cd "${directory}" ; run_shell )
+   ( cd "${directory}" ; run_shell "$@" )
    return $?
 }
 
