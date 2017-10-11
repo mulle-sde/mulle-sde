@@ -68,9 +68,6 @@ run_shell()
       options="${options} make"
    fi
 
-   local env_string
-   local cmd_string
-   local cmd_options
    local pathoptions
 
    if [ "${OPTION_INHERIT}" = "NO" ]
@@ -78,29 +75,42 @@ run_shell()
       pathoptions="-ni"
    fi
 
-   #
-   # because some environment strings like
-   # DYLD_LIBRARY_PATH are stripped off by dyld (I guess)
-   # put everything in an init file if possible
-
-   env_string="`mulle-bootstrap paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
-   cmd_string="${SHELL:-/usr/bin/env bash}"
-
    local path
    local name
+   local env_string
+   local cmd_string
+   local cmd_options
 
-   path="`mulle-bootstrap master-path`" || return 1
+   if [ -d ".bootstrap" -o -d ".bootstrap.local" ]
+   then
+      path="`mulle-bootstrap master-path`" || return 1
+
+      env_string="`mulle-bootstrap paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
+   else
+      path="`pwd -P`"
+   fi
+
    name="`basename -- "${path}"`"
+   cmd_string="${SHELL:-/usr/bin/env bash}"
 
    local prompt_string
    local initfile
 
+   #
+   # because some environment strings like
+   # DYLD_LIBRARY_PATH are stripped off by dyld (I guess)
+   # put everything in an init file if possible
+   #
    case "${cmd_string}" in
       *bash|*dash)
          initfile="`mktemp .environment.XXXXXXX`" || exit 1
          echo "${env_string}" > "${initfile}"
-         echo "[ -f \".environment.sh\" ] && . \".environment.sh\"" >> "${initfile}"
-         echo "# ( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
+         echo "[ -f \".mulle-sde-environment.sh\" ] && . \".mulle-sde-environment.sh\"" >> "${initfile}"
+         echo "( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
+         if [ ! -z "${targetdirectory}" ]
+         then
+            echo "cd \"${targetdirectory}\"" >> "${initfile}"
+         fi
          cmd_options="--rcfile '${initfile}'"
       ;;
    esac
@@ -123,7 +133,7 @@ run_shell()
       ;;
    esac
 
-   eval_exekutor "MULLE_BOOTSTRAP_VIRTUAL_ROOT='${path}'" \
+   eval_exekutor "MULLE_SDE_VIRTUAL_ROOT='${path}'" \
                  "${env_string}" \
                  "${prompt_string}" \
                   "'${cmd_string}'" \
@@ -132,7 +142,7 @@ run_shell()
 
   if [ -f "${initfile}" ]
   then
-      : # rm "${initfile}"
+      rm "${initfile}"
   fi
 }
 
@@ -195,23 +205,48 @@ main()
    #
    # lets do this for now
    #
-   if [ ! -z "${MULLE_BOOTSTRAP_VIRTUAL_ROOT}" ]
+   if [ ! -z "${MULLE_SDE_VIRTUAL_ROOT}" ]
    then
-      fail "You are already in the mulle-bootstrap virtual environment \"${MULLE_BOOTSTRAP_VIRTUAL_ROOT}\". Environments don't stack."
+      fail "You are already in the mulle-bootstrap virtual environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
    fi
 
    local arg
    local directory
    local url
+   local calldirectory
+
+   calldirectory="`pwd -P`"
 
    arg="$1"
    [ $# -ne 0 ] && shift
 
-   if [ -z "${OPTION_DIRECTORY}" ]
+   if [ ! -z "${OPTION_DIRECTORY}" ]
    then
+      directory="${OPTION_DIRECTORY}"
+   else
       if [ -z "${arg}" ]
       then
-         directory="${OPTION_DIRECTORY:-${PWD}}"
+         directory="${calldirectory}"
+
+         local found
+
+         found="NO"
+         # look for .mulle-sde-environment.sh going up to root, if we
+         # find one, we latch onto it
+         while [ "${directory}" != "." ]
+         do
+            if [ -f "${directory}/.mulle-sde-environment.sh" ]
+            then
+               found="YES"
+               break
+            fi
+            directory="`dirname -- "${directory}"`"
+         done
+
+         if [ "${found}" = "NO" ]
+         then
+            directory="${calldirectory}"
+         fi
       else
          if [ -d "${arg}" ]
          then
@@ -220,11 +255,9 @@ main()
             directory="`basename -- "${arg}"`" || return 1
          fi
       fi
-   else
-      directory="${OPTION_DIRECTORY}"
    fi
 
-   if [ ! -d "${directory}/.bootstrap" ]
+   if [ ! -d "${directory}/.bootstrap" -a ! -d "${directory}/.bootstrap.local" ]
    then
       if [ -z "`command -v git`" ]
       then
@@ -270,7 +303,13 @@ main()
       ( cd "${directory}" ; run_shell "${exepath}" )
    fi
 
-   log_fluff "Run shell in \"${directory}\"..."
+   log_fluff "Run shell in \"${calldirectory}\"..."
+
+   if [ "${targetdirectory}" != "${calldirectory}" ]
+   then
+      targetdirectory="${calldirectory}"
+   fi
+
    ( cd "${directory}" ; run_shell "$@" )
    return $?
 }

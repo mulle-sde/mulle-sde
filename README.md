@@ -34,3 +34,6 @@ LD_LIBRARY_PATH.
 
 If there are dependencies that need to be bootstrap, mulle-sde does that too.
 
+If there is a file called `.mulle-sde-environment.sh` mulle-sde will source it.
+
+
