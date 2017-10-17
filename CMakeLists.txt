@@ -1,6 +1,7 @@
 cmake_minimum_required( VERSION 3.0)
 
-project( mulle-sde)
+# use C, because otherwise a CXX compiler is required
+project( mulle-sde C)
 
 
 include( CMakeSourcesAndHeaders.txt)

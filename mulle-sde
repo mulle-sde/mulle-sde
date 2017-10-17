@@ -47,6 +47,7 @@ Usage:
 
 Options:
    -m        : set CPPFLAGS and LDFLAGS in environment for make
+   -c <cmd>  : shell command to execute instead of interactive shell
    -d <dir>  : specify different directory, than the one taken from the url
    -ni       : don't inherit PATH, LD_LIBRARY_PATH and related environment
 EOF
@@ -153,6 +154,7 @@ main()
    local OPTION_DIRECTORY
    local OPTION_INHERIT="YES"
    local OPTION_BOOTSTRAP="YES"
+   local OPTION_SHELL_COMMAND
 
    while [ $# -ne 0 ]
    do
@@ -165,6 +167,13 @@ main()
       case "$1" in
          -h|--help)
             usage
+         ;;
+
+         -c)
+            [ $# -eq 1 ] && fail "missing argument to $1"
+            shift
+
+            OPTION_SHELL_COMMAND="$1"
          ;;
 
          -m|--make)
@@ -233,7 +242,7 @@ main()
          found="NO"
          # look for .mulle-sde-environment.sh going up to root, if we
          # find one, we latch onto it
-         while [ "${directory}" != "." ]
+         while [ "${directory}" != "/" ]
          do
             if [ -f "${directory}/.mulle-sde-environment.sh" ]
             then
@@ -300,7 +309,7 @@ main()
       # you can't run mulle-bootstrap via bash so resolve before
       exepath="`command -v mulle-bootstrap`"
       log_fluff "Running mulle-bootstrap in \"${directory}\"..."
-      ( cd "${directory}" ; run_shell "${exepath}" )
+      ( cd "${directory}" ; run_shell "${exepath}" "$@" )
    fi
 
    log_fluff "Run shell in \"${calldirectory}\"..."
@@ -310,7 +319,13 @@ main()
       targetdirectory="${calldirectory}"
    fi
 
-   ( cd "${directory}" ; run_shell "$@" )
+   if [ -z "${OPTION_SHELL_COMMAND}" ]
+   then
+      ( cd "${directory}" ; run_shell )
+   else
+      ( cd "${directory}" ; run_shell -c "${OPTION_SHELL_COMMAND}" )
+   fi
+
    return $?
 }
 
