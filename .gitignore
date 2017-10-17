@@ -1,2 +1,6 @@
 .DS_Store
+*.bak
+tmp.*
 build/
+build-*.d/
+mulle-project/publisher-info.sh
