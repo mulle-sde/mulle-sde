@@ -229,7 +229,6 @@ main()
       fail "You are already in the mulle-bootstrap virtual environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
    fi
 
-   set -x
    local arg
    local url
 
