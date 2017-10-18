@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_VERSION=0.3.1
+MULLE_SDE_VERSION=0.3.2
 
 MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
 MULLE_EXECUTABLE_FUNCTIONS_MAX="4"
@@ -41,14 +41,14 @@ usage()
 Usage:
    ${MULLE_EXECUTABLE} [options] [path|url] [mulle-bootstrap-flags]
 
-   Create a virtual environment for project in directory.
-   If the directory at path does not exist and the path looks like an url,
+   Create a virtual environment for project in DIRECTORY.
+   If the DIRECTORY at path does not exist and the path looks like an url,
    ${MULLE_EXECUTABLE} will attempt to git clone the project from that url.
 
 Options:
    -m        : set CPPFLAGS and LDFLAGS in environment for make
    -c <cmd>  : shell command to execute instead of interactive shell
-   -d <dir>  : specify different directory, than the one taken from the url
+   -d <dir>  : specify different DIRECTORY, than the one taken from the url
    -ni       : don't inherit PATH, LD_LIBRARY_PATH and related environment
 EOF
   exit 1
@@ -76,6 +76,10 @@ run_shell()
       pathoptions="-ni"
    fi
 
+   local envname
+
+   envname="`basename -- "${ENVDIRECTORY}"`"
+
    local path
    local name
    local env_string
@@ -84,14 +88,15 @@ run_shell()
 
    if [ -d ".bootstrap" -o -d ".bootstrap.local" ]
    then
-      path="`mulle-bootstrap master-path`" || return 1
+#      path="`mulle-bootstrap master-path`" || return 1
 
       env_string="`mulle-bootstrap paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
    else
-      path="`pwd -P`"
+      :
+#      path="`pwd -P`"
    fi
 
-   name="`basename -- "${path}"`"
+#   name="`basename -- "${path}"`"
    cmd_string="${SHELL:-/usr/bin/env bash}"
 
    local prompt_string
@@ -106,11 +111,11 @@ run_shell()
       *bash|*dash)
          initfile="`mktemp .environment.XXXXXXX`" || exit 1
          echo "${env_string}" > "${initfile}"
-         echo "[ -f \".mulle-sde-environment.sh\" ] && . \".mulle-sde-environment.sh\"" >> "${initfile}"
-         echo "( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
-         if [ ! -z "${targetdirectory}" ]
+         echo "[ -f \"${ENVDIRECTORY}/.mulle-sde-environment.sh\" ] && \
+. \"${ENVDIRECTORY}/.mulle-sde-environment.sh\"" >> "${initfile}"
+         if [ "${OPTION_KEEP_TMP}" = "NO" ]
          then
-            echo "cd \"${targetdirectory}\"" >> "${initfile}"
+            echo "( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
          fi
          cmd_options="--rcfile '${initfile}'"
       ;;
@@ -124,24 +129,24 @@ run_shell()
             ;;
 
             *\\h*)
-               prompt_string="PS1='$(sed "s/\\\\h/\\\\h\\[${name}\\]/" <<< "${PS1}")"
+               prompt_string="PS1='$(sed "s/\\\\h/\\\\h\\[${envname}\\]/" <<< "${PS1}")"
             ;;
 
             *)
-               prompt_string="PS1='\u@\h[${name}] \W$ '"
+               prompt_string="PS1='\u@\h[${envname}] \W$ '"
             ;;
          esac
       ;;
    esac
 
-   eval_exekutor "MULLE_SDE_VIRTUAL_ROOT='${path}'" \
+   eval_exekutor "MULLE_SDE_VIRTUAL_ROOT='${ENVDIRECTORY}'" \
                  "${env_string}" \
                  "${prompt_string}" \
                   "'${cmd_string}'" \
                   "${cmd_options}" \
                   "$@"
 
-  if [ -f "${initfile}" ]
+  if [ "${OPTION_KEEP_TMP}" = "NO" ] && [ -f "${initfile}" ]
   then
       rm "${initfile}"
   fi
@@ -155,6 +160,7 @@ main()
    local OPTION_INHERIT="YES"
    local OPTION_BOOTSTRAP="YES"
    local OPTION_SHELL_COMMAND
+   local OPTION_KEEP_TMP="NO"
 
    while [ $# -ne 0 ]
    do
@@ -180,7 +186,7 @@ main()
             OPTION_MAKE_FLAGS="YES"
          ;;
 
-         -d|--directory)
+         -d|--DIRECTORY)
             [ $# -eq 1 ] && fail "missing argument to $1"
             shift
 
@@ -193,6 +199,10 @@ main()
 
          -nb|--no-bootstrap)
             OPTION_BOOTSTRAP="NO"
+         ;;
+
+         --keep-tmp)
+            OPTION_KEEP_TMP="YES"
          ;;
 
          # argument gitflags
@@ -219,54 +229,64 @@ main()
       fail "You are already in the mulle-bootstrap virtual environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
    fi
 
+   set -x
    local arg
-   local directory
    local url
-   local calldirectory
 
-   calldirectory="`pwd -P`"
+   # CALLDIRECTORY is where we are called from
+   local CALLDIRECTORY
+   # DIRECTORY is where we are supposed to execute
+   local DIRECTORY
+   # ENVDIRECTORY is where the mulle-sde-environment.sh is
+   local ENVDIRECTORY
+
+   CALLDIRECTORY="`pwd -P`"
 
    arg="$1"
    [ $# -ne 0 ] && shift
 
    if [ ! -z "${OPTION_DIRECTORY}" ]
    then
-      directory="${OPTION_DIRECTORY}"
+      DIRECTORY="${OPTION_DIRECTORY}"
    else
       if [ -z "${arg}" ]
       then
-         directory="${calldirectory}"
+         DIRECTORY="${CALLDIRECTORY}"
 
          local found
 
          found="NO"
+
+         ENVDIRECTORY="${DIRECTORY}"
          # look for .mulle-sde-environment.sh going up to root, if we
          # find one, we latch onto it
-         while [ "${directory}" != "/" ]
+         while [ "${ENVDIRECTORY}" != "/" ]
          do
-            if [ -f "${directory}/.mulle-sde-environment.sh" ]
+            if [ -f "${ENVDIRECTORY}/.mulle-sde-environment.sh" ]
             then
                found="YES"
                break
             fi
-            directory="`dirname -- "${directory}"`"
+            ENVDIRECTORY="`dirname -- "${ENVDIRECTORY}"`"
          done
 
          if [ "${found}" = "NO" ]
          then
-            directory="${calldirectory}"
+            ENVDIRECTORY="${CALLDIRECTORY}"
          fi
       else
          if [ -d "${arg}" ]
          then
-            directory="$arg"
+            DIRECTORY="$arg"
          else
-            directory="`basename -- "${arg}"`" || return 1
+            DIRECTORY="`basename -- "${arg}"`" || return 1
          fi
       fi
    fi
 
-   if [ ! -d "${directory}/.bootstrap" -a ! -d "${directory}/.bootstrap.local" ]
+   ENVDIRECTORY="${ENVDIRECTORY:-${DIRECTORY}}"
+
+   if [ ! -d "${DIRECTORY}/.bootstrap" -a ! -d "${DIRECTORY}/.bootstrap.local" ]
    then
       if [ -z "`command -v git`" ]
       then
@@ -289,41 +309,36 @@ main()
 
       if [ ! -z "${url}" ]
       then
-         log_verbose "Cloning from URL \"${arg}\" into \"${directory}\"..."
-         git clone "${url}" "${directory}" || return 1
+         log_verbose "Cloning from URL \"${arg}\" into \"${DIRECTORY}\"..."
+         git clone "${url}" "${DIRECTORY}" || return 1
       else
-         if [ ! -d "${directory}" ]
+         if [ ! -d "${DIRECTORY}" ]
          then
-            fail "${directory} does not exist"
+            fail "${DIRECTORY} does not exist"
          fi
       fi
    fi
 
    if [ "${OPTION_BOOTSTRAP}" = "YES" ] && \
-      [ -d "${directory}/.bootstrap" -o  -d "${directory}/.bootstrap.local" ] && \
-      [ ! -d "${directory}/.bootstrap.auto" ]
+      [ -d "${DIRECTORY}/.bootstrap" -o  -d "${DIRECTORY}/.bootstrap.local" ] && \
+      [ ! -d "${DIRECTORY}/.bootstrap.auto" ]
    then
       local exepath
 
-      # weird, but if there is a mulle-bootstrap folder in the top directory
+      # weird, but if there is a mulle-bootstrap folder in the top DIRECTORY
       # you can't run mulle-bootstrap via bash so resolve before
       exepath="`command -v mulle-bootstrap`"
-      log_fluff "Running mulle-bootstrap in \"${directory}\"..."
-      ( cd "${directory}" ; run_shell "${exepath}" "$@" )
+      log_fluff "Running mulle-bootstrap in \"${DIRECTORY}\"..."
+      ( cd "${DIRECTORY}" ; run_shell "${exepath}" "$@" )
    fi
 
-   log_fluff "Run shell in \"${calldirectory}\"..."
-
-   if [ "${targetdirectory}" != "${calldirectory}" ]
-   then
-      targetdirectory="${calldirectory}"
-   fi
+   log_fluff "Run shell in \"${DIRECTORY}\"..."
 
    if [ -z "${OPTION_SHELL_COMMAND}" ]
    then
-      ( cd "${directory}" ; run_shell )
+      ( cd "${DIRECTORY}" ; run_shell )
    else
-      ( cd "${directory}" ; run_shell -c "${OPTION_SHELL_COMMAND}" )
+      ( cd "${DIRECTORY}" ; run_shell -c "${OPTION_SHELL_COMMAND}" )
    fi
 
    return $?
