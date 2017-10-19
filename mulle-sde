@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_VERSION=0.3.2
+MULLE_SDE_VERSION=0.4.0
 
 MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
 MULLE_EXECUTABLE_FUNCTIONS_MAX="4"
@@ -39,7 +39,7 @@ usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE} [options] [path|url] [mulle-bootstrap-flags]
+   ${MULLE_EXECUTABLE} [options] [path|url|--] [mulle-bootstrap-flags]
 
    Create a virtual environment for project in DIRECTORY.
    If the DIRECTORY at path does not exist and the path looks like an url,
@@ -205,6 +205,10 @@ main()
             OPTION_KEEP_TMP="YES"
          ;;
 
+         --)
+            break
+         ;;
+
          # argument gitflags
          -*)
             fail "unknown option $1"
@@ -243,6 +247,11 @@ main()
 
    arg="$1"
    [ $# -ne 0 ] && shift
+
+   if [ "${arg}" = "--" ]
+   then
+      arg=
+   fi
 
    if [ ! -z "${OPTION_DIRECTORY}" ]
    then

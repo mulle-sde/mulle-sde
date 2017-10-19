@@ -1,3 +1,8 @@
+## 0.4.0
+
+* use -- to separate options from mulle-bootstrap flags
+
+
 ### 0.3.1
 
 * Various small improvements
