@@ -29,6 +29,11 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
+if [ "${TRACE}" = "YES" ]
+then
+   set -x
+fi
+
 MULLE_SDE_VERSION=0.4.0
 
 MULLE_EXECUTABLE_FUNCTIONS_MIN="3.9"
@@ -39,7 +44,7 @@ usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE} [options] [path|url|--] [mulle-bootstrap-flags]
+   ${MULLE_EXECUTABLE} [options] [path|url|--]
 
    Create a virtual environment for project in DIRECTORY.
    If the DIRECTORY at path does not exist and the path looks like an url,
@@ -51,120 +56,571 @@ Options:
    -d <dir>  : specify different DIRECTORY, than the one taken from the url
    -ni       : don't inherit PATH, LD_LIBRARY_PATH and related environment
 EOF
+
+   options_technical_flags_usage
+
   exit 1
 }
 
 
-run_shell()
+print_required_tools_sh()
 {
-   #
-   # could pimp this up with CPPFLAGS and LDFLAGS too
-   # but do I want this ?
-   #
-   local options
+   log_entry "print_required_tools_sh" "$@"
 
-   options="run"
-   if [ "${OPTION_MAKE_FLAGS}" = "YES" ]
+   cat <<EOF
+curl
+git
+EOF
+
+   # optional, default yes
+
+   if [ "${OPTION_NINJA}" != "NO" ]
    then
-      options="${options} make"
+      echo "ninja"
    fi
 
-   local pathoptions
-
-   if [ "${OPTION_INHERIT}" = "NO" ]
+   if [ "${OPTION_CMAKE}" != "NO" ]
    then
-      pathoptions="-ni"
+      echo "cmake"
    fi
 
-   local envname
-
-   envname="`basename -- "${ENVDIRECTORY}"`"
-
-   local path
-   local name
-   local env_string
-   local cmd_string
-   local cmd_options
-
-   if [ -d ".bootstrap" -o -d ".bootstrap.local" ]
+   # optional, default no
+   if [ "${OPTION_SVN}" = "YES" ]
    then
-#      path="`mulle-bootstrap master-path`" || return 1
-
-      env_string="`mulle-bootstrap paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
-   else
-      :
-#      path="`pwd -P`"
+      echo "svn"
    fi
 
-#   name="`basename -- "${path}"`"
-   cmd_string="${SHELL:-/usr/bin/env bash}"
+   if [ "${OPTION_AUTOCONF}" = "YES" ]
+   then
+      echo "autoconf"
+      echo "autoreconf"
+   fi
 
-   local prompt_string
-   local initfile
-
-   #
-   # because some environment strings like
-   # DYLD_LIBRARY_PATH are stripped off by dyld (I guess)
-   # put everything in an init file if possible
-   #
-   case "${cmd_string}" in
-      *bash|*dash)
-         initfile="`mktemp .environment.XXXXXXX`" || exit 1
-         echo "${env_string}" > "${initfile}"
-         echo "[ -f \"${ENVDIRECTORY}/.mulle-sde-environment.sh\" ] && \
-. \"${ENVDIRECTORY}/.mulle-sde-environment.sh\"" >> "${initfile}"
-         if [ "${OPTION_KEEP_TMP}" = "NO" ]
-         then
-            echo "( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
-         fi
-         cmd_options="--rcfile '${initfile}'"
-      ;;
-   esac
-
-   case "${cmd_string}" in
-      *bash|*dash)
-         case "${PS1}" in
-            *\\h[*)
-               prompt_string="PS1='${PS1}'"
-            ;;
-
-            *\\h*)
-               prompt_string="PS1='$(sed "s/\\\\h/\\\\h\\[${envname}\\]/" <<< "${PS1}")"
-            ;;
-
-            *)
-               prompt_string="PS1='\u@\h[${envname}] \W$ '"
-            ;;
-         esac
-      ;;
-   esac
-
-   eval_exekutor "MULLE_SDE_VIRTUAL_ROOT='${ENVDIRECTORY}'" \
-                 "${env_string}" \
-                 "${prompt_string}" \
-                  "'${cmd_string}'" \
-                  "${cmd_options}" \
-                  "$@"
-
-  if [ "${OPTION_KEEP_TMP}" = "NO" ] && [ -f "${initfile}" ]
-  then
-      rm "${initfile}"
-  fi
+   if [ ! -z "${OPTION_OTHER_TOOLS}" ]
+   then
+      echo "${OPTION_OTHER_TOOLS}"
+   fi
 }
 
 
+print_standard_startup_sh()
+{
+   log_entry "print_standard_startup_sh" "$@"
+
+   cat <<EOF
+#
+# If mulle-sde is broken, sometimes its nice just to source this file
+# But we need some stuff to get things going
+#
+if [ -z "\${UNAME}" ]
+then
+   UNAME="`uname | cut -d_ -f1 | sed 's/64$//' | tr 'A-Z' 'a-z'`"
+   export UNAME
+fi
+if [ -z "\${MULLE_SDE_VIRTUAL_ROOT}" ]
+then
+   echo "Using \$PWD as MULLE_SDE_VIRTUAL_ROOT for your convenience" >&2
+   MULLE_SDE_VIRTUAL_ROOT="\$PWD"
+fi
+
+
+#
+# Globally appropriate definitions
+#
+case "\${UNAME}" in
+   darwin)
+      MULLE_FETCH_MIRROR_DIR=~/Library/Caches/mulle-fetch/git-mirrors
+      MULLE_FETCH_ARCHIVE_DIR=~/Library/Caches/mulle-fetch/archives
+   ;;
+
+   *)
+      MULLE_FETCH_MIRROR_DIR=~/.cache/mulle-fetch/git-mirrors
+      MULLE_FETCH_ARCHIVE_DIR=~/.cache/mulle-fetch/archives
+   ;;
+esac
+
+MULLE_FETCH_SEARCH_PATH="\`(cd .. ; pwd -P)\`"
+MULLE_SYMLINK="YES"
+
+#
+# PATH to search for git repositories locally
+#
+export MULLE_FETCH_SEARCH_PATH
+
+#
+# Prefer symlinks to local git repositories found via MULLE_FETCH_SEARCH_PATH
+#
+export MULLE_SYMLINK
+
+#
+# Git mirror and Zip/TGZ cache to conserve bandwidth
+#
+export MULLE_FETCH_MIRROR_DIR
+export MULLE_FETCH_ARCHIVE_DIR
+
+#
+# Use common folder for sharable projects
+#
+MULLE_SOURCETREE_SHARE_DIR="\${MULLE_SDE_VIRTUAL_ROOT}/stashes"
+export MULLE_SOURCETREE_SHARE_DIR
+
+#
+# Use common build directory
+#
+BUILD_DIR="\${MULLE_SDE_VIRTUAL_ROOT}/build"
+export BUILD_DIR
+
+
+#
+# Share dependencies directory (absolute for ease of use)
+#
+DEPENDENCIES_DIR="\${MULLE_SDE_VIRTUAL_ROOT}/dependencies"
+export DEPENDENCIES_DIR
+
+
+#
+# Load in some modifications depending on osname, hostname, username
+# Of course this could be "cased" in a single file, but it seems convenient.
+#
+HOSTNAME="`hostname -s`" # don't export it
+
+if [ -f .mulle-sde-environment.\${UNAME}-os.sh ]
+then
+   . .mulle-sde-environment.\${UNAME}-os.sh
+fi
+
+if [ -f .mulle-sde-environment.\${HOSTNAME}-host.sh ]
+then
+   . .mulle-sde-environment.\${HOSTNAME}-host.sh
+fi
+
+if [ -f .mulle-sde-environment.\${USER}-user.sh ]
+then
+   . .mulle-sde-environment.\${USER}-user.sh
+fi
+EOF
+}
+
+
+censored_path()
+{
+   log_entry "censored_path" "$@"
+
+   local result
+
+   # don't mess with mingw
+   case "${UNAME}" in
+      *mingw*)
+         echo "$*"
+         return
+      ;;
+
+   esac
+
+   local i
+
+   IFS=":"
+   for i in $*
+   do
+      IFS="${DEFAULT_IFS}"
+
+      case "$i" in
+         /bin|/usr/bin|/sbin|/usr/sbin)
+            result="`colon_concat "${result}" "${i}"`"
+         ;;
+      esac
+
+      case "${UNAME}" in
+         darwin)
+            case "$i" in
+               /System/*)
+                  result="`colon_concat "${result}" "${i}"`"
+               ;;
+            esac
+         ;;
+      esac
+   done
+
+   IFS="${DEFAULT_IFS}"
+
+   if [ ! -z "${result}" ]
+   then
+      echo "${result}"
+   fi
+}
+
+
+#
+# since all mulle- tools are uniform, this is easy.
+# If it's a library, we need to strip off -env from
+# the toolname for the libraryname. Also libexec is versionized
+# so add the version
+#
+sde_copy_mulle_tool()
+{
+   log_entry "sde_copy_mulle_tool" "$@"
+
+   local toolname="$1"
+   local directory="$2"
+   local copystyle="${3:-tool}"
+
+   #
+   # these dependencies should be there, but just check
+   #
+   local exefile
+
+   exefile="`command -v "${toolname}" `"
+   if [ -z "${exefile}" ]
+   then
+      fail "${toolname} not in PATH"
+   fi
+
+   # doing it like this renames "src" to $toolname
+
+   local srclibexecdir
+   local parentdir
+   local srclibname
+
+   srclibdir="`"${exefile}" library-path `" || exit 1
+   srclibexecdir="`dirname -- "${srclibdir}" `"
+   srclibname="`basename -- "${srclibdir}" `"
+
+   local dstlibexecdir
+   local dstbindir
+   local dstexefile
+   local dstlibname
+
+   dstlibname="${toolname}"
+   dstbindir="${directory}/bin"
+   dstexefile="${dstbindir}/${toolname}"
+   mkdir_if_missing "${dstbindir}"
+
+   dstlibexecdir="${directory}/libexec"
+
+   if [ "${copystyle}" = "library" ]
+   then
+      local version
+
+      version="`"${exefile}" version `" || exit 1
+      dstlibname="`sed 's/-env$//' <<< "${toolname}" `"
+      dstlibdir="${dstlibexecdir}/${dstlibname}/${version}"
+   else
+      dstlibdir="${directory}/libexec/${dstlibname}"
+   fi
+
+   #
+   # Developer option, since I don't want to edit copies. Doesn't work
+   # on mingw, but shucks
+   #
+   if [ "${srclibname}" = "src" -a "${MULLE_SDE_DEVELOPER}" != "NO" ]
+   then
+      mkdir_if_missing "${dstbindir}"
+      mkdir_parent_if_missing "${dstlibdir}" > /dev/null
+
+      exekutor ln -s -f "${exefile}" "${dstexefile}"
+      exekutor ln -s -f "${srclibexecdir}/src" "${dstlibdir}"
+   else
+      mkdir_if_missing "${dstlibdir}"
+
+      ( cd "${srclibdir}" ; tar cf - . ) | \
+      ( cd "${dstlibdir}" ; tar xf -  )
+
+      mkdir_if_missing "${dstbindir}"
+
+      exekutor cp "${exefile}" "${dstexefile}" &&
+      exekutor chmod 755 "${dstexefile}"
+   fi
+}
+
+
+sde_link_other_tool()
+{
+   log_entry "sde_link_other_tool" "$@"
+
+   local toolname="$1"
+   local bindir="$2"
+
+   local filename
+
+   filename="`command -v "${toolname}" `"
+   if [ -z "${filename}" ]
+   then
+      fail "Required tool \"${filename}\" not found"
+   fi
+
+   exekutor ln -sf "${filename}" "${bindir}"
+}
+
+
+sde_link_other_tools()
+{
+   log_entry "sde_link_other_tools" "$@"
+
+   local toolnames="$1"
+   local directory="$2"
+
+   local toolname
+
+   local bindir
+
+   bindir="${directory}/bin"
+
+   mkdir_if_missing "${bindir}"
+
+   IFS="
+"
+   for toolname in ${toolnames}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      if [ -z "${toolname}" ]
+      then
+         continue
+      fi
+
+      sde_link_other_tool "${toolname}" "${bindir}"
+   done
+
+   IFS="${DEFAULT_IFS}"
+
+   rmdir_if_empty "${bindir}"
+}
+
+
+sde_setup_mulle_tools()
+{
+   local directory="$1"
+
+   #
+   # Since the PATH is restricted, we need a basic set of tools
+   # in directory/bin to get things going
+   # (We'd also need in PATH: git, tar, sed, tr, gzip, zip. But that's not
+   # checked yet)
+   #
+   (
+      sde_copy_mulle_tool "mulle-bashfunctions-env" "${directory}" "library" &&
+      sde_copy_mulle_tool "mulle-fetch"      "${directory}" &&
+      sde_copy_mulle_tool "mulle-make"       "${directory}" &&
+      sde_copy_mulle_tool "mulle-dispense"   "${directory}" &&
+      sde_copy_mulle_tool "mulle-sourcetree" "${directory}" &&
+      sde_copy_mulle_tool "mulle-build"      "${directory}"
+   ) || return 1
+}
+
+
+sde_setup_other_tools()
+{
+   local configdir="$1"
+   local directory="$2"
+
+   local tools
+
+   tools="`cat "${configdir}/.mulle-sde-tools" `" || exit 1
+
+   sde_link_other_tools "${tools}" "${directory}"
+
+   #
+   # Could also symlink a minimal set of commands into bin and then
+   # set PATH only to that.
+   #
+   exekutor touch "${directory}/bin/.tools-updated"
+
+   return 0
+}
+
+
+sde_setup_if_needed()
+{
+   local directory="$1"
+
+   local needs_tools_update
+   local needs_bin_update
+   local needs_bin_update2
+
+   needs_tools_update="NO"
+   needs_bin_update="NO"
+   needs_bin_update2="NO"
+
+   if [ ! -d "${directory}/bin/mulle-fetch" ]
+   then
+      needs_tools_update="YES"
+   fi
+
+   if [ "${directory}/bin/.tools-updated" -ot "${directory}/.mulle-sde-tools" ]
+   then
+      needs_bin_update="YES"
+   fi
+
+   if [ "${directory}/bin/.tools-updated" -ot "${HOME}/.mulle-sde-tools" ]
+   then
+      needs_bin_update2="YES"
+   fi
+
+   if [ "${needs_bin_update}" = "NO" -a \
+        "${needs_bin_update2}" = "NO" -a \
+        "${needs_tools_update}" = "NO" ]
+   then
+      return
+   fi
+
+   #
+   # unprotect
+   #
+   exekutor chmod -R ug+w "${directory}/bin" 2> /dev/null
+   exekutor chmod -R ug+w "${directory}/libexec" 2> /dev/null
+
+   if [ "${needs_tools_update}" = "YES" ]
+   then
+      sde_setup_mulle_tools "${directory}"
+   fi
+
+   if [ "${needs_bin_update}" = "YES" ]
+   then
+      sde_setup_other_tools "${directory}" "${directory}"
+   fi
+
+   if [ "${needs_bin_update2}" = "YES" ]
+   then
+      sde_setup_other_tools "${HOME}" "${directory}"
+   fi
+
+   #
+   # protect from accidents
+   #
+   exekutor chmod -R ugo-w "${directory}/bin"
+   exekutor chmod -R ugo-w "${directory}/libexec"
+}
+
+
+sde_init()
+{
+   log_entry "sde_init" "$@"
+
+   local OPTION_NINJA="DEFAULT"
+   local OPTION_CMAKE="DEFAULT"
+   local OPTION_SVN="DEFAULT"
+   local OPTION_AUTOCONF="DEFAULT"
+   local OPTION_OTHER_TOOLS=
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help)
+            usage
+         ;;
+
+         -f|--force)
+            OPTION_MAGNUM_FORCE="YES"
+         ;;
+
+         --autoconf)
+            OPTION_AUTOCONF="YES"
+         ;;
+
+         --no-autoconf)
+            OPTION_AUTOCONF="NO"
+         ;;
+
+         --cmake)
+            OPTION_CMAKE="YES"
+         ;;
+
+         --no-cmake)
+            OPTION_CMAKE="NO"
+         ;;
+
+         --ninja)
+            OPTION_NINJA="YES"
+         ;;
+
+         --no-ninja)
+            OPTION_NINJA="NO"
+         ;;
+
+         --svn)
+            OPTION_SVN="YES"
+         ;;
+
+         --no-svn)
+            OPTION_SVN="NO"
+         ;;
+
+
+         -t|--tool)
+            [ $# -eq 1 ] && fail "missing argument to $1"
+            shift
+
+            OPTION_OTHER_TOOLS="`add_line "${OPTION_OTHER_TOOLS}" "$1" `"
+         ;;
+
+         -*)
+            fail "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local directory
+
+   if [ $# -ne 0 ]
+   then
+      directory="$1"
+      shift
+   else
+      directory="${PWD}"
+   fi
+
+   if [ "${OPTION_MAGNUM_FORCE}" != "YES" ] && [ -f "${directory}/.mulle-sde-environment.sh" ]
+   then
+      log_info "\"${directory}/.mulle-sde-environment.sh\" already exists"
+      return 1
+   fi
+
+   mkdir_if_missing "${directory}"
+
+   if ! print_standard_startup_sh > "${directory}/.mulle-sde-environment.sh"
+   then
+      return 1
+   fi
+
+   if ! print_required_tools_sh >  "${directory}/.mulle-sde-tools"
+   then
+      return 1
+   fi
+
+   log_info "Did set up mulle-sde environment in \"${directory}\"
+To enter the environment say:
+      ${C_RESET_BOLD}mulle-sde \"${directory}\"${C_INFO}"
+
+}
+
 main()
 {
+   log_entry "main" "$@"
+
    local OPTION_MAKE_FLAGS="NO"
    local OPTION_DIRECTORY
    local OPTION_INHERIT="YES"
    local OPTION_BOOTSTRAP="YES"
    local OPTION_SHELL_COMMAND
    local OPTION_KEEP_TMP="NO"
+   local OPTION_CENSOR_PATH="DEFAULT"
+   local OPTION_MAGNUM_FORCE=
+
+   local MULLE_FLAG_EXEKUTOR_DRY_RUN
+   local MULLE_FLAG_LOG_DEBUG
+   local MULLE_FLAG_LOG_EXEKUTOR
+   local MULLE_FLAG_LOG_TERSE
+   local MULLE_TRACE
 
    while [ $# -ne 0 ]
    do
-      if core_technical_flags "$1"
+      if options_technical_flags "$1"
       then
          shift
          continue
@@ -182,12 +638,24 @@ main()
             OPTION_SHELL_COMMAND="$1"
          ;;
 
+         --censor-path)
+            OPTION_CENSOR_PATH="YES"
+         ;;
+
+         --no-censor-path)
+            OPTION_CENSOR_PATH="YES"
+         ;;
+
+         -f|--force)
+            OPTION_MAGNUM_FORCE="YES"
+         ;;
+
          -m|--make)
             OPTION_MAKE_FLAGS="YES"
          ;;
 
          -d|--DIRECTORY)
-            [ $# -eq 1 ] && fail "missing argument to $1"
+            [ $# -eq 1 ] && fail "Missing argument to $1"
             shift
 
             OPTION_DIRECTORY="$1"
@@ -211,7 +679,7 @@ main()
 
          # argument gitflags
          -*)
-            fail "unknown option $1"
+            fail "Unknown flag \"$1\""
          ;;
 
          *)
@@ -222,7 +690,7 @@ main()
       shift
    done
 
-   core_setup_trace "${MULLE_TRACE}"
+   options_setup_trace "${MULLE_TRACE}"
    export MULLE_TRACE
 
    #
@@ -230,7 +698,8 @@ main()
    #
    if [ ! -z "${MULLE_SDE_VIRTUAL_ROOT}" ]
    then
-      fail "You are already in the mulle-bootstrap virtual environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
+      fail "You are already in the mulle-bootstrap virtual \
+environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
    fi
 
    local arg
@@ -248,10 +717,16 @@ main()
    arg="$1"
    [ $# -ne 0 ] && shift
 
-   if [ "${arg}" = "--" ]
-   then
-      arg=
-   fi
+   case "${arg}" in
+      --)
+         arg=
+      ;;
+
+      init)
+         sde_init "$@"
+         return $?
+      ;;
+   esac
 
    if [ ! -z "${OPTION_DIRECTORY}" ]
    then
@@ -294,13 +769,8 @@ main()
 
    ENVDIRECTORY="${ENVDIRECTORY:-${DIRECTORY}}"
 
-   if [ ! -d "${DIRECTORY}/.bootstrap" -a ! -d "${DIRECTORY}/.bootstrap.local" ]
+   if [ ! -d "${DIRECTORY}" ]
    then
-      if [ -z "`command -v git`" ]
-      then
-         fail "git not installed, can't clone stuff for you"
-      fi
-
       case "${arg}" in
          "")
             url=""
@@ -317,72 +787,216 @@ main()
 
       if [ ! -z "${url}" ]
       then
+         if [ -z "`command -v git`" ]
+         then
+            fail "git not installed, can't clone stuff for you"
+         fi
+
          log_verbose "Cloning from URL \"${arg}\" into \"${DIRECTORY}\"..."
          git clone "${url}" "${DIRECTORY}" || return 1
-      else
-         if [ ! -d "${DIRECTORY}" ]
-         then
-            fail "${DIRECTORY} does not exist"
-         fi
       fi
    fi
 
+   [ ! -d "${DIRECTORY}" ] && fail "${DIRECTORY} does not exist"
+
+   sde_setup_if_needed "${DIRECTORY}"
+
    if [ "${OPTION_BOOTSTRAP}" = "YES" ] && \
-      [ -d "${DIRECTORY}/.bootstrap" -o  -d "${DIRECTORY}/.bootstrap.local" ] && \
-      [ ! -d "${DIRECTORY}/.bootstrap.auto" ]
+      [ -f "${DIRECTORY}/.mulle-sourcetree"  ] && \
+      [ ! -d "${DIRECTORY}/.mulle-sourcetree.db" ]
    then
       local exepath
 
-      # weird, but if there is a mulle-bootstrap folder in the top DIRECTORY
-      # you can't run mulle-bootstrap via bash so resolve before
-      exepath="`command -v mulle-bootstrap`"
-      log_fluff "Running mulle-bootstrap in \"${DIRECTORY}\"..."
-      ( cd "${DIRECTORY}" ; run_shell "${exepath}" "$@" )
+      #
+      # weird, but if there is a mulle-sourcetree folder in the top DIRECTORY
+      # you can't run mulle-sourcetree via bash so resolve before
+      #
+      exepath="`command -v mulle-sourcetree`"
+      log_fluff "Running mulle-sourcetree in \"${DIRECTORY}\"..."
+      (
+         cd "${DIRECTORY}" ;
+         "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-shell" \
+            "${ENVDIRECTORY}" \
+            "${exepath}" "update"
+      )
+
+      if [ $? -eq 0 ]
+      then
+         exepath="`command -v mulle-build`"
+         log_fluff "Running mulle-build in \"${DIRECTORY}\"..."
+         (
+            cd "${DIRECTORY}" ;
+            "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-shell" \
+               "${ENVDIRECTORY}" \
+               "${exepath}"
+         )
+      fi
    fi
 
    log_fluff "Run shell in \"${DIRECTORY}\"..."
 
-   if [ -z "${OPTION_SHELL_COMMAND}" ]
+   local run_shell_args
+   local run_path
+
+   run_path="${PATH}"
+   if [ "${OPTION_CENSOR_PATH}" != "NO" ]
    then
-      ( cd "${DIRECTORY}" ; run_shell )
-   else
-      ( cd "${DIRECTORY}" ; run_shell -c "${OPTION_SHELL_COMMAND}" )
+      run_path="`censored_path "${PATH}"`"
+   fi
+   run_path="`absolutepath ${ENVDIRECTORY}`/bin:${run_path}"
+
+   if [ ! -z "${OPTION_SHELL_COMMAND}" ]
+   then
+      run_shell_args="-c '${OPTION_SHELL_COMMAND}"
    fi
 
+   local s
+
+   s="PATH='${run_path}'"
+
+   [ ! -z "${DISPLAY}" ] && s="`concat "${s}" "DISPLAY='${DISPLAY}'"`"
+   [ ! -z "${EDITOR}" ]  && s="`concat "${s}" "EDITOR='${EDITOR}'"`"
+   [ ! -z "${HOME}" ]    && s="`concat "${s}" "HOME='${HOME}'"`"
+   [ ! -z "${LOGNAME}" ] && s="`concat "${s}" "LOGNAME='${LOGNAME}'"`"
+   [ ! -z "${SSH_CONNECTION}" ] && s="`concat "${s}" "SSH_CONNECTION='${SSH_CONNECTION}'"`"
+   [ ! -z "${SSH_TTY}" ] && s="`concat "${s}" "SSH_TTY='${SSH_TTY}'"`"
+   [ ! -z "${TERM}" ]    && s="`concat "${s}" "TERM='${TERM}'"`"
+   [ ! -z "${TMPDIR}" ]  && s="`concat "${s}" "TMPDIR='${TMPDIR}'"`"
+   [ ! -z "${USER}" ]    && s="`concat "${s}" "USER='${USER}'"`"
+   [ ! -z "${VISUAL}" ]  && s="`concat "${s}" "VISUAL='${VISUAL}'"`"
+
+
+   # home is needed for git
+   # otherwise provide a minimal environment, for better reproducability
+   (
+      cd "${DIRECTORY}" &&
+      eval env -i \
+             "${s}" \
+             "'${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-shell'" \
+               "'${ENVDIRECTORY}'" \
+               "${run_shell_args}"
+   )
    return $?
 }
 
 
 
-_init()
-{
-   libexecpath="`mulle-bootstrap library-path 2> /dev/null`"
-   if [ -z "${libexecpath}" ]
-   then
-      echo "Fatal Error: Could not find mulle-bootstrap library for ${MULLE_EXECUTABLE}" >&2
-      exit 1
-   fi
+########
+###
+### INIT
+###
 
-   . ${libexecpath}/mulle-bootstrap-logging.sh || internal_fail "mulle-bootstrap-logging.sh not found"
-   . ${libexecpath}/mulle-bootstrap-functions.sh || internal_fail "mulle-bootstrap-functions.sh not found"
-   . ${libexecpath}/mulle-bootstrap-core-options.sh || internal_fail "mulle-bootstrap-core-options.sh not found"
+#
+# stolen from:
+# http://stackoverflow.com/questions/1055671/how-can-i-get-the-behavior-of-gnus-readlink-f-on-a-mac
+# ----
+#
+_prepend_path_if_relative()
+{
+   case "$2" in
+      /*)
+         echo "$2"
+      ;;
+      *)
+         echo "$1/$2"
+      ;;
+   esac
 }
 
 
-MULLE_EXECUTABLE="`basename -- "$0"`"
-MULLE_ARGUMENTS="$@"
-MULLE_EXECUTABLE_FAIL_PREFIX="${MULLE_EXECUTABLE}"
-MULLE_EXECUTABLE_PID="$$"
+resolve_symlinks()
+{
+   local dir_context
+   local linkpath
+
+   if linkpath="`readlink "$1"`"
+   then
+      dir_context=`dirname -- "$1"`
+      resolve_symlinks "`_prepend_path_if_relative "${dir_context}" "${linkpath}"`"
+   else
+      echo "$1"
+   fi
+}
 
 
-set -o pipefail
+sourcetree_libexec_path()
+{
+   local executablepath="$1"
 
-_init "$@" # needs params
+   local exedir
+   local exedirpath
+   local prefix
+   local libexecpath
+
+   case "${executablepath}" in
+      \.*|/*|~*)
+      ;;
+
+      *)
+         executablepath="`command -v "${executablepath}"`"
+      ;;
+   esac
+
+   executablepath="`resolve_symlinks "${executablepath}"`"
+   exedirpath="`dirname "${executablepath}"`"
+   prefix="`dirname "${exedirpath}"`"
+   libexecpath="${prefix}/libexec/mulle-sde"
+
+   if [ ! -x "${libexecpath}/mulle-sde-shell" ]
+   then
+      libexecpath="${exedirpath}/src"
+   fi
+
+   case "$libexecpath" in
+      /*|~*)
+      ;;
+
+      *)
+         libexecpath="$PWD/$libexecpath"
+      ;;
+   esac
+
+   if [ -x "${libexecpath}/mulle-sde-shell" ]
+   then
+      echo "${libexecpath}"
+   fi
+}
 
 
-#
-# combine all coverage files into one and sort -u it
-#
+_init()
+{
+   if [ "$1" = "version" ]
+   then
+      echo "${MULLE_SDE_VERSION}"
+      exit 0
+   fi
 
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env library-path 2> /dev/null`"
+   [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ] && \
+      echo "mulle-bashfunctions-env not installed" >&2 && \
+      exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+
+   MULLE_SDE_LIBEXEC_DIR="`sourcetree_libexec_path "$0"`"
+   if [ -z "${MULLE_SDE_LIBEXEC_DIR}" ]
+   then
+      fail "Fatal Error: Could not find libexec for ${MULLE_EXECUTABLE} ($PWD)"
+   fi
+
+   #
+   # minimal setup exit
+   #
+   if [ "$1" = "library-path" ]
+   then
+      echo "${MULLE_SDE_LIBEXEC_DIR}"
+      exit 0
+   fi
+
+   set -o pipefail
+}
+
+
+_init "$@"
 main "$@"
 

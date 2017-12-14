@@ -29,8 +29,8 @@ eval `mulle-bootstrap paths run`
 ```
 
 mulle-sde starts a new subshell with the working directory set to the given
-project and adds the dependencies of that poject to the PATH and
-LD_LIBRARY_PATH.
+project. The environment by default is reset to a minimal set of values.
+It then adds the dependencies of your project to the PATH and LD_LIBRARY_PATH.
 
 If there are dependencies that need to be bootstrap, mulle-sde does that too.
 
