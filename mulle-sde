@@ -67,6 +67,56 @@ print_required_tools_sh()
 {
    log_entry "print_required_tools_sh" "$@"
 
+   #
+   # set of "minimal" commands for use in development
+   # many or most are required by the mulle scripts
+   #
+   if [ "${OPTION_PATH_STYLE}" = "EMPTY" ]
+   then
+      cat <<EOF
+[
+awk
+basename
+bash
+cat
+cut
+chmod
+chown
+column
+command
+date
+dirname
+egrep
+env
+expr
+find
+fgrep
+grep
+head
+hostname
+less
+ls
+man
+mkdir
+more
+mv
+readlink
+rm
+rmdir
+ps
+sed
+sh
+sleep
+stat
+tail
+test
+tr
+vi
+wc
+which
+EOF
+   fi
+
    cat <<EOF
 curl
 git
@@ -117,10 +167,11 @@ then
    UNAME="`uname | cut -d_ -f1 | sed 's/64$//' | tr 'A-Z' 'a-z'`"
    export UNAME
 fi
-if [ -z "\${MULLE_SDE_VIRTUAL_ROOT}" ]
+if [ -z "\${MULLE_VIRTUAL_ROOT}" ]
 then
-   echo "Using \$PWD as MULLE_SDE_VIRTUAL_ROOT for your convenience" >&2
-   MULLE_SDE_VIRTUAL_ROOT="\$PWD"
+   MULLE_VIRTUAL_ROOT="\`pwd -P\'"
+   echo "Using \${MULLE_VIRTUAL_ROOT} as MULLE_VIRTUAL_ROOT for \
+your convenience" >&2
 fi
 
 
@@ -161,20 +212,20 @@ export MULLE_FETCH_ARCHIVE_DIR
 #
 # Use common folder for sharable projects
 #
-MULLE_SOURCETREE_SHARE_DIR="\${MULLE_SDE_VIRTUAL_ROOT}/stashes"
+MULLE_SOURCETREE_SHARE_DIR="\${MULLE_VIRTUAL_ROOT}/stashes"
 export MULLE_SOURCETREE_SHARE_DIR
 
 #
 # Use common build directory
 #
-BUILD_DIR="\${MULLE_SDE_VIRTUAL_ROOT}/build"
+BUILD_DIR="\${MULLE_VIRTUAL_ROOT}/build"
 export BUILD_DIR
 
 
 #
 # Share dependencies directory (absolute for ease of use)
 #
-DEPENDENCIES_DIR="\${MULLE_SDE_VIRTUAL_ROOT}/dependencies"
+DEPENDENCIES_DIR="\${MULLE_VIRTUAL_ROOT}/dependencies"
 export DEPENDENCIES_DIR
 
 
@@ -225,7 +276,7 @@ censored_path()
       IFS="${DEFAULT_IFS}"
 
       case "$i" in
-         /bin|/usr/bin|/sbin|/usr/sbin)
+         /bin|/usr/bin)
             result="`colon_concat "${result}" "${i}"`"
          ;;
       esac
@@ -281,7 +332,7 @@ sde_copy_mulle_tool()
    local parentdir
    local srclibname
 
-   srclibdir="`"${exefile}" library-path `" || exit 1
+   srclibdir="`exekutor "${exefile}" library-path `" || exit 1
    srclibexecdir="`dirname -- "${srclibdir}" `"
    srclibname="`basename -- "${srclibdir}" `"
 
@@ -407,23 +458,43 @@ sde_setup_mulle_tools()
    ) || return 1
 }
 
+sde_other_tool_files()
+{
+   local configdir="$1"
+
+   [ -z "${configdir}" ] && internal_fail "configdir must not be empty"
+
+   if [ ! -z "${HOME}" ]
+   then
+      echo "${HOME}/.mulle-sde-tools
+${HOME}/.mulle-sde-tools.${UNAME}"
+   fi
+
+   echo "${configdir}/.mulle-sde-tools
+${configdir}/.mulle-sde-tools.${UNAME}"
+}
+
 
 sde_setup_other_tools()
 {
-   local configdir="$1"
+   local toolfiles="$1"
    local directory="$2"
 
    local tools
+   local toolfile
 
-   tools="`cat "${configdir}/.mulle-sde-tools" `" || exit 1
+   IFS="
+"
+   for toolfile in ${toolfiles}
+   do
+      IFS="${DEFAULT_IFS}"
 
-   sde_link_other_tools "${tools}" "${directory}"
-
-   #
-   # Could also symlink a minimal set of commands into bin and then
-   # set PATH only to that.
-   #
-   exekutor touch "${directory}/bin/.tools-updated"
+      if tools="`cat "${toolfile}" `"
+      then
+         sde_link_other_tools "${tools}" "${directory}"
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
 
    return 0
 }
@@ -437,28 +508,45 @@ sde_setup_if_needed()
    local needs_bin_update
    local needs_bin_update2
 
-   needs_tools_update="NO"
-   needs_bin_update="NO"
-   needs_bin_update2="NO"
+   needs_tools_update=
+   needs_bin_update=
 
    if [ ! -d "${directory}/bin/mulle-fetch" ]
    then
       needs_tools_update="YES"
    fi
 
-   if [ "${directory}/bin/.tools-updated" -ot "${directory}/.mulle-sde-tools" ]
+   local toolfile
+   local oldhost
+   local uptodatefile
+   local myhost
+
+   uptodatefile="${directory}/bin/.tools-updated"
+   oldhost="`cat "${uptodatefile}" 2> /dev/null`"
+   myhost="`hostname`"
+
+   if [ ! -z "${oldhost}" -a "${oldhost}" != "${myhost}" ]
    then
-      needs_bin_update="YES"
+      exekutor chmod ug+w "${directory}/bin" 2> /dev/null
+      remove_file_if_present "${uptodatefile}"
+      exekutor chmod ug-w "${directory}/bin" 2> /dev/null
    fi
 
-   if [ "${directory}/bin/.tools-updated" -ot "${HOME}/.mulle-sde-tools" ]
-   then
-      needs_bin_update2="YES"
-   fi
+   IFS="
+"
+   for toolfile in `sde_other_tool_files "${directory}"`
+   do
+      IFS="${DEFAULT_IFS}"
 
-   if [ "${needs_bin_update}" = "NO" -a \
-        "${needs_bin_update2}" = "NO" -a \
-        "${needs_tools_update}" = "NO" ]
+      if [ "${toolfile}" -nt "${uptodatefile}" ]
+      then
+         needs_bin_update="`add_line "${needs_bin_update}" "${toolfile}" `"
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+
+
+   if [ -z "${needs_bin_update}" -a -z "${needs_tools_update}" ]
    then
       return
    fi
@@ -469,19 +557,16 @@ sde_setup_if_needed()
    exekutor chmod -R ug+w "${directory}/bin" 2> /dev/null
    exekutor chmod -R ug+w "${directory}/libexec" 2> /dev/null
 
-   if [ "${needs_tools_update}" = "YES" ]
+   if [ ! -z "${needs_tools_update}" ]
    then
       sde_setup_mulle_tools "${directory}"
    fi
 
-   if [ "${needs_bin_update}" = "YES" ]
+   if [ ! -z "${needs_bin_update}" ]
    then
-      sde_setup_other_tools "${directory}" "${directory}"
-   fi
+      sde_setup_other_tools "${needs_bin_update}" "${directory}"
 
-   if [ "${needs_bin_update2}" = "YES" ]
-   then
-      sde_setup_other_tools "${HOME}" "${directory}"
+      redirect_exekutor "${uptodatefile}" echo "${myhost}"
    fi
 
    #
@@ -609,7 +694,7 @@ main()
    local OPTION_BOOTSTRAP="YES"
    local OPTION_SHELL_COMMAND
    local OPTION_KEEP_TMP="NO"
-   local OPTION_CENSOR_PATH="DEFAULT"
+   local OPTION_PATH_STYLE="RESTRICTED"
    local OPTION_MAGNUM_FORCE=
 
    local MULLE_FLAG_EXEKUTOR_DRY_RUN
@@ -638,12 +723,16 @@ main()
             OPTION_SHELL_COMMAND="$1"
          ;;
 
-         --censor-path)
-            OPTION_CENSOR_PATH="YES"
+         --no-path)
+            OPTION_PATH_STYLE="EMPTY"
          ;;
 
-         --no-censor-path)
-            OPTION_CENSOR_PATH="YES"
+         --inherit-path)
+            OPTION_PATH_STYLE="INHERIT"
+         ;;
+
+         --restricted-path)
+            OPTION_PATH_STYLE="RESTRICTED"
          ;;
 
          -f|--force)
@@ -696,10 +785,10 @@ main()
    #
    # lets do this for now
    #
-   if [ ! -z "${MULLE_SDE_VIRTUAL_ROOT}" ]
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       fail "You are already in the mulle-bootstrap virtual \
-environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
+environment \"${MULLE_VIRTUAL_ROOT}\". Environments don't stack."
    fi
 
    local arg
@@ -709,8 +798,8 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
    local CALLDIRECTORY
    # DIRECTORY is where we are supposed to execute
    local DIRECTORY
-   # ENVDIRECTORY is where the mulle-sde-environment.sh is
-   local ENVDIRECTORY
+   # MULLE_VIRTUAL_ROOT is where the mulle-sde-environment.sh is
+   local MULLE_VIRTUAL_ROOT
 
    CALLDIRECTORY="`pwd -P`"
 
@@ -740,22 +829,22 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
 
          found="NO"
 
-         ENVDIRECTORY="${DIRECTORY}"
+         MULLE_VIRTUAL_ROOT="${DIRECTORY}"
          # look for .mulle-sde-environment.sh going up to root, if we
          # find one, we latch onto it
-         while [ "${ENVDIRECTORY}" != "/" ]
+         while [ "${MULLE_VIRTUAL_ROOT}" != "/" ]
          do
-            if [ -f "${ENVDIRECTORY}/.mulle-sde-environment.sh" ]
+            if [ -f "${MULLE_VIRTUAL_ROOT}/.mulle-sde-environment.sh" ]
             then
                found="YES"
                break
             fi
-            ENVDIRECTORY="`dirname -- "${ENVDIRECTORY}"`"
+            MULLE_VIRTUAL_ROOT="`dirname -- "${MULLE_VIRTUAL_ROOT}"`"
          done
 
          if [ "${found}" = "NO" ]
          then
-            ENVDIRECTORY="${CALLDIRECTORY}"
+            MULLE_VIRTUAL_ROOT="${CALLDIRECTORY}"
          fi
       else
          if [ -d "${arg}" ]
@@ -767,7 +856,7 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
       fi
    fi
 
-   ENVDIRECTORY="${ENVDIRECTORY:-${DIRECTORY}}"
+   MULLE_VIRTUAL_ROOT="`physicalpath "${MULLE_VIRTUAL_ROOT:-${DIRECTORY}}" `"
 
    if [ ! -d "${DIRECTORY}" ]
    then
@@ -816,7 +905,8 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
       (
          cd "${DIRECTORY}" ;
          "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-shell" \
-            "${ENVDIRECTORY}" \
+            "${MULLE_VIRTUAL_ROOT}" \
+            "${PATH}" \
             "${exepath}" "update"
       )
 
@@ -827,7 +917,8 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
          (
             cd "${DIRECTORY}" ;
             "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-shell" \
-               "${ENVDIRECTORY}" \
+               "${MULLE_VIRTUAL_ROOT}" \
+               "${PATH}" \
                "${exepath}"
          )
       fi
@@ -836,14 +927,37 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
    log_fluff "Run shell in \"${DIRECTORY}\"..."
 
    local run_shell_args
-   local run_path
+   local inherit_path
 
-   run_path="${PATH}"
-   if [ "${OPTION_CENSOR_PATH}" != "NO" ]
-   then
-      run_path="`censored_path "${PATH}"`"
-   fi
-   run_path="`absolutepath ${ENVDIRECTORY}`/bin:${run_path}"
+   case "${OPTION_PATH_STYLE}" in
+      EMPTY)
+         inherit_path=""
+      ;;
+
+      INHERITED)
+         inherit_path="${PATH}"
+      ;;
+
+      RESTRICTED)
+         inherit_path="`censored_path "${PATH}"`"
+      ;;
+
+      ""|*)
+         internal_fail "unknown PATH style \"${OPTION_PATH_STYLE}\""
+      ;;
+   esac
+
+   local runpath
+   local rootdir
+
+   rootdir="`absolutepath ${MULLE_VIRTUAL_ROOT}`"
+
+   runpath="`colon_concat "${runpath}" "${rootdir}/dependencies/bin" `"
+   runpath="`colon_concat "${runpath}" "${rootdir}/addictions/bin" `"
+   runpath="`colon_concat "${runpath}" "${rootdir}/bin" `"
+   runpath="`colon_concat "${runpath}" "${inherit_path}" `"
+
+   log_debug "future PATH=${runpath}"
 
    if [ ! -z "${OPTION_SHELL_COMMAND}" ]
    then
@@ -852,13 +966,14 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
 
    local s
 
-   s="PATH='${run_path}'"
+   s=""
 
    [ ! -z "${DISPLAY}" ] && s="`concat "${s}" "DISPLAY='${DISPLAY}'"`"
    [ ! -z "${EDITOR}" ]  && s="`concat "${s}" "EDITOR='${EDITOR}'"`"
    [ ! -z "${HOME}" ]    && s="`concat "${s}" "HOME='${HOME}'"`"
    [ ! -z "${LOGNAME}" ] && s="`concat "${s}" "LOGNAME='${LOGNAME}'"`"
-   [ ! -z "${SSH_CONNECTION}" ] && s="`concat "${s}" "SSH_CONNECTION='${SSH_CONNECTION}'"`"
+   [ ! -z "${SSH_CONNECTION}" ] \
+                         && s="`concat "${s}" "SSH_CONNECTION='${SSH_CONNECTION}'"`"
    [ ! -z "${SSH_TTY}" ] && s="`concat "${s}" "SSH_TTY='${SSH_TTY}'"`"
    [ ! -z "${TERM}" ]    && s="`concat "${s}" "TERM='${TERM}'"`"
    [ ! -z "${TMPDIR}" ]  && s="`concat "${s}" "TMPDIR='${TMPDIR}'"`"
@@ -873,7 +988,8 @@ environment \"${MULLE_SDE_VIRTUAL_ROOT}\". Environments don't stack."
       eval env -i \
              "${s}" \
              "'${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-shell'" \
-               "'${ENVDIRECTORY}'" \
+               "'${MULLE_VIRTUAL_ROOT}'" \
+               "'${runpath}'" \
                "${run_shell_args}"
    )
    return $?

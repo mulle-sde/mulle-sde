@@ -60,7 +60,7 @@ run_shell()
 
    local envname
 
-   envname="`basename -- "${MULLE_SDE_VIRTUAL_ROOT}"`"
+   envname="`basename -- "${MULLE_VIRTUAL_ROOT}"`"
 
    local path
    local name
@@ -68,18 +68,25 @@ run_shell()
    local cmd_string
    local cmd_options
 
-   if [ -d ".mulle-build" ]
-   then
+#   if [ -d ".mulle-build" ]
+#   then
 #      path="`mulle-bootstrap master-path`" || return 1
-
-      env_string="`mulle-build paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
-   else
-      :
+#
+#      env_string="`mulle-build paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
+#   else
+#      :
 #      path="`pwd -P`"
-   fi
-
+#   fi
+#
 #   name="`basename -- "${path}"`"
-   cmd_string="${SHELL:-/usr/bin/env bash}"
+   cmd_string="${SHELL:-bash}"
+
+   cmd_string="`command -v "${cmd_string}"`"
+   if [ -z "${cmd_string}" ]
+   then
+      echo "failed to locate SHELL"
+      exit 1
+   fi
 
    local prompt_string
    local initfile
@@ -91,16 +98,18 @@ run_shell()
    #
    case "${cmd_string}" in
       *bash|*dash)
-         initfile=".environment.`uuidgen`" || exit 1
+         initfile=".mulle-sde.tmp.`uuidgen`" || exit 1
          echo "${env_string}" > "${initfile}"
-         echo "[ -f \"${MULLE_SDE_VIRTUAL_ROOT}/.mulle-sde-environment.sh\" ] && \
-. \"${MULLE_SDE_VIRTUAL_ROOT}/.mulle-sde-environment.sh\"" >> "${initfile}"
+         echo "[ -f \"${MULLE_VIRTUAL_ROOT}/.mulle-sde-environment.sh\" ] && \
+. \"${MULLE_VIRTUAL_ROOT}/.mulle-sde-environment.sh\"" >> "${initfile}"
          # try to set terminal title
          echo 'printf "\033]0;%s\007"' "'mulle-sde ${cmd_string}'"  >> "${initfile}"
 
          if [ "${OPTION_KEEP_TMP}" = "NO" ]
          then
-            echo "( sleep 1 ; rm \"${initfile}\" 2> /dev/null ) &" >> "${initfile}"
+            # run in envelope subshell to squelch job control message
+            # remove all f
+            echo "( ( /bin/sleep 1 ; /bin/rm \"${initfile}\" 2> /dev/null ) &)" >> "${initfile}"
          fi
 
          cmd_options="--rcfile '${initfile}'"
@@ -137,7 +146,8 @@ run_shell()
    done
    shift
 
-   eval "MULLE_SDE_VIRTUAL_ROOT='${MULLE_SDE_VIRTUAL_ROOT}'" \
+   eval "MULLE_VIRTUAL_ROOT='${MULLE_VIRTUAL_ROOT}'" \
+        "PATH='${RUNPATH}'" \
         "${env_string}" \
         "${prompt_string}" \
             "'${cmd_string}'" \
@@ -182,9 +192,18 @@ main()
       shift
    done
 
-   local MULLE_SDE_VIRTUAL_ROOT
+   local MULLE_VIRTUAL_ROOT
 
-   MULLE_SDE_VIRTUAL_ROOT="$1"
+   MULLE_VIRTUAL_ROOT="$1"
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && echo  "empty RUNPATH" >&2 && exit 1
+
+   shift
+
+   local RUNPATH
+
+   RUNPATH="$1"
+   [ -z "${RUNPATH}" ] && echo  "empty RUNPATH" >&2 && exit 1
+
    shift
 
    run_shell "$@"
