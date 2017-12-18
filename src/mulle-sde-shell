@@ -39,52 +39,18 @@ fi
 
 run_shell()
 {
-   #
-   # could pimp this up with CPPFLAGS and LDFLAGS too
-   # but do I want this ?
-   #
-   local options
-
-   options="run"
-   if [ "${OPTION_MAKE_FLAGS}" = "YES" ]
-   then
-      options="${options} make"
-   fi
-
-   local pathoptions
-
-   if [ "${OPTION_INHERIT}" = "NO" ]
-   then
-      pathoptions="-ni"
-   fi
-
    local envname
 
    envname="`basename -- "${MULLE_VIRTUAL_ROOT}"`"
 
-   local path
-   local name
    local env_string
    local cmd_string
    local cmd_options
 
-#   if [ -d ".mulle-build" ]
-#   then
-#      path="`mulle-bootstrap master-path`" || return 1
-#
-#      env_string="`mulle-build paths ${pathoptions} -m -1 -q "'" ${options}`" || return 1
-#   else
-#      :
-#      path="`pwd -P`"
-#   fi
-#
-#   name="`basename -- "${path}"`"
-   cmd_string="${SHELL:-bash}"
-
-   cmd_string="`command -v "${cmd_string}"`"
+   cmd_string="`command -v "bash"`"
    if [ -z "${cmd_string}" ]
    then
-      echo "failed to locate SHELL"
+      echo "failed to locate bash" >&2
       exit 1
    fi
 
@@ -92,12 +58,13 @@ run_shell()
    local initfile
 
    #
-   # because some environment strings like
-   # DYLD_LIBRARY_PATH are stripped off by dyld (I guess)
-   # put everything in an init file if possible
+   # Because some environment strings like
+   # DYLD_LIBRARY_PATH are stripped off by dyld
+   # let's source everything via an init file.
+   # check vs bash/dash
    #
    case "${cmd_string}" in
-      *bash|*dash)
+      *ash)
          initfile=".mulle-sde.tmp.`uuidgen`" || exit 1
          echo "${env_string}" > "${initfile}"
          echo "[ -f \"${MULLE_VIRTUAL_ROOT}/.mulle-sde-environment.sh\" ] && \
@@ -117,7 +84,7 @@ run_shell()
    esac
 
    case "${cmd_string}" in
-      *bash|*dash)
+      *ash)
          case "${PS1}" in
             *\\h[*)
                prompt_string="PS1='${PS1}'"
@@ -147,6 +114,7 @@ run_shell()
    shift
 
    eval "MULLE_VIRTUAL_ROOT='${MULLE_VIRTUAL_ROOT}'" \
+        "MULLE_SHELL_MODE='${MODE}'" \
         "PATH='${RUNPATH}'" \
         "${env_string}" \
         "${prompt_string}" \
@@ -196,14 +164,18 @@ main()
 
    MULLE_VIRTUAL_ROOT="$1"
    [ -z "${MULLE_VIRTUAL_ROOT}" ] && echo  "empty RUNPATH" >&2 && exit 1
-
    shift
 
    local RUNPATH
 
    RUNPATH="$1"
    [ -z "${RUNPATH}" ] && echo  "empty RUNPATH" >&2 && exit 1
+   shift
 
+   local MODE  # either SCRIPT or INTERACTIVE
+
+   MODE="$1"
+   [ -z "${MODE}" ] && echo  "empty MODE" >&2 && exit 1
    shift
 
    run_shell "$@"
