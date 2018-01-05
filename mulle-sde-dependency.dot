@@ -1,0 +1,26 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=record];
+
+    subgraph agnostic
+    {
+        label = "Language agnostic";
+
+        { rank = same; "CMakeDependencies.txt", "invis" };
+        { rank = same; "mulle-sde dependency" };
+        { rank = same; "mulle-sourcetree" };
+
+        "invis" [ style="invis" ]
+        "invis" -> "mulle-sde dependency" [ style="invis" ]
+
+        "CMakeDependencies.txt" [ shape="note"]
+
+
+        "mulle-sde dependency"  [ label="mulle-sde dependency add ...", shape="none", fontname="monospace"]
+
+        "mulle-sde dependency"  -> "mulle-sourcetree"
+
+        "mulle-sde dependency"  -> "CMakeDependencies.txt" [ style="dotted", label=".mulle-sde/did-update-sourcetree" ]
+    }
+}

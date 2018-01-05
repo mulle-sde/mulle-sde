@@ -1,3 +1,8 @@
+## 0.6.0
+
+* working as intended with c and cmake extensions
+
+
 ## 0.5.0
 
 * use .mulle-sde subdirectory for configuration

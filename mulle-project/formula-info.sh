@@ -3,7 +3,7 @@
 # formula operations.
 #
 PROJECT="mulle-sde"      # your project/repository name
-DESC="🌳 Virtual environment for C and Objective-C"
+DESC="🏋🏼 Cross-platform development for C languages"
 LANGUAGE="bash"             # c,cpp, objc, bash ...
 
 # LANGUAGE="c"             # c,cpp, objc, bash ...
@@ -17,18 +17,11 @@ LANGUAGE="bash"             # c,cpp, objc, bash ...
 # DEPENDENCIES and BUILD_DEPENDENCIES will be evaled later!
 # So keep them single quoted.
 #
-DEPENDENCIES='${BOOTSTRAP_TAP}mulle-bootstrap
+DEPENDENCIES='${TOOLS_TAP}mulle-bashfunctions
+${TOOLS_TAP}mulle-env
+${TOOLS_TAP}mulle-craft
 '
 
-DEBIAN_DEPENDENCIES="mulle-bootstrap, git"
-
-#
-# Build via mulle-build. If you don't like this
-# edit bin/release.sh. Need to specify mulle-build dependencies
-# so that brew picks up the internal path!
-#
-BUILD_DEPENDENCIES='${BOOTSTRAP_TAP}mulle-build
-${BOOTSTRAP_TAP}mulle-bootstrap
-cmake'
+DEBIAN_DEPENDENCIES="mulle-bashfunctions mulle-env mulle-craft"
 
 
