@@ -7,10 +7,10 @@ digraph G {
     {
         label = "Language agnostic";
 
-        { rank = same; "CMakeSourcesAndHeaders.txt", "src" };
+        { rank = same; "_CMakeSourcesAndHeaders.txt", "src" };
 
-        "CMakeSourcesAndHeaders.txt" [ shape="note"]
-        "src"                        [ shape="folder"]
+        "_CMakeSourcesAndHeaders.txt" [ shape="note"]
+        "src"                         [ shape="folder"]
 
         "mulle-test"
         "mulle-craft"

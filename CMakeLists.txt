@@ -18,7 +18,9 @@ mulle-sde
 )
 
 set( LIBRARY_SCRIPTS
+src/mulle-sde-extensions.sh
 src/mulle-sde-init.sh
+src/mulle-sde-libraries.sh
 src/mulle-sde-monitor.sh
 )
 
@@ -28,6 +30,7 @@ src/extensions/c/init
 
 set( CMAKE_EXTENSION_SCRIPTS
 src/extensions/cmake/did-update-src
+src/extensions/cmake/did-update-sourcetree
 )
 
 

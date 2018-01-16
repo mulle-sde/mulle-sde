@@ -92,6 +92,8 @@ _emit_include_dirs_contents()
 {
    local headers="$1"
 
+   local i
+
    old="$IFS"
    IFS="
 "
@@ -184,6 +186,8 @@ existing_source_dirs()
    local i
    local old
 
+   local i
+
    old="$IFS"
    IFS="
 "
@@ -243,16 +247,6 @@ $1"
 
    PROJECT_MAKEFILE="${1:-CMakeSourcesAndHeaders.txt}"
    CHANGEDFILE="$2"
-
-   case "${PROJECT_MAKEFILE}" in
-      *CMakeSourcesAndHeaders.txt)
-      ;;
-
-      *)
-         echo "Can not deal with this kind of project file \"${PROJECT_MAKEFILE}\"" >&2
-         exit 1
-      ;;
-   esac
 
    if [ -z "${output}" ]
    then

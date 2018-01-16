@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.6.0
+MULLE_EXECUTABLE_VERSION=0.6.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -48,14 +48,17 @@ trap_fail()
 
 
 SHOWN_COMMANDS="\
+   build         : build the project using mulle-craft
+   extensions    : show available language and buildtool extensions
    init          : create a new project
-   list          : shop available language and buildtool extensions
-   dependency    : add or remove dependencies from project
-   monitor       : monitor project files and build"
+   libraries     : manage OS libraries (like pthread)
+   monitor       : monitor project files, run updates and build
+   update        : run only updates, once"
 
 
 HIDDEN_COMMANDS="\
    libexec-dir   : print path to mulle-sde libexec
+   remove        : remove a a dependency, library
    uname         : mulle-sdes simplified uname(1)"
 
 
@@ -74,10 +77,14 @@ print_commands()
 
 print_flags()
 {
-   echo "   -e    : bypass mulle-env check"
-   echo "   -f    : force operation"
+   local delimiter
 
-   options_technical_flags_usage
+   delimiter="         : "
+
+   echo "   -e   ${delimiter}bypass mulle-env check"
+   echo "   -f   ${delimiter}force operation"
+
+   options_technical_flags_usage "${delimiter}"
 }
 
 
@@ -97,6 +104,7 @@ EOF
 
 
    cat <<EOF
+
 Commands:
 EOF
 
@@ -261,6 +269,8 @@ main()
    local MULLE_FLAG_LOG_MERGE="NO"
    local MULLE_TRACE_POSTPONE="NO"
 
+   local MULLE_CRAFT_FLAGS
+
    #
    # simple option handling
    #
@@ -275,10 +285,12 @@ main()
       case "$1" in
          -e)
             FLAG_OUTSIDE_ENV="YES"
+            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
          ;;
 
          -f|--force)
             MULLE_FLAG_MAGNUM_FORCE="YES"
+            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
          ;;
 
          -h|--help)
@@ -287,10 +299,13 @@ main()
 
          --git-terminal-prompt)
             [ $# -eq 1 ] && fail "missing argument to \"$1\""
+            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
             shift
 
             GIT_TERMINAL_PROMPT="$1"
             export GIT_TERMINAL_PROMPT
+
+            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
          ;;
 
          --version)
@@ -313,6 +328,13 @@ main()
 
    options_setup_trace "${MULLE_TRACE}"
 
+   local cmd
+
+   cmd="$1"
+   [ $# -ne 0 ] && shift
+
+   MULLE_EXECUTABLE_FAIL_PREFIX="`concat "${MULLE_EXECUTABLE_NAME}" "${cmd}" `"
+
    if [ "${FLAG_OUTSIDE_ENV}" = "YES" ]
    then
       MULLE_VIRTUAL_ROOT="${PWD}"
@@ -321,24 +343,61 @@ main()
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
-      fail "To run mulle-sde outside of mulle-env, pass the -e flag"
+      case "${cmd}" in
+         all|build|clean|onlydependencies|nodependencies|project|sourcetree)
+            fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
+         ;;
+         dependencies|extensions|libraries|monitor|subprojects|minions|tools|update)
+            fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
+         ;;
+         esac
    fi
-
-   local cmd
-
-   cmd="${1:-monitor}"
-
-   MULLE_EXECUTABLE_FAIL_PREFIX="${MULLE_EXECUTABLE_NAME} ${cmd}"
-   [ $# -eq 0 ] || shift
 
    MULLE_EXECUTABLE_OPTIONS="$@"
 
    case "${cmd}" in
+      #
+      # forward stuff to mulle-craft verbatim
+      #
+      all|build|clean|onlydependencies|nodependencies|project|sourcetree)
+         exekutor mulle-craft ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
+      ;;
+
+      dependencies)
+         # shellcheck source=src/mulle-sde-dependencies.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependencies.sh"
+
+         sde_dependencies_main "$@"
+      ;;
+
+      extensions)
+         # shellcheck source=src/mulle-sde-extensions.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extensions.sh"
+
+         sde_extensions_main "$@"
+      ;;
+
+      help)
+         usage "${MULLE_TRACE}"
+      ;;
+
       init)
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          sde_init_main "$@"
+      ;;
+
+
+      libraries)
+         # shellcheck source=src/mulle-sde-libraries.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-libraries.sh"
+
+         sde_libraries_main "$@"
+      ;;
+
+      libexec-dir|library-path)
+         echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
       # for the user it's a sde, but internally we call it
@@ -351,26 +410,26 @@ main()
          sde_monitor_main "$@"
       ;;
 
-      dependency)
-         # shellcheck source=src/mulle-sde-dependency.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+      subprojects|minions)
+         # shellcheck source=src/mulle-sde-subprojects.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subprojects.sh"
 
-         sde_dependency_main "$@"
+         sde_subprojects_main "$@"
       ;;
 
-      help)
-         usage "${MULLE_TRACE}"
+      tools)
+         # shellcheck source=src/mulle-sde-tools.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-tools.sh"
+
+         sde_tools_main "$@"
+         return $?
       ;;
 
-      "libexec-dir"|"library-path")
-         echo "${MULLE_SDE_LIBEXEC_DIR}"
-      ;;
+      update)
+         # shellcheck source=src/mulle-sde-monitor.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
 
-      list)
-         # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
-
-         sde_list_main "$@"
+         sde_monitor_main -1 "$@"
       ;;
 
       uname)
@@ -383,8 +442,8 @@ main()
       ;;
 
       *)
-         log_error "${MULLE_EXECUTABLE_FAIL_PREFIX}: Unknown command \"${cmd}\""
-         usage "${MULLE_TRACE}"
+         export MULLE_EXECUTABLE_NAME
+         mulle-env "${cmd}" "$@"
       ;;
    esac
 }

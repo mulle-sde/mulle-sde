@@ -31,22 +31,23 @@
 #
 # Rebuild if files of certain extensions are modified
 #
-MULLE_SDE_EXTENSION_SH="included"
+MULLE_SDE_EXTENSIONS_SH="included"
 
-sde_list_usage()
+
+sde_extensions_usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} list [options] <type>
+   ${MULLE_EXECUTABLE_NAME} extensions [options] <type>
 
    List available mulle-sde extensions.
 
 Options:
-   -v vendor      : specify a different extension vendor
+   -v vendor : specify a different extension vendor
 
 Types:
-   buildtool      : buildtool extensions
-   runtime        : runtime extensions (default)
+   buildtool : buildtool extensions
+   runtime   : runtime extensions (default)
 EOF
    exit 1
 }
@@ -223,6 +224,7 @@ find_extension()
       fi
 
       echo "${directory}/${name}"
+      break
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -272,9 +274,9 @@ collect_extensions()
 ###
 ### parameters and environment variables
 ###
-sde_list_main()
+sde_extensions_main()
 {
-   log_entry "sde_list_main" "$@"
+   log_entry "sde_extensions_main" "$@"
 
    local OPTION_VENDOR="mulle"
 
@@ -285,18 +287,18 @@ sde_list_main()
    do
       case "$1" in
          -h|--help)
-            sde_list_usage
+            sde_extensions_usage
          ;;
 
          -v|--vendor)
-            [ $# -eq 1 ] && sde_list_usage
+            [ $# -eq 1 ] && sde_extensions_usage
             shift
 
             OPTION_VENDOR="$1"
          ;;
 
          -*)
-            sde_list_usage
+            sde_extensions_usage
             ;;
 
          *)
@@ -307,7 +309,7 @@ sde_list_main()
       shift
    done
 
-   [ "$#" -gt 1 ] && sde_list_usage
+   [ "$#" -gt 1 ] && sde_extensions_usage
 
    local extensiontype
 

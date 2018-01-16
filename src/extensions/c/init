@@ -51,12 +51,13 @@ Usage:
 Commands:
    check      : check current project
    executable : create a executable project
+   empty      : do not create  project files
    library    : create a library project
    version    : print ${MULLE_EXECUTABLE} version
 
 Options:
-   -d <dir>       : use "dir" instead of working directory
-   -n <name>      : give project a name
+   -d <dir>   : use "dir" instead of working directory
+   -n <name>  : give project a name
 
 EOF
    exit 1
@@ -603,8 +604,6 @@ library_setup()
       fi
    fi
 }
-
-
 
 
 executable_setup()

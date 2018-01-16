@@ -33,6 +33,7 @@
 #
 MULLE_SDE_MONITOR_SH="included"
 
+
 sde_monitor_usage()
 {
     cat <<EOF >&2
@@ -40,9 +41,24 @@ Usage:
    ${MULLE_EXECUTABLE_NAME} monitor [options]
 
 Options:
-   -d <directory> : project directory to monitor (`pwd -P`)
-   -t             : run tests after successful build
+   --install      : install prerequisites
+   -d <dir>       : directory to monitor
    -s <seconds>   : postpone tests amount of seconds (${TEST_DELAY_S}s)
+   -t             : run tests after successful build
+EOF
+   exit 1
+}
+
+
+
+sde_update_usage()
+{
+    cat <<EOF >&2
+Usage:
+   ${MULLE_EXECUTABLE_NAME} update [options]
+
+Options:
+   -d <dir>       : directory to monitor
    --install      : install prerequisites
 EOF
    exit 1
@@ -271,6 +287,32 @@ source_build()
           add_new_all_tests_job
       fi
    fi
+}
+
+
+
+sourcetree_config_modified()
+{
+   log_entry "sourcetree_config_modified" "$@"
+
+   if [ ! -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
+   then
+      log_verbose "==> Update ${MULLE_SDE_FILES_FILE}"
+
+      (
+         cd "${PROJECT_DIR}" &&
+         exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "${MULLE_SDE_FILES_FILE}" "$@"
+      )
+
+      if [ $? -ne 0 ]
+      then
+         fail "\"${MULLE_SDE_DID_UPDATE_SRC}\" update failed"
+      fi
+   else
+      log_fluff "No update script configured, build will not reflect file additions and removals"
+   fi
+
+   source_build
 }
 
 
@@ -613,11 +655,11 @@ install_freebsd()
 {
    log_entry "install_freebsd" "$@"
 
-   echo "You have to install
+   log_info "You have to install
    https://emcrisostomo.github.io/fswatch/
    https://www.mulle-kybernetik.com/software/git/mulle-bootstrap
    (and possibly https://brew.sh)
-yourself on this platform" >&2
+yourself on this platform"
 }
 
 
@@ -634,15 +676,22 @@ setup_script_environment()
    log_entry "setup_script_environment" "$@"
 
    MULLE_SDE_FILES_FILE="${MULLE_SDE_FILES_FILE:-CMakeSourcesAndHeaders.txt}"
+   MULLE_SDE_DEPENDENCIES_FILE="${MULLE_SDE_DEPENDENCIES_FILE:-_CMakeDependencies.txt}"
 
    if [ ! -d "${PROJECT_DIR}/.mulle-sde" ]
    then
-      fail "There is no .mulle-sde directory here ($PROJECT_DIR)."
+      fail "There is no \".mulle-sde\" directory here ($PROJECT_DIR).
+You must run ${C_RESET}${C_BOLD}${MULLE_EXECUTABLE_NAME} init${C_ERROR} first"
    fi
 
+   #
+   # Scripts to run when files change
+   # Could make this configurable in the future, but for now just hardcode
+   # it
+   #
    if [ -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
    then
-      filename="${PROJECT_DIR}/.mulle-sde/did-update-src"
+      filename="${PROJECT_DIR}/.mulle-sde/bin/did-update-src"
       if [ -x "${filename}" ]
       then
          MULLE_SDE_DID_UPDATE_SRC="${filename}"
@@ -659,6 +708,29 @@ Will not update \"${MULLE_SDE_FILES_FILE}\""
          fail "\${MULLE_SDE_DID_UPDATE_SRC}\" not found."
       fi
    fi
+
+   #
+   #
+   #
+   if [ -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
+   then
+      filename="${PROJECT_DIR}/.mulle-sde/bin/did-update-sourcetree"
+      if [ -x "${filename}" ]
+      then
+         MULLE_SDE_DID_UPDATE_SRC="${filename}"
+      fi
+   fi
+
+   if [ -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
+   then
+      log_warning "No update script \"${filename}\" configured.
+Will not update \"${MULLE_SDE_DEPENDENCIES_FILE}\""
+   else
+      if [ -z "`command -v "${MULLE_SDE_DID_UPDATE_SOURCETREE}"`" ]
+      then
+         fail "\${MULLE_SDE_DID_UPDATE_SOURCETREE}\" not found."
+      fi
+   fi
 }
 
 
@@ -667,14 +739,13 @@ Will not update \"${MULLE_SDE_FILES_FILE}\""
 ###  MAIN
 
 ###
-### parameters and environment variables
-###
 sde_monitor_main()
 {
    log_entry "sde_monitor_main" "$@"
 
    local TEST_DELAY_S=30
    local RUN_TESTS=
+   local OPTION_UPDATE_ONLY="NO"
 
    #
    # handle options
@@ -686,22 +757,33 @@ sde_monitor_main()
             sde_monitor_usage
          ;;
 
+         -1|--once)
+            OPTION_UPDATE_ONLY="YES"
+         ;;
+
          -d|--directory)
             [ $# -eq 1 ] && sde_monitor_usage
             shift
 
-            cd "$1" || fail "can't change to \"$1\""
+            PROJECT_DIR="$1"
          ;;
 
          -t|--test)
             RUN_TESTS="YES"
          ;;
 
-         --script)
+         --src-script)
             [ $# -eq 1 ] && sde_monitor_usage
             shift
 
             MULLE_SDE_DID_UPDATE_SRC="$1"
+         ;;
+
+         --sourcetree-script)
+            [ $# -eq 1 ] && sde_monitor_usage
+            shift
+
+            MULLE_SDE_DID_UPDATE_SOURCETREE="$1"
          ;;
 
          -s|--sleep)
@@ -744,7 +826,7 @@ sde_monitor_main()
       shift
    done
 
-   PROJECT_DIR="`mulle-sourcetree path`"
+   PROJECT_DIR="${PROJECT_DIR:-`mulle-sourcetree path`}"
    PROJECT_DIR="${PROJECT_DIR:-`pwd -P`}"
    TESTS_DIR="${PROJECT_DIR}/tests"
 
@@ -758,6 +840,19 @@ sde_monitor_main()
    #
    setup_script_environment
 
+   if [ "${OPTION_UPDATE_ONLY}" = "YES" ]
+   then
+      if [ ! -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
+      then
+         exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" "${MULLE_SDE_DEPENDENCIES_FILE}" || return $?
+      fi
+
+      if [ ! -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
+      then
+         exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "${MULLE_SDE_FILES_FILE}" || return $?
+      fi
+      return 0
+   fi
 
    prevent_superflous_monitor
 

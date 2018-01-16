@@ -1,3 +1,7 @@
+### 0.6.1
+
+* general progress on all fronts
+
 ## 0.6.0
 
 * working as intended with c and cmake extensions

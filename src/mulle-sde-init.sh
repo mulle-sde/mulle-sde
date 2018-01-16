@@ -50,6 +50,7 @@ Options:
 Types:
    executable     : create an executable project
    library        : create a library project
+   empty          : do not create project files
 EOF
    exit 1
 }
@@ -64,7 +65,7 @@ install_file()
 
    local dstfile
 
-   dstfile=".mulle-sde/${filename}"
+   dstfile=".mulle-sde/bin/${filename}"
    if [ -f "${dstfile}" ] && [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
    then
       log_verbose "Won't overwrite existing \"${dstfile}\" ($PWD)"
@@ -80,7 +81,7 @@ install_file()
       return 1
    fi
 
-   mkdir_if_missing ".mulle-sde" || exit 1
+   mkdir_if_missing ".mulle-sde/bin" || exit 1
    exekutor cp -a "${srcfile}" "${dstfile}" || exit 1
    exekutor chmod +x "${dstfile}"
 }
@@ -175,6 +176,8 @@ sde_init_main()
    local OPTION_RUNTIME="c"
    local OPTION_BUILDTOOL="cmake"
    local OPTION_VENDOR="mulle"
+   local OPTION_INIT_ENV="YES"
+   local OPTION_ENV_STYLE="mulle:restricted"
 
    #
    # handle options
@@ -222,6 +225,17 @@ sde_init_main()
             cd "$1" || fail "can't change to \"$1\""
          ;;
 
+         --no-env)
+            OPTION_INIT_ENV="NO"
+         ;;
+
+         --env-style)
+            [ $# -eq 1 ] && sde_init_usage
+            shift
+
+            OPTION_ENV_STYLE="$1"
+         ;;
+
          -*)
             sde_init_usage
             ;;
@@ -236,7 +250,13 @@ sde_init_main()
 
    if [ -z "${MULLE_SDE_EXTENSIONS_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extensions.sh" || exit 1
+   fi
+
+   if [ "${OPTION_INIT_ENV}" = "YES" ]
+   then
+      export MULLE_EXECUTABLE_NAME
+      exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
    fi
 
    #
@@ -251,7 +271,7 @@ sde_init_main()
    local arguments
 
    arguments=""
-   if [ ! -z "${MULLE_FLAG_MAGNUM_FORCE}" ]
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
    then
       arguments="-f"
    fi
@@ -278,7 +298,7 @@ sde_init_main()
    fi
 
    _MOTD="`add_line "${_MOTD}" "Ready to build with:
-   mulle-craft
+   mulle-sde build
 " `"
    install_motd "${_MOTD}"
 

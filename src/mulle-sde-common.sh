@@ -1,0 +1,303 @@
+
+commalist_contains()
+{
+   log_entry "commalist_contains" "$@"
+
+   local list="$1"
+   local key="$2"
+
+   local i
+
+   # is this faster than case ?
+   IFS=","
+   for i in ${list}
+   do
+      IFS="${DEFAULT_IFS}"
+      if [ "${i}" = "${key}" ]
+      then
+         return 0
+      fi
+   done
+
+   IFS="${DEFAULT_IFS}"
+   return 1
+}
+
+
+commalist_add()
+{
+   log_entry "commalist_add" "$@"
+
+   local list="$1"
+   local value="$2"
+
+   if commalist_contains "${list}" "${value}"
+   then
+      log_info "\"${value}\" already set"
+      return 0
+   fi
+   comma_concat "${list}" "${value}"
+}
+
+
+commalist_print()
+{
+   log_entry "commalist_print" "$@"
+
+   local list="$1"
+
+   local i
+
+   # is this faster than case ?
+   IFS=","
+   for i in ${list}
+   do
+      echo "$i"
+   done
+
+   IFS="${DEFAULT_IFS}"
+}
+
+
+os_excludes_print()
+{
+   log_entry "os_excludes_add" "$@"
+
+   local list="$1"
+
+   IFS=","
+   for i in ${list}
+   do
+      IFS="${DEFAULT_IFS}"
+      case "$i" in
+         no-os-*)
+            sed -e "s/^no-os-//" <<< "${i}"
+         ;;
+      esac
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+os_excludes_validate()
+{
+   log_entry "os_excludes_validate" "$@"
+
+   case "$1" in
+      no-*)
+         fail "exclude-os \"$1\" must not start with \"no-\""
+      ;;
+      os-*)
+         fail "exclude-os \"$1\" must not start with \"os-\""
+      ;;
+   esac
+}
+
+
+os_excludes_add()
+{
+   log_entry "os_excludes_add" "$@"
+
+   local list="$1"
+   local add="$2"
+
+   local i
+
+   # is this faster than case ?
+   IFS=","
+   for i in ${add}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      os_excludes_validate "$1"
+      i="no-os-$i"
+
+      if commalist_contains "${list}" "$i"
+      then
+         continue
+      fi
+
+      list="`comma_concat "${list}" "$i" `"
+   done
+
+   IFS="${DEFAULT_IFS}"
+   echo "${list}"
+}
+
+
+_sourcetree_set_os_excludes()
+{
+   log_entry "_sourcetree_set_os_excludes" "$@"
+
+   local address="$1"
+   local value="$2"
+   local stdmarks="$3"
+   local append="${4:-NO}"
+   local byurl="$5"
+
+   local mode
+
+   if [ "${byurl}" = "YES " ]
+   then
+      mode="--url-addressing"
+   fi
+
+   local marks
+
+   marks="${stdmarks}"
+   if [ "${append}" = "YES" ]
+   then
+      marks="`exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} ${mode} \
+                get "${address}" "marks" `"
+   fi
+
+   marks="`os_excludes_add "${marks}" "${value}" `"
+   exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} ${mode} \
+      set "${address}" "marks" "${marks}"
+}
+
+
+sourcetree_append_os_excludes()
+{
+   log_entry "sourcetree_append_os_excludes" "$@"
+
+   _sourcetree_set_os_excludes "$1" "$2" "$3" "YES"
+ }
+
+
+sourcetree_set_os_excludes()
+{
+   log_entry "sourcetree_set_os_excludes" "$@"
+
+   _sourcetree_set_os_excludes "$1" "$2" "$3" "NO"
+}
+
+
+sourcetree_get_os_excludes()
+{
+   log_entry "sourcetree_get_os_excludes" "$@"
+
+   local address="$1"
+   local byurl="$2"
+
+   local mode
+
+   if [ "${byurl}" = "YES " ]
+   then
+      mode="--url-addressing"
+   fi
+
+   local marks
+
+   marks="`exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} ${mode} \
+            get "${address}" "marks" `"
+   [ $? -eq 0 ] || return 1
+
+   os_excludes_print "${marks}"
+}
+
+
+sourcetree_get_os_excludes_by_url()
+{
+   log_entry "sourcetree_get_os_excludes_by_url" "$@"
+
+   local address="$1"
+   local byurl="$2"
+
+   local mode
+
+   if [ "${byurl}" = "YES " ]
+   then
+      mode="--url-addressing"
+   fi
+
+   local marks
+
+   marks="`exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} ${mode} \
+              get "${address}" "marks" `"
+   [ $? -eq 0 ] || return 1
+
+   os_excludes_print "${marks}"
+}
+
+
+
+_sourcetree_set_userinfo_field()
+{
+   log_entry "_sourcetree_set_userinfo_field" "$@"
+
+   local address="$1"
+   local field="$2"
+   local value="$3"
+   local append="${4:-NO}"
+   local byurl="$5"
+
+   local mode
+
+   if [ "${byurl}" = "YES " ]
+   then
+      mode="--url-addressing"
+   fi
+
+   local userinfo
+
+   userinfo="`exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} ${mode} \
+                 get "${address}" "userinfo" `" || return 1
+
+   if [ "${append}" = "YES" ]
+   then
+      aliases="`assoc_array_get "${userinfo}" "${field}" `"
+      value="`commalist_add "${aliases}" "${value}" `"
+   fi
+
+   userinfo="`assoc_array_set "${userinfo}" "${field}" "${value}" `"
+   exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
+      set "${address}" "userinfo" "${userinfo}"
+}
+
+
+sourcetree_set_userinfo_field()
+{
+   log_entry "sourcetree_set_userinfo_field" "$@"
+
+   _sourcetree_set_userinfo_field "$1" "$2" "$3" "YES" "$4"
+ }
+
+
+sourcetree_append_userinfo_field()
+{
+   log_entry "sourcetree_append_userinfo_field" "$@"
+
+   _sourcetree_set_userinfo_field "$1" "$2" "$3" "NO" "$4"
+}
+
+
+sourcetree_get_userinfo_field()
+{
+   log_entry "sourcetree_append_userinfo_field" "$@"
+
+   local address="$1"
+   local field="$2"
+   local byurl="$3"
+
+   local mode
+
+   if [ "${byurl}" = "YES " ]
+   then
+      mode="--url-addressing"
+   fi
+
+   local userinfo
+
+   userinfo="`exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} ${mode} \
+            get "${address}" "userinfo" `"
+   if [ $? -ne 0 ]
+   then
+      return 1
+   fi
+
+   local list
+
+   list="`assoc_array_get "${userinfo}" "${field}"`"
+   commalist_print "${list}"
+}
