@@ -22,6 +22,6 @@ ${TOOLS_TAP}mulle-env
 ${TOOLS_TAP}mulle-craft
 '
 
-DEBIAN_DEPENDENCIES="mulle-bashfunctions mulle-env mulle-craft"
+DEBIAN_DEPENDENCIES="mulle-bashfunctions, mulle-env, mulle-craft"
 
 

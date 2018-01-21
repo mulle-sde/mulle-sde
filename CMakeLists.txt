@@ -30,10 +30,10 @@ src/mulle-sde-updatesupport.sh
 )
 
 set( COMMON_EXTENSION_BIN
-src/extensions/common/bin/is-test-file
-src/extensions/common/bin/create-build-motd
-src/extensions/common/bin/source-directory-names
-src/extensions/common/bin/test-directory-names
+"src/extensions/common/bin/is-test-file"
+"src/extensions/common/bin/create-build-motd"
+"src/extensions/common/bin/source-directory-names"
+"src/extensions/common/bin/test-directory-names"
 )
 
 set( C_EXTENSION_SCRIPTS
