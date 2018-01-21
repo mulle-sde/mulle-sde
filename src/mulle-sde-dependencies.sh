@@ -241,7 +241,7 @@ sde_dependencies_main()
          log_fluff "Just pass through to mulle-sourcetree"
          export MULLE_EXECUTABLE_NAME
 
-         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} list \
+         exekutor mulle-sourcetree -s ${MULLE_SOURCETREE_FLAGS} list \
             --format um \
             --no-output-header \
             --output-raw \

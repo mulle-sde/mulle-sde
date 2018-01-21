@@ -1,0 +1,16 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=folder];
+
+    "mulle-sde tools"  [ label="mulle-sde tools add ...", shape="none", fontname="monospace", fontcolor="blue"]
+
+    "project"            [ color="gray", fontcolor="gray"]
+    ".mulle-env"         [ color="gray", fontcolor="gray"]
+    "tools" [ shape="note"]
+    "project"    -> ".mulle-env"  [ arrowhead="none", color="gray" ]
+    ".mulle-env" -> "tools"       [ arrowhead="none", color="gray" ]
+
+    "mulle-sde tools"  -> "tools"  [ style="dotted", label="edit"
+    ]
+}

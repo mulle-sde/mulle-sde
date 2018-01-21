@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.6.1
+MULLE_EXECUTABLE_VERSION=0.7.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -49,10 +49,12 @@ trap_fail()
 
 SHOWN_COMMANDS="\
    build         : build the project using mulle-craft
+   dependencies  : manage third party components (like a Github project)
    extensions    : show available language and buildtool extensions
    init          : create a new project
    libraries     : manage OS libraries (like pthread)
    monitor       : monitor project files, run updates and build
+   subprojects   : manage local subprojects
    update        : run only updates, once"
 
 
@@ -131,7 +133,6 @@ usage()
    _usage "$@" >&2
    exit 1
 }
-
 
 #
 # stolen from:
@@ -269,8 +270,6 @@ main()
    local MULLE_FLAG_LOG_MERGE="NO"
    local MULLE_TRACE_POSTPONE="NO"
 
-   local MULLE_CRAFT_FLAGS
-
    #
    # simple option handling
    #
@@ -353,6 +352,8 @@ main()
          esac
    fi
 
+   MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
+
    MULLE_EXECUTABLE_OPTIONS="$@"
 
    case "${cmd}" in
@@ -360,7 +361,10 @@ main()
       # forward stuff to mulle-craft verbatim
       #
       all|build|clean|onlydependencies|nodependencies|project|sourcetree)
-         exekutor mulle-craft ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
+         # shellcheck source=src/mulle-sde-build.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-build.sh"
+
+         sde_build_main "${cmd}" "$@"
       ;;
 
       dependencies)
@@ -410,6 +414,10 @@ main()
          sde_monitor_main "$@"
       ;;
 
+      motd)
+         create_motd "$@"
+      ;;
+
       subprojects|minions)
          # shellcheck source=src/mulle-sde-subprojects.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subprojects.sh"
@@ -422,14 +430,13 @@ main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-tools.sh"
 
          sde_tools_main "$@"
-         return $?
       ;;
 
       update)
          # shellcheck source=src/mulle-sde-monitor.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
 
-         sde_monitor_main -1 "$@"
+         sde_monitor_main --once --no-craft "$@"
       ;;
 
       uname)
@@ -442,8 +449,17 @@ main()
       ;;
 
       *)
-         export MULLE_EXECUTABLE_NAME
-         mulle-env "${cmd}" "$@"
+         #
+         # if we are outside of the environment, assume that
+         # we want to enter. Otherwise its probably a mistyped command
+         #
+         if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            usage "${MULLE_TRACE}"
+         else
+            export MULLE_EXECUTABLE_NAME
+            mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+         fi
       ;;
    esac
 }

@@ -1,0 +1,28 @@
+#! /bin/sh
+
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+
+case "$1" in
+   -l|--list-test-extensions)
+      echo "stdout ccdiag stderr stdin Makefile sh"
+      return 0
+   ;;
+
+   *)
+      # whatever
+   ;;
+esac
+
+
+[ $# -ne 1 ] && exit 1
+
+
+case "$1" in
+   *\.ccdiag|*\.stdin|*\.stdout|*\.stderr|Makefile|\*.sh)
+      echo "${TEST_YES}"
+      return 0
+   ;;
+esac
+
+echo "NO"
+return 0

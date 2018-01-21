@@ -1,0 +1,9 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=record];
+
+    "mulle-sde libraries"  [ label="mulle-sde libraries add ...", shape="none", fontname="monospace", fontcolor="blue"]
+
+    "mulle-sde libraries"  -> "mulle-sourcetree"
+}

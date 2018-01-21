@@ -1,0 +1,53 @@
+#! /bin/sh
+
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+
+HEADER_YES="YES"
+SOURCE_YES="YES"
+
+case "$1" in
+   -h|--header-only)
+      HEADER_YES="YES"
+      SOURCE_YES="NO"
+      shift
+   ;;
+
+   -s|--source-only)
+      HEADER_YES="NO"
+      SOURCE_YES="YES"
+      shift
+   ;;
+
+   -lh|--list-header-extensions)
+      echo "h inc"
+      return 0
+   ;;
+
+   -ls|--list-source-extensions)
+      echo "c"
+      return 0
+   ;;
+
+   *)
+      # whatever
+   ;;
+esac
+
+
+[ $# -ne 1 ] && exit 1
+
+
+case "$1" in
+   *\.h|*\.inc)
+      echo "${HEADER_YES}"
+      return 0
+   ;;
+
+   *\.c)
+      echo "${SOURCE_YES}"
+      return 0
+   ;;
+esac
+
+echo "NO"
+return 0

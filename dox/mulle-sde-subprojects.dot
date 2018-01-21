@@ -1,0 +1,9 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=record];
+
+    "mulle-sde subprojects"  [ label="mulle-sde subprojects add ...", shape="none", fontname="monospace", fontcolor="blue"]
+
+    "mulle-sde subprojects"  -> "mulle-sourcetree"
+}

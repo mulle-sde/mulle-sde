@@ -1,3 +1,9 @@
+## 0.7.0
+
+* rewrite monitor to be more functional even if cmake is not used
+* improve README.md somewhat
+
+
 ### 0.6.1
 
 * general progress on all fronts

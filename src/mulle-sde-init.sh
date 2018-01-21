@@ -56,51 +56,38 @@ EOF
 }
 
 
-install_file()
+
+_copy_extension()
 {
-   log_entry "install_updater" "$@"
+   log_entry "_copy_extension" "$@"
 
-   local filename="$1"
-   local extensiondir="$2"
+   local extensiondir="$1"
 
-   local dstfile
+   [ -z "${extensiondir}" ] && internal_fail "extensiondir is empty"
 
-   dstfile=".mulle-sde/bin/${filename}"
-   if [ -f "${dstfile}" ] && [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
-   then
-      log_verbose "Won't overwrite existing \"${dstfile}\" ($PWD)"
-      return 0
-   fi
+   (
+      shopt -s nullglob
 
-   local srcfile
+      local directory
 
-   srcfile="${extensiondir}/${filename}"
-   if [ ! -f "${srcfile}" ]
-   then
-      log_fluff "\"${srcfile}\" is missing"
-      return 1
-   fi
+      for directory in  "${extensiondir}"/*
+      do
+         if [ -d "${directory}" ]
+         then
+            log_fluff "Installing from \"${directory}\""
 
-   mkdir_if_missing ".mulle-sde/bin" || exit 1
-   exekutor cp -a "${srcfile}" "${dstfile}" || exit 1
-   exekutor chmod +x "${dstfile}"
+            exekutor cp -Ra "${directory}" ".mulle-sde/"
+         fi
+      done
+   )
 }
 
 
-install_buildtool_extension()
+_append_to_motd()
 {
-   log_entry "install_buildtool_extension" "$@"
+   log_entry "_append_to_motd" "$@"
 
-   local name="$1"
-   local vendor="$2"
-
-   local extensiondir
-
-   extensiondir="`find_extension "${name}" "buildtool" "${vendor}"`" || \
-      fail "Could not find buildtool extension \"${name}\" from vendor \"${vendor}\""
-
-   install_file "did-update-src" "${extensiondir}" || fail "did-update-src is required"
-   install_file "did-update-sourcetree" "${extensiondir}" || :
+   local extensiondir="$1"
 
    local text
 
@@ -112,6 +99,46 @@ install_buildtool_extension()
          _MOTD="`add_line "${_MOTD}" "${text}" `"
       fi
    fi
+}
+
+
+install_extension()
+{
+   log_entry "install_extension" "$@"
+
+   local name="$1"; shift
+   local vendor="$1"; shift
+   local exttype="$1"; shift
+
+   local extensiondir
+
+   extensiondir="`find_extension "${name}" "${exttype}" "${vendor}"`" || \
+      fail "Could not find buildtool extension \"${name}\" from vendor \"${vendor}\""
+
+   _copy_extension "${extensiondir}"
+   _append_to_motd "${extensiondir}"
+
+}
+
+
+install_buildtool_extension()
+{
+   log_entry "install_buildtool_extension" "$@"
+
+   local name="$1" ; shift
+   local vendor="$1" ; shift
+
+   install_extension "${name}" "${vendor}" "buildtool"
+}
+
+
+install_common_extension()
+{
+   log_entry "install_buildtool_extension" "$@"
+
+   local vendor="$1" ; shift
+
+   install_extension "common" "${vendor}" "common"
 }
 
 
@@ -127,18 +154,10 @@ install_runtime_extension()
    extensiondir="`find_extension "${name}" "runtime" "${vendor}"`" || \
       fail "Could not find runtime extension \"${name}\" from vendor \"${vendor}\""
 
-   eval_exekutor "${extensiondir}/init" "$@"
+   _copy_extension "${extensiondir}"
+   _append_to_motd "${extensiondir}"
 
-   local text
-
-   if [ -f "${extensiondir}/motd" ]
-   then
-      text="`cat "${extensiondir}/motd" `"
-      if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
-      then
-         _MOTD="`add_line "${_MOTD}" "${text}" `"
-      fi
-   fi
+   eval_exekutor "${extensiondir}/init" "$@" || exit 1
 }
 
 
@@ -253,18 +272,12 @@ sde_init_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extensions.sh" || exit 1
    fi
 
-   if [ "${OPTION_INIT_ENV}" = "YES" ]
-   then
-      export MULLE_EXECUTABLE_NAME
-      exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
-   fi
-
    #
    # make nicer in the future for now just hax
    #
    local projecttype
 
-   [ "$#" -ne 1 ] && sde_init_usage
+   [ "$#" -ne 1 ] && log_error "missing or extraneous type" && sde_init_usage
 
    projecttype="$1"
 
@@ -281,10 +294,19 @@ sde_init_main()
    fi
    arguments="`concat "${arguments}" "'${projecttype}'" `"
 
+   mkdir_if_missing ".mulle-sde" || exit 1
+
+   if [ "${OPTION_INIT_ENV}" = "YES" ]
+   then
+      export MULLE_EXECUTABLE_NAME
+      exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
+   fi
+
    local _MOTD
 
    _MOTD=""
 
+   install_common_extension  "${OPTION_VENDOR}" &&
    install_runtime_extension "${OPTION_RUNTIME}" \
                              "${OPTION_VENDOR}" \
                              "${arguments}" &&
@@ -297,10 +319,12 @@ sde_init_main()
 "
    fi
 
-   _MOTD="`add_line "${_MOTD}" "Ready to build with:
-   mulle-sde build
-" `"
-   install_motd "${_MOTD}"
+   local motd
 
-   echo "${_MOTD}"
+   motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
+   mulle-sde build${C_RESET}" `"
+
+   _MOTD="${_MOTD}${motd}"
+
+   install_motd "${_MOTD}"
 }

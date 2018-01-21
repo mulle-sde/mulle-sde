@@ -29,6 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 MULLE_C_DEVELOPER_VERSION=0.0.1
 
@@ -73,12 +74,18 @@ emit_readme_md()
 
 This is a [mulle-sde](https://mulle-sde.github.io/) project.
 
-
-You may need to use **[mulle-env](//github.com/mulle-sde/mulle-env)** to
-build the project properly:
+It has it's own virtual environment, that will be automatically setup for you
+once you enter it with:
 
 \`\`\`
-mulle-env
+mulle-sde
+\`\`\`
+
+Now you can let mulle-sde fetch the required dependencies and build the project
+for you:
+
+\`\`\`
+mulle-sde build
 \`\`\`
 EOF
 
@@ -95,6 +102,15 @@ cmake_minimum_required( VERSION 3.0)
 
 project( ${PROJECT_NAME} C)
 
+#
+# Figure out where .mulle-sde might be (optional)
+#
+set( MULLE_VIRTUAL_ROOT "\$ENV{MULLE_VIRTUAL_ROOT}")
+if( NOT MULLE_VIRTUAL_ROOT)
+   set( MULLE_VIRTUAL_ROOT "\${PROJECT_SOURCE_DIR}")
+endif()
+message( STATUS "MULLE_VIRTUAL_ROOT is \${MULLE_VIRTUAL_ROOT}")
+
 EOF
 }
 
@@ -107,22 +123,29 @@ emit_cmakelists_common_footer()
 }
 
 
-emit_include_directories()
+emit_dependencies_executable()
 {
-   log_entry "emit_include_directories" "$@"
+   log_entry "emit_dependencies_executable" "$@"
 
-   local nicey
+   cat <<EOF
+#
+# Put your find_library() statements here to import other libraries
+#
+# Add OS specific dependencies to OS_SPECIFIC_LIBRARIES
+# Add all other dependencies (rest) to C_DEPENDENCIES_LIBRARIES
 
-   nicey="`sed 's|/$||' <<< "${FILE_PREFIX}"`"
-   if [ ! -z "${nicey}" ]
-   then
-      cat <<EOF
-include_directories(
-${nicey}
-)
+#
+# === MULLE-SDE START ===
 
+# \`mulle-sde update\` will generate these files
+
+include( _CMakeDependencies.txt)
+include( _CMakeLibraries.txt)
+
+# === MULLE-SDE END ===
+#
+#
 EOF
-   fi
 }
 
 
@@ -131,10 +154,10 @@ emit_dependencies_library()
    log_entry "emit_dependencies_library" "$@"
 
    cat <<EOF
-if( NOT __${PROJECT_UPCASE_IDENTIFIER}_CMAKE_DEPENDENCIES_TXT__)
-   set( __${PROJECT_UPCASE_IDENTIFIER}_CMAKE_DEPENDENCIES_TXT__ ON)
+if( NOT __${PROJECT_UPCASE_IDENTIFIER}_CMAKE_DEPENDENCIES_AND_LIBRARIES_TXT__)
+   set( __${PROJECT_UPCASE_IDENTIFIER}_CMAKE_DEPENDENCIES_AND_LIBRARIES_TXT__ ON)
 
-   message( STATUS "# Include \"${PROJECT_NAME}\" CMakeDependencies.txt")
+   message( STATUS "# Include \"${PROJECT_NAME}\" CMakeDependenciesAndLibraries.txt")
 
    #
    # Put your find_library() statements here to import other libraries
@@ -143,15 +166,14 @@ if( NOT __${PROJECT_UPCASE_IDENTIFIER}_CMAKE_DEPENDENCIES_TXT__)
    # Add all other dependencies (rest) to C_DEPENDENCIES_LIBRARIES
 
    #
-   # mulle-sde may rewrite statements here (but usually not)
    # === MULLE-SDE START ===
 
-   if( EXISTS _CMakeDependencies.txt)
-      include( _CMakeDependencies.txt)
-   endif()
+   # \`mulle-sde update\` will generate these files
+
+   include( _CMakeDependencies.txt)
+   include( _CMakeLibraries.txt)
 
    # === MULLE-SDE END ===
-   #
    #
 
    # For the benefit of users of your library, provide the find_library
@@ -184,31 +206,26 @@ EOF
 }
 
 
-emit_sources_and_headers_library()
+emit_sources_and_headers()
 {
-   log_entry "emit_sources_and_headers_library" "$@"
-
-   if [ ! -z "${FILE_PREFIX}" ]
-   then
-      cat <<EOF
-set( INCLUDE_DIRS
-"${FILE_PREFIX}"
-)
-EOF
-   fi
+   log_entry "emit_sources_and_headers" "$@"
 
    cat <<EOF
-set( SOURCES
-"${FILE_PREFIX}Foo.c"
-)
+#
+# You can put source and resource file definitions here
+# Generally though, you'd prefer to let \`mulle-sde update\` generate a
+# _CMakeSources.txt and _CMakeHeaders.txt files for you
 
-set( PUBLIC_HEADERS
-"${FILE_PREFIX}Foo.h"
-"${FILE_PREFIX}version.h"
-)
+
+#
+# === MULLE-SDE START ===
+
+include( _CMakeHeaders.txt)
+include( _CMakeSources.txt)
+
+# === MULLE-SDE END ===
+#
 EOF
-
-   emit_include_directories
 }
 
 
@@ -225,8 +242,9 @@ emit_cmakelists_library()
 ###
 
 set( ${PROJECT_UPCASE_IDENTIFIER}_LIBRARY ON)
-include( CMakeDependencies.txt)
-include( CMakeSourcesAndHeaders.txt)
+
+include( CMakeDependenciesAndLibraries.txt)
+include( CMakeHeadersAndSources.txt)
 
 ###
 
@@ -235,8 +253,9 @@ include_directories( ${INCLUDE_DIRS})
 
 set( PUBLIC_HEADERS
 \${PUBLIC_HEADERS}
-"CMakeDependencies.txt"
+"CMakeDependenciesAndLibraries.txt"
 "_CMakeDependencies.txt"
+"_CMakeLibraries.txt"
 )
 
 
@@ -245,47 +264,15 @@ add_library( "${PROJECT_NAME}"
 \${PUBLIC_HEADERS}
 \${PRIVATE_HEADERS}
 CMakeLists.txt
-CMakeSourcesAndHeaders.txt
+CMakeHeadersAndSources.txt
 )
 
-set( STANDALONE_BASE_NAME "${PROJECT_NAME}")
-set( STANDALONE_NAME "${PROJECT_NAME}Standalone")
-set( STANDALONE_SOURCES "src/${PROJECT_NAME}Standalone.c")
-set( STANDALONE_DEFINITIONS \${${PROJECT_UPCASE_IDENTIFIER}_DEFINITIONS})
-set( STANDALONE_ALL_LOAD_LIBRARIES
-    \$<TARGET_FILE:\${STANDALONE_BASE_NAME}>
-    \${C_DEPENDENCY_LIBRARIES}
-    \${C_STARTUP_LIBRARY}
-    \${C_DEPENDENCY_LIBRARIES}
-)
-
-include( Standalone)
-
-install( TARGETS "${PROJECT_NAME}" "${PROJECT_NAME}Standalone" DESTINATION "lib")
+install( TARGETS "${PROJECT_NAME}" DESTINATION "lib")
 install( FILES \${PUBLIC_HEADERS}  DESTINATION "include/${PROJECT_NAME}")
 install( FILES \${PRIVATE_HEADERS} DESTINATION "include/${PROJECT_NAME}/private")
 EOF
 }
 
-
-emit_sources_and_headers_executable()
-{
-   log_entry "emit_sources_and_headers_executable" "$@"
-
-   emit_include_directories
-
-   cat <<EOF
-set( SOURCES
-"${FILE_PREFIX}Foo.c"
-"${FILE_PREFIX}main.c"
-)
-
-set( PROJECT_HEADERS
-"${FILE_PREFIX}Foo.h"
-"${FILE_PREFIX}version.h"
-)
-EOF
-}
 
 
 emit_cmakelists_executable()
@@ -296,7 +283,8 @@ emit_cmakelists_executable()
 
 ###
 
-include( CMakeSourcesAndHeaders.txt)
+include( CMakeHeadersAndSources.txt)
+include( CMakeDependenciesAndLibraries.txt)
 
 ###
 
@@ -305,7 +293,8 @@ add_executable( "${PROJECT_NAME}"
 \${PUBLIC_HEADERS}
 \${PRIVATE_HEADERS}
 CMakeLists.txt
-CMakeSourcesAndHeaders.txt
+CMakeHeadersAndSources.txt
+CMakeDependenciesAndLibraries.txt
 )
 
 ###
@@ -315,7 +304,7 @@ EOF
    then
       cat <<EOF
 
-target_link_libraries( "\${EXECUTABLE_NAME}"
+target_link_libraries( "${PROJECT_NAME}"
 \${OS_SPECIFIC_LIBRARIES}
 )
 EOF
@@ -329,6 +318,20 @@ EOF
    cat <<EOF
 
 install( TARGETS "${PROJECT_NAME}" DESTINATION "bin")
+
+
+#
+# output message of a day to locate output
+# but if create-build-motd doesn't exist, it's no biggy
+#
+add_custom_target( __motd__ ALL
+   COMMAND [ ! -x "\${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/create-build-motd" ] \
+             || "\${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/create-build-motd" \
+               "executable" "\${CMAKE_BINARY_DIR}" "/${PROJECT_NAME}"
+   COMMENT "Creating a motd file for mulle-craft" )
+
+add_dependencies( __motd__ "${PROJECT_NAME}")
+
 EOF
 }
 
@@ -370,7 +373,7 @@ demo_file_h()
    log_entry "demo_file_h" "$@"
 
    cat <<EOF
-#import <stdint.h>
+#include <stdint.h>
 
 
 uint32_t projectVersion( void);
@@ -383,8 +386,8 @@ demo_file_c()
    log_entry "demo_file_c" "$@"
 
    cat <<EOF
-#import "Foo.h"
-#import "version.h"
+#include "Foo.h"
+#include "version.h"
 
 
 int   __${PROJECT_UPCASE_IDENTIFIER}_ranlib__;
@@ -471,6 +474,8 @@ demo_main_c()
    cat <<EOF
 #include "Foo.h"
 #include "version.h"
+
+#include <stdio.h>
 
 
 int  main( int argc, char *argv[])
@@ -586,14 +591,20 @@ library_setup()
       redirect_exekutor CMakeLists.txt echo "${text}"
    fi
 
-   if [ ! -f "CMakeSourcesAndHeaders.txt" -o "${FLAG_FORCE}" = "YES" ]
+   if [ ! -f "CMakeHeadersAndSources.txt" -o "${FLAG_FORCE}" = "YES" ]
    then
-      redirect_exekutor CMakeSourcesAndHeaders.txt emit_sources_and_headers_library
+      local text
+
+      text="`emit_sources_and_headers`"
+      redirect_exekutor CMakeHeadersAndSources.txt echo "$text"
    fi
 
-   if [ ! -f "CMakeDependencies.txt" -o "${FLAG_FORCE}" = "YES" ]
+   if [ ! -f "CMakeDependenciesAndLibraries.txt" -o "${FLAG_FORCE}" = "YES" ]
    then
-      redirect_exekutor CMakeDependencies.txt emit_dependencies_library
+      local text
+
+      text="`emit_dependencies_library`"
+      redirect_exekutor CMakeDependenciesAndLibraries.txt echo "$text"
    fi
 
    if [ "${FLAG_OUTPUT_DEMO_FILES}" = "YES" ]
@@ -626,9 +637,20 @@ executable_setup()
       redirect_exekutor CMakeLists.txt echo "${text}"
    fi
 
-   if [ ! -f "CMakeSourcesAndHeaders.txt" -o "${FLAG_FORCE}" = "YES" ]
+   if [ ! -f "CMakeHeadersAndSources.txt" -o "${FLAG_FORCE}" = "YES" ]
    then
-      redirect_exekutor CMakeSourcesAndHeaders.txt emit_sources_and_headers_executable
+      local text
+
+      text="`emit_sources_and_headers`"
+      redirect_exekutor CMakeHeadersAndSources.txt echo "${text}"
+   fi
+
+   if [ ! -f "CMakeDependenciesAndLibraries.txt" -o "${FLAG_FORCE}" = "YES" ]
+   then
+      local text
+
+      text="`emit_dependencies_executable`"
+      redirect_exekutor CMakeDependenciesAndLibraries.txt echo "${text}"
    fi
 
    if [ "${FLAG_OUTPUT_DEMO_FILES}" = "YES" ]
@@ -703,6 +725,7 @@ main()
          ;;
 
          -*)
+            log_error "unknown options \"$1\""
             usage
          ;;
 
@@ -746,7 +769,8 @@ main()
       ;;
 
       *)
-         fail "unknown command \"${cmd}\""
+         log_error "unknown command \"${cmd}\""
+         usage
       ;;
    esac
 }
@@ -754,7 +778,7 @@ main()
 
 _init()
 {
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env library-path 2> /dev/null`"
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir 2> /dev/null`"
    [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ] && \
       echo "mulle-bashfunctions-env not installed" >&2 && \
       exit 1

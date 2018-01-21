@@ -1,0 +1,34 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=record];
+
+    { rank = same; "mulle-sde update", "mulle-craft", "mulle-test" };
+    { rank = same; "mulle-sde monitor" };
+    { rank = same; "src", ".mulle-sourcetree" };
+
+    "mulle-sde update" -> "mulle-sde monitor"  [ style="invis" ]
+    "mulle-craft"      -> "mulle-sde monitor"  [ style="invis" ]
+    "mulle-test"       -> "mulle-sde monitor"  [ style="invis" ]
+
+    "project"            [ shape="folder", color="gray", fontcolor="gray"]
+    "src"                [ shape="folder"]
+    ".mulle-sourcetree"  [ shape="folder", color="gray", fontcolor="gray"]
+    "config"             [ shape="note"]
+
+    "project" -> "src"                [ arrowhead="none", color="gray", fontcolor="gray"]
+    "project" -> ".mulle-sourcetree"  [ arrowhead="none", color="gray", fontcolor="gray"]
+    ".mulle-sourcetree"  -> "config"  [ arrowhead="none" ]
+
+    "mulle-test"           [ color="magenta", fontcolor="magenta" ]
+    "mulle-craft"          [ color="magenta", fontcolor="magenta" ]
+    "mulle-sde update"     [ shape="none", fontcolor="dodgerblue" ]
+    "mulle-sde monitor"    [ shape="none", fontname="monospace", fontcolor="blue"]
+
+    "mulle-sde monitor"  -> "mulle-sde update" [ style="dotted", label="run" ]
+    "mulle-sde monitor"  -> "mulle-craft"      [ style="dotted", label="run" ]
+    "mulle-sde monitor"  -> "mulle-test"       [ style="dotted", label="run" ]
+
+    "mulle-sde monitor" -> "src"    [ style="dotted", label="observe" ]
+    "mulle-sde monitor" -> "config" [ style="dotted", label="observe" ]
+}

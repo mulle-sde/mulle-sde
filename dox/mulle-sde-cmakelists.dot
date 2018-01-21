@@ -1,0 +1,24 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=note];
+
+    "CMakeLists.txt"
+
+    "CMakeHeadersAndSources.txt"
+    "CMakeDependenciesAndLibraries.txt"
+
+    "_CMakeHeaders.txt"
+    "_CMakeSources.txt"
+    "_CMakeDependencies.txt"
+    "_CMakeLibraries.txt"
+
+    "CMakeLists.txt" -> "CMakeHeadersAndSources.txt"         [ style="dotted", label="include" ]
+    "CMakeLists.txt" -> "CMakeDependenciesAndLibraries.txt"  [ style="dotted", label="include" ]
+
+    "CMakeHeadersAndSources.txt" -> "_CMakeHeaders.txt"       [ style="dotted", label="include" ]
+    "CMakeHeadersAndSources.txt" -> "_CMakeSources.txt"       [ style="dotted", label="include" ]
+
+    "CMakeDependenciesAndLibraries.txt" -> "_CMakeDependencies.txt"  [ style="dotted", label="include" ]
+    "CMakeDependenciesAndLibraries.txt" -> "_CMakeLibraries.txt"     [ style="dotted", label="include" ]
+}

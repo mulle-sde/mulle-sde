@@ -134,15 +134,21 @@ extension_get_search_path()
 
 extension_get_search_filename()
 {
+   log_entry "extension_get_search_filename" "$@"
+
    local extensiontype="$1"
 
    case "${extensiontype}" in
       buildtool)
-         echo "did-update-src"
+         echo "bin/did-update-src"
       ;;
 
       runtime)
          echo "init"
+      ;;
+
+      common)
+         echo "bin/create-build-motd"
       ;;
 
       *)
@@ -188,6 +194,8 @@ collect_extension_dirs()
 
 find_extension()
 {
+   log_entry "find_extension" "$@"
+
    local name="$1"
    local extensiontype="$2"
    local vendor="$3"
@@ -223,10 +231,14 @@ find_extension()
          continue
       fi
 
+      log_fluff "Found extension \"${directory}/${name}\""
+
       echo "${directory}/${name}"
-      break
+      return 0
    done
+
    IFS="${DEFAULT_IFS}"
+   return 1
 }
 
 

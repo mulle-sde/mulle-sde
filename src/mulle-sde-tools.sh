@@ -40,11 +40,13 @@ Usage:
 
 Options:
    -h            : show this usage
+   -r            : tool is required
+   -o            : tool is optional
 
 Commands:
    add <tool>    : add a tool
    remove <tool> : remove a tool
-   list          : list libraries (default)
+   list          : list either required or optional tools (default)
 EOF
    exit 1
 }
@@ -52,6 +54,10 @@ EOF
 
 _mulle_tools_add()
 {
+   log_entry "_mulle_tools_add" "$@"
+
+   local toolsfile="$1" ; shift
+
    local tool="$1"
 
    [ -z "${tool}" ] && internal_fail "tool must not be empty"
@@ -74,9 +80,6 @@ _mulle_tools_add()
       fail "Failed to find executable \"${tool}\""
    fi
 
-   local toolsfile
-
-   toolsfile="${MULLE_ENV_DIR}/tools"
    if fgrep -q -s -x "${tool}" "${toolsfile}"
    then
       log_warning "\"${tool}\" is already in the list of tools, will relink"
@@ -105,14 +108,15 @@ _mulle_tools_add()
 
 _mulle_tools_remove()
 {
+   log_entry "_mulle_tools_remove" "$@"
+
+   local toolsfile="$1" ; shift
+
    local tool="$1"
 
    [ -z "${tool}" ] && internal_fail "tool must not be empty"
    [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT not defined"
 
-   local toolsfile
-
-   toolsfile="${MULLE_ENV_DIR}/tools"
    if [ ! -f "${toolsfile}" ]
    then
       log_warning "No tools present. Check your PATH."
@@ -136,12 +140,13 @@ _mulle_tools_remove()
 
 _mulle_tools_list()
 {
-   local toolsfile
+   log_entry "_mulle_tools_list" "$@"
 
-   toolsfile="${MULLE_ENV_DIR}/tools"
+   local toolsfile="$1" ; shift
+
    if [ ! -f "${toolsfile}" ]
    then
-      log_warning "No tools present. Check your PATH."
+      log_warning "No tools present."
       return 2
    fi
 
@@ -158,16 +163,29 @@ sde_tools_main()
    log_entry "sde_tools_main" "$@"
 
    local MULLE_ENV_DIR
+   local TOOLSFILE
+
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT is empty"
 
    MULLE_ENV_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-env"
    #
    # handle options
    #
+   TOOLSFILE="tools"
+
    while :
    do
       case "$1" in
          -*)
             sde_tools_usage
+         ;;
+
+         -o|--optional|--no-required)
+            TOOLSFILE="optional-tools"
+         ;;
+
+         -r|--required|--no-optional)
+            TOOLSFILE="tools"
          ;;
 
          *)
@@ -184,7 +202,7 @@ sde_tools_main()
 
    case "${cmd}" in
       add|list|remove)
-         _mulle_tools_${cmd} "$@"
+         _mulle_tools_${cmd} "${MULLE_ENV_DIR}/${TOOLSFILE}" "$@"
       ;;
 
       *)

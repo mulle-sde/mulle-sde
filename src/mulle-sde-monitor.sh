@@ -41,7 +41,6 @@ Usage:
    ${MULLE_EXECUTABLE_NAME} monitor [options]
 
 Options:
-   --install      : install prerequisites
    -d <dir>       : directory to monitor
    -s <seconds>   : postpone tests amount of seconds (${TEST_DELAY_S}s)
    -t             : run tests after successful build
@@ -59,7 +58,6 @@ Usage:
 
 Options:
    -d <dir>       : directory to monitor
-   --install      : install prerequisites
 EOF
    exit 1
 }
@@ -191,9 +189,7 @@ check_pid()
 {
    log_entry "check_pid" "$@"
 
-   local pid_file
-
-   pid_file="${1}"
+   local pid_file="$1"
 
    local old_pid
 
@@ -218,7 +214,7 @@ run_test()
 
    log_fluff "==> Starting test " "${name}"
 
-   exekutor mulle-test "${filename}"
+   exekutor "${MULLE_SDE_TEST}" "${filename}"
 
    log_fluff "==> Ended test"
 }
@@ -230,7 +226,7 @@ run_all_tests()
 
    log_fluff "==> Starting tests"
 
-   exekutor mulle-test
+   exekutor "${MULLE_SDE_TEST}"
 
    log_fluff "==> Ended tests"
 }
@@ -260,27 +256,31 @@ add_new_all_tests_job()
 }
 
 
-source_build()
+source_craft()
 {
-   log_entry "source_build" "$@"
+   log_entry "source_craft" "$@"
 
-   log_fluff "==> Build"
-
-   if [ ! -e "${PROJECT_MAKEFILE}" ]
+   if [ "${OPTION_TEST}" = "NO" -a "${OPTION_CRAFT}" = "NO" ]
    then
-      log_fail "${PROJECT_MAKEFILE} vanished, nothing to build."
+      return
    fi
+
+   log_fluff "==> Craft"
 
    remove_old_test_job
 
    local rval
 
-   if ! exekutor mulle-craft
+   if [ "${OPTION_CRAFT}" = "YES" ]
    then
-      return 1
+      if ! exekutor "${MULLE_SDE_CRAFT}"
+      then
+         return 1
+      fi
+      redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/did_craft" echo "# empty"
    fi
 
-   if [ "${RUN_TESTS}" = "YES" ]
+   if [ "${OPTION_TEST}" = "YES" ]
    then
       if [ -x "${TESTS_DIR}/${TEST_SH}" ]
       then
@@ -290,54 +290,63 @@ source_build()
 }
 
 
-
+#
+# if sourcetree_config_modified (and by extension MULLE_SDE_DID_UPDATE_SOURCETREE)
+# return non-zero, it means that nothing was modified
+#
 sourcetree_config_modified()
 {
    log_entry "sourcetree_config_modified" "$@"
 
-   if [ ! -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
+   if [ -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
    then
-      log_verbose "==> Update ${MULLE_SDE_FILES_FILE}"
-
-      (
-         cd "${PROJECT_DIR}" &&
-         exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "${MULLE_SDE_FILES_FILE}" "$@"
-      )
-
-      if [ $? -ne 0 ]
-      then
-         fail "\"${MULLE_SDE_DID_UPDATE_SRC}\" update failed"
-      fi
-   else
       log_fluff "No update script configured, build will not reflect file additions and removals"
+      return 1
    fi
+   log_verbose "==> Update dependencies"
 
-   source_build
+   (
+      cd "${PROJECT_DIR}" &&
+      exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" "$@" &&
+      redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/.did-update-sourcetree" echo "# empty"
+   )
 }
 
 
+#
+# if source_file_created (and by extension MULLE_SDE_DID_UPDATE_SRC)
+# return non-zero, it means that nothing was modified
+#
 source_file_created()
 {
    log_entry "source_file_created" "$@"
 
-   if [ ! -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
+   if [ -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
    then
-      log_verbose "==> Update ${MULLE_SDE_FILES_FILE}"
-
-      (
-         cd "${PROJECT_DIR}" &&
-         exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "${MULLE_SDE_FILES_FILE}" "$@"
-      )
-
-      if [ $? -ne 0 ]
-      then
-         fail "\"${MULLE_SDE_DID_UPDATE_SRC}\" update failed"
-      fi
-   else
       log_fluff "No update script configured, build will not reflect file additions and removals"
+      return 1
    fi
 
-   source_build
+   log_verbose "==> Update sources and headers"
+
+   (
+      cd "${PROJECT_DIR}" &&
+      exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "$@" &&
+      redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/.did-update-src" echo "# empty"
+   )
+
+   source_craft
+}
+
+
+update()
+{
+   log_entry "update" "$@"
+
+   log_info "Update cmake files"
+
+   sourcetree_config_modified &&
+   source_file_created
 }
 
 
@@ -353,17 +362,8 @@ source_file_modified()
 {
    log_entry "source_file_modified" "$@"
 
-   local filename
-
-   filename="`basename "$1"`"
-
-   if [ ! -f "${PROJECT_MAKEFILE}" -o "${filename}" = "`basename "${MULLE_SDE_FILES_FILE}"`" ]
-   then
-      source_file_created "$@"
-      return
-   fi
-
-   source_build
+   # just rebuild
+   source_craft
 }
 
 
@@ -385,6 +385,7 @@ test_file_created()
          log_fluff "==> Run test ${name}"
          run_test "${name}" "${directory}/${filename}"
       ;;
+
       *)
          run_all_tests
       ;;
@@ -408,99 +409,45 @@ test_file_modified()
 }
 
 
-is_source_filename()
-{
-   log_entry "is_source_filename" "$@"
-
-   local filename="$1"
-
-   case "${filename}" in
-      *.c|*.m|*.aam|*.cpp|*.h|*.hpp|*.cpp|${projectfilename}|*.sh)
-         return 0
-      ;;
-   esac
-
-   return 1
-}
 
 
 #
 # watch
 #
-watch_sources()
+file_action_of_command()
 {
-   log_entry "watch_sources" "$@"
+   log_entry "file_action_of_command" "$@"
 
-   local directory="$1"
-   local filename="$2"
-   local cmd="$3"
-
-   local projectfilename
-
-   projectfilename="`basename -- "${PROJECT_MAKEFILE}"`"
-
-   if ! is_source_filename "${filename}" && \
-      [ "${filename}" != "${projectfilename}" ]
-   then
-      return
-   fi
-
-   local filepath
-
-   filepath="${directory}/${filename}"
-
-   log_fluff "${filepath} changed"
+   local cmd="$1"
 
    case "${cmd}" in
       *CREATE*|*MOVED_TO*|*RENAMED*)
-         source_file_created "${filepath}"
+         echo created
       ;;
+
+
       *DELETE*|*MOVED_FROM*)
-         source_file_deleted "${filepath}"
+         echo deleted
       ;;
+
       # PLATFORMSPECIFIC:ISFILE is touch apparently (at least on OS X)
-      *CLOSE_WRITE*|PLATFORMSPECIFIC:ISFILE|*UPDATED*)
-         source_file_modified "${filepath}"
+      *CLOSE_WRITE*|PLATFORMSPECIFIC:ISFILE|*UPDATED*|*MODIFY*)
+         echo modified
+      ;;
+
+      *)
+         log_debug "\"${cmd}\" is boring"
+         return 1
       ;;
    esac
 }
 
 
-watch_tests()
+directory_content_type()
 {
-   log_entry "watch_tests" "$@"
+   log_entry "directory_content_type" "$@"
 
    local directory="$1"
-   local filename="$2"
-   local cmd="$3"
-
-   case "${filename}" in
-      *.stdout|*.ccdiag|*.stderr|*.m|*.h|*.c|Makefile|*.sh)
-         log_verbose "${filepath}"
-
-         case "${cmd}" in
-            *CREATE*|*MOVED_TO*|*RENAMED*)
-               test_file_created "${directory}/${file}"
-            ;;
-            *DELETE*|*MOVED_FROM*)
-               test_file_deleted "${directory}/${file}"
-            ;;
-            *CLOSE_WRITE*)
-               test_file_modified "${directory}/${file}"
-            ;;
-         esac
-         ;;
-   esac
-}
-
-
-watch_directories()
-{
-   log_entry "watch_directories" "$@"
-
-   local directory="$1"
-   local filename="$2"
-   local cmd="$3"
 
    case "${directory}" in
       .*|_*)
@@ -512,13 +459,110 @@ watch_directories()
       *tests/include|*tests/include/*)
       ;;
 
-      *tests*)
-         watch_tests "${directory}" "${filename}" "${cmd}"
+      *tests/lib|*tests/lib/*)
       ;;
+
+      *tests/share|*tests/share/*)
+      ;;
+
+      *tests/libexec|*tests/libexec/*)
+      ;;
+
+      *tests*)
+         echo "test"
+      ;;
+
       *)
-         watch_sources "${directory}" "${filename}" "${cmd}"
+         echo "source"
       ;;
    esac
+}
+
+
+_is_source_file()
+{
+   log_entry "_is_source_file" "$@"
+
+   local filename="$1"
+
+   if [ ! -z "${MULLE_SDE_IS_HEADER_OR_SOURCE}" ]
+   then
+      if [ "`exekutor "${MULLE_SDE_IS_HEADER_OR_SOURCE}" "${filename}" `" != "YES" ]
+      then
+         log_debug "\"${filename}\" is not a source or header, so it's boring."
+         return 1
+      fi
+   else
+      log_debug "MULLE_SDE_IS_HEADER_OR_SOURCE is not configured. Everything is exciting"
+   fi
+}
+
+
+_is_test_file()
+{
+   log_entry "_is_test_file" "$@"
+
+   local filename="$1"
+
+   if [ ! -z "${MULLE_SDE_IS_TEST_FILE}" ]
+   then
+      if [ "`exekutor "${MULLE_SDE_IS_TEST_FILE}" "${filename}" `" != "YES" ]
+      then
+         log_debug "\"${filename}\" is not a test file, so it's boring."
+         return 1
+      fi
+   else
+      log_debug "MULLE_SDE_IS_TEST_FILE is not configured. Everything is exciting"
+   fi
+
+}
+
+
+source_changed()
+{
+   log_entry "source_changed" "$@"
+
+   local directory="$1"
+   local filename="$2"
+   local cmd="$3"
+
+   local action
+
+   if ! action="`file_action_of_command "${cmd}" `"
+   then
+      return 1
+   fi
+
+   if ! _is_source_file "${filename}"
+   then
+      return 1
+   fi
+
+   echo "source_file_${action}"
+}
+
+
+test_changed()
+{
+   log_entry "test_changed" "$@"
+
+   local directory="$1"
+   local filename="$2"
+   local cmd="$3"
+
+   local action
+
+   if ! action="`file_action_of_command "${cmd}" `"
+   then
+      return 1
+   fi
+
+   if ! _is_source_file "${filename}" && ! _is_test_file "${filename}"
+   then
+      return 1
+   fi
+
+   echo "test_file_${action}"
 }
 
 
@@ -526,70 +570,222 @@ check_fswatch()
 {
    log_entry "check_fswatch" "$@"
 
-   if is_binary_missing fswatch
+   if ! is_binary_missing fswatch
    then
-      fail "install prerequisite fswatch with mulle-sde-monitor.sh --install"
+      return
    fi
+
+   local info
+
+   case "${MULLE_UNAME}" in
+      darwin)
+         info="brew install fswatch"
+      ;;
+
+      linux)
+         info="sudo apt-get install inotify-tools"
+      ;;
+
+      *)
+         info="You have to install
+       https://emcrisostomo.github.io/fswatch/
+   yourself on this platform"
+      ;;
+   esac
+
+   fail "To use monitor you have to install the prerequisite \"fswatch\":
+${C_BOLD}${C_RESET}   ${info}
+${C_INFO}You then need to exit ${MULLE_EXECUTABLE_NAME} and reenter it."
 }
 
 
-watch_darwin()
+check_inotifywait()
 {
-   log_entry "watch_darwin" "$@"
+   log_entry "check_inotifywait" "$@"
 
+   if ! is_binary_missing inotifywait
+   then
+      return
+   fi
+
+   local info
+
+   case "${MULLE_UNAME}" in
+      linux)
+         info="sudo apt-get install inotify-tools"
+      ;;
+
+      *)
+         info="I have no idea where you can get it from."
+      ;;
+   esac
+
+   fail "To use monitor you have to install the prerequisite \"inotifywait\":
+${C_BOLD}${C_RESET}   ${info}
+${C_INFO}You then need to exit ${MULLE_EXECUTABLE_NAME} and reenter it."
+}
+
+
+_watch_using_fswatch()
+{
+   log_entry "_watch_using_fswatch" "$@"
+
+   #
+   # Why monitoring stops, when executing a build.
+   #
+   # This used to be like `fswatch | read -> craft`
+   #
+   # A general problem was that events are queing up during a build
+   # These are filtered out eventually, but it still can be quite a
+   # bit of load. Also the pipe in fswatch will fill up and then
+   # block. I suspect, that then we are missing all events until the
+   # pipe has been drained.
+   #
+   # Because the craft is run in the reading pipe, there were no
+   # parallel builds.
+   #
+   # Since events are probably lost anyway, it shouldn't matter if we
+   # turn off monitoring during a build. If this ever becomes a problem
+   # we can memorize the time of the last watch. Then do a find if
+   # anything interesting has changed (timestamp), and if yes run an update
+   # before monitoring again.
+   #
    local filepath
    local cmd
+   local contenttype
    local directory
    local filename
-
-   check_fswatch
 
    IFS="
-"  fswatch -r -x --event-flag-separator : "$@" |
+"
    while read line
    do
-      filepath="`echo "${line}" | sed 's/^\(.*\) \(.*\)$/\1/'`"
+      IFS="${DEFAULT_IFS}"
+
+      filepath="` sed 's/^\(.*\) \(.*\)$/\1/' <<< "${line}" `"
+      directory="`dirname -- "${filepath}"`"
+      contenttype="`directory_content_type "${directory}" `"
+      if [ -z "${contenttype}" ]
+      then
+         continue
+      fi
+
       cmd="`echo "${line}" | sed 's/^\(.*\) \(.*\)$/\2/' | tr '[a-z]' '[A-Z]'`"
+      filename="`basename -- "${filepath}"`"
 
-      directory="`dirname "${filepath}"`"
-      filename="`basename "${filepath}"`"
+      if ! action="`"${contenttype}_changed" "${directory}" "${filename}" "${cmd}" `"
+      then
+         continue
+      fi
 
-      watch_directories "${directory}" "${filename}" "${cmd}"
+      echo "${action}" "'${filepath}'"
+      return
+   done < <( fswatch -r -x --event-flag-separator : "$@" )  # bashism
+   IFS="${DEFAULT_IFS}"
+}
+
+
+watch_using_fswatch()
+{
+   log_entry "_watch_using_fswatch" "$@"
+
+   local cmd
+
+   while :
+   do
+      cmd="`_watch_using_fswatch "$@" `"
+      log_debug "execute:" "${cmd}"
+      eval "${cmd}"
    done
 }
 
 
-watch_linux()
+_remove_quotes()
 {
-   log_entry "watch_linux" "$@"
+   sed 's/^\"\([^"]*\)\"/\1/' <<< "${1}"
+}
 
+
+_extract_first_field_from_line()
+{
+   case "${_line}" in
+      \"*)
+         _field="`sed 's/^\"\([^"]*\)\",\(.*\)/\1/' <<< "${_line}" `"
+         _line="` sed 's/^\"\([^"]*\)\",\(.*\)/\2/' <<< "${_line}" `"
+      ;;
+
+      *)
+         _field="`sed 's/^\([^,]*\),\(.*\)/\1/' <<< "${_line}" `"
+         _line="` sed 's/^\([^,]*\),\(.*\)/\2/' <<< "${_line}" `"
+      ;;
+   esac
+}
+
+
+_watch_using_inotifywait()
+{
+   log_entry "_watch_using_inotifywait" "$@"
+
+   # see watch_using_fswatch comment
    local directory
    local filename
+   local contenttype
    local cmd
-   local owd
+   local _line
+   local _field
 
-   check_fswatch
-
-   owd="`pwd -P`"
-   IFS="," inotifywait -r -m -c "$@" |
-   while read directory cmd filename
+   #
+   # https://unix.stackexchange.com/questions/166546/bash-cannot-break-out-of-piped-while-read-loop-process-substitution-works
+   #
+   IFS="
+"
+   while read _line # directory cmd filename
    do
-      case "${directory}" in
-         ./*)
-            remainder="`echo "${directory}" | cut -c2-`"
-            directory="${owd}${remainder}"
-         ;;
-      esac
-      watch_directories "${directory}" "${filename}" "${cmd}"
-   done
+      IFS="${DEFAULT_IFS}"
+
+      log_debug "${_line}"
+
+      _extract_first_field_from_line
+      directory="${_field}"
+
+      contenttype="`directory_content_type "${directory}" `"
+      if [ -z "${contenttype}" ]
+      then
+         continue
+      fi
+
+      _extract_first_field_from_line
+      cmd="${_field}"
+      filename="`_remove_quotes "${_line}" `"
+
+      if ! action="`"${contenttype}_changed" "${directory}" "${filename}" "${cmd}" `"
+      then
+         continue
+      fi
+
+      local filepath
+
+      filepath="` filepath_concat "${directory}" "${filename}" `"
+      echo "${action}" "'${filepath}'"
+      return
+   done < <( inotifywait -q -r -m -c "$@" )  # bashism
+
+   IFS="${DEFAULT_IFS}"
 }
 
 
-watch_other()
+watch_using_inotifywait()
 {
-   log_entry "watch_other" "$@"
+   log_entry "watch_using_inotifywait" "$@"
 
-   watch_darwin "$@"
+   local cmd
+
+   while :
+   do
+      cmd="`_watch_using_inotifywait "$@" `"
+      log_debug "execute:" "${cmd}"
+      eval "${cmd}"
+   done
 }
 
 
@@ -635,48 +831,45 @@ prevent_superflous_monitor()
 }
 
 
-install_darwin()
+check_mulle_sde_tool()
 {
-   log_entry "install_darwin" "$@"
+   local variable="$1"
+   local filename="$2"
+   local scripttype="$3"
 
-   brew install fswatch
-}
+   local value
+   local filepath
 
+   #
+   # Scripts to run when files change
+   # Could make this configurable in the future, but for now just hardcode
+   # it
+   #
+   value="` eval "echo \\$${variable}" `"
+   if [ -z "${value}" ]
+   then
+      filepath="${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/${filename}"
+      if [ -x "${filepath}" ]
+      then
+         value="${filepath}"
+      else
+         log_warning "No executable ${scripttype} \"${filename}\" found."
+         return 1
+      fi
+   fi
 
-install_linux()
-{
-   log_entry "install_linux" "$@"
+   if [ -z "`command -v "${value}"`" ]
+   then
+      fail "\"${value}\" for \"${variable}\" is missing."
+   fi
 
-   sudo apt-get install inotify-tools
-}
-
-
-install_freebsd()
-{
-   log_entry "install_freebsd" "$@"
-
-   log_info "You have to install
-   https://emcrisostomo.github.io/fswatch/
-   https://www.mulle-kybernetik.com/software/git/mulle-bootstrap
-   (and possibly https://brew.sh)
-yourself on this platform"
-}
-
-
-install_other()
-{
-   log_entry "install_other" "$@"
-
-   install_freebsd
+   echo "${value}"
 }
 
 
 setup_script_environment()
 {
    log_entry "setup_script_environment" "$@"
-
-   MULLE_SDE_FILES_FILE="${MULLE_SDE_FILES_FILE:-CMakeSourcesAndHeaders.txt}"
-   MULLE_SDE_DEPENDENCIES_FILE="${MULLE_SDE_DEPENDENCIES_FILE:-_CMakeDependencies.txt}"
 
    if [ ! -d "${PROJECT_DIR}/.mulle-sde" ]
    then
@@ -685,52 +878,51 @@ You must run ${C_RESET}${C_BOLD}${MULLE_EXECUTABLE_NAME} init${C_ERROR} first"
    fi
 
    #
+   # mulle-craft and mulle-test can be substituted with something else if so
+   # desired (make make ?)
+   #
+   local filepath
+
+   if [ "${OPTION_CRAFT}" = "YES" ]
+   then
+      MULLE_SDE_CRAFT="${MULLE_SDE_CRAFT:-mulle-craft}"
+      filepath="`command -v "${MULLE_SDE_CRAFT}" `"
+      [ -z "${filepath}" ] && fail "Desired crafter \"${MULLE_SDE_CRAFT}\" not in PATH"
+      MULLE_SDE_CRAFT="${filepath}"
+   fi
+
+   if [ "${OPTION_TEST}" = "YES" ]
+   then
+      MULLE_SDE_TEST="${MULLE_SDE_TEST:-mulle-test}"
+      filepath="`command -v "${MULLE_SDE_TEST}" `"
+      [ -z "${filepath}" ] && fail "Desired tester \"${MULLE_SDE_TEST}\" not in PATH"
+      MULLE_SDE_TEST="${filepath}"
+   fi
+
+   #
    # Scripts to run when files change
    # Could make this configurable in the future, but for now just hardcode
    # it
    #
-   if [ -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
-   then
-      filename="${PROJECT_DIR}/.mulle-sde/bin/did-update-src"
-      if [ -x "${filename}" ]
-      then
-         MULLE_SDE_DID_UPDATE_SRC="${filename}"
-      fi
-   fi
+   MULLE_SDE_DID_UPDATE_SRC="`check_mulle_sde_tool MULLE_SDE_DID_UPDATE_SRC  \
+                                                   "did-update-src" \
+                                                   "source update"`" || exit 1
 
-   if [ -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
-   then
-      log_warning "No update script \"${filename}\" configured.
-Will not update \"${MULLE_SDE_FILES_FILE}\""
-   else
-      if [ -z "`command -v "${MULLE_SDE_DID_UPDATE_SRC}"`" ]
-      then
-         fail "\${MULLE_SDE_DID_UPDATE_SRC}\" not found."
-      fi
-   fi
+   MULLE_SDE_DID_UPDATE_SOURCETREE="`check_mulle_sde_tool MULLE_SDE_DID_UPDATE_SOURCETREE  \
+                                                          "did-update-sourcetree" \
+                                                          "sourcetree update" `" || exit 1
 
-   #
-   #
-   #
-   if [ -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
-   then
-      filename="${PROJECT_DIR}/.mulle-sde/bin/did-update-sourcetree"
-      if [ -x "${filename}" ]
-      then
-         MULLE_SDE_DID_UPDATE_SRC="${filename}"
-      fi
-   fi
+   MULLE_SDE_IS_HEADER_OR_SOURCE="`check_mulle_sde_tool MULLE_SDE_IS_HEADER_OR_SOURCE \
+                                                        "is-header-or-source" \
+                                                        "filetype recognizer" `" || exit 1
 
-   if [ -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
-   then
-      log_warning "No update script \"${filename}\" configured.
-Will not update \"${MULLE_SDE_DEPENDENCIES_FILE}\""
-   else
-      if [ -z "`command -v "${MULLE_SDE_DID_UPDATE_SOURCETREE}"`" ]
-      then
-         fail "\${MULLE_SDE_DID_UPDATE_SOURCETREE}\" not found."
-      fi
-   fi
+   MULLE_SDE_IS_TEST_FILE="`check_mulle_sde_tool MULLE_SDE_IS_TEST_FILE \
+                                                 "is-test-file" \
+                                                 "test-file recognizer" `" || exit 1
+
+   # export as benefit to these scripts, that may want to use our libraries
+   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+   export MULLE_SDE_LIBEXEC_DIR
 }
 
 
@@ -745,7 +937,12 @@ sde_monitor_main()
 
    local TEST_DELAY_S=30
    local RUN_TESTS=
-   local OPTION_UPDATE_ONLY="NO"
+   local OPTION_ONCE="NO"
+
+   local OPTION_TEST="NO"
+   local OPTION_CRAFT="YES"
+   local OPTION_INITIAL_UPDATE="YES"
+   local OPTION_INITIAL_CRAFT="YES"
 
    #
    # handle options
@@ -758,7 +955,25 @@ sde_monitor_main()
          ;;
 
          -1|--once)
-            OPTION_UPDATE_ONLY="YES"
+            OPTION_ONCE="YES"
+         ;;
+
+         --craft)
+            OPTION_CRAFT="YES"
+            OPTION_INITIAL_CRAFT="YES"
+         ;;
+
+         --no-craft)
+            OPTION_CRAFT="NO"
+            OPTION_INITIAL_CRAFT="NO"
+         ;;
+
+         -t|--test)
+            OPTION_TEST="YES"
+         ;;
+
+         --no-test)
+            OPTION_TEST="NO"
          ;;
 
          -d|--directory)
@@ -766,10 +981,6 @@ sde_monitor_main()
             shift
 
             PROJECT_DIR="$1"
-         ;;
-
-         -t|--test)
-            RUN_TESTS="YES"
          ;;
 
          --src-script)
@@ -792,27 +1003,6 @@ sde_monitor_main()
 
             TEST_DELAY_S="$1"
          ;;
-
-         --install)
-            shift
-            case "`uname`" in
-               Darwin)
-                  install_darwin
-               ;;
-
-               Linux)
-                  install_linux
-               ;;
-
-               FreeBSD)
-                  install_freebsd
-               ;;
-
-               *)
-               ;;
-            esac
-            exit $?
-            ;;
 
          -*)
             sde_monitor_usage
@@ -840,29 +1030,39 @@ sde_monitor_main()
    #
    setup_script_environment
 
-   if [ "${OPTION_UPDATE_ONLY}" = "YES" ]
-   then
-      if [ ! -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
-      then
-         exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" "${MULLE_SDE_DEPENDENCIES_FILE}" || return $?
-      fi
+   #
+   # kick off the process
+   #
+   local rval
 
-      if [ ! -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
-      then
-         exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "${MULLE_SDE_FILES_FILE}" || return $?
-      fi
-      return 0
+   rval=0
+   log_verbose "==> Kick off with a project update"
+
+   if [ "${OPTION_INITIAL_UPDATE}" = "YES" ]
+   then
+      log_fluff "Run an initial update of cmake files"
+      update "${PROJECT_DIR}" || return 1
    fi
 
-   prevent_superflous_monitor
+   if [ "${OPTION_INITIAL_CRAFT}" = "YES" ]
+   then
+      log_fluff "Run an initial craft step"
+      source_craft
+      rval=$?
+   fi
 
-   case "${UNAME}" in
-      Darwin)
-         check_fswatch
-      ;;
+   if [ "${OPTION_ONCE}" = "YES" ]
+   then
+      return $rval
+   fi
 
-      Linux)
-         check_fswatch
+   #
+   # Memo: Changes between update and  watch_using_fswatch
+   # will not be registered. Can't imagine this to ever become a problem.
+   #
+   case "${MULLE_UNAME}" in
+      linux)
+         check_inotifywait
       ;;
 
       *)
@@ -870,29 +1070,20 @@ sde_monitor_main()
       ;;
    esac
 
-   #
-   # kick off the process
-   #
-
-   log_verbose "==> Kick off with a project update"
-   source_file_created "${PROJECT_DIR}"
+   prevent_superflous_monitor
 
    log_verbose "==> Start monitoring"
    log_fluff "Edits to your src directory are now monitored."
 
    log_info "Press [CTRL]-[C] to quit"
 
-   case "${UNAME}" in
-      Darwin)
-         watch_darwin "${PROJECT_DIR}" "$@"
-         ;;
-
-      Linux)
-         watch_linux "${PROJECT_DIR}" "$@"
-         ;;
+   case "${MULLE_UNAME}" in
+      linux)
+         watch_using_inotifywait "${PROJECT_DIR}" "$@"
+      ;;
 
       *)
-         watch_other "${PROJECT_DIR}" "$@"
-         ;;
+         watch_using_fswatch "${PROJECT_DIR}" "$@"
+      ;;
    esac
 }

@@ -47,15 +47,15 @@ Usage:
    can be generated on a per platform and buildtool basis.
 
 Options:
-   -h               : show this usage
+   -h     : show this usage
 
 Commands:
-   add              : add a library
-   get              : retrieve library settings
-   list             : list libraries (default)
-   remove           : remove a library
-   set              : change library settings
-         (use <command> -h for more help about commands)
+   add    : add a library
+   get    : retrieve library settings
+   list   : list libraries (default)
+   remove : remove a library
+   set    : change library settings
+      (use <command> -h for more help about commands)
 EOF
    exit 1
 }
@@ -156,7 +156,7 @@ sde_libraries_add_main()
    while :
    do
       case "$1" in
-         -*)
+         -h|--help)
             sde_libraries_add_usage
          ;;
 
@@ -197,6 +197,10 @@ sde_libraries_set_main()
    while :
    do
       case "$1" in
+         -h|--help)
+            sde_libraries_set_usage
+         ;;
+
          -a|--append)
             OPTION_APPEND="YES"
          ;;
@@ -256,7 +260,7 @@ sde_libraries_get_main()
    while :
    do
       case "$1" in
-         -*)
+         -h|--help)
             sde_libraries_get_usage
          ;;
 
@@ -302,7 +306,7 @@ sde_libraries_list_main()
    while :
    do
       case "$1" in
-         -*)
+         -h|--help)
             sde_libraries_list_usage
          ;;
 
@@ -317,7 +321,7 @@ sde_libraries_list_main()
    log_fluff "Just pass through to mulle-sourcetree"
    export MULLE_EXECUTABLE_NAME
 
-   exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} list \
+   exekutor mulle-sourcetree -s ${MULLE_SOURCETREE_FLAGS} list \
       --format "ami={aliases,-------,aliases}" \
       --nodetypes "none" \
       --marks "${LIBRARY_MARKS}" \
@@ -333,7 +337,7 @@ sde_libraries_remove_main()
    while :
    do
       case "$1" in
-         -*)
+         -h|--help)
             sde_libraries_remove_usage
          ;;
 
