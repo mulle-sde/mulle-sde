@@ -1,7 +1,6 @@
 cmake_minimum_required( VERSION 3.0)
 
-# use C, because otherwise a CXX compiler is required
-project( mulle-sde C)
+project( mulle-sde NONE)
 
 execute_process( COMMAND ./mulle-sde version
                  WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
@@ -94,3 +93,9 @@ PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
             GROUP_EXECUTE GROUP_READ
             WORLD_EXECUTE WORLD_READ
 DESTINATION "libexec/mulle-sde/extensions/common/bin")
+
+######
+#
+# must be after CPACK_PACKAGE_VERSION
+include( CMakePackage.txt)
+include( CPack)
