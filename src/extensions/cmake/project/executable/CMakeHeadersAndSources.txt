@@ -1,0 +1,13 @@
+#
+# You can put source and resource file definitions here
+# Generally though, you'd prefer to let `mulle-sde update` generate a
+# _CMakeSources.txt and _CMakeHeaders.txt files for you
+#
+#
+# === MULLE-SDE START ===
+
+include( _CMakeHeaders.txt)
+include( _CMakeSources.txt)
+
+# === MULLE-SDE END ===
+#

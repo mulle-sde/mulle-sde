@@ -34,58 +34,67 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-emit_cmake_var()
+usage()
 {
-   log_entry "emit_cmake_var" "$@"
+   cat <<EOF >&2
+Usage:
+   did-update-src
 
-   local name="$1"; shift
-   local emitter="$1"; shift
-
-   local contents
-
-   # quote paths with spaces only
-   contents="`${emitter} "$@" | sed '/ /s/\(.*\)/"\1"/'`"
-   if [ -z "${contents}" ]
-   then
-      return
-   fi
-
-   cat <<EOF
-set( ${name}
-$contents
-)
-
+   Let mulle-sde update|monitor run this for you.
 EOF
+   exit 1
 }
 
 
-emit_header_info()
+_emit_info()
 {
-   log_entry "emit_header_info" "$@"
+   log_entry "_emit_info" "$@"
 
-   local headers
+   local varname="$1"
+   local sources="$2"
 
-   headers="`find_headers "$@"`"
+   local line
+   local prefix
 
-   emit_cmake_var "INCLUDE_DIRS" _emit_include_dirs_contents "${headers}"
-   emit_cmake_var "PUBLIC_HEADERS" _emit_header_contents "${headers}"
-   emit_cmake_var "PRIVATE_HEADERS" _emit_private_header_contents "${headers}"
+   prefix="${varname}="
+   IFS="
+"
+   for line in ${sources}
+   do
+      printf "%s" "${prefix}${line}"
+      prefix=" \\
+"
+   done
+   IFS="${DEFAULT_IFS}"
 }
 
 
 #
 # sources
 #
-emit_source_info()
+emit_header_info()
 {
-   log_entry "emit_source_info" "$@"
+   log_entry "emit_header_info" "$@"
+
 
    local sources
 
    sources="`find_sources "$@"`"
 
-   emit_cmake_var "SOURCES" emit_source_contents "${sources}"
-   emit_cmake_var "STANDALONE_SOURCES" emit_standalone_source_contents "${sources}"
+   _emit_info "HEADERS" "${sources}"
+}
+
+
+emit_source_info()
+{
+   log_entry "emit_source_info" "$@"
+
+
+   local sources
+
+   sources="`find_sources "$@"`"
+
+   _emit_info "SOURCES" "${sources}"
 }
 
 
@@ -146,7 +155,6 @@ main()
    done
 
    options_setup_trace "${MULLE_TRACE}"
-
 
    while [ $# -ne 0 ]
    do

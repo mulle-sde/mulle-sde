@@ -31,8 +31,6 @@
 #
 MULLE_SDE_UPDATESUPPORT_SH="included"
 
-
-
 #
 # use for results retrieved from get_libraries_list
 # or get_depedencies_list
@@ -87,6 +85,8 @@ emit_libraries()
 
 get_libraries_list()
 {
+  log_entry "get_libraries_list" "$@"
+
    if [ -z "${MULLE_SDE_LIBRARIES_SH}" ]
    then
       # shellcheck source=src/mulle-sde-libraries.sh
@@ -99,6 +99,8 @@ get_libraries_list()
 
 get_no_include_dependencies_list()
 {
+   log_entry "get_no_include_dependencies_list" "$@"
+
    if [ -z "${MULLE_SDE_DEPENDENCIES_SH}" ]
    then
       # shellcheck source=src/mulle-sde-dependencies.sh
@@ -115,6 +117,8 @@ get_no_include_dependencies_list()
 
 get_include_dependencies_list()
 {
+   log_entry "get_include_dependencies_list" "$@"
+
    if [ -z "${MULLE_SDE_DEPENDENCIES_SH}" ]
    then
       # shellcheck source=src/mulle-sde-dependencies.sh
@@ -128,6 +132,23 @@ get_include_dependencies_list()
                          --no-output-header
 }
 
+
+get_dependencies_list()
+{
+   log_entry "get_dependencies_list" "$@"
+
+   if [ -z "${MULLE_SDE_DEPENDENCIES_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-dependencies.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependencies.sh"
+   fi
+
+   sde_dependencies_main -s dependencies list \
+                         --format "am" \
+                         --marks link \
+                         --output-raw \
+                         --no-output-header
+}
 
 #
 #
@@ -293,6 +314,27 @@ emit_private_header_contents()
 }
 
 
+
+emit_source_contents()
+{
+   log_entry "_emit_source_contents" "$@"
+
+   local sources="$1"
+
+   egrep -v '\Standalone\.|_standalone\.' <<< "${sources}"
+}
+
+
+emit_standalone_source_contents()
+{
+   log_entry "emit_standalone_source_contents" "$@"
+
+   local sources="$1"
+
+   egrep '\Standalone\.|_standalone\.' <<< "${sources}"
+}
+
+
 #
 #
 #
@@ -343,3 +385,4 @@ source_directories()
 
    existing_source_dirs "${directorynames}"
 }
+

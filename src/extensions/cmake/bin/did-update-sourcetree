@@ -127,9 +127,9 @@ osexclude_to_cmake_if()
 }
 
 
-emit_legacy_dependency()
+emit_cmake_legacy_dependency()
 {
-   log_entry "emit_legacy_dependency" "$@"
+   log_entry "emit_cmake_legacy_dependency" "$@"
 
    local name="$1"
    local osexcludes="$2"
@@ -181,9 +181,9 @@ EOF
 }
 
 
-emit_include_dependency()
+emit_cmake_include_dependency()
 {
-   log_entry "emit_include_dependency" "$@"
+   log_entry "emit_cmake_include_dependency" "$@"
 
    local name="$1"
    local osexcludes="$2"
@@ -218,29 +218,29 @@ EOF
 # collect libraries and dependencies, with routines in
 # mulle-sde-updatesupport.sh for reuse with stuff other than cmake
 #
-emit_libraries_cmake()
+emit_cmake_libraries()
 {
-   log_entry "emit_libraries_cmake" "$@"
+   log_entry "emit_cmake_libraries" "$@"
 
    local libraries
 
    libraries="`get_libraries_list`"
-   emit_libraries "${dependencies}" emit_legacy_dependency
+   emit_libraries "${dependencies}" emit_cmake_legacy_dependency
 }
 
 
-emit_dependencies_cmake()
+emit_cmake_dependencies()
 {
-   log_entry "emit_dependencies_cmake" "$@"
+   log_entry "emit_cmake_dependencies" "$@"
 
    local dependencies
 
    # OBJC is in this
    dependencies="`get_include_dependencies_list`"
-   emit_dependencies "${dependencies}" emit_include_dependency
+   emit_dependencies "${dependencies}" emit_cmake_include_dependency
 
    dependencies="`get_no_include_dependencies_list`"
-   emit_dependencies "${dependencies}" emit_legacy_dependency "C_DEPENDENCY_LIBRARIES"
+   emit_dependencies "${dependencies}" emit_cmake_legacy_dependency "C_DEPENDENCY_LIBRARIES"
 }
 
 
@@ -296,8 +296,8 @@ main()
    local text_lib
    local text_dep
 
-   text_lib="`emit_libraries_cmake`"  || return 1
-   text_dep="`emit_dependencies_cmake`"  || return 1
+   text_lib="`emit_cmake_libraries`"  || return 1
+   text_dep="`emit_cmake_dependencies`"  || return 1
 
    if [ -z "${text_lib}" ]
    then

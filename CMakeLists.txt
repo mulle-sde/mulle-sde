@@ -22,6 +22,7 @@ src/mulle-sde-common.sh
 src/mulle-sde-dependencies.sh
 src/mulle-sde-extensions.sh
 src/mulle-sde-init.sh
+src/mulle-sde-initsupport.sh
 src/mulle-sde-libraries.sh
 src/mulle-sde-monitor.sh
 src/mulle-sde-subprojects.sh

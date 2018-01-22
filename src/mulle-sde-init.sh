@@ -40,24 +40,29 @@ sde_init_usage()
 Usage:
    ${MULLE_EXECUTABLE_NAME} init [options] <type>
 
+   Create a mulle-sde project, which can be either an executable or a
+   library. Check `mulle-sde extensions` for available options.
+   It is possible to prefix the vendor to buildtool, common, runtime.
+
+   e.g.  mulle-sde init -r c -b mulle:cmake exectuable
+
 Options:
-   -b <builder>   : specify buildtool to use (cmake)
-   -d <dir>       : directory to populate (working directory)
-   -n <name>      : project name
-   -r <runtime>   : specify runtime to use (c)
-   -v <vendor>    : extension vendor to use (mulle)
+   -b <buildtool>  : specify buildtool to use (cmake)
+   -c <common>     : specify common files to install (like README.md) (common)
+   -d <dir>        : directory to populate (working directory)
+   -p <name>       : project name
+   -r <runtime>    : specify runtime to use (c)
+   -v <vendor>     : extension vendor to use (mulle)
 
 Types:
    executable     : create an executable project
    library        : create a library project
-   empty          : do not create project files
 EOF
    exit 1
 }
 
 
-
-_copy_extension()
+_copy_extension_bin()
 {
    log_entry "_copy_extension" "$@"
 
@@ -70,7 +75,7 @@ _copy_extension()
 
       local directory
 
-      for directory in  "${extensiondir}"/*
+      for directory in "${extensiondir}"/bin "${extensiondir}"/libexec "${extensiondir}"/lib
       do
          if [ -d "${directory}" ]
          then
@@ -102,62 +107,51 @@ _append_to_motd()
 }
 
 
+run_extension_init()
+{
+   log_entry "run_extension_init" "$@"
+
+   local extensiondir="$1"; shift
+
+   if [ -x "${extensiondir}/init" ]
+   then
+      eval_exekutor "${extensiondir}/init" "$@" || exit 1
+   else
+      #
+      # default just copies stuff from share folder and expands
+      #
+      if [ -z "${MULLE_SDE_INITSUPPORT_SH}" ]
+      then
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-initsupport.sh" || exit 1
+      fi
+      _init_main --embedded --share-dir "${extensiondir}/project" "$@" || exit 1
+   fi
+}
+
+
 install_extension()
 {
    log_entry "install_extension" "$@"
 
-   local name="$1"; shift
-   local vendor="$1"; shift
    local exttype="$1"; shift
-
-   local extensiondir
-
-   extensiondir="`find_extension "${name}" "${exttype}" "${vendor}"`" || \
-      fail "Could not find buildtool extension \"${name}\" from vendor \"${vendor}\""
-
-   _copy_extension "${extensiondir}"
-   _append_to_motd "${extensiondir}"
-
-}
-
-
-install_buildtool_extension()
-{
-   log_entry "install_buildtool_extension" "$@"
-
-   local name="$1" ; shift
-   local vendor="$1" ; shift
-
-   install_extension "${name}" "${vendor}" "buildtool"
-}
-
-
-install_common_extension()
-{
-   log_entry "install_buildtool_extension" "$@"
-
-   local vendor="$1" ; shift
-
-   install_extension "common" "${vendor}" "common"
-}
-
-
-install_runtime_extension()
-{
-   log_entry "install_runtime_extension" "$@"
-
-   local name="$1"; shift
+   local extname="$1"; shift
    local vendor="$1"; shift
 
+   # user can turn off extensions by passing ""
+   if [ -z "${extname}" ]
+   then
+      return
+   fi
+
    local extensiondir
 
-   extensiondir="`find_extension "${name}" "runtime" "${vendor}"`" || \
-      fail "Could not find runtime extension \"${name}\" from vendor \"${vendor}\""
+   extensiondir="`find_extension "${extname}" "${vendor}"`" || \
+      fail "Could not find extension \"${extname}\" from vendor \"${vendor}\""
 
-   _copy_extension "${extensiondir}"
-   _append_to_motd "${extensiondir}"
+   _copy_extension_bin "${extensiondir}"
+   _append_to_motd     "${extensiondir}"
 
-   eval_exekutor "${extensiondir}/init" "$@" || exit 1
+   run_extension_init "${extensiondir}" "$@"
 }
 
 
@@ -192,6 +186,7 @@ sde_init_main()
    log_entry "sde_init_main" "$@"
 
    local OPTION_NAME
+   local OPTION_COMMON="common"
    local OPTION_RUNTIME="c"
    local OPTION_BUILDTOOL="cmake"
    local OPTION_VENDOR="mulle"
@@ -208,7 +203,7 @@ sde_init_main()
             sde_init_usage
          ;;
 
-         -n|--name)
+         -p|--project-name)
             [ $# -eq 1 ] && sde_init_usage
             shift
 
@@ -220,6 +215,21 @@ sde_init_main()
             shift
 
             OPTION_BUILDTOOL="`tr 'A-Z' 'a-z' <<< "$1" `"
+         ;;
+
+         -c|--common)
+            [ $# -eq 1 ] && sde_init_usage
+            shift
+
+            OPTION_COMMON="`tr 'A-Z' 'a-z' <<< "$1" `"
+         ;;
+
+         -d|--directory)
+            [ $# -eq 1 ] && sde_init_usage
+            shift
+
+            exekutor mkdir -p "$1" 2> /dev/null
+            exekutor cd "$1" || fail "can't change to \"$1\""
          ;;
 
          -r|--runtime)
@@ -236,19 +246,11 @@ sde_init_main()
             OPTION_VENDOR="$1"
          ;;
 
-         -d|--directory)
-            [ $# -eq 1 ] && sde_init_usage
-            shift
-
-            mkdir -p "$1" 2> /dev/null
-            cd "$1" || fail "can't change to \"$1\""
-         ;;
-
          --no-env)
             OPTION_INIT_ENV="NO"
          ;;
 
-         --env-style)
+         --style|--env-style)
             [ $# -eq 1 ] && sde_init_usage
             shift
 
@@ -281,19 +283,6 @@ sde_init_main()
 
    projecttype="$1"
 
-   local arguments
-
-   arguments=""
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
-   then
-      arguments="-f"
-   fi
-   if [ ! -z "${OPTION_NAME}" ]
-   then
-      arguments="`concat "${arguments}" "-n '${OPTION_NAME}'" `"
-   fi
-   arguments="`concat "${arguments}" "'${projecttype}'" `"
-
    mkdir_if_missing ".mulle-sde" || exit 1
 
    if [ "${OPTION_INIT_ENV}" = "YES" ]
@@ -302,16 +291,60 @@ sde_init_main()
       exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
    fi
 
+   local common_vendor
+   local runtime_vendor
+   local buildtool_vendor
+   local common_name
+   local runtime_name
+   local buildtool_name
+
+   common_name="` cut -s -d':' -f2 <<< "${OPTION_COMMON}" `"
+
+   if [ ! -z "${OPTION_COMMON}" ]
+   then
+      if [ -z "${common_name}" ]
+      then
+         common_vendor="${OPTION_VENDOR}"
+         common_name="${OPTION_COMMON}"
+      else
+         common_vendor="`cut -s -d':' -f1 <<< "${OPTION_COMMON}" `"
+      fi
+   fi
+
+   if [ ! -z "${OPTION_RUNTIME}" ]
+   then
+      runtime_name="` cut -s -d':' -f2 <<< "${OPTION_RUNTIME}" `"
+      if [ -z "${runtime_vendor}" ]
+      then
+         runtime_vendor="${OPTION_VENDOR}"
+         runtime_name="${OPTION_RUNTIME}"
+      else
+         runtime_vendor="`cut -s -d':' -f1 <<< "${OPTION_RUNTIME}" `"
+      fi
+   fi
+
+   if [ ! -z "${OPTION_BUILDTOOL}" ]
+   then
+      buildtool_name="` cut -s -d':' -f2 <<< "${OPTION_BUILDTOOL}" `"
+      if [ -z "${buildtool_vendor}" ]
+      then
+         buildtool_vendor="${OPTION_VENDOR}"
+         buildtool_name="${OPTION_BUILDTOOL}"
+      else
+         buildtool_vendor="`cut -s -d':' -f1 <<< "${OPTION_BUILDTOOL}" `"
+      fi
+   fi
+
    local _MOTD
 
    _MOTD=""
 
-   install_common_extension  "${OPTION_VENDOR}" &&
-   install_runtime_extension "${OPTION_RUNTIME}" \
-                             "${OPTION_VENDOR}" \
-                             "${arguments}" &&
-   install_buildtool_extension "${OPTION_BUILDTOOL}" \
-                               "${OPTION_VENDOR}"
+   install_extension "common" "${common_name}" "${common_vendor}" \
+                     -p "${OPTION_NAME}" "${projecttype}" &&
+   install_extension "runtime" "${runtime_name}" "${runtime_vendor}" \
+                     -p "${OPTION_NAME}" "${projecttype}" &&
+   install_extension "buildtool" "${buildtool_name}" "${buildtool_vendor}" \
+                     -p "${OPTION_NAME}" "${projecttype}"
 
    if [ ! -z "${_MOTD}" ]
    then

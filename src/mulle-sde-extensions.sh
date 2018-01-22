@@ -124,7 +124,11 @@ extension_get_search_path()
       s="`colon_concat "$s" "/usr/${extensionsdir}" `"
    fi
 
-   s="`colon_concat "$s" "${MULLE_SDE_LIBEXEC_DIR}/extensions" `"
+   case "${vendor}" in
+      ""|"mulle"|"mulle-sde")
+         s="`colon_concat "$s" "${MULLE_SDE_LIBEXEC_DIR}/extensions" `"
+      ;;
+   esac
 
    log_fluff "extension search path: \"$s\""
 
@@ -132,61 +136,48 @@ extension_get_search_path()
 }
 
 
-extension_get_search_filename()
-{
-   log_entry "extension_get_search_filename" "$@"
-
-   local extensiontype="$1"
-
-   case "${extensiontype}" in
-      buildtool)
-         echo "bin/did-update-src"
-      ;;
-
-      runtime)
-         echo "init"
-      ;;
-
-      common)
-         echo "bin/create-build-motd"
-      ;;
-
-      *)
-         fail "unknown extension type \"$extensiontype\""
-      ;;
-   esac
-}
-
-
 collect_extension_dirs()
 {
    log_entry "collect_extension_dirs" "$@"
 
-   local extensiontype="$1"
-   local vendor="$2"
-
-   local filename
-
-   filename="`extension_get_search_filename "${extensiontype}" `" || exit 1
+   local vendor="$1"
+   local extensiontype="$2"
 
    local directory
    local searchpath
+   local extensiondir
+   local foundtype
 
    searchpath="`extension_get_search_path "${vendor}" `"
 
    IFS=":"
    for directory in ${searchpath}
    do
-      IFS="${DEFAULT_IFS}"
       if [ -z "${directory}" ] || ! [ -d "${directory}" ]
       then
          continue
       fi
 
-      (
-         shopt -s nullglob
-         echo "${directory}"/*/"${filename}"
-      )
+      IFS="
+"
+      for extensiondir in `find "${directory}" -mindepth 1 -maxdepth 1 -type d -print`
+      do
+         IFS="${DEFAULT_IFS}"
+         if [ ! -z "${extensiontype}" ]
+         then
+            foundtype="`cat "${extensiondir}/type" 2> /dev/null `"
+            log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
+
+            if [ "${foundtype}" != "${extensiontype}" ]
+            then
+               log_debug "But we are looking for \"${extensiontype}\""
+               continue
+            fi
+         fi
+         rexekutor echo "${extensiondir}"
+      done
+      IFS="${DEFAULT_IFS}"
+
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -197,17 +188,13 @@ find_extension()
    log_entry "find_extension" "$@"
 
    local name="$1"
-   local extensiontype="$2"
-   local vendor="$3"
-
-   local filename
-   local extensionexe
-
-   filename="`extension_get_search_filename "${extensiontype}" `" || exit 1
+   local vendor="$2"
 
    local searchpath
 
    searchpath="`extension_get_search_path "${vendor}" `"
+
+   local directory
 
    IFS=":"
    for directory in ${searchpath}
@@ -218,23 +205,12 @@ find_extension()
          continue
       fi
 
-      extensionexe="${directory}/${name}/${filename}"
-
-      if [ ! -f "${extensionexe}" ]
+      if [ -d "${directory}/${name}" ]
       then
-         continue
+         log_fluff "Found extension \"${directory}/${name}\""
+         echo "${directory}/${name}"
+         return 0
       fi
-
-      if [ ! -x "${extensionexe}" ]
-      then
-         log_warning "${extensionexe} must be executbale"
-         continue
-      fi
-
-      log_fluff "Found extension \"${directory}/${name}\""
-
-      echo "${directory}/${name}"
-      return 0
    done
 
    IFS="${DEFAULT_IFS}"
@@ -246,7 +222,8 @@ extensionnames_from_extension_dirs()
 {
    log_entry "extensionnames_from_extension_dirs" "$@"
 
-   local extensiondirs="$1"
+   local vendor="$1"
+   local extensiondirs="$2"
 
    local directory
 
@@ -254,7 +231,7 @@ extensionnames_from_extension_dirs()
 "
    for directory in ${extensiondirs}
    do
-      basename -- "`dirname "${directory}"`"
+      echo "${vendor}:`basename -- "${directory}"`"
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -264,19 +241,19 @@ collect_extensions()
 {
    log_entry "collect_extensions" "$@"
 
-   local extensiontype="$1"
-   local vendor="$2"
+   local vendor="$1"
+   local extensiontype="$2"
 
    local result
 
-   result="`collect_extension_dirs "${extensiontype}" "${vendor}"`"
-   result="`extensionnames_from_extension_dirs "${result}" | sort -u`"
+   result="`collect_extension_dirs "${vendor}" "${extensiontype}"`"
+   result="`extensionnames_from_extension_dirs "${vendor}" "${result}" | sort -u`"
 
    if [ -z "${result}" ]
    then
-      log_warning "No extensions found"
+      log_warning "No ${extensiontype} extensions found"
    else
-      log_info "Available ${C_MAGENTA}${C_BOLD}${extensiontype}${C_INFO} extensions:"
+      log_info "Available ${extensiontype} extensions:"
       echo "${result}"
    fi
 }
@@ -323,10 +300,8 @@ sde_extensions_main()
 
    [ "$#" -gt 1 ] && sde_extensions_usage
 
-   local extensiontype
-
-   extensiontype="${1:-runtime}"
-
-   collect_extensions "${extensiontype}" "${OPTION_VENDOR}"
+   collect_extensions "${OPTION_VENDOR}" common
+   collect_extensions "${OPTION_VENDOR}" runtime
+   collect_extensions "${OPTION_VENDOR}" buildtool
 }
 
