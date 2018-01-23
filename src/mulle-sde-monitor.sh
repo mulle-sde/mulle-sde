@@ -277,7 +277,7 @@ source_craft()
       then
          return 1
       fi
-      redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/did_craft" echo "# empty"
+      redirect_exekutor "${PROJECT_DIR}/.mulle-sde/run/did_craft" echo "# empty"
    fi
 
    if [ "${OPTION_TEST}" = "YES" ]
@@ -308,7 +308,7 @@ sourcetree_config_modified()
    (
       cd "${PROJECT_DIR}" &&
       exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ${MULLE_SDE_DID_UPDATE_SOURCETREE_FLAGS} "$@" &&
-      redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/.did-update-sourcetree" echo "# empty"
+      redirect_exekutor "${PROJECT_DIR}/.mulle-sde/run/did-update-sourcetree" echo "# empty"
    )
 }
 
@@ -332,7 +332,7 @@ source_file_created()
    (
       cd "${PROJECT_DIR}" &&
       exekutor "${MULLE_SDE_DID_UPDATE_SRC}" ${MULLE_SDE_DID_UPDATE_SRC_FLAGS} "$@" &&
-      redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/.did-update-src" echo "# empty"
+      redirect_exekutor "${PROJECT_DIR}/.mulle-sde/run/did-update-src" echo "# empty"
    )
 
    source_craft
@@ -1020,8 +1020,10 @@ sde_monitor_main()
    PROJECT_DIR="${PROJECT_DIR:-`pwd -P`}"
    TESTS_DIR="${PROJECT_DIR}/tests"
 
-   MONITOR_PIDFILE="${PROJECT_DIR}/.mulle-sde/.monitor-pid"
-   TEST_JOB_PIDFILE="${PROJECT_DIR}/.mulle-sde/.test-pid"
+   mkdir_if_missing "${PROJECT_DIR}/.mulle-sde/run"
+
+   MONITOR_PIDFILE="${PROJECT_DIR}/.mulle-sde/run/monitor-pid"
+   TEST_JOB_PIDFILE="${PROJECT_DIR}/.mulle-sde/run/monitor-test-pid"
 
 
    #

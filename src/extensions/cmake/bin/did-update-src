@@ -73,12 +73,16 @@ emit_header_info()
    local executable
    local exedir
 
-   exedir="`dirname -- "$0" `"
-   executable="${exedir}/classify-headers"
-   if [ ! -x "${executable}" ]
+   executable="${MULLE_SDE_CLASSIFY_HEADERS}"
+   if [ -z "${executable}" ]
    then
-      # developer support
-      executable="${exedir}/../../c/bin/classify-headers"
+      exedir="`dirname -- "$0" `"
+      executable="${exedir}/classify-headers"
+      if [ ! -x "${executable}" ]
+      then
+         # developer support
+         executable="${exedir}/../../c/bin/classify-headers"
+      fi
    fi
    if [ -x "${executable}" ]
    then
@@ -104,14 +108,17 @@ emit_source_info()
    local executable
    local exedir
 
-   exedir="`dirname -- "$0" `"
-   executable="${exedir}/classify-sources"
-   if [ ! -x "${executable}" ]
+   executable="${MULLE_SDE_CLASSIFY_HEADERS}"
+   if [ -z "${executable}" ]
    then
-      # developer support
-      executable="${exedir}/../../c/bin/classify-sources"
+      exedir="`dirname -- "$0" `"
+      executable="${exedir}/classify-sources"
+      if [ ! -x "${executable}" ]
+      then
+         # developer support
+         executable="${exedir}/../../c/bin/classify-sources"
+      fi
    fi
-
    if [ -x "${executable}" ]
    then
       emit_classified_files "${executable}" "${sources}" emit_cmake_var

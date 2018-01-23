@@ -4,10 +4,10 @@ digraph G {
     node[shape=record];
 
     { rank = same;  "project" };
-    { rank = same;  "src", ".mulle-sourcetree", ".mulle-sde", "_CMakeHeaders.txt", "_CMakeSources.txt", "_CMakeLibraries.txt", "_CMakeDependencies.txt"};
-    { rank = same;  "bin" };
+    { rank = same;  "src", ".mulle-sde" ".mulle-sourcetree", "_CMakeHeaders.txt", "_CMakeSources.txt", "_CMakeLibraries.txt", "_CMakeDependencies.txt"};
+    { rank = same;  "bin", "config"}
+    { rank = same;  "is-header-or-source", "classify-headers", "classify-sources" };
     { rank = same;  "did-update-src", "did-update-sourcetree" };
-    { rank = same;  "is-header-or-source" };
     { rank = last;  "mulle-sde update" };
 
     "_CMakeHeaders.txt"      [ shape="note", penwidth="2" ]
@@ -18,6 +18,8 @@ digraph G {
     "did-update-src"         [ shape="box", color="magenta", fontcolor="magenta" ]
     "did-update-sourcetree"  [ shape="box", color="magenta", fontcolor="magenta" ]
     "is-header-or-source"    [ shape="box", color="magenta", fontcolor="magenta" ]
+    "classify-headers"       [ shape="box", color="magenta", fontcolor="magenta" ]
+    "classify-sources"       [ shape="box", color="magenta", fontcolor="magenta" ]
 
     "project"           [ shape="folder", color="gray", fontcolor="gray" ]
     "project" -> "src"  [ arrowhead="none" ]
@@ -34,24 +36,33 @@ digraph G {
     "bin"               [ shape="folder", color="gray", fontcolor="gray"]
     "config"            [ shape="note" ]
 
+    "mulle-sde update" [ shape="none", fontname="monospace", fontcolor="blue"]
+    "is-header-or-source"   -> "did-update-src"   [ style="invis" ]
+    "did-update-src"        -> "mulle-sde update"   [ style="invis" ]
+    "did-update-sourcetree" -> "mulle-sde update"   [ style="invis" ]
+
+
     ".mulle-sde" -> "bin"               [ arrowhead="none" ]
     "bin"  -> "did-update-src"          [ arrowhead="none" ]
     "bin"  -> "did-update-sourcetree"   [ arrowhead="none" ]
     "bin"  -> "is-header-or-source"     [ arrowhead="none" ]
+    "bin"  -> "classify-headers"        [ arrowhead="none" ]
+    "bin"  -> "classify-sources"        [ arrowhead="none" ]
     ".mulle-sourcetree" -> "config"     [ arrowhead="none" ]
 
-    "mulle-sde update" [ shape="none", fontname="monospace", fontcolor="blue"]
 
     "mulle-sde update"  -> "did-update-src"        [ style="dotted", label="run" ]
-    "mulle-sde update"  -> "did-update-sourcetree" [ style="dotted", label="run" ]
+    "mulle-sde update"  -> "did-update-sourcetree" [ style="dotted", label="run"]
 
     "did-update-src" -> "_CMakeHeaders.txt"   [ style="dotted", label="write" ]
     "did-update-src" -> "is-header-or-source" [ style="dotted", label="run" ]
     "did-update-src" -> "_CMakeSources.txt"   [ style="dotted", label="write" ]
+    "did-update-src" -> "classify-headers"    [ style="dotted", label="run" ]
+    "did-update-src" -> "classify-sources"    [ style="dotted", label="run" ]
 
     "did-update-sourcetree" -> "_CMakeDependencies.txt" [ style="dotted", label="write" ]
     "did-update-sourcetree" -> "_CMakeLibraries.txt"    [ style="dotted", label="write" ]
 
-    "mulle-sde update" -> "src"       [ style="dotted", label="read" ]
-    "mulle-sde update" -> "config"    [ style="dotted", label="read" ]
+    "did-update-src"        -> "src"       [ style="dotted", label="read" ]
+    "did-update-sourcetree" -> "config"    [ style="dotted", label="read" ]
 }

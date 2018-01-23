@@ -1,3 +1,7 @@
+### 0.7.2
+
+* redid the extensions, so it is now much easier to create one
+
 ## 0.7.0
 
 * rewrite monitor to be more functional even if cmake is not used

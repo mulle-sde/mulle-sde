@@ -1,16 +1,18 @@
-🏋🏼 Cross-platform IDE for the C language family
+🏋🏼 Cross-platform IDE for the command-line
 
 ... for Linux, OS X, FreeBSD, Windows
 
-**mulle-sde** is a commandline based software development environment. The idea is to organize your project with the filesystem, and then let **mulle-sde** reflect the changed filesystem back to the "Makefile".
+**mulle-sde** is a command-line based software development environment. The idea is to organize your project with the filesystem, and then let **mulle-sde** reflect the changed filesystem back to the "Makefile".
 
 * creates projects
 * can build your project via **mulle-craft** or some other buildtool
 * tests your project via **mulle-test** or some other testtool
 * adds and removes dependencies via **mulle-sourcetree** 
 * monitors filesystem changes and updates your project files
+* can be extended to other languages and buildtools
 
 ![](dox/mulle-sde-overview.png)
+
 
 
 Executable      | Description
@@ -18,14 +20,15 @@ Executable      | Description
 `mulle-sde`     | Create projects, add and remove dependencies, monitor filesystem and rebuild and test on demand
 
 
+> **mulle-sde** strives to be buildtool and language agnostic. But out of the box, it supports only C 
+> and cmake as no other extensions are available yet.
+
 
 ## Create a **mulle-sde** "hello world" project
 
-A **mulle-sde** project is a (currently) a **cmake** project. Since the
-various tools are configured with environment variables, it creates  a virtual environment using **mulle-env**, so that various projects
-can coexist.
+As the various tools that comprise **mulle-sde** are configured with environment variables, `mulle-sde init` will create  a virtual environment using **mulle-env**, so that various projects can coexist.
 
-Create a tool cmake project for C:
+This is an example, that creates a cmake project for C (this is the default):
 
 ```
 $ mulle-sde init -d hello executable
@@ -61,47 +64,48 @@ Leave the environment:
 $ exit
 ```
 
-## mulle-sde dependencies
+## Commands
+
+### mulle-sde dependencies
 
 ![](dox/mulle-sde-dependencies.png)
 
-## mulle-sde extensions
+**Dependencies** are typically GitHub projects, that provide a library (like zlib).
+These will be downloaded, unpacked and built into `dependencies`:
 
-Extensions are the build systems supported by mulle-sde.
+```
+mulle-sde dependencies add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
+```
 
-## mulle-sde libraries
+
+### mulle-sde extensions
+
+**Extensions** are the build systems supported by mulle-sde. The built-in support is:
+
+Extensiontype  | Vendor | Name   | Description
+---------------|--------|--------|--------------------------
+common         | mulle  | common | Provides the executables `create-build-motd`, `is-test-file`, `source-directory-names`, `test-directory-names`. It also provides a default README.md file.
+runtime        | mulle  | c      | Provides the executables `classify-headers`, `classify-sources`, `is-header-or-source` for C projects. And it also provides a bunch of template files for initial C projects.
+buildtool      | mulle  | cmake  | Provides the executables `did-update-sourcetree`, `did-update-src` for cmake projects. And it also provides a bunch of template files for cmake projects.
+
+Additional extensions may be placed into the `dependencies`. If your extension vendor is called "myorg", then extensions will be looked for in `dependencies/share/libexec/myorg/mulle-sde/extensions`.
+
+Use `mulle-sde extensions list` to check if your extensions are picked up.
+
+
+### mulle-sde libraries
 
 ![](dox/mulle-sde-libraries.png)
 
 Libraries are OS provide libraries (like libm.a) that you don't want to build yourself as a dependency.
 
-## mulle-sde tools
+```
+mulle-sde libraries add m
+```
 
-![](dox/mulle-sde-tools.png)
+### mulle-sde monitor
 
-Tools are the commandline tools available in the virtual environment provided by [mulle-env](/mulle-sde/mulle-env).
-You can add or remove tools with this command set.
-
-## mulle-sde update
-
-Reflect changes in the filesystem back into the 'Makefiles'. In the case of `cmake` this will create four files `_CMakeHeaders.txt`, `_CMakeSources.txt`, `_CMakeDependencies.txt`, `_CMakeLibraries.txt`. 
-
-![](dox/mulle-sde-update.png)
-
-
-Environment                        | Default                  | Description
------------------------------------|--------------------------|--------------------
-`MULLE_SDE_DID_UPDATE_SRC`         | `did-update-src`         | Invoked, when a change to sourcefiles has been detected. 
-`MULLE_SDE_DID_UPDATE_SOURCETREE`  | `did-update-sourcetree`  | Invoked, when a change to a `./mulle-sourcetree/config` has been detected.
-`MULLE_SDE_IS_HEADER_OR_SOURCE`    | `is-header-or-source"`   | Determines by filename if a file is a source file
-`MULLE_SDE_IS_TEST_FILE`           | `is-test-file`           | Determines by filename if a file is a test file
-
-
-## mulle-sde monitor
-
-
-The monitor waits on changes to the filesystem and then calls update to rebuild and retest your project. 
-
+Conceptually, **monitor** waits on changes to the filesystem and then calls **update** (see below) to rebuild and retest your project. 
 
 ![](dox/mulle-sde-monitor.png)
 
@@ -110,3 +114,51 @@ Environment       | Default        | Description
 ------------------|----------------|--------------------
 `MULLE_SDE_CRAFT` | `mulle-craft`  | Build tool to invoke
 `MULLE_SDE_TEST`  | `mulle-test`   | Test tool to invoke
+
+> You can use a different built tool, than `mulle-craft`, but you'll be losing out on a lot of functionality.
+
+### mulle-sde tools
+
+![](dox/mulle-sde-tools.png)
+
+**Tools** are the commandline tools available in the virtual environment provided by [mulle-env](/mulle-sde/mulle-env).
+You can add or remove tools with this command set.
+
+```
+mulle-sde tools add nroff
+```
+
+### mulle-sde update
+
+An **update** reflects your changes made in the filesystem back into 'Makefiles'. 
+
+In the case of `cmake` the script `did-update-src` will create the files `_CMakeHeaders.txt` and `_CMakeSources.txt`. They will be created by examining the contents of the folder `src` and its subfolders. `did-update-sourcetree` will create `_CMakeDependencies.txt` and `_CMakeLibraries.txt` from the contents of the [mulle-sourcetree](/mulle-sde/mulle-sourcetree).
+
+![](dox/mulle-sde-update.png)
+
+The way **update** is creating the output can be customized. You can substitute the `did-update-...` scripts with your own. Or you can tweak the output quite a bit, by changes to the inferior scripts like `classify-sources`.
+
+Environment                        | Default                  | Description
+-----------------------------------|--------------------------|--------------------
+`MULLE_SDE_DID_UPDATE_SRC`         | `did-update-src`         | Invoked, when a change to sourcefiles has been detected. 
+`MULLE_SDE_DID_UPDATE_SOURCETREE`  | `did-update-sourcetree`  | Invoked, when a change to a `./mulle-sourcetree/config` has been detected.
+`MULLE_SDE_IS_HEADER_OR_SOURCE`    | `is-header-or-source"`   | Determines by filename if a file is a source file
+`MULLE_SDE_IS_TEST_FILE`           | `is-test-file`           | Determines by filename if a file is a test file
+`MULLE_SDE_CLASSIFY_HEADERS`       | `classify-headers`       | Classify headers as public, private 
+`MULLE_SDE_CLASSIFY_SOURCES`       | `classify-sources`       | Classify sources as normal or standalone
+
+>
+> It is probably easiest, to copy the installed script and edit it. Then set the environment variable to use 
+> your edited script instead of the default.
+> 
+> You could also just edit the installed script directly. It is after all a private copy to the project.
+> But there is a slight chance of losing your changes, if someone reinitializes your project 
+> (to use a different buildtool maybe)
+>
+
+## Tips And Tricks
+
+#### How to use meson instead of cmake
+
+**mulle-craft** already understands meson. But there is no extension in **mulle-sde** yet, to create a **meson** Makefile. The complication is, that meson doesn't understand "include". So the meson file has to be a concatenation of various parts into one single file. Solution: write an extension do do that.
+

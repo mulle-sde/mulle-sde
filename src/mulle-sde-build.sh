@@ -36,19 +36,33 @@ sde_build_main()
 {
    log_entry "sde_build_main" "$@"
 
+   local cmd="$1"
+
+   local auxflags
    local touchfile
 
-   touchfile="${MULLE_SDE_DIR}/.did-update-src"
-   if [ -z "${MULLE_SDE_NO_UPDATE}" ] && [ ! -f "${touchfile}" ]
-   then
-      log_verbose "Run update once, as it apparently hasn't run yet"
-         # shellcheck source=src/mulle-sde-monitor.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh" || exit 1
+   case "${cmd}" in
+      all|build|onlydependencies|nodependencies|project|sourcetree)
+         auxflags="--motd"
 
-      sde_monitor_main --once --no-craft || return 1
+         touchfile="${MULLE_SDE_DIR}/run/did-update-src"
+         if [ -z "${MULLE_SDE_NO_UPDATE}" ] && [ ! -f "${touchfile}" ]
+         then
+            log_verbose "Run update once, as it apparently hasn't run yet"
 
-      [ ! -f "${touchfile}" ] && internal_fail "\"${touchfile}\" is missing"
-   fi
+            # shellcheck source=src/mulle-sde-monitor.sh
+            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh" || exit 1
 
-   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} --motd "$@"
+            sde_monitor_main --once --no-craft || return 1
+
+            [ ! -f "${touchfile}" ] && internal_fail "\"${touchfile}\" is missing"
+         fi
+      ;;
+
+      clean)
+         rmdir_safer "${MULLE_SDE_DIR}/run"
+      ;;
+   esac
+
+   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "$@"
 }

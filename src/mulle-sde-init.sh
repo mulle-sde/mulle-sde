@@ -57,6 +57,7 @@ Options:
 Types:
    executable     : create an executable project
    library        : create a library project
+   empty          : don't create a project (just an environment)
 EOF
    exit 1
 }
@@ -205,6 +206,84 @@ install_motd()
 }
 
 
+install_project()
+{
+   log_entry "install_project" "$@"
+
+   local projecttype="$1"
+
+   local common_vendor
+   local runtime_vendor
+   local buildtool_vendor
+   local common_name
+   local runtime_name
+   local buildtool_name
+
+   common_name="` cut -s -d':' -f2 <<< "${OPTION_COMMON}" `"
+
+   if [ ! -z "${OPTION_COMMON}" ]
+   then
+      if [ -z "${common_name}" ]
+      then
+         common_vendor="${OPTION_VENDOR}"
+         common_name="${OPTION_COMMON}"
+      else
+         common_vendor="`cut -s -d':' -f1 <<< "${OPTION_COMMON}" `"
+      fi
+   fi
+
+   if [ ! -z "${OPTION_RUNTIME}" ]
+   then
+      runtime_name="` cut -s -d':' -f2 <<< "${OPTION_RUNTIME}" `"
+      if [ -z "${runtime_vendor}" ]
+      then
+         runtime_vendor="${OPTION_VENDOR}"
+         runtime_name="${OPTION_RUNTIME}"
+      else
+         runtime_vendor="`cut -s -d':' -f1 <<< "${OPTION_RUNTIME}" `"
+      fi
+   fi
+
+   if [ ! -z "${OPTION_BUILDTOOL}" ]
+   then
+      buildtool_name="` cut -s -d':' -f2 <<< "${OPTION_BUILDTOOL}" `"
+      if [ -z "${buildtool_vendor}" ]
+      then
+         buildtool_vendor="${OPTION_VENDOR}"
+         buildtool_name="${OPTION_BUILDTOOL}"
+      else
+         buildtool_vendor="`cut -s -d':' -f1 <<< "${OPTION_BUILDTOOL}" `"
+      fi
+   fi
+
+   local _MOTD
+
+   _MOTD=""
+
+   install_extension "common" "${common_name}" "${common_vendor}" \
+                     -p "${OPTION_NAME}" "${projecttype}" &&
+   install_extension "runtime" "${runtime_name}" "${runtime_vendor}" \
+                     -p "${OPTION_NAME}" "${projecttype}" &&
+   install_extension "buildtool" "${buildtool_name}" "${buildtool_vendor}" \
+                     -p "${OPTION_NAME}" "${projecttype}"
+
+   if [ ! -z "${_MOTD}" ]
+   then
+      _MOTD="
+"
+   fi
+
+   local motd
+
+   motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
+   mulle-sde build${C_RESET}" `"
+
+   _MOTD="${_MOTD}${motd}"
+
+   install_motd "${_MOTD}"
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -304,13 +383,11 @@ sde_init_main()
    #
    # make nicer in the future for now just hax
    #
-   local projecttype
-
    [ "$#" -ne 1 ] && log_error "missing or extraneous type" && sde_init_usage
 
-   projecttype="$1"
+   local projecttype
 
-   mkdir_if_missing ".mulle-sde" || exit 1
+   projecttype="$1"
 
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
@@ -318,73 +395,20 @@ sde_init_main()
       exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
    fi
 
-   local common_vendor
-   local runtime_vendor
-   local buildtool_vendor
-   local common_name
-   local runtime_name
-   local buildtool_name
+   mkdir_if_missing ".mulle-sde" || exit 1
 
-   common_name="` cut -s -d':' -f2 <<< "${OPTION_COMMON}" `"
+   case "${projecttype}" in
+      empty)
+         return
+      ;;
 
-   if [ ! -z "${OPTION_COMMON}" ]
-   then
-      if [ -z "${common_name}" ]
-      then
-         common_vendor="${OPTION_VENDOR}"
-         common_name="${OPTION_COMMON}"
-      else
-         common_vendor="`cut -s -d':' -f1 <<< "${OPTION_COMMON}" `"
-      fi
-   fi
+      library|executable)
+         install_project "${projecttype}"
+      ;;
 
-   if [ ! -z "${OPTION_RUNTIME}" ]
-   then
-      runtime_name="` cut -s -d':' -f2 <<< "${OPTION_RUNTIME}" `"
-      if [ -z "${runtime_vendor}" ]
-      then
-         runtime_vendor="${OPTION_VENDOR}"
-         runtime_name="${OPTION_RUNTIME}"
-      else
-         runtime_vendor="`cut -s -d':' -f1 <<< "${OPTION_RUNTIME}" `"
-      fi
-   fi
-
-   if [ ! -z "${OPTION_BUILDTOOL}" ]
-   then
-      buildtool_name="` cut -s -d':' -f2 <<< "${OPTION_BUILDTOOL}" `"
-      if [ -z "${buildtool_vendor}" ]
-      then
-         buildtool_vendor="${OPTION_VENDOR}"
-         buildtool_name="${OPTION_BUILDTOOL}"
-      else
-         buildtool_vendor="`cut -s -d':' -f1 <<< "${OPTION_BUILDTOOL}" `"
-      fi
-   fi
-
-   local _MOTD
-
-   _MOTD=""
-
-   install_extension "common" "${common_name}" "${common_vendor}" \
-                     -p "${OPTION_NAME}" "${projecttype}" &&
-   install_extension "runtime" "${runtime_name}" "${runtime_vendor}" \
-                     -p "${OPTION_NAME}" "${projecttype}" &&
-   install_extension "buildtool" "${buildtool_name}" "${buildtool_vendor}" \
-                     -p "${OPTION_NAME}" "${projecttype}"
-
-   if [ ! -z "${_MOTD}" ]
-   then
-      _MOTD="
-"
-   fi
-
-   local motd
-
-   motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
-   mulle-sde build${C_RESET}" `"
-
-   _MOTD="${_MOTD}${motd}"
-
-   install_motd "${_MOTD}"
+      *)
+         log_error "Unknown projecttype \"${projecttype}\""
+         sde_init_usage
+      ;;
+   esac
 }

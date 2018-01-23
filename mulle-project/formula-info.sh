@@ -3,7 +3,7 @@
 # formula operations.
 #
 PROJECT="mulle-sde"      # your project/repository name
-DESC="🏋🏼 Cross-platform development for C languages"
+DESC="🏋🏼 Cross-platform IDE for the command-line"
 LANGUAGE="bash"             # c,cpp, objc, bash ...
 
 # LANGUAGE="c"             # c,cpp, objc, bash ...
