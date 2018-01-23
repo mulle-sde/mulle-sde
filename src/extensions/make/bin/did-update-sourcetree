@@ -129,6 +129,9 @@ main()
 
    options_setup_trace "${MULLE_TRACE}"
 
+   # don't want to see me in other usages
+   unexport MULLE_EXECUTABLE_NAME
+
    local text_lib
    local text_dep
 

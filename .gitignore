@@ -4,3 +4,5 @@ tmp.*
 build/
 build-*.d/
 mulle-project/publisher-info.sh
+_CMakeHeaders.txt
+_CMakeSources.txt

@@ -209,7 +209,7 @@ sde_dependencies_main()
          log_fluff "Just pass through to mulle-sourcetree"
          export MULLE_EXECUTABLE_NAME
 
-         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} add "$@"
+         exekutor mulle-sourcetree -s ${MULLE_SOURCETREE_FLAGS} add "$@"
       ;;
 
       get)
@@ -223,7 +223,7 @@ sde_dependencies_main()
          log_fluff "Just pass through to mulle-sourcetree"
          export MULLE_EXECUTABLE_NAME
 
-         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} remove "$@"
+         exekutor mulle-sourcetree -s ${MULLE_SOURCETREE_FLAGS} remove "$@"
       ;;
 
       set)
@@ -250,6 +250,7 @@ sde_dependencies_main()
       ;;
 
       *)
+         log_error "Unknown command \"${cmd}\""
          sde_dependencies_usage
       ;;
    esac

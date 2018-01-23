@@ -1,0 +1,58 @@
+#! /usr/bin/env bash
+
+#
+# get a list of files, classify them as
+#
+# variablename;filename
+#
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+
+
+classify_headerfile()
+{
+   log_entry "classify_headerfile" "$@"
+
+   local headerfile="$1"
+
+   if egrep -q '\+Private\..$|_private\..$' <<< "${headerfile}"
+   then
+      echo "PRIVATE_HEADERS;${headerfile}"
+   else
+      echo "PUBLIC_HEADERS;${headerfile}"
+   fi
+}
+
+
+classify_headerfiles()
+{
+   log_entry "classify_headerfiles" "$@"
+
+   local headerfile
+
+   for headerfile in "$@"
+   do
+      classify_headerfile "${headerfile}"
+   done
+}
+
+
+main()
+{
+   log_entry "main" "$@"
+
+   classify_headerfiles "$@" | sort
+}
+
+
+_init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env "libexec-dir" 2> /dev/null`"
+   [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ] && \
+      echo "mulle-bashfunctions-env not installed" >&2 && \
+      exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" || exit 1
+}
+
+_init "$@"
+main "$@"

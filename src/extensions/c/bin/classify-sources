@@ -1,0 +1,58 @@
+#! /usr/bin/env bash
+
+#
+# get a list of files, classify them as
+#
+# variablename;filename
+#
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+
+
+classify_sourcefile()
+{
+   log_entry "classify_sourcefile" "$@"
+
+   local sourcefile="$1"
+
+   if egrep -q '\Standalone\..$|_standalone\..$' <<< "${sourcefile}"
+   then
+      echo "STANDALONE_SOURCES;${sourcefile}"
+   else
+      echo "SOURCES;${sourcefile}"
+   fi
+}
+
+
+classify_sourcefiles()
+{
+   log_entry "classify_sourcefiles" "$@"
+
+   local sourcefile
+
+   for sourcefile in "$@"
+   do
+      classify_sourcefile "${sourcefile}"
+   done
+}
+
+
+main()
+{
+   log_entry "main" "$@"
+
+   classify_sourcefiles "$@" | sort
+}
+
+
+_init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env "libexec-dir" 2> /dev/null`"
+   [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ] && \
+      echo "mulle-bashfunctions-env not installed" >&2 && \
+      exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" || exit 1
+}
+
+_init "$@"
+main "$@"

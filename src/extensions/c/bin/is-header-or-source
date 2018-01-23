@@ -20,12 +20,12 @@ case "$1" in
 
    -lh|--list-header-extensions)
       echo "h inc"
-      return 0
+      exit 0
    ;;
 
    -ls|--list-source-extensions)
       echo "c"
-      return 0
+      exit 0
    ;;
 
    *)
@@ -40,14 +40,13 @@ esac
 case "$1" in
    *\.h|*\.inc)
       echo "${HEADER_YES}"
-      return 0
+      exit 0
    ;;
 
    *\.c)
       echo "${SOURCE_YES}"
-      return 0
+      exit 0
    ;;
 esac
 
 echo "NO"
-return 0

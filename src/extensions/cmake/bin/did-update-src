@@ -38,21 +38,19 @@ emit_cmake_var()
 {
    log_entry "emit_cmake_var" "$@"
 
-   local name="$1"; shift
-   local emitter="$1"; shift
+   local name="$1"
+   local contents="$2"
 
-   local contents
-
-   # quote paths with spaces only
-   contents="`${emitter} "$@" | sed '/ /s/\(.*\)/"\1"/'`"
    if [ -z "${contents}" ]
    then
       return
    fi
 
+   contents="`echo "${contents}" | sed '/ /s/\(.*\)/"\1"/'`"
+
    cat <<EOF
 set( ${name}
-$contents
+${contents}
 )
 
 EOF
@@ -67,9 +65,28 @@ emit_header_info()
 
    headers="`find_headers "$@"`"
 
-   emit_cmake_var "INCLUDE_DIRS" _emit_include_dirs_contents "${headers}"
-   emit_cmake_var "PUBLIC_HEADERS" _emit_header_contents "${headers}"
-   emit_cmake_var "PRIVATE_HEADERS" _emit_private_header_contents "${headers}"
+   local directories
+
+   directories="`emit_include_dirs_contents "${headers}" `"
+   emit_cmake_var "INCLUDE_DIRS" "${directories}"
+
+   local executable
+   local exedir
+
+   exedir="`dirname -- "$0" `"
+   executable="${exedir}/classify-headers"
+   if [ ! -x "${executable}" ]
+   then
+      # developer support
+      executable="${exedir}/../../c/bin/classify-headers"
+   fi
+   if [ -x "${executable}" ]
+   then
+      emit_classified_files "${executable}" "${headers}" emit_cmake_var
+   else
+      log_fluff "Header classifier \"${executable}\" not found, using default emitter"
+      emit_cmake_var "HEADERS" "${headers}"
+   fi
 }
 
 
@@ -84,8 +101,24 @@ emit_source_info()
 
    sources="`find_sources "$@"`"
 
-   emit_cmake_var "SOURCES" emit_source_contents "${sources}"
-   emit_cmake_var "STANDALONE_SOURCES" emit_standalone_source_contents "${sources}"
+   local executable
+   local exedir
+
+   exedir="`dirname -- "$0" `"
+   executable="${exedir}/classify-sources"
+   if [ ! -x "${executable}" ]
+   then
+      # developer support
+      executable="${exedir}/../../c/bin/classify-sources"
+   fi
+
+   if [ -x "${executable}" ]
+   then
+      emit_classified_files "${executable}" "${sources}" emit_cmake_var
+   else
+      log_fluff "Source classifier \"${executable}\" not found, using default emitter"
+      emit_cmake_var "SOURCES" "${sources}"
+   fi
 }
 
 

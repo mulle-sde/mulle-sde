@@ -107,7 +107,7 @@ get_no_include_dependencies_list()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependencies.sh"
    fi
 
-   sde_dependencies_main -s dependencies list \
+   sde_dependencies_main list \
                          --format "am" \
                          --marks no-include,link \
                          --output-raw \
@@ -125,7 +125,7 @@ get_include_dependencies_list()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependencies.sh"
    fi
 
-   sde_dependencies_main -s dependencies list \
+   sde_dependencies_main list \
                          --format "am" \
                          --marks include,link \
                          --output-raw \
@@ -143,7 +143,7 @@ get_dependencies_list()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependencies.sh"
    fi
 
-   sde_dependencies_main -s dependencies list \
+   sde_dependencies_main list \
                          --format "am" \
                          --marks link \
                          --output-raw \
@@ -212,20 +212,24 @@ _find_extensions_qualifier()
 }
 
 
-
 find_headers()
 {
    log_entry "find_headers" "$@"
-
-   local qualifier
-   local directories
 
    local exedir
    local executable
 
    exedir="`dirname -- "$0" `"
    executable="${exedir}/is-header-or-source"
+   if [ ! -x "${executable}" ]
+   then
+      # developer support
+      executable="${exedir}/../../c/bin/is-header-or-source"
+   fi
    extensions="`${executable} -lh`" || internal_fail "\"${executable}\" is missing"
+
+   local qualifier
+   local directories
 
    directories="`_find_directories_list "$@" `"
    qualifier="`_find_extensions_qualifier ${extensions}`"
@@ -236,21 +240,24 @@ find_headers()
 }
 
 
-
 find_sources()
 {
    log_entry "find_sources" "$@"
-
-   local qualifier
-   local directories
-
 
    local exedir
    local executable
 
    exedir="`dirname -- "$0" `"
    executable="${exedir}/is-header-or-source"
+   if [ ! -x "${executable}" ]
+   then
+      # developer support
+      executable="${exedir}/../../c/bin/is-header-or-source"
+   fi
    extensions="`${executable} -ls`" || internal_fail "\"${executable}\" is missing"
+
+   local qualifier
+   local directories
 
    directories="`_find_directories_list "$@" `"
    qualifier="`_find_extensions_qualifier ${extensions}`"
@@ -294,47 +301,6 @@ emit_include_dirs_contents()
 }
 
 
-emit_header_contents()
-{
-   log_entry "emit_header_contents" "$@"
-
-   local headers="$1"
-
-   egrep -v '\+Private\.h|_private\.h' <<< "${headers}"
-}
-
-
-emit_private_header_contents()
-{
-   log_entry "emit_private_header_contents" "$@"
-
-   local headers="$1"
-
-   egrep '\+Private\.h|_private\.h' <<< "${headers}"
-}
-
-
-
-emit_source_contents()
-{
-   log_entry "_emit_source_contents" "$@"
-
-   local sources="$1"
-
-   egrep -v '\Standalone\.|_standalone\.' <<< "${sources}"
-}
-
-
-emit_standalone_source_contents()
-{
-   log_entry "emit_standalone_source_contents" "$@"
-
-   local sources="$1"
-
-   egrep '\Standalone\.|_standalone\.' <<< "${sources}"
-}
-
-
 #
 #
 #
@@ -370,7 +336,16 @@ source_directories()
    local executable
    if [ -z "${directorynames}" ]
    then
-      executable="${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/source-directory-names"
+      local exedir
+
+      exedir="`dirname -- "$0"`"
+      executable="${exedir}/source-directory-names"
+      if [ ! -x "${executable}" ]
+      then
+         # developer support
+         executable="${exedir}/../../common/bin/source-directory-names"
+      fi
+
       if [ -x "${executable}" ]
       then
          directorynames="`${executable}`" || internal_fail "\"${executable}\" failed"
@@ -384,5 +359,60 @@ source_directories()
    fi
 
    existing_source_dirs "${directorynames}"
+}
+
+
+emit_classified_files()
+{
+   log_entry "emit_classified_files" "$@"
+
+   local classifier="$1"
+   local files="$2"
+   local emitter="$3"
+
+   if [ -z "${files}" ]
+   then
+      return
+   fi
+
+   local filename
+
+   local cmd
+   local filename
+
+   cmd="'${classifier}'"
+   IFS="
+"
+   for filename in ${files}
+   do
+      cmd="${cmd} '${filename}'"
+   done
+   IFS="${DEFAULT_IFS}"
+
+   local varname
+   local collectname
+   local collection
+
+   while IFS=";" read varname filename
+   do
+      if [ -z "${varname}" ]
+      then
+         continue
+      fi
+
+      if [ "${varname}" != "${collectname}" ]
+      then
+         "${emitter}" "${collectname}" "${collection}"
+         collectname="${varname}"
+         collection="${filename}"
+      else
+         collection="`add_line "${collection}" "${filename}"`"
+      fi
+   done < <( eval "${cmd}")
+
+   if [ ! -z "${collection}" ]
+   then
+      "${emitter}" "${collectname}" "${collection}"
+   fi
 }
 

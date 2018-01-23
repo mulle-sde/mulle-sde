@@ -307,7 +307,7 @@ sourcetree_config_modified()
 
    (
       cd "${PROJECT_DIR}" &&
-      exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" "$@" &&
+      exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ${MULLE_SDE_DID_UPDATE_SOURCETREE_FLAGS} "$@" &&
       redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/.did-update-sourcetree" echo "# empty"
    )
 }
@@ -331,7 +331,7 @@ source_file_created()
 
    (
       cd "${PROJECT_DIR}" &&
-      exekutor "${MULLE_SDE_DID_UPDATE_SRC}" "$@" &&
+      exekutor "${MULLE_SDE_DID_UPDATE_SRC}" ${MULLE_SDE_DID_UPDATE_SRC_FLAGS} "$@" &&
       redirect_exekutor "${MULLE_VIRTUAL_ROOT}/.mulle-sde/.did-update-src" echo "# empty"
    )
 

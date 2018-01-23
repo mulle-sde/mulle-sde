@@ -129,6 +129,23 @@ run_extension_init()
 }
 
 
+install_dependency_extension()
+{
+   log_entry "install_dependency_extension" "$@"
+
+   local exttype="$1" ; shift
+   local dependency="$2"; shift
+
+   local extname
+   local vendor
+
+   vendor="`cut -s -d':' -f1 <<< "${dependency}" `"
+   extname="` cut -s -d':' -f2 <<< "${dependency}" `"
+
+   install_extension "${exttype}" "${extname}" "${vendor}"
+}
+
+
 install_extension()
 {
    log_entry "install_extension" "$@"
@@ -147,6 +164,16 @@ install_extension()
 
    extensiondir="`find_extension "${extname}" "${vendor}"`" || \
       fail "Could not find extension \"${extname}\" from vendor \"${vendor}\""
+
+   local dependency
+
+   dependency="`cat "${extensiondir}/dependency" 2> /dev/null`"
+   if [ ! -z "${dependency}" ]
+   then
+      install_dependency_extension "${exttype}" "${dependency}"
+   fi
+
+   log_fluff "Install ${exttype} extension \"${vendor}:${extname}\""
 
    _copy_extension_bin "${extensiondir}"
    _append_to_motd     "${extensiondir}"
