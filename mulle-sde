@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.7.2
+MULLE_EXECUTABLE_VERSION=0.7.3
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -48,20 +48,21 @@ trap_fail()
 
 
 SHOWN_COMMANDS="\
-   build         : build the project using mulle-craft
-   dependencies  : manage third party components (like a Github project)
-   extensions    : show available language and buildtool extensions
-   init          : create a new project
-   libraries     : manage OS libraries (like pthread)
-   monitor       : monitor project files, run updates and build
-   subprojects   : manage local subprojects
-   update        : run only updates, once"
+   craft          : build the project using mulle-craft
+   dependencies   : manage third party components (like a Github project)
+   extensions     : show available language and buildtool extensions
+   init           : create a new project
+   libraries      : manage OS libraries (like pthread)
+   monitor        : monitor project files, run updates and build
+   subprojects    : manage local subprojects
+   update         : run only updates, once"
 
 
 HIDDEN_COMMANDS="\
-   libexec-dir   : print path to mulle-sde libexec
-   remove        : remove a a dependency, library
-   uname         : mulle-sdes simplified uname(1)"
+   init-and-enter : create a new project then immediately start a subshell
+   libexec-dir    : print path to mulle-sde libexec
+   test           : run tests using mulle-test
+   uname          : mulle-sdes simplified uname(1)"
 
 
 print_commands()
@@ -81,7 +82,7 @@ print_flags()
 {
    local delimiter
 
-   delimiter="         : "
+   delimiter="          : "
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
@@ -343,13 +344,13 @@ main()
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       case "${cmd}" in
-         all|build|clean|onlydependencies|nodependencies|project|sourcetree)
+         all|build|clean|craft|onlydependencies|nodependencies|project|sourcetree)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
-         dependencies|extensions|libraries|monitor|subprojects|minions|tools|update)
+         dependencies|libraries|monitor|subprojects|minions|tools|update)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
-         esac
+      esac
    fi
 
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
@@ -360,7 +361,7 @@ main()
       #
       # forward stuff to mulle-craft verbatim
       #
-      all|build|clean|onlydependencies|nodependencies|project|sourcetree)
+      all|build|clean|craft|onlydependencies|nodependencies|project|sourcetree)
          # shellcheck source=src/mulle-sde-build.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-build.sh"
 
@@ -392,6 +393,14 @@ main()
          sde_init_main "$@"
       ;;
 
+      init-and-enter)
+         # shellcheck source=src/mulle-sde-init.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+
+         sde_init_main "$@" &&
+            export MULLE_EXECUTABLE_NAME &&
+            mulle-env ${MULLE_ENV_FLAGS}
+      ;;
 
       libraries)
          # shellcheck source=src/mulle-sde-libraries.sh

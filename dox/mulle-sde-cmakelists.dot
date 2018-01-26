@@ -1,24 +1,30 @@
 digraph G {
     graph [rankdir = TD];
 
-    node[shape=note];
+    node[ shape=folder];
 
-    "CMakeLists.txt"
+    { rank = same;  "CMakeLists.txt" };
 
-    "CMakeHeadersAndSources.txt"
-    "CMakeDependenciesAndLibraries.txt"
+    "project"                           [ color="#7f8c8d", fontcolor="#7f8c8d" ]
 
-    "_CMakeHeaders.txt"
-    "_CMakeSources.txt"
-    "_CMakeDependencies.txt"
-    "_CMakeLibraries.txt"
+    "project" -> "CMakeLists.txt"       [ arrowhead="none", color="#7f8c8d" ]
 
-    "CMakeLists.txt" -> "CMakeHeadersAndSources.txt"         [ style="dotted", label="include" ]
-    "CMakeLists.txt" -> "CMakeDependenciesAndLibraries.txt"  [ style="dotted", label="include" ]
+    "CMakeLists.txt"                    [ shape="note", color="#16a085", fontcolor="#16a085" ]
 
-    "CMakeHeadersAndSources.txt" -> "_CMakeHeaders.txt"       [ style="dotted", label="include" ]
-    "CMakeHeadersAndSources.txt" -> "_CMakeSources.txt"       [ style="dotted", label="include" ]
+    "CMakeHeadersAndSources.txt"        [ shape="note", color="#16a085", fontcolor="#16a085" ]
+    "CMakeDependenciesAndLibraries.txt" [ shape="note", color="#16a085", fontcolor="#16a085" ]
 
-    "CMakeDependenciesAndLibraries.txt" -> "_CMakeDependencies.txt"  [ style="dotted", label="include" ]
-    "CMakeDependenciesAndLibraries.txt" -> "_CMakeLibraries.txt"     [ style="dotted", label="include" ]
+    "_CMakeHeaders.txt"                 [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_CMakeSources.txt"                 [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_CMakeDependencies.txt"            [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_CMakeLibraries.txt"               [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+
+    "CMakeLists.txt" -> "CMakeHeadersAndSources.txt"         [ style="dotted", label="include (2)" ]
+    "CMakeLists.txt" -> "CMakeDependenciesAndLibraries.txt"  [ style="dotted", label="include (5)" ]
+
+    "CMakeHeadersAndSources.txt" -> "_CMakeHeaders.txt"       [ style="dotted", label="include (3)" ]
+    "CMakeHeadersAndSources.txt" -> "_CMakeSources.txt"       [ style="dotted", label="include (4)" ]
+
+    "CMakeDependenciesAndLibraries.txt" -> "_CMakeDependencies.txt"  [ style="dotted", label="include (6)" ]
+    "CMakeDependenciesAndLibraries.txt" -> "_CMakeLibraries.txt"     [ style="dotted", label="include (7)" ]
 }

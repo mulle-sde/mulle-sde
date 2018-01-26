@@ -1,8 +1,10 @@
 .DS_Store
-*.bak
+._.DS_Store
 tmp.*
 build/
 build-*.d/
+.mulle-env/
+.mulle-sde/
 mulle-project/publisher-info.sh
 _CMakeHeaders.txt
 _CMakeSources.txt

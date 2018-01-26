@@ -36,10 +36,16 @@ sde_build_main()
 {
    log_entry "sde_build_main" "$@"
 
-   local cmd="$1"
+   local cmd="$1"; shift
 
    local auxflags
    local touchfile
+
+   # drop alias
+   if [ "${cmd}" = "craft" ]
+   then
+      cmd="all"
+   fi
 
    case "${cmd}" in
       all|build|onlydependencies|nodependencies|project|sourcetree)
@@ -64,5 +70,6 @@ sde_build_main()
       ;;
    esac
 
-   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "$@"
+
+   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
 }

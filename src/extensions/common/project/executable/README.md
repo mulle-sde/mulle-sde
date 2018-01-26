@@ -9,9 +9,9 @@ once you enter it with:
 mulle-sde
 ```
 
-Now you can let mulle-sde fetch the required dependencies and build the project
+Now you can let **mulle-sde** fetch the required dependencies and build the project
 for you:
 
 ```
-mulle-sde build
+mulle-sde craft
 ```

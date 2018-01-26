@@ -37,12 +37,20 @@ set( COMMON_EXTENSION_BIN
 "src/extensions/common/bin/test-directory-names"
 )
 
-set( C_EXTENSION_SCRIPTS
-src/extensions/c/init
+set( EXTENSIONS
+src/extensions
 )
 
 set( C_EXTENSION_BIN
 src/extensions/c/bin/is-header-or-source
+src/extensions/c/bin/classify-headers
+src/extensions/c/bin/classify-sources
+)
+
+set( C_EXTENSION_PROJECT
+src/extensions/c/bin/is-header-or-source
+src/extensions/c/bin/classify-headers
+src/extensions/c/bin/classify-sources
 )
 
 set( CMAKE_EXTENSION_BIN
@@ -65,35 +73,9 @@ PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 DESTINATION "libexec/mulle-sde")
 
 
-INSTALL( FILES ${C_EXTENSION_SCRIPTS}
-PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-            GROUP_EXECUTE GROUP_READ
-            WORLD_EXECUTE WORLD_READ
-DESTINATION "libexec/mulle-sde/extensions/c")
+INSTALL( DIRECTORY ${EXTENSIONS}
+DESTINATION "share/mulle-sde")
 
-INSTALL( FILES ${C_EXTENSION_BIN}
-PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-            GROUP_EXECUTE GROUP_READ
-            WORLD_EXECUTE WORLD_READ
-DESTINATION "libexec/mulle-sde/extensions/c/bin")
-
-INSTALL( FILES ${C_EXTENSION_SHARE}
-PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-            GROUP_EXECUTE GROUP_READ
-            WORLD_EXECUTE WORLD_READ
-DESTINATION "libexec/mulle-sde/extensions/c/share")
-
-INSTALL( FILES ${CMAKE_EXTENSION_BIN}
-PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-            GROUP_EXECUTE GROUP_READ
-            WORLD_EXECUTE WORLD_READ
-DESTINATION "libexec/mulle-sde/extensions/cmake/bin")
-
-INSTALL( FILES ${COMMON_EXTENSION_BIN}
-PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-            GROUP_EXECUTE GROUP_READ
-            WORLD_EXECUTE WORLD_READ
-DESTINATION "libexec/mulle-sde/extensions/common/bin")
 
 ######
 #

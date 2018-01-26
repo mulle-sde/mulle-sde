@@ -16,14 +16,3 @@ include( _CMakeLibraries.txt)
 #
 #
 
-set( LIBRARIES
-${C_DEPENDENCY_LIBRARIES}
-${OS_SPECIFIC_LIBRARIES}
-)
-
-if( <|PROJECT_LANGUAGE|> != "C" )
-   set( LIBRARIES
-${<|PROJECT_LANGUAGE|>_DEPENDENCY_LIBRARIES}
-${LIBRARIES}
-)
-endif()

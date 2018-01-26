@@ -47,12 +47,12 @@ Usage:
    e.g.  mulle-sde init -r c -b mulle:cmake exectuable
 
 Options:
-   -b <buildtool>  : specify buildtool to use (cmake)
-   -c <common>     : specify common files to install (like README.md) (common)
-   -d <dir>        : directory to populate (working directory)
-   -p <name>       : project name
-   -r <runtime>    : specify runtime to use (c)
-   -v <vendor>     : extension vendor to use (mulle)
+   -b <buildtool> : specify buildtool to use (cmake)
+   -c <common>    : specify common files to install (like README.md) (common)
+   -d <dir>       : directory to populate (working directory)
+   -p <name>      : project name
+   -r <runtime>   : specify runtime to use (c)
+   -v <vendor>    : extension vendor to use (mulle)
 
 Types:
    executable     : create an executable project
@@ -63,9 +63,9 @@ EOF
 }
 
 
-_copy_extension_bin()
+_copy_extension_dirs()
 {
-   log_entry "_copy_extension" "$@"
+   log_entry "_copy_extension_dirs" "$@"
 
    local extensiondir="$1"
 
@@ -74,15 +74,24 @@ _copy_extension_bin()
    (
       shopt -s nullglob
 
+      local flags
       local directory
 
-      for directory in "${extensiondir}"/bin "${extensiondir}"/libexec "${extensiondir}"/lib
+      if [ "${MULLE_FLAG_LOG_FLUFF}" = "YES" ]
+      then
+         flags=-v
+      fi
+
+      for directory in "${extensiondir}/bin" \
+                       "${extensiondir}/libexec" \
+                       "${extensiondir}/lib" \
+                       "${extensiondir}/share"
       do
          if [ -d "${directory}" ]
          then
             log_fluff "Installing from \"${directory}\""
 
-            exekutor cp -Ra "${directory}" ".mulle-sde/"
+            exekutor cp -Ra ${flags} "${directory}" ".mulle-sde/"
          fi
       done
    )
@@ -99,7 +108,7 @@ _append_to_motd()
 
    if [ -f "${extensiondir}/motd" ]
    then
-      text="`cat "${extensiondir}/motd" `"
+      text="`egrep -v '^#' "${extensiondir}/motd" `"
       if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
       then
          _MOTD="`add_line "${_MOTD}" "${text}" `"
@@ -108,24 +117,42 @@ _append_to_motd()
 }
 
 
-run_extension_init()
+_copy_extension_project_files()
 {
-   log_entry "run_extension_init" "$@"
+   log_entry "_copy_extension_project_files" "$@"
 
    local extensiondir="$1"; shift
+   local projecttype="$1"; shift
+
+   local projectdir
+
+   projectdir="${extensiondir}/project/${projecttype}"
+   #
+   # copy and expand stuff from project folder
+   #
+   if [ -d "${projectdir}" ]
+   then
+      if [ -z "${MULLE_SDE_INITSUPPORT_SH}" ]
+      then
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
+      fi
+      _template_main --embedded --template-dir "${projectdir}" || exit 1
+   else
+      log_fluff "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
+   fi
+}
+
+
+_run_extension_init()
+{
+   log_entry "_run_extension_init" "$@"
+
+   local extensiondir="$1"; shift
+   local projecttype="$1" ; shift
 
    if [ -x "${extensiondir}/init" ]
    then
-      eval_exekutor "${extensiondir}/init" "$@" || exit 1
-   else
-      #
-      # default just copies stuff from share folder and expands
-      #
-      if [ -z "${MULLE_SDE_INITSUPPORT_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-initsupport.sh" || exit 1
-      fi
-      _init_main --embedded --share-dir "${extensiondir}/project" "$@" || exit 1
+      eval_exekutor "${extensiondir}/init" "${projecttype}" "$@" || exit 1
    fi
 }
 
@@ -151,6 +178,7 @@ install_extension()
 {
    log_entry "install_extension" "$@"
 
+   local projecttype="$1"; shift
    local exttype="$1"; shift
    local extname="$1"; shift
    local vendor="$1"; shift
@@ -163,12 +191,26 @@ install_extension()
 
    local extensiondir
 
-   extensiondir="`find_extension "${extname}" "${vendor}"`" || \
-      fail "Could not find extension \"${extname}\" from vendor \"${vendor}\""
+   if ! extensiondir="`find_extension "${extname}" "${vendor}"`"
+   then
+      log_error "Could not find extension \"${extname}\" from vendor \"${vendor}\""
+      return 1
+   fi
+
+   case "${exttype}" in
+      buildtool)
+         # need at least an empty directory there to "show support"
+         if [ ! -d "${extensiondir}/project/${projecttype}" ]
+         then
+            log_error "Extension \"${vendor}:${extname}\" does not support projecttype \"${projecttype}\""
+            return 1
+         fi
+      ;;
+   esac
 
    local dependency
 
-   dependency="`cat "${extensiondir}/dependency" 2> /dev/null`"
+   dependency="`egrep -v '^#' "${extensiondir}/dependency" 2> /dev/null`"
    if [ ! -z "${dependency}" ]
    then
       install_dependency_extension "${exttype}" "${dependency}"
@@ -176,10 +218,10 @@ install_extension()
 
    log_fluff "Install ${exttype} extension \"${vendor}:${extname}\""
 
-   _copy_extension_bin "${extensiondir}"
-   _append_to_motd     "${extensiondir}"
-
-   run_extension_init "${extensiondir}" "$@"
+   _copy_extension_dirs "${extensiondir}"
+   _copy_extension_project_files "${extensiondir}" "${projecttype}"
+   _run_extension_init "${extensiondir}" "${projecttype}" "$@"
+   _append_to_motd "${extensiondir}"
 }
 
 
@@ -203,6 +245,19 @@ install_motd()
 
    mkdir_if_missing ".mulle-env"
    redirect_exekutor ".mulle-env/motd" echo "${text}"
+}
+
+
+fix_permissions()
+{
+   log_entry "fix_permissions" "$@"
+
+   (
+      shopt -s nullglob
+
+      chmod +x .mulle-sde/bin/* 2> /dev/null
+      chmod +x .mulle-sde/libexec/* 2> /dev/null
+   )
 }
 
 
@@ -260,12 +315,48 @@ install_project()
 
    _MOTD=""
 
-   install_extension "common" "${common_name}" "${common_vendor}" \
-                     -p "${OPTION_NAME}" "${projecttype}" &&
-   install_extension "runtime" "${runtime_name}" "${runtime_vendor}" \
-                     -p "${OPTION_NAME}" "${projecttype}" &&
-   install_extension "buildtool" "${buildtool_name}" "${buildtool_vendor}" \
-                     -p "${OPTION_NAME}" "${projecttype}"
+   #
+   # buildtool is the most likely to fail, due to a mistyped
+   # projectdir, if that happens, we have done the least pollution yet
+   #
+   (
+      install_extension "${projecttype}" "buildtool" "${buildtool_name}" "${buildtool_vendor}" \
+                        -p "${OPTION_NAME}" &&
+      install_extension "${projecttype}" "runtime" "${runtime_name}" "${runtime_vendor}" \
+                        -p "${OPTION_NAME}" &&
+      install_extension "${projecttype}" "common" "${common_name}" "${common_vendor}" \
+                        -p "${OPTION_NAME}"
+   ) || return 1
+
+   #
+   # optionally install "extra" extensions
+   # f.e. a "git" extension could auto-init the project and create
+   # a .gitignore file
+   #
+   # Extra extensions must be fully qualified.
+   #
+   local extra
+   local extra_vendor
+   local extra_name
+
+   IFS="
+"
+   for extra in ${OPTION_EXTRAS}
+   do
+      IFS="${DEFAULT_IFS}"
+      if [ ! -z "${extra}" ]
+      then
+         extra_vendor="`cut -s -d':' -f1 <<< "${extra}" `"
+         extra_name="` cut -s -d':' -f2 <<< "${extra}" `"
+
+         install_extension "extra" "${extra_name}" "${extra_vendor}" \
+                        -p "${OPTION_NAME}" "${projecttype}"
+      fi
+   done
+
+   IFS="${DEFAULT_IFS}"
+
+   fix_permissions
 
    if [ ! -z "${_MOTD}" ]
    then
@@ -276,7 +367,7 @@ install_project()
    local motd
 
    motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
-   mulle-sde build${C_RESET}" `"
+   mulle-sde craft${C_RESET}" `"
 
    _MOTD="${_MOTD}${motd}"
 
@@ -292,10 +383,11 @@ sde_init_main()
    log_entry "sde_init_main" "$@"
 
    local OPTION_NAME
+   local OPTION_EXTRAS
    local OPTION_COMMON="common"
    local OPTION_RUNTIME="c"
    local OPTION_BUILDTOOL="cmake"
-   local OPTION_VENDOR="mulle"
+   local OPTION_VENDOR="builtin"
    local OPTION_INIT_ENV="YES"
    local OPTION_ENV_STYLE="mulle:restricted"
 
@@ -328,6 +420,17 @@ sde_init_main()
             shift
 
             OPTION_COMMON="`tr 'A-Z' 'a-z' <<< "$1" `"
+         ;;
+
+
+         -e|--extra)
+            [ $# -eq 1 ] && sde_init_usage
+            shift
+
+            local extra
+
+            extra="`tr 'A-Z' 'a-z' <<< "$1" `"
+            OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "${extra}" `"
          ;;
 
          -d|--directory)
@@ -393,6 +496,14 @@ sde_init_main()
    then
       export MULLE_EXECUTABLE_NAME
       exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
+      case $? in
+         0|2)
+         ;;
+
+         *)
+            exit 1
+         ;;
+      esac
    fi
 
    mkdir_if_missing ".mulle-sde" || exit 1
@@ -402,13 +513,13 @@ sde_init_main()
          return
       ;;
 
-      library|executable)
-         install_project "${projecttype}"
-      ;;
-
       *)
-         log_error "Unknown projecttype \"${projecttype}\""
-         sde_init_usage
+         if ! install_project "${projecttype}"
+         then
+            rmdir_safer ".mulle-sde"
+            rmdir_safer ".mulle-env"
+            exit 1
+         fi
       ;;
    esac
 }

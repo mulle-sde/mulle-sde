@@ -164,11 +164,13 @@ main()
 
    local bin
    local libexec
+   local share
 
    cd "`dirname -- "$0"`"
 
    bin="${prefix}/bin"
    libexec="${prefix}/libexec/mulle-sde"
+   share="${prefix}/share/mulle-sde"
 
    if [ ! -d "${bin}" ]
    then
@@ -188,15 +190,11 @@ main()
       install -v -m "${mode}" "${i}" "${libexec}" || exit 1
    done
 
-   local subdir
-
-   EXTENSION_DIR="${libexec}/extensions"
-   for i in src/extensions/*/*
+   EXTENSION_DIR="${share}/extensions"
+   for i in src/extensions/*
    do
-      subdir="`dirname -- "${i}"`"
-      subdir="`basename -- "${subdir}"`"
-      mkdir -p "${EXTENSION_DIR}/${subdir}" 2> /dev/null
-      install -v -m "${mode}" "${i}" "${EXTENSION_DIR}/${subdir}" || exit 1
+      mkdir -p "${EXTENSION_DIR}" 2> /dev/null
+      cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
 }
 

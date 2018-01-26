@@ -46,6 +46,7 @@ Options:
    -v vendor : specify a different extension vendor
 
 Types:
+   common    : common extensions
    buildtool : buildtool extensions
    runtime   : runtime extensions (default)
 EOF
@@ -60,12 +61,11 @@ extension_get_vendor_pathcomponent()
    local vendor="$1"
 
    case "${vendor}" in
-      ""|"mulle"|"mulle-sde")
-         echo "mulle-sde"
+      builtin)
       ;;
 
       *)
-         echo "${vendor}/mulle-sde"
+         echo "mulle-sde/${vendor}"
       ;;
    esac
 }
@@ -87,14 +87,41 @@ extensions_get_home_config_dir()
    esac
 }
 
+_extensions_get_vendors()
+{
+   log_entry "_extensions_get_vendors" "$@"
 
-# find extensions in
-# ${MULLE_VIRTUAL_ROOT}/dependencies/libexec/mulle_sde/extensions
-# ${MULLE_VIRTUAL_ROOT}/addictions/libexec/mulle_sde/extensions
-# ${MULLE_VIRTUAL_ROOT}/libexec/mulle_sde/extensions
+   echo "builtin"
+
+   if [  -d /usr/local/share/mulle-sde ]
+   then
+      ( cd /usr/local/share/mulle-sde ; find . -type d -mindepth 1 -maxdepth 1 -print )
+   fi
+
+   if [  -d /usr/share/mulle-sde ]
+   then
+      ( cd /usr/share/mulle-sde ; find . -type d -mindepth 1 -maxdepth 1 -print )
+   fi
+}
+
+
+extensions_get_vendors()
+{
+   log_entry "extensions_get_vendors" "$@"
+
+   _extensions_get_vendors | sed s'|^\./||' | sort -u
+}
+
+
+#
+# An extension must be present at init time. Nothing from the project
+# exists (there is nothing in MULLE_VIRTUAL_ROOT/dependencies)
+#
+# Find extensions in:
+#
 # ${HOME}/.config/mulle-sde/extensions (or elsewhere OS dependent)
-# /usr/local/libexec/mulle_sde/extensions
-# /usr/libexec/mulle_sde/extensions
+# /usr/local/share/mulle_sde/<vendor>/extensions
+# /usr/share/mulle_sde/<vendor>/extensions
 #
 extension_get_search_path()
 {
@@ -102,35 +129,27 @@ extension_get_search_path()
 
    local vendor="$1"
 
-   local vendorcomponent
    local extensionsdir
    local homeextensionsdir
 
-   vendorcomponent="`extension_get_vendor_pathcomponent "${vendor}" `"
-   extensionsdir="libexec/${vendorcomponent}/extensions"
-   homeextensionsdir="`extensions_get_home_config_dir`/${vendorcomponent}/extensions"
-
    local s
 
-   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
-   then
-      s="`colon_concat "$s" "${MULLE_VIRTUAL_ROOT}/dependencies/${extensionsdir}" `"
-      s="`colon_concat "$s" "${MULLE_VIRTUAL_ROOT}/addictions/${extensionsdir}" `"
-      s="`colon_concat "$s" "${MULLE_VIRTUAL_ROOT}/${extensionsdir}" `"
-      s="`colon_concat "$s" "${homeextensionsdir}" `"
-   else
-      s="`colon_concat "$s" "${homeextensionsdir}" `"
-      s="`colon_concat "$s" "/usr/local/${extensionsdir}" `"
-      s="`colon_concat "$s" "/usr/${extensionsdir}" `"
-   fi
-
    case "${vendor}" in
-      ""|"mulle"|"mulle-sde")
+      builtin)
          s="`colon_concat "$s" "${MULLE_SDE_LIBEXEC_DIR}/extensions" `"
+      ;;
+
+      *)
+         extensionsdir="share/mulle-sde/${vendor}/extensions"
+         homeextensionsdir="`extensions_get_home_config_dir`/mulle-sde/extensions"
+
+         s="`colon_concat "$s" "${homeextensionsdir}" `"
+         s="`colon_concat "$s" "/usr/local/${extensionsdir}" `"
+         s="`colon_concat "$s" "/usr/${extensionsdir}" `"
       ;;
    esac
 
-   log_fluff "extension search path: \"$s\""
+   log_fluff "Extension search path: \"$s\""
 
    echo "$s"
 }
@@ -165,7 +184,7 @@ collect_extension_dirs()
          IFS="${DEFAULT_IFS}"
          if [ ! -z "${extensiontype}" ]
          then
-            foundtype="`cat "${extensiondir}/type" 2> /dev/null `"
+            foundtype="`egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
             log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
 
             if [ "${foundtype}" != "${extensiontype}" ]
@@ -247,17 +266,23 @@ collect_extensions()
    local result
 
    result="`collect_extension_dirs "${vendor}" "${extensiontype}"`"
-   result="`extensionnames_from_extension_dirs "${vendor}" "${result}" | sort -u`"
+   extensionnames_from_extension_dirs "${vendor}" "${result}"
+}
+
+
+emit_extensions()
+{
+   local result="$1"
+   local extensiontype="$2"
 
    if [ -z "${result}" ]
    then
-      log_warning "No ${extensiontype} extensions found"
+      log_verbose "No ${extensiontype} extensions found"
    else
       log_info "Available ${extensiontype} extensions:"
-      echo "${result}"
+      sort -u <<< "${result}"
    fi
 }
-
 
 
 ###
@@ -267,7 +292,7 @@ sde_extensions_main()
 {
    log_entry "sde_extensions_main" "$@"
 
-   local OPTION_VENDOR="mulle"
+   local OPTION_VENDOR=""
 
    #
    # handle options
@@ -300,8 +325,55 @@ sde_extensions_main()
 
    [ "$#" -gt 1 ] && sde_extensions_usage
 
-   collect_extensions "${OPTION_VENDOR}" common
-   collect_extensions "${OPTION_VENDOR}" runtime
-   collect_extensions "${OPTION_VENDOR}" buildtool
+
+   local common_extensions
+   local runtime_extensions
+   local buildtool_extensions
+   local extra_extensions
+   local vendor
+
+   if [ ! -z "${OPTION_VENDOR}" ]
+   then
+      common_extensions="`collect_extensions "${OPTION_VENDOR}" common `"  || return 1
+      runtime_extensions="`collect_extensions "${OPTION_VENDOR}" runtime `"  || return 1
+      buildtool_extensions="`collect_extensions "${OPTION_VENDOR}" buildtool `"  || return 1
+      extra_extensions="`collect_extensions "${OPTION_VENDOR}" extra `"  || return 1
+   else
+      local all_vendors
+
+      all_vendors="`extensions_get_vendors`"
+
+      log_verbose "Available vendors:"
+      log_verbose "`sort -u <<< "${all_vendors}"`"
+
+      IFS="
+"
+      for vendor in ${all_vendors}
+      do
+         IFS="${DEFAULT_IFS}"
+         if [ -z "${vendor}" ]
+         then
+            continue
+         fi
+
+         tmp="`collect_extensions "${vendor}" common `"  || return 1
+         common_extensions="`add_line "${common_extensions}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extensions "${vendor}" runtime `"  || return 1
+         runtime_extensions="`add_line "${runtime_extensions}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extensions "${vendor}" buildtool `" || return 1
+         buildtool_extensions="`add_line "${buildtool_extensions}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extensions "${vendor}" extra `" || return 1
+         extra_extensions="`add_line "${extra_extensions}" "${tmp}" `"  || return 1
+      done
+      IFS="${DEFAULT_IFS}"
+   fi
+
+   emit_extensions "${common_extensions}" "common" &&
+   emit_extensions "${runtime_extensions}" "runtime" &&
+   emit_extensions "${buildtool_extensions}" "buildtool" &&
+   emit_extensions "${extra_extensions}" "extra"
 }
 

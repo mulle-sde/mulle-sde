@@ -29,38 +29,33 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_INITSUPPORT_SH="included"
+MULLE_SDE_TEMPLATE_SH="included"
 
 #
-# INIT
+# TEMPLATE
 #
 
-init_usage()
+template_usage()
 {
-   if [ -z "${INIT_USAGE_TEXT}" ]
+   if [ -z "${TEMPLATE_USAGE_TEXT}" ]
    then
-      INIT_USAGE_TEXT="`cat "${SHARE_DIR}/../usage" 2> /dev/null `"
+      TEMPLATE_USAGE_TEXT="`egrep -v '^#' "${TEMPLATE_DIR}/../../usage" 2> /dev/null `"
    fi
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} [flags] <command> [options] [directory]
+   ${MULLE_EXECUTABLE_NAME} [options]
 
-   ${INIT_USAGE_TEXT:-Initialize the project.}
-
-Commands:
-   executable : create an executable project
-   library    : create a library project
-   version    : print ${MULLE_EXECUTABLE_NAME} version
+   ${TEMPLATE_USAGE_TEXT:-Copy template files into the project.}
 
 Options:
    -d <dir>   : use "dir" instead of working directory
    -p <name>  : give project a name
    -l <lang>  : specify project's main language (C)
+   -t <dir>   : template directory to copy and expand from
 EOF
    exit 1
 }
-
 
 
 expand_template_variables()
@@ -81,10 +76,37 @@ expand_template_variables()
    escaped_chn="` escaped_sed_pattern "${C_HEADER_NAME}" `"
    escaped_umcli="` escaped_sed_pattern "${UPCASE_C_LIBRARY_IDENTIFIER}" `"
 
+   local escaped_a
+   local escaped_d
+   local escaped_o
+   local escaped_t
+   local escaped_u
+   local escaped_y
+
+   local nowdate
+   local nowtime
+
+   nowdate="`date "+%d.%m.%Y"`"
+   nowtime="`date "+%H:%M:%S"`"
+   nowyear="`date "+%Y"`"
+
+   escaped_a="` escaped_sed_pattern "${AUTHOR:-${USER}}" `"
+   escaped_d="` escaped_sed_pattern "${nowdate}" `"
+   escaped_o="` escaped_sed_pattern "${ORGANIZATION}" `"
+   escaped_t="` escaped_sed_pattern "${nowtime}" `"
+   escaped_u="` escaped_sed_pattern "${USER}" `"
+   escaped_y="` escaped_sed_pattern "${nowyear}" `"
+
    rexekutor sed -e "s/<|PROJECT_NAME|>/${escaped_pn}/g" \
                  -e "s/<|PROJECT_IDENTIFIER|>/${escaped_pi}/g" \
                  -e "s/<|PROJECT_LANGUAGE|>/${escaped_pl}/g" \
                  -e "s/<|PROJECT_UPCASE_IDENTIFIER|>/${escaped_pui}/g" \
+                 -e "s/<|AUTHOR|>/${escaped_a}/g" \
+                 -e "s/<|DATE|>/${escaped_d}/g" \
+                 -e "s/<|ORGANIZATION|>/${escaped_o}/g" \
+                 -e "s/<|TIME|>/${escaped_t}/g" \
+                 -e "s/<|USER|>/${escaped_u}/g" \
+                 -e "s/<|YEAR|>/${escaped_y}/g" \
                  -e "s/<|C_HEADER_NAME|>/${escaped_chn}/g" \
                  -e "s/<|UPCASE_C_LIBRARY_IDENTIFIER|>/${escaped_umcli}/g"
 }
@@ -99,6 +121,7 @@ copy_and_expand_template()
 
    if [ -e "${dst}" -a "${FLAG_FORCE}" != "YES" ]
    then
+      log_fluff "\"${dst}\" already exists, so skipping it"
       return
    fi
 
@@ -117,34 +140,12 @@ copy_and_expand_template()
 }
 
 
-__common_env()
+default_template_setup()
 {
-   log_entry "__common_env" "$@"
+   log_entry "default_template_setup" "$@"
 
-   local dir_name
+   local templatedir="$1"
 
-   dir_name="`basename -- "${PWD}"`"
-
-   PROJECT_LANGUAGE="${OPTION_LANGUAGE}"
-   PROJECT_NAME="${PROJECT_NAME:-${dir_name}}"
-   PROJECT_IDENTIFIER="`echo "${PROJECT_NAME}" | tr '-' '_' | tr '[A-Z]' '[a-z]'`"
-   PROJECT_UPCASE_IDENTIFIER="`echo "${PROJECT_IDENTIFIER}" | tr '[a-z]' '[A-Z]'`"
-   UPCASE_MULLE_C_LIBRARY_IDENTIFIER="`echo "${UPCASE_MULLE_C_LIBRARY_NAME}" | tr '-' '_'`"
-}
-
-
-default_init_setup()
-{
-   log_entry "default_init_setup" "$@"
-
-   local sharedir="$1"
-   local projecttype="$2"
-
-   __common_env
-
-   local templatedir
-
-   templatedir="` filepath_concat "${sharedir}" "${projecttype}" `"
    if [ ! -d "${templatedir}" ]
    then
       log_fluff "\"${templatedir}\" does not exist."
@@ -162,11 +163,12 @@ default_init_setup()
 }
 
 
-# calls either init_setup eventually, if that is defined
-
-_init_main()
+#
+# calls either template_setup eventually, if that is defined
+#
+_template_main()
 {
-   log_entry "_init_main" "$@"
+   log_entry "_template_main" "$@"
 
    local OPTION_EMBEDDED="NO"
 
@@ -178,12 +180,9 @@ _init_main()
    esac
 
    local FLAG_FORCE="NO"
-   local FLAG_OUTPUT_DEMO_FILES="YES"
-   local OPTION_DYNAMIC_LINKED="NO"
-   local OPTION_LANGUAGE="C"
 
-   SHARE_DIR="`dirname -- "$0"`/project"
-   SHARE_DIR="`absolutepath "${SHARE_DIR}" `"
+   TEMPLATE_DIR="`dirname -- "$0"`/project"
+   TEMPLATE_DIR="`absolutepath "${TEMPLATE_DIR}" `"
 
    while [ $# -ne 0 ]
    do
@@ -199,12 +198,12 @@ _init_main()
 
       case "$1" in
          -h|--help)
-            usage
+            template_usage
          ;;
 
          -d|--directory)
             shift
-            [ $# -eq 0 ] && usage
+            [ $# -eq 0 ] && template_usage
 
             mkdir_if_missing "$1" || return 1
             rexekutor cd "$1"
@@ -212,7 +211,7 @@ _init_main()
 
          -p|--project-name)
             shift
-            [ $# -eq 0 ] && usage
+            [ $# -eq 0 ] && template_usage
 
             PROJECT_NAME="$1"
          ;;
@@ -223,16 +222,16 @@ _init_main()
 
          -l|--language)
             shift
-            [ $# -eq 0 ] && usage
+            [ $# -eq 0 ] && template_usage
 
-            OPTION_LANGUAGE="$1"
+            PROJECT_LANGUAGE="$1"
          ;;
 
-         --share-dir)
+         --template-dir)
             shift
-            [ $# -eq 0 ] && usage
+            [ $# -eq 0 ] && template_usage
 
-            SHARE_DIR="$1"
+            TEMPLATE_DIR="$1"
          ;;
 
          --version)
@@ -242,7 +241,7 @@ _init_main()
 
          -*)
             log_error "unknown options \"$1\""
-            usage
+            template_usage
          ;;
 
          *)
@@ -263,47 +262,51 @@ _init_main()
       options_setup_trace "${MULLE_TRACE}"
    fi
 
-   [ $# -ne 1 ] && usage
-
-   local cmd="$1"
+   [ $# -ne 0 ] && template_usage
 
    #
-   # if we are called from an external script, init_setup
+   # if we are called from an external script, template_setup
    # may have been defined. We use this then instead
    #
-   local init_callback
+   local template_callback
 
-   init_callback="default_init_setup"
-   if [ "`type -t "init_setup"`" = "function" ]
+   template_callback="default_template_setup"
+   if [ "`type -t "template_setup"`" = "function" ]
    then
-      init_callback="init_setup"
+      template_callback="template_setup"
    fi
 
+
+   local dir_name
+
+   dir_name="`basename -- "${PWD}"`"
+
+   PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}"
+   PROJECT_NAME="${PROJECT_NAME:-${dir_name}}"
+   PROJECT_IDENTIFIER="`echo "${PROJECT_NAME}" | tr '-' '_' | tr '[A-Z]' '[a-z]'`"
+   PROJECT_UPCASE_IDENTIFIER="`echo "${PROJECT_IDENTIFIER}" | tr '[a-z]' '[A-Z]'`"
+   UPCASE_MULLE_C_LIBRARY_IDENTIFIER="`echo "${UPCASE_MULLE_C_LIBRARY_NAME}" | tr '-' '_'`"
+
    case "${cmd}" in
-      library)
-         ${init_callback} "${SHARE_DIR}" "library"
-      ;;
-
-      executable)
-         ${init_callback}  "${SHARE_DIR}" "library"
-      ;;
-
       version)
          echo "${VERSION}"
          exit 0
       ;;
 
       *)
-         log_error "unknown command \"${cmd}\""
-         usage
+         "${template_callback}" "${TEMPLATE_DIR}" \
+                                "${PROJECT_NAME}" \
+                                "${PROJECT_IDENTIFIER}" \
+                                "${PROJECT_UPCASE_IDENTIFIER}" \
+                                "${UPCASE_MULLE_C_LIBRARY_IDENTIFIER}"
       ;;
    esac
 }
 
 
-init_main()
+template_main()
 {
-   log_entry "init_main" "$@"
+   log_entry "template_main" "$@"
 
    # technical flags
    local MULLE_FLAG_DONT_DEFER="NO"
@@ -322,5 +325,5 @@ init_main()
    local MULLE_TRACE_RESOLVER_FLIP_X="NO"
    local MULLE_TRACE_SETTINGS_FLIP_X="NO"
 
-   _init_main "$@"
+   _template_main "$@"
 }

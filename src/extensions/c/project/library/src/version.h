@@ -1,4 +1,6 @@
 /*
+ *  (c) <|YEAR|> <|USER|> <|ORGANIZATION|>
+ *
  *  version:  major, minor, patch
  */
 #define <|PROJECT_UPCASE_IDENTIFIER|>_VERSION  ((0 << 20) | (7 << 8) | 56)
