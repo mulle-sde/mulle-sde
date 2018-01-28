@@ -9,8 +9,8 @@
 
 # `mulle-sde update` will generate these files
 
-include( _CMakeDependencies.txt)
-include( _CMakeLibraries.txt)
+include( _CMakeDependencies.cmake)
+include( _CMakeLibraries.cmake)
 
 # === MULLE-SDE END ===
 #

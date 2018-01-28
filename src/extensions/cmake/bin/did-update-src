@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-# Create fresh CMakeHeadersAndSources.txt from filesystem information
+# Create fresh CMakeHeadersAndSources.cmake from filesystem information
 #
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
@@ -239,8 +239,8 @@ ${text_src}"
 
    log_fluff "Create cmake files (${PWD})"
 
-   MULLE_SDE_HEADERS_FILE="${MULLE_SDE_HEADERS_FILE:-_CMakeHeaders.txt}"
-   MULLE_SDE_SOURCES_FILE="${MULLE_SDE_SOURCES_FILE:-_CMakeSources.txt}"
+   MULLE_SDE_HEADERS_FILE="${MULLE_SDE_HEADERS_FILE:-_CMakeHeaders.cmake}"
+   MULLE_SDE_SOURCES_FILE="${MULLE_SDE_SOURCES_FILE:-_CMakeSources.cmake}"
 
    log_verbose "Writing ${C_RESET_BOLD}${MULLE_SDE_HEADERS_FILE}"
    redirect_exekutor "${MULLE_SDE_HEADERS_FILE}" echo "${text_hdr}"

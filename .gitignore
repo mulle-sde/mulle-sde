@@ -6,5 +6,5 @@ build-*.d/
 .mulle-env/
 .mulle-sde/
 mulle-project/publisher-info.sh
-_CMakeHeaders.txt
-_CMakeSources.txt
+_CMakeHeaders.cmake
+_CMakeSources.cmake

@@ -14,8 +14,8 @@ if( NOT __<|PROJECT_UPCASE_IDENTIFIER|>_CMAKE_DEPENDENCIES_AND_LIBRARIES_TXT__)
 
    # `mulle-sde update` will generate these files
 
-   include( _CMakeDependencies.txt)
-   include( _CMakeLibraries.txt)
+   include( _CMakeDependencies.cmake)
+   include( _CMakeLibraries.cmake)
 
    # === MULLE-SDE END ===
    #

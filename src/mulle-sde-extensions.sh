@@ -95,12 +95,12 @@ _extensions_get_vendors()
 
    if [  -d /usr/local/share/mulle-sde ]
    then
-      ( cd /usr/local/share/mulle-sde ; find . -type d -mindepth 1 -maxdepth 1 -print )
+      ( cd /usr/local/share/mulle-sde ; find . -mindepth 1 -maxdepth 1 -type d -print )
    fi
 
    if [  -d /usr/share/mulle-sde ]
    then
-      ( cd /usr/share/mulle-sde ; find . -type d -mindepth 1 -maxdepth 1 -print )
+      ( cd /usr/share/mulle-sde ; find . -mindepth 1 -maxdepth 1 -type d -print )
    fi
 }
 
@@ -274,12 +274,13 @@ emit_extensions()
 {
    local result="$1"
    local extensiontype="$2"
+   local comment="$3"
 
    if [ -z "${result}" ]
    then
       log_verbose "No ${extensiontype} extensions found"
    else
-      log_info "Available ${extensiontype} extensions:"
+      log_info "Available ${extensiontype} extensions ${comment}:"
       sort -u <<< "${result}"
    fi
 }
@@ -371,9 +372,9 @@ sde_extensions_main()
       IFS="${DEFAULT_IFS}"
    fi
 
-   emit_extensions "${common_extensions}" "common" &&
-   emit_extensions "${runtime_extensions}" "runtime" &&
-   emit_extensions "${buildtool_extensions}" "buildtool" &&
-   emit_extensions "${extra_extensions}" "extra"
+   emit_extensions "${common_extensions}" "common" "[-c <extension>]" &&
+   emit_extensions "${runtime_extensions}" "runtime" "[-r <extension>" &&
+   emit_extensions "${buildtool_extensions}" "buildtool" "[-b <extension>]" &&
+   emit_extensions "${extra_extensions}" "extra" "[-e <extension>]*"
 }
 

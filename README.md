@@ -132,7 +132,7 @@ mulle-sde tools add nroff
 
 An **update** reflects your changes made in the filesystem back into 'Makefiles'.
 
-In the case of `cmake` the script `did-update-src` will create the files `_CMakeHeaders.txt` and `_CMakeSources.txt`. They will be created by examining the contents of the folder `src` and its subfolders. `did-update-sourcetree` will create `_CMakeDependencies.txt` and `_CMakeLibraries.txt` from the contents of the [mulle-sourcetree](/mulle-sde/mulle-sourcetree).
+In the case of `cmake` the script `did-update-src` will create the files `_CMakeHeaders.cmake` and `_CMakeSources.cmake`. They will be created by examining the contents of the folder `src` and its subfolders. `did-update-sourcetree` will create `_CMakeDependencies.cmake` and `_CMakeLibraries.cmake` from the contents of the [mulle-sourcetree](/mulle-sde/mulle-sourcetree).
 
 ![](dox/mulle-sde-update.png)
 

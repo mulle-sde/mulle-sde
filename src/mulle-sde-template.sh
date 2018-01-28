@@ -66,13 +66,25 @@ expand_template_variables()
    local escaped_pi
    local escaped_pl
    local escaped_pui
+   local escaped_pul
    local escaped_chn
    local escaped_umcli
 
+   # verify minimal set
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
+   [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
+   [ -z "${PROJECT_LANGUAGE}" ] && internal_fail "PROJECT_LANGUAGE is empty"
+   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ] && internal_fail "PROJECT_UPCASE_IDENTIFIER is empty"
+
+   local project_upcase_language
+
+   project_upcase_language="`tr a-z A-Z <<< "${PROJECT_LANGUAGE}" `"
+
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
-   escaped_pi="` escaped_sed_pattern "${PROJECT_LANGUAGE}" `"
+   escaped_pl="` escaped_sed_pattern "${PROJECT_LANGUAGE}" `"
    escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
+   escaped_pul="` escaped_sed_pattern "${project_upcase_language}" `"
    escaped_chn="` escaped_sed_pattern "${C_HEADER_NAME}" `"
    escaped_umcli="` escaped_sed_pattern "${UPCASE_C_LIBRARY_IDENTIFIER}" `"
 
@@ -101,6 +113,7 @@ expand_template_variables()
                  -e "s/<|PROJECT_IDENTIFIER|>/${escaped_pi}/g" \
                  -e "s/<|PROJECT_LANGUAGE|>/${escaped_pl}/g" \
                  -e "s/<|PROJECT_UPCASE_IDENTIFIER|>/${escaped_pui}/g" \
+                 -e "s/<|PROJECT_UPCASE_LANGUAGE|>/${escaped_pul}/g" \
                  -e "s/<|AUTHOR|>/${escaped_a}/g" \
                  -e "s/<|DATE|>/${escaped_d}/g" \
                  -e "s/<|ORGANIZATION|>/${escaped_o}/g" \

@@ -343,7 +343,7 @@ update()
 {
    log_entry "update" "$@"
 
-   log_info "Update cmake files"
+   log_verbose "Update cmake files"
 
    sourcetree_config_modified &&
    source_file_created

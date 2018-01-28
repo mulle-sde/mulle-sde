@@ -203,7 +203,7 @@ emit_cmake_include_dependency()
    fi
 
    cat << EOF
-${indent}include( "\${DEPENDENCIES_DIR}/include/${name}/CMakeDependenciesAndLibraries.txt")
+${indent}include( "\${DEPENDENCIES_DIR}/include/${name}/CMakeDependenciesAndLibraries.cmake")
 EOF
    if [ ! -z "${ifstatement}" ]
    then
@@ -317,8 +317,8 @@ ${text_dep}"
 
    log_fluff "Create cmake files (${PWD})"
 
-   MULLE_SDE_LIBRARIES_FILE="${MULLE_SDE_LIBRARIES_FILE:-_CMakeLibraries.txt}"
-   MULLE_SDE_DEPENDENCIES_FILE="${MULLE_SDE_DEPENDENCIES_FILE:-_CMakeDependencies.txt}"
+   MULLE_SDE_LIBRARIES_FILE="${MULLE_SDE_LIBRARIES_FILE:-_CMakeLibraries.cmake}"
+   MULLE_SDE_DEPENDENCIES_FILE="${MULLE_SDE_DEPENDENCIES_FILE:-_CMakeDependencies.cmake}"
 
    log_verbose "Writing ${C_RESET_BOLD}${MULLE_SDE_LIBRARIES_FILE}"
    redirect_exekutor "${MULLE_SDE_LIBRARIES_FILE}" echo "${text_lib}"

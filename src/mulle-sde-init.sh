@@ -47,12 +47,12 @@ Usage:
    e.g.  mulle-sde init -r c -b mulle:cmake exectuable
 
 Options:
-   -b <buildtool> : specify buildtool to use (cmake)
-   -c <common>    : specify common files to install (like README.md) (common)
+   -b <buildtool> : specify the buildtool extension to use (<vendor>:cmake)
+    -c <common>   : specify the common extensions to install (<vendor:common)
    -d <dir>       : directory to populate (working directory)
-   -p <name>      : project name
-   -r <runtime>   : specify runtime to use (c)
-   -v <vendor>    : extension vendor to use (mulle)
+   -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
+   -r <runtime>   : specify runtime extension to use (<vendor:c)
+   -v <vendor>    : extension vendor to use (builtin)
 
 Types:
    executable     : create an executable project
@@ -161,16 +161,17 @@ install_dependency_extension()
 {
    log_entry "install_dependency_extension" "$@"
 
-   local exttype="$1" ; shift
-   local dependency="$2"; shift
+   local projecttype="$1"
+   local exttype="$2"
+   local dependency="$3"
 
    local extname
    local vendor
 
    vendor="`cut -s -d':' -f1 <<< "${dependency}" `"
-   extname="` cut -s -d':' -f2 <<< "${dependency}" `"
+   extname="`cut -s -d':' -f2 <<< "${dependency}" `"
 
-   install_extension "${exttype}" "${extname}" "${vendor}"
+   install_extension "${projecttype}" "${exttype}" "${extname}" "${vendor}"
 }
 
 
@@ -213,9 +214,12 @@ install_extension()
    dependency="`egrep -v '^#' "${extensiondir}/dependency" 2> /dev/null`"
    if [ ! -z "${dependency}" ]
    then
-      install_dependency_extension "${exttype}" "${dependency}"
-   fi
+      log_fluff "Found dependency \"${dependency}\""
 
+      install_dependency_extension "${projecttype}" "${exttype}" "${dependency}"
+   else
+      log_fluff "No dependency found in \"${extensiondir}/dependency"
+   fi
    log_fluff "Install ${exttype} extension \"${vendor}:${extname}\""
 
    _copy_extension_dirs "${extensiondir}"
@@ -274,10 +278,9 @@ install_project()
    local runtime_name
    local buildtool_name
 
-   common_name="` cut -s -d':' -f2 <<< "${OPTION_COMMON}" `"
-
    if [ ! -z "${OPTION_COMMON}" ]
    then
+      common_name="` cut -s -d':' -f2 <<< "${OPTION_COMMON}" `"
       if [ -z "${common_name}" ]
       then
          common_vendor="${OPTION_VENDOR}"
@@ -290,7 +293,7 @@ install_project()
    if [ ! -z "${OPTION_RUNTIME}" ]
    then
       runtime_name="` cut -s -d':' -f2 <<< "${OPTION_RUNTIME}" `"
-      if [ -z "${runtime_vendor}" ]
+      if [ -z "${runtime_name}" ]
       then
          runtime_vendor="${OPTION_VENDOR}"
          runtime_name="${OPTION_RUNTIME}"
@@ -302,7 +305,7 @@ install_project()
    if [ ! -z "${OPTION_BUILDTOOL}" ]
    then
       buildtool_name="` cut -s -d':' -f2 <<< "${OPTION_BUILDTOOL}" `"
-      if [ -z "${buildtool_vendor}" ]
+      if [ -z "${buildtool_name}" ]
       then
          buildtool_vendor="${OPTION_VENDOR}"
          buildtool_name="${OPTION_BUILDTOOL}"
@@ -390,6 +393,7 @@ sde_init_main()
    local OPTION_VENDOR="builtin"
    local OPTION_INIT_ENV="YES"
    local OPTION_ENV_STYLE="mulle:restricted"
+   local OPTION_BLURB=""
 
    #
    # handle options
@@ -455,6 +459,10 @@ sde_init_main()
             OPTION_VENDOR="$1"
          ;;
 
+         --no-blurb)
+            OPTION_BLURB="--no-blurb"
+         ;;
+
          --no-env)
             OPTION_INIT_ENV="NO"
          ;;
@@ -495,7 +503,7 @@ sde_init_main()
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
       export MULLE_EXECUTABLE_NAME
-      exekutor mulle-env ${MULLE_ENV_FLAGS} init --style "${OPTION_ENV_STYLE}"
+      exekutor mulle-env ${MULLE_ENV_FLAGS} init ${OPTION_BLURB} --style "${OPTION_ENV_STYLE}"
       case $? in
          0|2)
          ;;

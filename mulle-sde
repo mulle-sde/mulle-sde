@@ -314,7 +314,7 @@ main()
          ;;
 
          -*)
-            log_error "${MULLE_EXECUTABLE_FAIL_PREFIX}: Unknown option \"$1\""
+            log_error "Unknown option \"$1\""
             usage "${MULLE_TRACE}"
          ;;
 
@@ -397,7 +397,7 @@ main()
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-         sde_init_main "$@" &&
+         sde_init_main --no-blurb "$@" &&
             export MULLE_EXECUTABLE_NAME &&
             mulle-env ${MULLE_ENV_FLAGS}
       ;;
@@ -458,6 +458,13 @@ main()
       ;;
 
       *)
+         if [ $# -ne 0 ]
+         then
+            MULLE_EXECUTABLE_FAIL_PREFIX="${MULLE_EXECUTABLE_NAME}"
+            log_error "Unknown command \"${cmd}\""
+            usage
+         fi
+
          #
          # if we are outside of the environment, assume that
          # we want to enter. Otherwise its probably a mistyped command
