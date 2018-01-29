@@ -150,7 +150,7 @@ _mulle_tools_list()
       return 2
    fi
 
-   egrep '.' "${toolsfile}" | sort
+   LC_ALL=C egrep '.' "${toolsfile}" | sort
 }
 
 

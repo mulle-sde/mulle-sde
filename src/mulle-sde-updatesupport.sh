@@ -235,7 +235,7 @@ find_headers()
    qualifier="`_find_extensions_qualifier ${extensions}`"
 
    eval_exekutor find "${directories}" '\(' "${qualifier}" '\)' -print  \
-      | exekutor egrep -v '/old/|/build/' \
+      | exekutor LC_ALL=C egrep -v '/old/|/build/' \
       | exekutor filter_lines_with_file ".mulle-sde/share/ignore-headers"
 }
 
@@ -265,7 +265,7 @@ find_sources()
    local cmd
 
    eval_exekutor find "${directories}" '\(' "${qualifier}" '\)' -print  \
-      | exekutor egrep -v '/old/|/build/' \
+      | exekutor LC_ALL=C egrep -v '/old/|/build/' \
       | exekutor filter_lines_with_file ".mulle-sde/share/ignore-sources"
 }
 

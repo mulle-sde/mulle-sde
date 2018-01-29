@@ -137,7 +137,7 @@ get_sh_windows_path()
 
 sed_mangle_escape_slashes()
 {
-   sed -e 's|/|\\\\|g'
+   LC_ALL=C sed -e 's|/|\\\\|g'
 }
 
 

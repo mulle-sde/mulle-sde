@@ -39,7 +39,7 @@ template_usage()
 {
    if [ -z "${TEMPLATE_USAGE_TEXT}" ]
    then
-      TEMPLATE_USAGE_TEXT="`egrep -v '^#' "${TEMPLATE_DIR}/../../usage" 2> /dev/null `"
+      TEMPLATE_USAGE_TEXT="`LC_ALL=C egrep -v '^#' "${TEMPLATE_DIR}/../../usage" 2> /dev/null `"
    fi
 
    cat <<EOF >&2
@@ -109,19 +109,20 @@ expand_template_variables()
    escaped_u="` escaped_sed_pattern "${USER}" `"
    escaped_y="` escaped_sed_pattern "${nowyear}" `"
 
-   rexekutor sed -e "s/<|PROJECT_NAME|>/${escaped_pn}/g" \
-                 -e "s/<|PROJECT_IDENTIFIER|>/${escaped_pi}/g" \
-                 -e "s/<|PROJECT_LANGUAGE|>/${escaped_pl}/g" \
-                 -e "s/<|PROJECT_UPCASE_IDENTIFIER|>/${escaped_pui}/g" \
-                 -e "s/<|PROJECT_UPCASE_LANGUAGE|>/${escaped_pul}/g" \
-                 -e "s/<|AUTHOR|>/${escaped_a}/g" \
-                 -e "s/<|DATE|>/${escaped_d}/g" \
-                 -e "s/<|ORGANIZATION|>/${escaped_o}/g" \
-                 -e "s/<|TIME|>/${escaped_t}/g" \
-                 -e "s/<|USER|>/${escaped_u}/g" \
-                 -e "s/<|YEAR|>/${escaped_y}/g" \
-                 -e "s/<|C_HEADER_NAME|>/${escaped_chn}/g" \
-                 -e "s/<|UPCASE_C_LIBRARY_IDENTIFIER|>/${escaped_umcli}/g"
+   LC_ALL=C \
+      rexekutor sed -e "s/<|PROJECT_NAME|>/${escaped_pn}/g" \
+                    -e "s/<|PROJECT_IDENTIFIER|>/${escaped_pi}/g" \
+                    -e "s/<|PROJECT_LANGUAGE|>/${escaped_pl}/g" \
+                    -e "s/<|PROJECT_UPCASE_IDENTIFIER|>/${escaped_pui}/g" \
+                    -e "s/<|PROJECT_UPCASE_LANGUAGE|>/${escaped_pul}/g" \
+                    -e "s/<|AUTHOR|>/${escaped_a}/g" \
+                    -e "s/<|DATE|>/${escaped_d}/g" \
+                    -e "s/<|ORGANIZATION|>/${escaped_o}/g" \
+                    -e "s/<|TIME|>/${escaped_t}/g" \
+                    -e "s/<|USER|>/${escaped_u}/g" \
+                    -e "s/<|YEAR|>/${escaped_y}/g" \
+                    -e "s/<|C_HEADER_NAME|>/${escaped_chn}/g" \
+                    -e "s/<|UPCASE_C_LIBRARY_IDENTIFIER|>/${escaped_umcli}/g"
 }
 
 

@@ -1,4 +1,4 @@
-🏋🏼 Cross-platform IDE for the command-line
+# 🏋🏼 Cross-platform IDE for the command-line
 
 ... for Linux, OS X, FreeBSD, Windows
 

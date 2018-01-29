@@ -46,7 +46,7 @@ emit_cmake_var()
       return
    fi
 
-   contents="`echo "${contents}" | sed '/ /s/\(.*\)/"\1"/'`"
+   contents="`echo "${contents}" | LC_ALL=C sed '/ /s/\(.*\)/"\1"/'`"
 
    cat <<EOF
 set( ${name}

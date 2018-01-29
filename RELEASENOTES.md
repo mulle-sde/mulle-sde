@@ -1,3 +1,7 @@
+### 0.7.4
+
+* allow extensions to suppress functionality of inherited extensions with marks
+
 ### 0.7.2
 
 * redid the extensions, so it is now much easier to create one

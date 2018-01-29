@@ -14,7 +14,7 @@ classify_headerfile()
 
    local headerfile="$1"
 
-   if egrep -q '\+Private\..$|_private\..$' <<< "${headerfile}"
+   if LC_ALL=C egrep -q '_private\..$' <<< "${headerfile}"
    then
       echo "PRIVATE_HEADERS;${headerfile}"
    else

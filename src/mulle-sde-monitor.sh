@@ -97,7 +97,7 @@ path_without_first_directory()
          ;;
 
       */*)
-         echo "$@" | sed 's,^[^/]*/,,'
+         echo "$@" | LC_ALL=C sed 's,^[^/]*/,,'
          ;;
       *)
          echo "$@"
@@ -108,7 +108,7 @@ path_without_first_directory()
 
 path_without_extension()
 {
-   echo "$@" | sed 's/\(.*\)\..*/\1/'
+   echo "$@" | LC_ALL=C sed 's/\(.*\)\..*/\1/'
 }
 
 
@@ -662,7 +662,7 @@ _watch_using_fswatch()
    do
       IFS="${DEFAULT_IFS}"
 
-      filepath="` sed 's/^\(.*\) \(.*\)$/\1/' <<< "${line}" `"
+      filepath="`LC_ALL=C sed 's/^\(.*\) \(.*\)$/\1/' <<< "${line}" `"
       directory="`dirname -- "${filepath}"`"
       contenttype="`directory_content_type "${directory}" `"
       if [ -z "${contenttype}" ]
@@ -670,7 +670,7 @@ _watch_using_fswatch()
          continue
       fi
 
-      cmd="`echo "${line}" | sed 's/^\(.*\) \(.*\)$/\2/' | tr '[a-z]' '[A-Z]'`"
+      cmd="`echo "${line}" | LC_ALL=C sed 's/^\(.*\) \(.*\)$/\2/' | tr '[a-z]' '[A-Z]'`"
       filename="`basename -- "${filepath}"`"
 
       if ! action="`"${contenttype}_changed" "${directory}" "${filename}" "${cmd}" `"
@@ -702,7 +702,7 @@ watch_using_fswatch()
 
 _remove_quotes()
 {
-   sed 's/^\"\([^"]*\)\"/\1/' <<< "${1}"
+   LC_ALL=C sed 's/^\"\([^"]*\)\"/\1/' <<< "${1}"
 }
 
 
@@ -710,13 +710,13 @@ _extract_first_field_from_line()
 {
    case "${_line}" in
       \"*)
-         _field="`sed 's/^\"\([^"]*\)\",\(.*\)/\1/' <<< "${_line}" `"
-         _line="` sed 's/^\"\([^"]*\)\",\(.*\)/\2/' <<< "${_line}" `"
+         _field="`LC_ALL=C sed 's/^\"\([^"]*\)\",\(.*\)/\1/' <<< "${_line}" `"
+         _line="` LC_ALL=C sed 's/^\"\([^"]*\)\",\(.*\)/\2/' <<< "${_line}" `"
       ;;
 
       *)
-         _field="`sed 's/^\([^,]*\),\(.*\)/\1/' <<< "${_line}" `"
-         _line="` sed 's/^\([^,]*\),\(.*\)/\2/' <<< "${_line}" `"
+         _field="`LC_ALL=C sed 's/^\([^,]*\),\(.*\)/\1/' <<< "${_line}" `"
+         _line="` LC_ALL=C sed 's/^\([^,]*\),\(.*\)/\2/' <<< "${_line}" `"
       ;;
    esac
 }

@@ -109,7 +109,7 @@ extensions_get_vendors()
 {
    log_entry "extensions_get_vendors" "$@"
 
-   _extensions_get_vendors | sed s'|^\./||' | sort -u
+   _extensions_get_vendors | LC_ALL=C sed s'|^\./||' | sort -u
 }
 
 
@@ -184,7 +184,7 @@ collect_extension_dirs()
          IFS="${DEFAULT_IFS}"
          if [ ! -z "${extensiontype}" ]
          then
-            foundtype="`egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
+            foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
             log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
 
             if [ "${foundtype}" != "${extensiontype}" ]

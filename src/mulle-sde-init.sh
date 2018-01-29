@@ -108,7 +108,7 @@ _append_to_motd()
 
    if [ -f "${extensiondir}/motd" ]
    then
-      text="`egrep -v '^#' "${extensiondir}/motd" `"
+      text="`LC_ALL=C egrep -v '^#' "${extensiondir}/motd" `"
       if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
       then
          _MOTD="`add_line "${_MOTD}" "${text}" `"
@@ -164,14 +164,26 @@ install_dependency_extension()
    local projecttype="$1"
    local exttype="$2"
    local dependency="$3"
+   local marks="$3"
 
+   local parent
+   local addmarks
    local extname
    local vendor
 
-   vendor="`cut -s -d':' -f1 <<< "${dependency}" `"
-   extname="`cut -s -d':' -f2 <<< "${dependency}" `"
+   parent="`cut -d';' -f1 <<< "${dependency}" `"
+   addmarks="`cut -s -d';' -f2 <<< "${dependency}" `"
 
-   install_extension "${projecttype}" "${exttype}" "${extname}" "${vendor}"
+   vendor="`cut -s -d':' -f1 <<< "${parent}" `"
+   extname="`cut -d':' -f2 <<< "${parent}" `"
+
+   marks="`comma_concat "${marks}" "${addmarks}"`"
+
+   install_extension "${projecttype}" \
+                     "${exttype}" \
+                     "${extname}" \
+                     "${vendor:-builtin}" \
+                     "${marks}"
 }
 
 
@@ -183,6 +195,7 @@ install_extension()
    local exttype="$1"; shift
    local extname="$1"; shift
    local vendor="$1"; shift
+   local marks="$1"; shift
 
    # user can turn off extensions by passing ""
    if [ -z "${extname}" ]
@@ -209,23 +222,66 @@ install_extension()
       ;;
    esac
 
-   local dependency
+   case "${marks}" in
+      *no-dependency*)
+         log_fluff "${vendor}:${extname}: ignoring \"${extensiondir}/dependency\" due to no-dependency mark"
+      ;;
 
-   dependency="`egrep -v '^#' "${extensiondir}/dependency" 2> /dev/null`"
-   if [ ! -z "${dependency}" ]
-   then
-      log_fluff "Found dependency \"${dependency}\""
+      *)
+         local dependency
 
-      install_dependency_extension "${projecttype}" "${exttype}" "${dependency}"
-   else
-      log_fluff "No dependency found in \"${extensiondir}/dependency"
-   fi
+         dependency="`LC_ALL=C egrep -v '^#' "${extensiondir}/dependency" 2> /dev/null`"
+         if [ ! -z "${dependency}" ]
+         then
+            log_fluff "Found dependency \"${dependency}\""
+
+            install_dependency_extension "${projecttype}" "${exttype}" "${dependency}" "${marks}"
+         else
+            log_fluff "No dependency found in \"${extensiondir}/dependency"
+         fi
+      ;;
+   esac
    log_fluff "Install ${exttype} extension \"${vendor}:${extname}\""
 
-   _copy_extension_dirs "${extensiondir}"
-   _copy_extension_project_files "${extensiondir}" "${projecttype}"
-   _run_extension_init "${extensiondir}" "${projecttype}" "$@"
-   _append_to_motd "${extensiondir}"
+   case "${marks}" in
+      *no-directories*)
+         log_fluff "${vendor}:${extname}: ignoring any .mulle-sde directories due to no-directories mark"
+      ;;
+
+      *)
+         _copy_extension_dirs "${extensiondir}"
+      ;;
+   esac
+
+   case "${marks}" in
+      *no-project*)
+         log_fluff "${vendor}:${extname}: ignoring any project files due to no-project mark"
+      ;;
+
+      *)
+         _copy_extension_project_files "${extensiondir}" "${projecttype}"
+      ;;
+   esac
+
+   case "${marks}" in
+      *no-init*)
+         log_fluff "${vendor}:${extname}: ignoring an init script due to no-init mark"
+      ;;
+
+      *)
+         _run_extension_init "${extensiondir}" "${projecttype}" "$@"
+      ;;
+   esac
+
+   case "${marks}" in
+      *no-motd*)
+         log_fluff "${vendor}:${extname}: ignoring any motd info due to no-motd mark"
+      ;;
+
+      *)
+         _append_to_motd "${extensiondir}"
+      ;;
+   esac
 }
 
 
@@ -323,11 +379,23 @@ install_project()
    # projectdir, if that happens, we have done the least pollution yet
    #
    (
-      install_extension "${projecttype}" "buildtool" "${buildtool_name}" "${buildtool_vendor}" \
+      install_extension "${projecttype}" \
+                        "buildtool" \
+                        "${buildtool_name}" \
+                        "${buildtool_vendor}" \
+                        "" \
                         -p "${OPTION_NAME}" &&
-      install_extension "${projecttype}" "runtime" "${runtime_name}" "${runtime_vendor}" \
+      install_extension "${projecttype}" \
+                        "runtime" \
+                        "${runtime_name}" \
+                        "${runtime_vendor}" \
+                        "" \
                         -p "${OPTION_NAME}" &&
-      install_extension "${projecttype}" "common" "${common_name}" "${common_vendor}" \
+      install_extension "${projecttype}" \
+                        "common" \
+                        "${common_name}" \
+                        "${common_vendor}" \
+                        "" \
                         -p "${OPTION_NAME}"
    ) || return 1
 
@@ -350,10 +418,14 @@ install_project()
       if [ ! -z "${extra}" ]
       then
          extra_vendor="`cut -s -d':' -f1 <<< "${extra}" `"
-         extra_name="` cut -s -d':' -f2 <<< "${extra}" `"
+         extra_name="` cut -d':' -f2 <<< "${extra}" `"
 
-         install_extension "extra" "${extra_name}" "${extra_vendor}" \
-                        -p "${OPTION_NAME}" "${projecttype}"
+         install_extension "${projecttype}" \
+                           "extra" \
+                           "${extra_name}" \
+                           "${extra_vendor:-builtin}" \
+                           "" \
+                           -p "${OPTION_NAME}"
       fi
    done
 

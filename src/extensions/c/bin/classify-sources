@@ -14,7 +14,7 @@ classify_sourcefile()
 
    local sourcefile="$1"
 
-   if egrep -q '\Standalone\..$|_standalone\..$' <<< "${sourcefile}"
+   if LC_ALL=C egrep -q '_standalone\..$' <<< "${sourcefile}"
    then
       echo "STANDALONE_SOURCES;${sourcefile}"
    else

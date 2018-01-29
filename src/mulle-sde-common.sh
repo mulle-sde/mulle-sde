@@ -104,7 +104,7 @@ os_excludes_print()
       IFS="${DEFAULT_IFS}"
       case "$i" in
          no-os-*)
-            sed -e "s/^no-os-//" <<< "${i}"
+            LC_ALL=C sed -e "s/^no-os-//" <<< "${i}"
          ;;
       esac
    done
