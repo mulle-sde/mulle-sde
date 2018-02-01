@@ -41,23 +41,24 @@ Usage:
    ${MULLE_EXECUTABLE_NAME} init [options] <type>
 
    Create a mulle-sde project, which can be either an executable or a
-   library. Check `mulle-sde extensions` for available options.
-   It is possible to prefix the vendor to buildtool, common, runtime.
+   library. Check \`mulle-sde extensions\` for available options.
 
-   e.g.  mulle-sde init -r c -b mulle:cmake exectuable
+   e.g.  mulle-sde init -r builtin:c -b mulle:cmake executable
 
 Options:
    -b <buildtool> : specify the buildtool extension to use (<vendor>:cmake)
-    -c <common>   : specify the common extensions to install (<vendor:common)
+   -c <common>    : specify the common extensions to install (<vendor:common)
    -d <dir>       : directory to populate (working directory)
    -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
-   -r <runtime>   : specify runtime extension to use (<vendor:c)
+   -n             : do not install files into project template files
+   -p <name>      : project name
+   -r <runtime>   : specify runtime extension to use (<vendor>:c)
    -v <vendor>    : extension vendor to use (builtin)
 
 Types:
    executable     : create an executable project
    library        : create a library project
-   empty          : don't create a project (just an environment)
+   empty          : does not produce project files
 EOF
    exit 1
 }
@@ -83,8 +84,8 @@ _copy_extension_dirs()
       fi
 
       for directory in "${extensiondir}/bin" \
+                       "${extensiondir}/etc" \
                        "${extensiondir}/libexec" \
-                       "${extensiondir}/lib" \
                        "${extensiondir}/share"
       do
          if [ -d "${directory}" ]
@@ -136,7 +137,7 @@ _copy_extension_project_files()
       then
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
       fi
-      _template_main --embedded --template-dir "${projectdir}" || exit 1
+      _template_main --embedded --template-dir "${projectdir}" "$@" || exit 1
    else
       log_fluff "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
    fi
@@ -152,7 +153,10 @@ _run_extension_init()
 
    if [ -x "${extensiondir}/init" ]
    then
-      eval_exekutor "${extensiondir}/init" "${projecttype}" "$@" || exit 1
+      log_fluff "Running init script \"${extensiondir}/init\""
+      eval_exekutor "${extensiondir}/init" "${projecttype}" "$@" || fail "init script \"${extensiondir}/init\" failed"
+   else
+      log_fluff "No init script \"${extensiondir}/init\" found"
    fi
 }
 
@@ -161,10 +165,10 @@ install_dependency_extension()
 {
    log_entry "install_dependency_extension" "$@"
 
-   local projecttype="$1"
-   local exttype="$2"
-   local dependency="$3"
-   local marks="$3"
+   local projecttype="$1"; shift
+   local exttype="$1"; shift
+   local dependency="$1"; shift
+   local marks="$1"; shift
 
    local parent
    local addmarks
@@ -183,7 +187,8 @@ install_dependency_extension()
                      "${exttype}" \
                      "${extname}" \
                      "${vendor:-builtin}" \
-                     "${marks}"
+                     "${marks}" \
+                     "$@"
 }
 
 
@@ -207,7 +212,8 @@ install_extension()
 
    if ! extensiondir="`find_extension "${extname}" "${vendor}"`"
    then
-      log_error "Could not find extension \"${extname}\" from vendor \"${vendor}\""
+      log_error "Could not find extension \"${extname}\" from \
+vendor \"${vendor}\""
       return 1
    fi
 
@@ -216,7 +222,8 @@ install_extension()
          # need at least an empty directory there to "show support"
          if [ ! -d "${extensiondir}/project/${projecttype}" ]
          then
-            log_error "Extension \"${vendor}:${extname}\" does not support projecttype \"${projecttype}\""
+            log_error "Extension \"${vendor}:${extname}\" does not support \
+projecttype \"${projecttype}\""
             return 1
          fi
       ;;
@@ -224,7 +231,8 @@ install_extension()
 
    case "${marks}" in
       *no-dependency*)
-         log_fluff "${vendor}:${extname}: ignoring \"${extensiondir}/dependency\" due to no-dependency mark"
+         log_fluff "${vendor}:${extname}: ignoring \
+ \"${extensiondir}/dependency\" due to no-dependency mark"
       ;;
 
       *)
@@ -235,7 +243,11 @@ install_extension()
          then
             log_fluff "Found dependency \"${dependency}\""
 
-            install_dependency_extension "${projecttype}" "${exttype}" "${dependency}" "${marks}"
+            install_dependency_extension "${projecttype}" \
+                                         "${exttype}" \
+                                         "${dependency}" \
+                                         "${marks}" \
+                                         "$@"
          else
             log_fluff "No dependency found in \"${extensiondir}/dependency"
          fi
@@ -245,7 +257,8 @@ install_extension()
 
    case "${marks}" in
       *no-directories*)
-         log_fluff "${vendor}:${extname}: ignoring any .mulle-sde directories due to no-directories mark"
+         log_fluff "${vendor}:${extname}: ignoring any .mulle-sde directories \
+due to no-directories mark"
       ;;
 
       *)
@@ -255,17 +268,19 @@ install_extension()
 
    case "${marks}" in
       *no-project*)
-         log_fluff "${vendor}:${extname}: ignoring any project files due to no-project mark"
+         log_fluff "${vendor}:${extname}: ignoring any project files due to \
+no-project mark"
       ;;
 
       *)
-         _copy_extension_project_files "${extensiondir}" "${projecttype}"
+         _copy_extension_project_files "${extensiondir}" "${projecttype}" "$@"
       ;;
    esac
 
    case "${marks}" in
       *no-init*)
-         log_fluff "${vendor}:${extname}: ignoring an init script due to no-init mark"
+         log_fluff "${vendor}:${extname}: ignoring an init script due to \
+no-init mark"
       ;;
 
       *)
@@ -275,7 +290,8 @@ install_extension()
 
    case "${marks}" in
       *no-motd*)
-         log_fluff "${vendor}:${extname}: ignoring any motd info due to no-motd mark"
+         log_fluff "${vendor}:${extname}: ignoring any motd info due to \
+no-motd mark"
       ;;
 
       *)
@@ -370,10 +386,24 @@ install_project()
       fi
    fi
 
+   local marks
+   local cmdline_options
+
+   marks=""
+   if [ "${OPTION_PROJECT_FILES}" = "NO" ]
+   then
+      marks="no-project"
+   fi
+
    local _MOTD
 
    _MOTD=""
 
+   cmdline_options="\
+--buildtool `colon_concat "${buildtool_vendor}" "${buildtool_name}"` \
+--runtime `colon_concat "${runtime_vendor}" "${runtime_name}"` \
+--common `colon_concat "${common_vendor}" "${common_name}"` \
+"
    #
    # buildtool is the most likely to fail, due to a mistyped
    # projectdir, if that happens, we have done the least pollution yet
@@ -383,19 +413,19 @@ install_project()
                         "buildtool" \
                         "${buildtool_name}" \
                         "${buildtool_vendor}" \
-                        "" \
+                        "${marks}" \
                         -p "${OPTION_NAME}" &&
       install_extension "${projecttype}" \
                         "runtime" \
                         "${runtime_name}" \
                         "${runtime_vendor}" \
-                        "" \
+                        "${marks}" \
                         -p "${OPTION_NAME}" &&
       install_extension "${projecttype}" \
                         "common" \
                         "${common_name}" \
                         "${common_vendor}" \
-                        "" \
+                        "${marks}" \
                         -p "${OPTION_NAME}"
    ) || return 1
 
@@ -409,7 +439,7 @@ install_project()
    local extra
    local extra_vendor
    local extra_name
-
+   local option
    IFS="
 "
    for extra in ${OPTION_EXTRAS}
@@ -419,15 +449,26 @@ install_project()
       then
          extra_vendor="`cut -s -d':' -f1 <<< "${extra}" `"
          extra_name="` cut -d':' -f2 <<< "${extra}" `"
+         extra_vendor="${extra_vendor:-builtin}"
 
          install_extension "${projecttype}" \
                            "extra" \
                            "${extra_name}" \
-                           "${extra_vendor:-builtin}" \
-                           "" \
+                           "${extra_vendor}" \
+                           "${marks}" \
                            -p "${OPTION_NAME}"
+
+         option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
+         cmdline_options="`concat "${cmdline_options}" "${option}"`"
       fi
    done
+
+
+   #
+   # remember installed extensions
+   #
+   mkdir_if_missing ".mulle-sde/etc" || exit 1
+   redirect_exekutor ".mulle-sde/etc/extensions" echo "${cmdline_options}"
 
    IFS="${DEFAULT_IFS}"
 
@@ -466,6 +507,7 @@ sde_init_main()
    local OPTION_INIT_ENV="YES"
    local OPTION_ENV_STYLE="mulle:restricted"
    local OPTION_BLURB=""
+   local OPTION_PROJECT_FILES="YES"
 
    #
    # handle options
@@ -515,6 +557,10 @@ sde_init_main()
 
             exekutor mkdir -p "$1" 2> /dev/null
             exekutor cd "$1" || fail "can't change to \"$1\""
+         ;;
+
+         -n|--no-project-files)
+            OPTION_PROJECT_FILES="NO"
          ;;
 
          -r|--runtime)
@@ -577,7 +623,11 @@ sde_init_main()
       export MULLE_EXECUTABLE_NAME
       exekutor mulle-env ${MULLE_ENV_FLAGS} init ${OPTION_BLURB} --style "${OPTION_ENV_STYLE}"
       case $? in
-         0|2)
+         0)
+         ;;
+
+         2)
+            log_fluff "mulle-env warning noted, but ignored"
          ;;
 
          *)
@@ -588,18 +638,10 @@ sde_init_main()
 
    mkdir_if_missing ".mulle-sde" || exit 1
 
-   case "${projecttype}" in
-      empty)
-         return
-      ;;
-
-      *)
-         if ! install_project "${projecttype}"
-         then
-            rmdir_safer ".mulle-sde"
-            rmdir_safer ".mulle-env"
-            exit 1
-         fi
-      ;;
-   esac
+   if ! install_project "${projecttype}"
+   then
+      rmdir_safer ".mulle-sde"
+      rmdir_safer ".mulle-env"
+      exit 1
+   fi
 }

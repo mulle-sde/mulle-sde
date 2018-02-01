@@ -1,0 +1,5 @@
+*.ccdiag
+*.stdout
+*.stderr
+*.stdin
+Makefile

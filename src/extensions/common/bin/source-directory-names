@@ -1,5 +1,0 @@
-#! /bin/sh
-
-[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
-
-echo "src"

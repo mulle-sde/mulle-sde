@@ -12,7 +12,6 @@ endif()
 set( DEPENDENCIES_DIR "${MULLE_VIRTUAL_ROOT}/dependencies")
 set( ADDICTIONS_DIR "${MULLE_VIRTUAL_ROOT}/addictions")
 
-https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 include_directories( BEFORE SYSTEM
 ${DEPENDENCIES_DIR}/include
 ${ADDICTIONS_DIR}/include
@@ -38,7 +37,7 @@ add_executable( <|PROJECT_NAME|>
 ${SOURCES}
 ${PUBLIC_HEADERS}
 ${PRIVATE_HEADERS}
-CMakeLists.cmake
+CMakeLists.txt
 CMakeHeadersAndSources.cmake
 CMakeDependenciesAndLibraries.cmake
 )
@@ -60,7 +59,11 @@ install( TARGETS <|PROJECT_NAME|> DESTINATION "bin")
 # But if create-build-motd doesn't exist, it's no biggy
 #
 add_custom_target( __motd__ ALL
-   COMMAND [ ! -x "${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/create-build-motd" ] || "${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/create-build-motd" "executable" "${CMAKE_BINARY_DIR}" "<|PROJECT_NAME|>"
+   COMMAND [ ! -x "${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/create-build-motd" ] ||
+           "${MULLE_VIRTUAL_ROOT}/.mulle-sde/bin/create-build-motd"
+              "executable"
+              "${CMAKE_BINARY_DIR}"
+              "<|PROJECT_NAME|>"
    COMMENT "Creating a motd file for mulle-craft"
 )
 add_dependencies( __motd__ <|PROJECT_NAME|>)

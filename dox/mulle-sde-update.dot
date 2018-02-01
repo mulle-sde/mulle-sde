@@ -2,11 +2,12 @@ digraph G {
     graph [rankdir = TD];
 
     node[shape=record];
+    edge[ arrowhead="none", color="gray"]
 
     { rank = same;  "project" };
     { rank = same;  "src", ".mulle-sde" ".mulle-sourcetree", "_CMakeHeaders.cmake", "_CMakeSources.cmake", "_CMakeLibraries.cmake", "_CMakeDependencies.cmake"};
-    { rank = same;  "bin", "config"}
-    { rank = same;  "is-header-or-source", "classify-headers", "classify-sources" };
+    { rank = same;  "bin", "libexec", "config"}
+    { rank = same;  "classify-directory.sh" };
     { rank = same;  "did-update-src", "did-update-sourcetree" };
     { rank = last;  "mulle-sde update" };
 
@@ -17,9 +18,7 @@ digraph G {
 
     "did-update-src"           [ shape="box", color="magenta", fontcolor="magenta" ]
     "did-update-sourcetree"    [ shape="box", color="magenta", fontcolor="magenta" ]
-    "is-header-or-source"      [ shape="box", color="magenta", fontcolor="magenta" ]
-    "classify-headers"         [ shape="box", color="magenta", fontcolor="magenta" ]
-    "classify-sources"         [ shape="box", color="magenta", fontcolor="magenta" ]
+    "classify-directory.sh"    [ shape="box", color="magenta", fontcolor="magenta" ]
 
     "project"                              [ shape="folder", color="gray", fontcolor="gray" ]
     "project" -> "src"                      [ arrowhead="none" ]
@@ -34,35 +33,34 @@ digraph G {
     ".mulle-sde"        [ shape="folder", color="gray", fontcolor="gray" ]
     ".mulle-sourcetree" [ shape="folder", color="gray", fontcolor="gray" ]
     "bin"               [ shape="folder", color="gray", fontcolor="gray" ]
+    "libexec"           [ shape="folder", color="gray", fontcolor="gray" ]
     "config"            [ shape="note" ]
 
     "mulle-sde update"  [ shape="none", fontname="monospace", fontcolor="blue"]
-    "is-header-or-source"   -> "did-update-src"     [ style="invis" ]
     "did-update-src"        -> "mulle-sde update"   [ style="invis" ]
     "did-update-sourcetree" -> "mulle-sde update"   [ style="invis" ]
 
 
-    ".mulle-sde" -> "bin"               [ arrowhead="none" ]
-    "bin"  -> "did-update-src"          [ arrowhead="none" ]
-    "bin"  -> "did-update-sourcetree"   [ arrowhead="none" ]
-    "bin"  -> "is-header-or-source"     [ arrowhead="none" ]
-    "bin"  -> "classify-headers"        [ arrowhead="none" ]
-    "bin"  -> "classify-sources"        [ arrowhead="none" ]
-    ".mulle-sourcetree" -> "config"     [ arrowhead="none" ]
+    ".mulle-sde" -> "bin"
+    ".mulle-sde" -> "libexec"
+    "bin"  -> "did-update-src"
+    "bin"  -> "did-update-sourcetree"
+    "libexec"  -> "classify-directory.sh"
 
+    ".mulle-sourcetree" -> "config"
 
-    "mulle-sde update"  -> "did-update-src"        [ style="dotted", label="run" ]
-    "mulle-sde update"  -> "did-update-sourcetree" [ style="dotted", label="run"]
+    edge[ arrowhead="", style="dotted", color="black" ]
 
-    "did-update-src" -> "_CMakeHeaders.cmake"   [ style="dotted", label="write" ]
-    "did-update-src" -> "is-header-or-source" [ style="dotted", label="run" ]
-    "did-update-src" -> "_CMakeSources.cmake"   [ style="dotted", label="write" ]
-    "did-update-src" -> "classify-headers"    [ style="dotted", label="run" ]
-    "did-update-src" -> "classify-sources"    [ style="dotted", label="run" ]
+    "mulle-sde update"  -> "did-update-src"        [ label="run" ]
+    "mulle-sde update"  -> "did-update-sourcetree" [ label="run"]
 
-    "did-update-sourcetree" -> "_CMakeDependencies.cmake" [ style="dotted", label="write" ]
-    "did-update-sourcetree" -> "_CMakeLibraries.cmake"    [ style="dotted", label="write" ]
+    "did-update-src" -> "_CMakeHeaders.cmake"      [ label="write" ]
+    "did-update-src" -> "_CMakeSources.cmake"      [ label="write" ]
+    "did-update-src" -> "classify-directory.sh"    [ label="include" ]
 
-    "did-update-src"        -> "src"       [ style="dotted", label="read" ]
-    "did-update-sourcetree" -> "config"    [ style="dotted", label="read" ]
+    "did-update-sourcetree" -> "_CMakeDependencies.cmake" [ label="write" ]
+    "did-update-sourcetree" -> "_CMakeLibraries.cmake"    [ label="write" ]
+
+    "did-update-src"        -> "src"       [ label="read" ]
+    "did-update-sourcetree" -> "config"    [ label="read" ]
 }

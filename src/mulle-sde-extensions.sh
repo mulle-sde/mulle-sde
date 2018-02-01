@@ -54,22 +54,6 @@ EOF
 }
 
 
-extension_get_vendor_pathcomponent()
-{
-   log_entry "extension_get_vendor_pathcomponent" "$@"
-
-   local vendor="$1"
-
-   case "${vendor}" in
-      builtin)
-      ;;
-
-      *)
-         echo "mulle-sde/${vendor}"
-      ;;
-   esac
-}
-
 
 extensions_get_home_config_dir()
 {
@@ -87,31 +71,6 @@ extensions_get_home_config_dir()
    esac
 }
 
-_extensions_get_vendors()
-{
-   log_entry "_extensions_get_vendors" "$@"
-
-   echo "builtin"
-
-   if [  -d /usr/local/share/mulle-sde ]
-   then
-      ( cd /usr/local/share/mulle-sde ; find . -mindepth 1 -maxdepth 1 -type d -print )
-   fi
-
-   if [  -d /usr/share/mulle-sde ]
-   then
-      ( cd /usr/share/mulle-sde ; find . -mindepth 1 -maxdepth 1 -type d -print )
-   fi
-}
-
-
-extensions_get_vendors()
-{
-   log_entry "extensions_get_vendors" "$@"
-
-   _extensions_get_vendors | LC_ALL=C sed s'|^\./||' | sort -u
-}
-
 
 #
 # An extension must be present at init time. Nothing from the project
@@ -119,15 +78,15 @@ extensions_get_vendors()
 #
 # Find extensions in:
 #
-# ${HOME}/.config/mulle-sde/extensions (or elsewhere OS dependent)
-# /usr/local/share/mulle_sde/<vendor>/extensions
-# /usr/share/mulle_sde/<vendor>/extensions
+# ${HOME}/.config/mulle-sde/extensions/<vendor> (or elsewhere OS dependent)
+# /usr/local/share/mulle_sde/extensions/<vendor>
+# /usr/share/mulle_sde/extensions/<vendor>
 #
 extension_get_search_path()
 {
    log_entry "extension_get_search_path" "$@"
 
-   local vendor="$1"
+   local vendor="$1" # can be empty
 
    local extensionsdir
    local homeextensionsdir
@@ -139,19 +98,75 @@ extension_get_search_path()
          s="`colon_concat "$s" "${MULLE_SDE_LIBEXEC_DIR}/extensions" `"
       ;;
 
+
       *)
-         extensionsdir="share/mulle-sde/${vendor}/extensions"
+         extensionsdir="share/mulle-sde/extensions"
+         extensionsdir="`filepath_concat "${extensionsdir}" "${vendor}"`"
+
          homeextensionsdir="`extensions_get_home_config_dir`/mulle-sde/extensions"
+         homeextensionsdir="`filepath_concat  "${homeextensionsdir}" "${vendor}"`"
 
          s="`colon_concat "$s" "${homeextensionsdir}" `"
          s="`colon_concat "$s" "/usr/local/${extensionsdir}" `"
          s="`colon_concat "$s" "/usr/${extensionsdir}" `"
       ;;
+
    esac
 
-   log_fluff "Extension search path: \"$s\""
+   log_fluff "Extension search path for vendor \"${vendor}\": \"$s\""
 
    echo "$s"
+}
+
+
+extension_get_vendor_pathcomponent()
+{
+   log_entry "extension_get_vendor_pathcomponent" "$@"
+
+   local vendor="$1"
+
+   case "${vendor}" in
+      builtin)
+      ;;
+
+      *)
+         echo "mulle-sde/${vendor}"
+      ;;
+   esac
+}
+
+
+_extensions_get_vendors()
+{
+   log_entry "_extensions_get_vendors" "$@"
+
+   echo "builtin"
+
+   local path
+   local i
+
+   path="`extension_get_search_path ""`"
+
+   IFS="
+"
+   for i in ${path}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      if [ -d "$i" ]
+      then
+         ( cd "$i" ; find . -mindepth 1 -maxdepth 1 -type d -print )
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+extensions_get_vendors()
+{
+   log_entry "extensions_get_vendors" "$@"
+
+   _extensions_get_vendors | LC_ALL=C sed s'|^\./||' | sort -u
 }
 
 

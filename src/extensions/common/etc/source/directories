@@ -1,0 +1,11 @@
+# the positive source directory
+
+src/
+
+#
+# Some directories where we know there is nothing we want
+#
+!src/.*/
+!src/*/.*/
+!src/old/
+!src/*/old/

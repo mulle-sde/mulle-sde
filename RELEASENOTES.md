@@ -1,3 +1,8 @@
+## 0.8.0
+
+* use a gitignore like scheme to classify files and directories
+
+
 ### 0.7.4
 
 * allow extensions to suppress functionality of inherited extensions with marks

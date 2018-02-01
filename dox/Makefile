@@ -4,6 +4,7 @@ mulle-sde-libraries.png \
 mulle-sde-tools.png \
 mulle-sde-monitor.png \
 mulle-sde-overview.png \
+mulle-sde-extension.png \
 mulle-sde-update.png \
 mulle-sde-subprojects.png \
 mulle-sde-cmakelists.png

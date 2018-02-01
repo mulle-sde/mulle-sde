@@ -1,0 +1,79 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node [ shape="record", color="#8854d0", fontcolor="#8854d0" ]
+
+    "classify-headers.sh"
+    "classify-sources.sh"
+
+    node [ shape="record", color="#20bf6b", fontcolor="#20bf6b" ]
+
+    "00_PRIVATE_HEADER"
+    "01_HEADER"
+    "00_SOURCE"
+    "files1" [ label="files"]
+    "files2" [ label="files"]
+
+    node[ shape="folder", color="black", fontcolor="black" ];
+    edge[ arrowhead="none", color="#778ca3"]
+
+    { rank = same;  "project" };
+    { rank = same;  ".mulle-sde" };
+    { rank = same;  "bin", "libexec", "etc"}
+    { rank = same;  "header", "source" }
+    { rank = same;  "patterns1", "patterns2" }
+    { rank = same;  "files1", "files2" }
+    { rank = same;  "00_SOURCE", "01_HEADER", "00_PRIVATE_HEADER" };
+    { rank = same;  "classify-headers.sh", "classify-sources.sh" };
+
+    "00_SOURCE"  ->   "did-update-src"         [ style="invis" ]
+    "01_HEADER"  -> "did-update-src"           [ style="invis" ]
+    "00_PRIVATE_HEADER" -> "did-update-src"    [ style="invis" ]
+
+    "did-update-src"           [ shape="record", penwidth="2", color="#3867d6", fontcolor="#3867d6" ]
+
+     node[ shape=folder, color="#778ca3", fontcolor="#778ca3" ];
+
+    "project"                               [ shape="folder", color="#778ca3", fontcolor="#778ca3" ]
+    "project" -> ".mulle-sde"               [ arrowhead="none", color="#778ca3", fontcolor="#778ca3" ]
+
+    "bin"
+    "etc"
+    "libexec"
+
+     node[ shape=folder, color="black", fontcolor="black"];
+
+    ".mulle-sde" -> "bin"
+    ".mulle-sde" -> "etc"
+    ".mulle-sde" -> "libexec"
+
+    "bin"  -> "did-update-src"
+    "etc"  -> "header"
+    "etc"  -> "source"
+    "header" -> "patterns1"
+    "header" -> "files1"
+    "source" -> "patterns2"
+    "source" -> "files2"
+
+    "patterns1" [ label="patterns" ]
+    "patterns2" [ label="patterns" ]
+
+    "patterns1" -> "00_PRIVATE_HEADER"
+    "patterns1" -> "01_HEADER"
+    "patterns2" -> "00_SOURCE"
+
+    "libexec"  -> "classify-headers.sh"
+    "libexec"  -> "classify-sources.sh"
+
+    edge [ arrowhead="" style="dotted", penwidth="2", color="black", fontcolor="black"]
+
+    "did-update-src" -> "classify-headers.sh" [ label="include" ]
+    "did-update-src" -> "classify-sources.sh" [ label="include" ]
+
+    "did-update-src" -> "files1" [ label="read" ]
+    "did-update-src" -> "files2" [ label="read" ]
+
+    "classify-headers.sh" -> "00_PRIVATE_HEADER" [ label="read" ]
+    "classify-headers.sh" -> "01_HEADER" [ label="read" ]
+    "classify-sources.sh" -> "00_SOURCE" [ label="read" ]
+}

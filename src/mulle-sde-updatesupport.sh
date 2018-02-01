@@ -167,108 +167,165 @@ filter_lines_with_file()
 }
 
 
-_find_directories_list()
+#
+# find all directories which may contain sources
+# the consumer shouldn't do anything recursive afterwards because
+# we did it for him already.
+# We purposefully ignore all "hidden"
+# directories and some common build and output directory names.
+# If this ever becomes a problem, then outsource the find statement.
+#
+_find_directories_quoted()
 {
-   log_entry "_find_directories_list" "$@"
+   log_entry "_find_directories_quoted" "$@"
 
-   local directory
-   local old
+   local patterns="$1"
+   local quote="$2"
+   local where="$3"
+
+   if [ -z "${patterns}" ]
+   then
+      log_warning "Did not find ${where}"
+      return
+   fi
+
+   local i
 
    IFS="
 "
-   for directory in "$@"
+   for i in `find . -mindepth 1 \
+                    -type d \
+                    \( -not -path '*/\.*' -a \
+                       -not -path '*/build' -a \
+                       -not -path '*/build/*' -a \
+                       -not -path '*/build.d' -a \
+                       -not -path '*/build.d/*' -a \
+                       -not -path '*/dependencies' -a \
+                       -not -path '*/dependencies/*' -a \
+                       -not -path '*/addictions' -a \
+                       -not -path '*/addictions/*'  \
+                    \) \
+                    -print`
    do
-      if [ ! -z "${old}" ]
+      IFS="${DEFAULT_IFS}"
+
+      i="${i:2}" # remove ./
+
+      if patternlines_match_text "${patterns}" "${i}" "" "${where}"
       then
-         printf " "
+         echo "${quote}$i${quote}"
       fi
-
-      printf "%s" "'${directory}'"
-
-      old="${directory}"
    done
-
    IFS="${DEFAULT_IFS}"
 }
 
 
-_find_extensions_qualifier()
+find_source_directories_quoted()
 {
-   log_entry "_find_extensions_qualifier" "$@"
+   log_entry "find_source_directories_quoted" "$@"
 
-   local ext
-   local old
+   local quote="$1"
 
-   for ext in $*
+   if [ -z "${MULLE_SDE_PATTERN_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-pattern.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-pattern.sh"
+   fi
+
+   local patterns
+
+   patterns="`patternfile_read "${MULLE_SDE_ETC_DIR}/source/directories"`"
+
+   _find_directories_quoted "${patterns}" "${quote}" "\"source/directories\""
+}
+
+
+find_header_directories_quoted()
+{
+   log_entry "find_header_directories_quoted" "$@"
+
+   local quote="$1"
+
+   if [ -z "${MULLE_SDE_PATTERN_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-pattern.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-pattern.sh"
+   fi
+
+   local patterns
+
+   patterns="`patternfile_read "${MULLE_SDE_ETC_DIR}/header/directories"`"
+
+   _find_directories_quoted "${patterns}" "${quote}" "\"header/directories\""
+}
+
+
+_find_files_quoted()
+{
+   log_entry "_find_files_quoted" "$@"
+
+   local patterns="$1"; shift
+   local quote="$1"; shift
+   local where="$1"; shift
+
+   [ $# -eq 0 ] && internal_fail "no dirs given"
+
+   local i
+
+   IFS="
+"
+   for i in `find "$@" -mindepth 1 -maxdepth 1 -type f -print `
    do
-      if [ ! -z "${old}" ]
+      IFS="${DEFAULT_IFS}"
+
+      if patternlines_match_text "${patterns}" "${i}" "" "${where}"
       then
-         printf "%s" " -o "
+         rexekutor echo "${quote}$i${quote}"
       fi
-
-      printf "%s \"*.%s\"" "-name" "${ext}"
-      old="${ext}"
    done
+   IFS="${DEFAULT_IFS}"
+
 }
 
 
-find_headers()
+find_headers_quoted()
 {
-   log_entry "find_headers" "$@"
+   log_entry "find_headers_quoted" "$@"
 
-   local exedir
-   local executable
+   local quote="$1"; shift
 
-   exedir="`dirname -- "$0" `"
-   executable="${exedir}/is-header-or-source"
-   if [ ! -x "${executable}" ]
+   if [ -z "${MULLE_SDE_PATTERN_SH}" ]
    then
-      # developer support
-      executable="${exedir}/../../c/bin/is-header-or-source"
+      # shellcheck source=src/mulle-sde-pattern.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-pattern.sh"
    fi
-   extensions="`${executable} -lh`" || internal_fail "\"${executable}\" is missing"
 
-   local qualifier
-   local directories
+   local patterns
 
-   directories="`_find_directories_list "$@" `"
-   qualifier="`_find_extensions_qualifier ${extensions}`"
+   patterns="`patternfile_read "${MULLE_SDE_ETC_DIR}/header/files"`"
 
-   eval_exekutor find "${directories}" '\(' "${qualifier}" '\)' -print  \
-      | exekutor LC_ALL=C egrep -v '/old/|/build/' \
-      | exekutor filter_lines_with_file ".mulle-sde/share/ignore-headers"
+   _find_files_quoted "${patterns}" "${quote}" "\"header/files\"" "$@"
 }
 
 
-find_sources()
+find_sources_quoted()
 {
-   log_entry "find_sources" "$@"
+   log_entry "find_sources_quoted" "$@"
 
-   local exedir
-   local executable
+   local quote="$1"; shift
 
-   exedir="`dirname -- "$0" `"
-   executable="${exedir}/is-header-or-source"
-   if [ ! -x "${executable}" ]
+   if [ -z "${MULLE_SDE_PATTERN_SH}" ]
    then
-      # developer support
-      executable="${exedir}/../../c/bin/is-header-or-source"
+      # shellcheck source=src/mulle-sde-pattern.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-pattern.sh"
    fi
-   extensions="`${executable} -ls`" || internal_fail "\"${executable}\" is missing"
 
-   local qualifier
-   local directories
+   local patterns
 
-   directories="`_find_directories_list "$@" `"
-   qualifier="`_find_extensions_qualifier ${extensions}`"
+   patterns="`patternfile_read "${MULLE_SDE_ETC_DIR}/source/files"`"
 
-   local cmd
-
-   eval_exekutor find "${directories}" '\(' "${qualifier}" '\)' -print  \
-      | exekutor LC_ALL=C egrep -v '/old/|/build/' \
-      | exekutor filter_lines_with_file ".mulle-sde/share/ignore-sources"
+   _find_files_quoted "${patterns}" "${quote}" "\"source/files\"" "$@"
 }
-
 
 
 #
@@ -287,7 +344,7 @@ _emit_include_dirs_contents()
 "
    for i in ${headers}
    do
-      echo "`dirname -- "${i}"`"
+      rexekutor echo "`dirname -- "${i}"`"
    done
    IFS="$old"
 }
@@ -301,67 +358,6 @@ emit_include_dirs_contents()
 }
 
 
-#
-#
-#
-existing_source_dirs()
-{
-   log_entry "existing_source_dirs" "$@"
-
-   local i
-   local old
-
-   local i
-
-   old="$IFS"
-   IFS="
-"
-   for i in "$@"
-   do
-      if [ -d "${i}" ]
-      then
-         echo "${i}"
-      fi
-   done
-   IFS="$old"
-}
-
-
-source_directories()
-{
-   log_entry "main" "$@"
-
-   local directorynames="$1"
-
-   local executable
-   if [ -z "${directorynames}" ]
-   then
-      local exedir
-
-      exedir="`dirname -- "$0"`"
-      executable="${exedir}/source-directory-names"
-      if [ ! -x "${executable}" ]
-      then
-         # developer support
-         executable="${exedir}/../../common/bin/source-directory-names"
-      fi
-
-      if [ -x "${executable}" ]
-      then
-         directorynames="`${executable}`" || internal_fail "\"${executable}\" failed"
-      else
-         fail "No source directories specified (and \"${executable}\"  doesn't exist)"
-      fi
-      if [ -z "${directorynames}" ]
-      then
-         fail "\"${executable}\" returned nothing"
-      fi
-   fi
-
-   existing_source_dirs "${directorynames}"
-}
-
-
 emit_classified_files()
 {
    log_entry "emit_classified_files" "$@"
@@ -370,6 +366,9 @@ emit_classified_files()
    local files="$2"
    local emitter="$3"
 
+   [ -z "${classifier}" ] && internal_fail "classifier is empty"
+   [ -z "${emitter}" ] && internal_fail "emitter is empty"
+
    if [ -z "${files}" ]
    then
       return
@@ -377,15 +376,15 @@ emit_classified_files()
 
    local filename
 
-   local cmd
+   local cmdline
    local filename
 
-   cmd="'${classifier}'"
+   cmdline="'${classifier}'"
    IFS="
 "
    for filename in ${files}
    do
-      cmd="${cmd} '${filename}'"
+      cmdline="${cmdline} '${filename}'"
    done
    IFS="${DEFAULT_IFS}"
 
@@ -408,11 +407,10 @@ emit_classified_files()
       else
          collection="`add_line "${collection}" "${filename}"`"
       fi
-   done < <( eval "${cmd}")
+   done < <( eval "${cmdline}")
 
    if [ ! -z "${collection}" ]
    then
       "${emitter}" "${collectname}" "${collection}"
    fi
 }
-

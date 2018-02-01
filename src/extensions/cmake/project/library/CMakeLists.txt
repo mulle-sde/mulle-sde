@@ -50,7 +50,7 @@ add_library( "<|PROJECT_NAME|>"
 ${SOURCES}
 ${PUBLIC_HEADERS}
 ${PRIVATE_HEADERS}
-CMakeLists.cmake
+CMakeLists.txt
 CMakeHeadersAndSources.cmake
 )
 

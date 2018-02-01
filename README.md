@@ -88,9 +88,9 @@ common         | builtin | common | Provides the executables `create-build-motd`
 runtime        | builtin | c      | Provides the executables `classify-headers`, `classify-sources`, `is-header-or-source` for C projects. And it also provides a bunch of template files for initial C projects.
 buildtool      | builtin | cmake  | Provides the executables `did-update-sourcetree`, `did-update-src` for cmake projects. And it also provides a bunch of template files for cmake projects.
 
-Additional extensions may be placed into the `dependencies`. If your extension vendor is called "myorg", then extensions will be looked for in `dependencies/share/libexec/myorg/mulle-sde/extensions`.
-
 Use `mulle-sde extensions list` to check if your extensions are picked up.
+
+See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more information about extensions.
 
 
 ### mulle-sde libraries
@@ -115,7 +115,11 @@ Environment       | Default        | Description
 `MULLE_SDE_CRAFT` | `mulle-craft`  | Build tool to invoke
 `MULLE_SDE_TEST`  | `mulle-test`   | Test tool to invoke
 
-> You can use a different built tool, than `mulle-craft`, but you'll be losing out on a lot of functionality.
+See **update** for a slew of other environment variables, that also
+affect **monitor**.
+
+> You can use a different built tool, than `mulle-craft`, but you'll be losing
+> out on a lot of functionality.
 
 ### mulle-sde tools
 
@@ -139,13 +143,17 @@ In the case of `cmake` the script `did-update-src` will create the files `_CMake
 The way **update** is creating the output can be customized. You can substitute the `did-update-...` scripts with your own. Or you can tweak the output quite a bit, by changes to the inferior scripts like `classify-sources`.
 
 Environment                        | Default                  | Description
------------------------------------|--------------------------|--------------------
-`MULLE_SDE_DID_UPDATE_SRC`         | `did-update-src`         | Invoked, when a change to sourcefiles has been detected.
-`MULLE_SDE_DID_UPDATE_SOURCETREE`  | `did-update-sourcetree`  | Invoked, when a change to a `./mulle-sourcetree/config` has been detected.
+-----------------------------------|--------------------------|-------------------
+`MULLE_SDE_DID_UPDATE_SRC`         | `did-update-src`         | Invoked, when a change to sourcefiles has been detected. If you set this to "NO", it will not be called.
+`MULLE_SDE_DID_UPDATE_SOURCETREE`  | `did-update-sourcetree`  | Invoked, when a change to a `./mulle-sourcetree/config` has been detected. . If you set this to "NO", it will not be called.
 `MULLE_SDE_IS_HEADER_OR_SOURCE`    | `is-header-or-source"`   | Determines by filename if a file is a source file
 `MULLE_SDE_IS_TEST_FILE`           | `is-test-file`           | Determines by filename if a file is a test file
 `MULLE_SDE_CLASSIFY_HEADERS`       | `classify-headers`       | Classify headers as public, private
 `MULLE_SDE_CLASSIFY_SOURCES`       | `classify-sources`       | Classify sources as normal or standalone
+
+
+If you did set both `MULLE_SDE_DID_UPDATE_SRC` and `MULLE_SDE_DID_UPDATE_SOURCETREE`
+to "NO", nothing will happen.
 
 >
 > It is probably easiest, to copy the installed script and edit it. Then set the environment variable to use
@@ -155,10 +163,4 @@ Environment                        | Default                  | Description
 > But there is a slight chance of losing your changes, if someone reinitializes your project
 > (to use a different buildtool maybe)
 >
-
-## Tips And Tricks
-
-#### How to use meson instead of cmake
-
-**mulle-craft** already understands meson. But there is no extension in **mulle-sde** yet, to create a **meson** Makefile. The complication is, that meson doesn't understand "include". So the meson file has to be a concatenation of various parts into one single file. Solution: write an extension do do that.
 

@@ -74,10 +74,15 @@ _mulle_tools_add()
    # use mudo to break out of
    # virtual environment
    #
-   executable="`mudo which "${tool}"`"
+   executable="`mudo which "${tool}" 2> /dev/null`"
    if [ -z "${executable}" ]
    then
-      fail "Failed to find executable \"${tool}\""
+      if [ -z "`which "mudo" 2> /dev/null`" ]
+      then
+         fail "\"mudo\" is not present ??? Try again outside of the environment."
+      else
+         fail "Failed to find executable \"${tool}\""
+      fi
    fi
 
    if fgrep -q -s -x "${tool}" "${toolsfile}"
@@ -89,19 +94,24 @@ _mulle_tools_add()
 
    local bindir
 
-   bindir="${MULLE_VIRTUAL_ROOT}/bin"
+   bindir="${MULLE_VIRTUAL_ROOT}/.mulle-env/bin"
    mkdir_if_missing "${bindir}"
 
    local dstfile
 
    dstfile="${bindir}/${tool}"
 
-   exekutor chmod ugo+w "${bindir}"
-   [ -e "${dstfile}" ] && exekutor chmod ugo+w "${dstfile}"
+   exekutor chmod ugo+w "${bindir}" || return 1
+   if [ -e "${dstfile}" ]
+   then
+      # since it's usually a symlink this won't work
+      # but on mingw it's better safe than sorry
+      exekutor chmod ugo+w "${dstfile}" 2> /dev/null
+   fi
 
    exekutor ln -sf "${executable}" "${bindir}/" || exit 1
 
-   exekutor chmod ugo-w "${dstfile}"
+   exekutor chmod ugo-w "${dstfile}" 2> /dev/null || : # see above
    exekutor chmod ugo-w "${bindir}"
 }
 
@@ -130,9 +140,9 @@ _mulle_tools_remove()
 
    local bindir
 
-   bindir="${MULLE_VIRTUAL_ROOT}/bin"
+   bindir="${MULLE_VIRTUAL_ROOT}/.mulle-env/bin"
 
-   exekutor chmod ugo+w "${bindir}"
+   exekutor chmod ugo+w "${bindir}" || return 1
    remove_file_if_present "${bindir}/${tool}" &&
    exekutor chmod ugo-w "${bindir}"
 }

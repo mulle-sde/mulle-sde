@@ -1,0 +1,52 @@
+#! /usr/bin/env bash
+
+[ "${TRACE}" = "YES" ] && set -x
+
+
+TEST_DIR="`dirname "$0"`"
+PROJECT_DIR="$( cd "${TEST_DIR}/.." ; pwd -P)"
+
+PATH="${PROJECT_DIR}:$PATH"
+export PATH
+
+
+main()
+{
+   _options_mini_main "$@"
+
+   MULLE_SDE="`which mulle-sde`" || exit 1
+
+   local i
+
+   log_verbose "mulle-sde: `mulle-sde version` (`mulle-sde library-path`)"
+
+   OUTPUT_DEVICE=
+   for i in "${TEST_DIR}"/*
+   do
+      if [ -x "$i/run-test" ]
+      then
+         log_verbose "------------------------------------------"
+         log_info    "$i:"
+         log_verbose "------------------------------------------"
+         if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+         then
+            ( cd "$i" && ./run-test "$@" > /dev/null 2>&1 ) || fail "Test \"$i\" failed"
+         else
+            ( cd "$i" && ./run-test "$@" ) || fail "Test \"$i\" failed"
+         fi
+      fi
+   done
+}
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env library-path`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+}
+
+
+init "$@"
+main "$@"
+

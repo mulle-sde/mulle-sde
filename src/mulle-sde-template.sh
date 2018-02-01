@@ -58,6 +58,31 @@ EOF
 }
 
 
+expand_filename_variables()
+{
+   log_entry "expand_filename_variables" "$@"
+
+   local escaped_pn
+   local escaped_pi
+   local escaped_pui
+
+   # verify minimal set
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
+   [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
+   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ] && internal_fail "PROJECT_UPCASE_IDENTIFIER is empty"
+
+   escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
+   escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
+   escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
+
+
+   LC_ALL=C \
+      rexekutor sed -e "s/PROJECT_NAME/${escaped_pn}/g" \
+                    -e "s/PROJECT_IDENTIFIER/${escaped_pi}/g" \
+                    -e "s/PROJECT_UPCASE_IDENTIFIER/${escaped_pui}/g"
+}
+
+
 expand_template_variables()
 {
    log_entry "expand_template_variables" "$@"
@@ -85,8 +110,6 @@ expand_template_variables()
    escaped_pl="` escaped_sed_pattern "${PROJECT_LANGUAGE}" `"
    escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
    escaped_pul="` escaped_sed_pattern "${project_upcase_language}" `"
-   escaped_chn="` escaped_sed_pattern "${C_HEADER_NAME}" `"
-   escaped_umcli="` escaped_sed_pattern "${UPCASE_C_LIBRARY_IDENTIFIER}" `"
 
    local escaped_a
    local escaped_d
@@ -120,9 +143,7 @@ expand_template_variables()
                     -e "s/<|ORGANIZATION|>/${escaped_o}/g" \
                     -e "s/<|TIME|>/${escaped_t}/g" \
                     -e "s/<|USER|>/${escaped_u}/g" \
-                    -e "s/<|YEAR|>/${escaped_y}/g" \
-                    -e "s/<|C_HEADER_NAME|>/${escaped_chn}/g" \
-                    -e "s/<|UPCASE_C_LIBRARY_IDENTIFIER|>/${escaped_umcli}/g"
+                    -e "s/<|YEAR|>/${escaped_y}/g"
 }
 
 
@@ -145,12 +166,16 @@ copy_and_expand_template()
 
    [ ! -f "${templatefile}" ] && internal_fail "\"${templatefile}\" is missing"
 
+   local expanded_dstfile
+
+   expanded_dstfile="`expand_filename_variables <<< "${dstfile}" `"
+
    local text
 
    text="`expand_template_variables < "${templatefile}" `"
 
-   mkdir_if_missing "`dirname -- "${dstfile}" `"
-   redirect_exekutor "${dstfile}" echo "${text}"
+   mkdir_if_missing "`dirname -- "${expanded_dstfile}" `"
+   redirect_exekutor "${expanded_dstfile}" echo "${text}"
 }
 
 
@@ -194,6 +219,10 @@ _template_main()
    esac
 
    local FLAG_FORCE="NO"
+   local TEMPLATE_DIR
+   local PROJECT_NAME
+   local PROJECT_LANGUAGE
+   local PROJECT_UPCASE_IDENTIFIER
 
    TEMPLATE_DIR="`dirname -- "$0"`/project"
    TEMPLATE_DIR="`absolutepath "${TEMPLATE_DIR}" `"
@@ -290,7 +319,6 @@ _template_main()
       template_callback="template_setup"
    fi
 
-
    local dir_name
 
    dir_name="`basename -- "${PWD}"`"
@@ -299,7 +327,11 @@ _template_main()
    PROJECT_NAME="${PROJECT_NAME:-${dir_name}}"
    PROJECT_IDENTIFIER="`echo "${PROJECT_NAME}" | tr '-' '_' | tr '[A-Z]' '[a-z]'`"
    PROJECT_UPCASE_IDENTIFIER="`echo "${PROJECT_IDENTIFIER}" | tr '[a-z]' '[A-Z]'`"
-   UPCASE_MULLE_C_LIBRARY_IDENTIFIER="`echo "${UPCASE_MULLE_C_LIBRARY_NAME}" | tr '-' '_'`"
+
+   log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
+   log_debug "PROJECT_NAME=${PROJECT_NAME}"
+   log_debug "PROJECT_IDENTIFIER=${PROJECT_IDENTIFIER}"
+   log_debug "PROJECT_UPCASE_IDENTIFIER=${PROJECT_UPCASE_IDENTIFIER}"
 
    case "${cmd}" in
       version)
@@ -311,8 +343,7 @@ _template_main()
          "${template_callback}" "${TEMPLATE_DIR}" \
                                 "${PROJECT_NAME}" \
                                 "${PROJECT_IDENTIFIER}" \
-                                "${PROJECT_UPCASE_IDENTIFIER}" \
-                                "${UPCASE_MULLE_C_LIBRARY_IDENTIFIER}"
+                                "${PROJECT_UPCASE_IDENTIFIER}"
       ;;
    esac
 }

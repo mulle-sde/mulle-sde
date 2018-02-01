@@ -49,7 +49,6 @@ EOF
 }
 
 
-
 sde_update_usage()
 {
     cat <<EOF >&2
@@ -291,62 +290,88 @@ source_craft()
 
 
 #
-# if sourcetree_config_modified (and by extension MULLE_SDE_DID_UPDATE_SOURCETREE)
+# if update_dependencies or update_sources (and by extension
+# MULLE_SDE_DID_UPDATE_SOURCETREE and friends)
 # return non-zero, it means that nothing was modified
 #
-sourcetree_config_modified()
+update_dependencies()
 {
-   log_entry "sourcetree_config_modified" "$@"
+   log_entry "update_dependencies" "$@"
+
+   if [ "${MULLE_SDE_DID_UPDATE_SOURCETREE}" = "NO" ]
+   then
+      return
+   fi
 
    if [ -z "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ]
    then
-      log_fluff "No update script configured, build will not reflect file additions and removals"
+      log_fluff "No update script configured, build will not reflect file \
+additions and removals"
       return 1
    fi
+
    log_verbose "==> Update dependencies"
 
    (
+      local flags
+
+      flags="${MULLE_SDE_DID_UPDATE_SOURCETREE_FLAGS:-${MULLE_TECHNICAL_FLAGS}}"
+
       cd "${PROJECT_DIR}" &&
-      exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ${MULLE_SDE_DID_UPDATE_SOURCETREE_FLAGS} "$@" &&
+      exekutor "${MULLE_SDE_DID_UPDATE_SOURCETREE}" ${flags} "$@" &&
       redirect_exekutor "${PROJECT_DIR}/.mulle-sde/run/did-update-sourcetree" echo "# empty"
    )
 }
 
 
+sourcetree_config_modified()
+{
+   log_entry "sourcetree_config_modified" "$@"
+
+   update_dependencies "$@"
+}
+
 #
-# if source_file_created (and by extension MULLE_SDE_DID_UPDATE_SRC)
+# if update_sources (and by extension MULLE_SDE_DID_UPDATE_SRC)
 # return non-zero, it means that nothing was modified
 #
-source_file_created()
+update_sources()
 {
-   log_entry "source_file_created" "$@"
+   log_entry "update_sources" "$@"
+
+   local rval
+
+   if [ "${MULLE_SDE_DID_UPDATE_SRC}" = "NO" ]
+   then
+      return
+   fi
 
    if [ -z "${MULLE_SDE_DID_UPDATE_SRC}" ]
    then
       log_fluff "No update script configured, build will not reflect file additions and removals"
       return 1
+   else
+      log_verbose "==> Update sources and headers"
+
+      (
+         local flags
+
+         flags="${MULLE_SDE_DID_UPDATE_SRC_FLAGS:-${MULLE_TECHNICAL_FLAGS}}"
+
+         cd "${PROJECT_DIR}" &&
+         exekutor "${MULLE_SDE_DID_UPDATE_SRC}" ${flags} "$@" &&
+         redirect_exekutor "${PROJECT_DIR}/.mulle-sde/run/did-update-src" echo "# empty"
+      )
    fi
-
-   log_verbose "==> Update sources and headers"
-
-   (
-      cd "${PROJECT_DIR}" &&
-      exekutor "${MULLE_SDE_DID_UPDATE_SRC}" ${MULLE_SDE_DID_UPDATE_SRC_FLAGS} "$@" &&
-      redirect_exekutor "${PROJECT_DIR}/.mulle-sde/run/did-update-src" echo "# empty"
-   )
-
-   source_craft
 }
 
 
-update()
+source_file_created()
 {
-   log_entry "update" "$@"
+   log_entry "source_file_created" "$@"
 
-   log_verbose "Update cmake files"
-
-   sourcetree_config_modified &&
-   source_file_created
+   update_sources "$@" &&
+   source_craft
 }
 
 
@@ -354,7 +379,8 @@ source_file_deleted()
 {
    log_entry "source_file_deleted" "$@"
 
-   source_file_created "$@"
+   update_sources "$@" &&
+   source_craft
 }
 
 
@@ -409,8 +435,6 @@ test_file_modified()
 }
 
 
-
-
 #
 # watch
 #
@@ -443,58 +467,23 @@ file_action_of_command()
 }
 
 
-directory_content_type()
-{
-   log_entry "directory_content_type" "$@"
-
-   local directory="$1"
-
-   case "${directory}" in
-      .*|_*)
-      ;;
-
-      *build|*build/*|*build.d|*build.d/*)
-      ;;
-
-      *tests/include|*tests/include/*)
-      ;;
-
-      *tests/lib|*tests/lib/*)
-      ;;
-
-      *tests/share|*tests/share/*)
-      ;;
-
-      *tests/libexec|*tests/libexec/*)
-      ;;
-
-      *tests*)
-         echo "test"
-      ;;
-
-      *)
-         echo "source"
-      ;;
-   esac
-}
-
-
 _is_source_file()
 {
    log_entry "_is_source_file" "$@"
 
    local filename="$1"
 
-   if [ ! -z "${MULLE_SDE_IS_HEADER_OR_SOURCE}" ]
+   if patternfile_matches_text "${MULLE_SDE_ETC_DIR}/header/files" "${filename}"
    then
-      if [ "`exekutor "${MULLE_SDE_IS_HEADER_OR_SOURCE}" "${filename}" `" != "YES" ]
-      then
-         log_debug "\"${filename}\" is not a source or header, so it's boring."
-         return 1
-      fi
-   else
-      log_debug "MULLE_SDE_IS_HEADER_OR_SOURCE is not configured. Everything is exciting"
+      return 0
    fi
+
+   if patternfile_matches_text "${MULLE_SDE_ETC_DIR}/source/files" "${filename}"
+   then
+      return 0
+   fi
+
+   return 1
 }
 
 
@@ -504,17 +493,7 @@ _is_test_file()
 
    local filename="$1"
 
-   if [ ! -z "${MULLE_SDE_IS_TEST_FILE}" ]
-   then
-      if [ "`exekutor "${MULLE_SDE_IS_TEST_FILE}" "${filename}" `" != "YES" ]
-      then
-         log_debug "\"${filename}\" is not a test file, so it's boring."
-         return 1
-      fi
-   else
-      log_debug "MULLE_SDE_IS_TEST_FILE is not configured. Everything is exciting"
-   fi
-
+   patternfile_matches_text "${MULLE_SDE_ETC_DIR}/test/files" "${filename}"
 }
 
 
@@ -664,8 +643,7 @@ _watch_using_fswatch()
 
       filepath="`LC_ALL=C sed 's/^\(.*\) \(.*\)$/\1/' <<< "${line}" `"
       directory="`dirname -- "${filepath}"`"
-      contenttype="`directory_content_type "${directory}" `"
-      if [ -z "${contenttype}" ]
+      if ! contenttype="`${CLASSIFY_DIRECTORY} "${directory}" `"
       then
          continue
       fi
@@ -748,7 +726,7 @@ _watch_using_inotifywait()
       _extract_first_field_from_line
       directory="${_field}"
 
-      contenttype="`directory_content_type "${directory}" `"
+      contenttype="`${CLASSIFY_DIRECTORY} "${directory}" `"
       if [ -z "${contenttype}" ]
       then
          continue
@@ -786,6 +764,15 @@ watch_using_inotifywait()
       log_debug "execute:" "${cmd}"
       eval "${cmd}"
    done
+}
+
+
+update()
+{
+   log_entry "update" "$@"
+
+   update_dependencies
+   update_sources
 }
 
 
@@ -828,6 +815,24 @@ prevent_superflous_monitor()
 
    trap cleanup 2 3
    announce_pid $$ "${MONITOR_PIDFILE}"
+}
+
+
+default_classify_directory()
+{
+   case "$1" in
+      src*|source*)
+         echo "source"
+      ;;
+
+      test*)
+         echo "test"
+      ;;
+
+      *)
+         return 1
+      ;;
+   esac
 }
 
 
@@ -877,6 +882,15 @@ setup_script_environment()
 You must run ${C_RESET}${C_BOLD}${MULLE_EXECUTABLE_NAME} init${C_ERROR} first"
    fi
 
+   if [ -z "${MULLE_SDE_PATTERN_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-pattern.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_SDE_PLUGIN_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-plugin.sh" || internal_fail "missing file"
+   fi
+
    #
    # mulle-craft and mulle-test can be substituted with something else if so
    # desired (make make ?)
@@ -912,17 +926,23 @@ You must run ${C_RESET}${C_BOLD}${MULLE_EXECUTABLE_NAME} init${C_ERROR} first"
                                                           "did-update-sourcetree" \
                                                           "sourcetree update" `" || exit 1
 
-   MULLE_SDE_IS_HEADER_OR_SOURCE="`check_mulle_sde_tool MULLE_SDE_IS_HEADER_OR_SOURCE \
-                                                        "is-header-or-source" \
-                                                        "filetype recognizer" `" || exit 1
+   #
+   # if you want to modify etc stuff, you may want to copy it outside
+   #
+   MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
 
-   MULLE_SDE_IS_TEST_FILE="`check_mulle_sde_tool MULLE_SDE_IS_TEST_FILE \
-                                                 "is-test-file" \
-                                                 "test-file recognizer" `" || exit 1
+   load_plugin_if_needed "MULLE_SDE_CLASSIFY_DIRECTORY" \
+                         "classify-directory.sh" \
+                         "CLASSIFY_DIRECTORY_SH" \
+                         "classify_directory" \
+                         "default_classify_directory"
+
+   export MULLE_SDE_ETC_DIR
 
    # export as benefit to these scripts, that may want to use our libraries
    export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
    export MULLE_SDE_LIBEXEC_DIR
+
 }
 
 
@@ -1038,11 +1058,10 @@ sde_monitor_main()
    local rval
 
    rval=0
-   log_verbose "==> Kick off with a project update"
 
    if [ "${OPTION_INITIAL_UPDATE}" = "YES" ]
    then
-      log_fluff "Run an initial update of cmake files"
+      log_verbose "==> Kick off with a project update"
       update "${PROJECT_DIR}" || return 1
    fi
 

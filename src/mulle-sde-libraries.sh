@@ -144,7 +144,7 @@ EOF
 
 
 
-LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
+LIBRARY_MARKS="no-fs,no-include,no-dependency,no-build,no-update,no-delete"
 
 sde_libraries_add_main()
 {
