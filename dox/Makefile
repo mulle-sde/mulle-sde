@@ -1,12 +1,12 @@
 
-PIX=mulle-sde-dependencies.png \
-mulle-sde-libraries.png \
-mulle-sde-tools.png \
+PIX=mulle-sde-dependency.png \
+mulle-sde-library.png \
+mulle-sde-tool.png \
 mulle-sde-monitor.png \
 mulle-sde-overview.png \
 mulle-sde-extension.png \
 mulle-sde-update.png \
-mulle-sde-subprojects.png \
+mulle-sde-subproject.png \
 mulle-sde-cmakelists.png
 
 %.png: %.dot

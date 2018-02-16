@@ -48,7 +48,7 @@ Usage:
    Create a mulle-sde project, which can be either an executable or a
    library. Check \`mulle-sde extensions\` for available options.
 
-   e.g.  mulle-sde init -r builtin:c -b mulle:cmake executable
+   e.g.  mulle-sde init -r mulle-sde:c -b mulle-sde:cmake executable
 
 Options:
    -b <buildtool> : specify the buildtool extension to use (<vendor>:cmake)
@@ -593,8 +593,8 @@ sde_init_main()
    local OPTION_NAME
    local OPTION_EXTRAS
    local OPTION_COMMON="sde"
-   local OPTION_RUNTIME="c"
-   local OPTION_BUILDTOOL="cmake"
+   local OPTION_RUNTIME=""
+   local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="builtin"
    local OPTION_INIT_ENV="YES"
    local OPTION_ENV_STYLE="mulle:restricted"

@@ -30,12 +30,16 @@ Executable      | Description
 
 ## Create a **mulle-sde** "hello world" project
 
-As the various tools that comprise **mulle-sde** are configured with environment variables, `mulle-sde init` will create  a virtual environment using **mulle-env**, so that various projects can coexist.
+As the various tools that comprise **mulle-sde** are configured with environment variables, `mulle-sde init` will create  a virtual environment using **mulle-env**, so that various projects can coexist on a filesystem with minimized interference.
+
+> For the following you need to install the following extensions:
+> [mulle-sde-c](//github.com/mulle-sde/mulle-sde-c) and [mulle-sde-cmake](//github.com/mulle-sde/mulle-sde-cmake) 
+> 
 
 This is an example, that creates a cmake project for C (this is the default):
 
 ```
-$ mulle-sde init -d hello executable
+$ mulle-sde init -d hello -b mulle-sde:cmake -r mulle-sde:c executable
 ```
 
 Enter the environment:
@@ -56,7 +60,7 @@ Run it:
 $ ./build/hello
 ```
 
-Monitor the filesystem for new, deleted or modified source files. Then update project files and rebuild or retest:
+Monitor the filesystem for new, deleted or modified source files. Then update some of your source or project files. **mulle-sde** will rebuild your project automatically:
 
 ```
 $ mulle-sde monitor
@@ -70,19 +74,19 @@ $ exit
 
 ## Commands
 
-### mulle-sde dependencies
+### mulle-sde dependency
 
-![](dox/mulle-sde-dependencies.png)
+![](dox/mulle-sde-dependency.png)
 
 **Dependencies** are typically GitHub projects, that provide a library (like zlib).
 These will be downloaded, unpacked and built into `dependencies`:
 
 ```
-mulle-sde dependencies add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
+mulle-sde dependency add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 ```
 
 
-### mulle-sde extensions
+### mulle-sde extension
 
 **Extensions** are the build systems supported by mulle-sde. The built-in support is:
 
@@ -92,19 +96,19 @@ common         | builtin | common | Provides the executable `create-build-motd`.
 runtime        | builtin | c      | Provides the plugins `classify-headers.sh`, `classify-sources.sh`, for C projects. And it also provides a bunch of template files for initial C project creation.
 buildtool      | builtin | cmake  | Provides the executables `did-update-sourcetree`, `did-update-src` for cmake projects. And it also provides a bunch of template files for cmake projects.
 
-Use `mulle-sde extensions list` to check all the extensions available.
+Use `mulle-sde extension list` to check all the extensions available.
 
 See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more information about adding extensions.
 
 
-### mulle-sde libraries
+### mulle-sde library
 
-![](dox/mulle-sde-libraries.png)
+![](dox/mulle-sde-library.png)
 
 Libraries are OS provide libraries (like libm.a) that you don't want to build yourself as a dependency.
 
 ```
-mulle-sde libraries add m
+mulle-sde library add m
 ```
 
 ### mulle-sde monitor
@@ -126,15 +130,15 @@ affect **monitor**.
 > out on a lot of functionality.
 
 
-### mulle-sde tools
+### mulle-sde tool
 
-![](dox/mulle-sde-tools.png)
+![](dox/mulle-sde-tool.png)
 
 **Tools** are the commandline tools available in the virtual environment provided by [mulle-env](/mulle-sde/mulle-env).
 You can add or remove tools with this command set.
 
 ```
-mulle-sde tools add nroff
+mulle-sde tool add nroff
 ```
 
 ### mulle-sde update

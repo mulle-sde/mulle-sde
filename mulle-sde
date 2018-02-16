@@ -49,12 +49,12 @@ trap_fail()
 
 SHOWN_COMMANDS="\
    craft          : build the project using mulle-craft
-   dependencies   : manage third party components (like a Github project)
-   extensions     : show available language and buildtool extensions
+   dependency     : manage third party components (like a Github project)
+   extension      : show available language and buildtool extensions
    init           : create a new project
-   libraries      : manage OS libraries (like pthread)
+   library        : manage OS libraries (like pthread)
    monitor        : monitor project files, run updates and build
-   subprojects    : manage local subprojects
+   subproject     : manage local subprojects
    update         : run only updates, once"
 
 
