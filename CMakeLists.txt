@@ -14,22 +14,23 @@ set( PROJECT_VERSION "${MULLE_SDE_VERSION}")
 
 set( SCRIPTS
 mulle-sde
+mulle-sde-cmake-depedency-update
+mulle-sde-cmake-source-update
 )
 
 set( LIBRARY_SCRIPTS
 src/mulle-sde-build.sh
 src/mulle-sde-common.sh
-src/mulle-sde-dependencies.sh
-src/mulle-sde-extensions.sh
+src/mulle-sde-dependency.sh
+src/mulle-sde-extension.sh
 src/mulle-sde-init.sh
-src/mulle-sde-libraries.sh
-src/mulle-sde-monitor.sh
+src/mulle-sde-librarysh
 src/mulle-sde-pattern.sh
 src/mulle-sde-plugin.sh
-src/mulle-sde-subprojects.sh
+src/mulle-sde-subproject.sh
 src/mulle-sde-template.sh
-src/mulle-sde-tools.sh
-src/mulle-sde-updatesupport.sh
+src/mulle-sde-tool.sh
+src/mulle-sde-upgrade.sh
 )
 
 set( EXTENSIONS

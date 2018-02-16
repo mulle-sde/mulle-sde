@@ -39,14 +39,12 @@ template_usage()
 {
    if [ -z "${TEMPLATE_USAGE_TEXT}" ]
    then
-      TEMPLATE_USAGE_TEXT="`LC_ALL=C egrep -v '^#' "${TEMPLATE_DIR}/../../usage" 2> /dev/null `"
+      TEMPLATE_USAGE_TEXT="`LC_ALL=C sed -e '/^#/d' -e '/^/   /' "${TEMPLATE_DIR}/../../usage" 2> /dev/null `"
    fi
 
    cat <<EOF >&2
-Usage:
-   ${MULLE_EXECUTABLE_NAME} [options]
-
-   ${TEMPLATE_USAGE_TEXT:-Copy template files into the project.}
+Template Usage:
+${TEMPLATE_USAGE_TEXT:-   Copy template files into the project.}
 
 Options:
    -d <dir>   : use "dir" instead of working directory
@@ -195,7 +193,6 @@ default_template_setup()
 "
    for filename in `( cd "${templatedir}" ; find . -type f -print )`
    do
-      IFS="${DEFAULT_IFS}"
       copy_and_expand_template "${filename}" "${templatedir}"
    done
    IFS="${DEFAULT_IFS}"
@@ -305,7 +302,7 @@ _template_main()
       options_setup_trace "${MULLE_TRACE}"
    fi
 
-   [ $# -ne 0 ] && template_usage
+   [ $# -ne 0 ] && log_error "superflous parameter \"$*\"" && template_usage
 
    #
    # if we are called from an external script, template_setup

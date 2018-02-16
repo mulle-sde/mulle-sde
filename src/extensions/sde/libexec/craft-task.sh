@@ -29,44 +29,35 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_BUILD_SH="included"
-
-
-sde_build_main()
+#
+#
+# OPTIONS are tricky, because we are running in mulle-monitor and
+# we do not have values from MULLE_SDE here
+#
+craft_task_run()
 {
-   log_entry "sde_build_main" "$@"
+   log_entry "craft_task_run" "$@"
 
-   local cmd="$1"; shift
+   log_fluff "==> Craft"
 
-   local auxflags
-   local touchfile
-
-   # drop alias
-   if [ "${cmd}" = "craft" ]
+   #
+   # remove running test jobs, as they are invalid now
+   # but only if we restart them
+   #
+   if [ "${MULLE_SDE_TEST_AFTER_CRAFT}" = "YES" ]
    then
-      cmd="all"
+      remove_task_job "test"
    fi
 
-   case "${cmd}" in
-      all|build|onlydependencies|nodependencies|project|sourcetree)
-         auxflags="--motd"
+   if ! eval_exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${MULLE_CRAFT_ARGS}
+   then
+      return 1
+   fi
 
-         if [ -z "${MULLE_SDE_NO_UPDATE}" ]
-         then
-            if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-            then
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-            fi
-
-            sde_update_main
-         fi
-      ;;
-
-      clean)
-         rmdir_safer "${MULLE_SDE_DIR}/run"
-      ;;
-   esac
-
-
-   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
+   if [ "${MULLE_SDE_TEST_AFTER_CRAFT}" = "YES" ]
+   then
+      run_task_main "test"
+   fi
 }
+
+

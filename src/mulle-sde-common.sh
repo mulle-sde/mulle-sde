@@ -42,17 +42,17 @@ commalist_contains()
    local i
 
    # is this faster than case ?
-   IFS=","
+   set -o noglob ; IFS=","
    for i in ${list}
    do
-      IFS="${DEFAULT_IFS}"
+      IFS="${DEFAULT_IFS}"; set +o noglob
       if [ "${i}" = "${key}" ]
       then
          return 0
       fi
    done
 
-   IFS="${DEFAULT_IFS}"
+   IFS="${DEFAULT_IFS}"; set +o noglob
    return 1
 }
 
@@ -82,13 +82,13 @@ commalist_print()
    local i
 
    # is this faster than case ?
-   IFS=","
+   set -o noglob; IFS=","
    for i in ${list}
    do
       echo "$i"
    done
 
-   IFS="${DEFAULT_IFS}"
+   IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
@@ -98,17 +98,16 @@ os_excludes_print()
 
    local list="$1"
 
-   IFS=","
+   set -o noglob ; IFS=","
    for i in ${list}
    do
-      IFS="${DEFAULT_IFS}"
       case "$i" in
          no-os-*)
             LC_ALL=C sed -e "s/^no-os-//" <<< "${i}"
          ;;
       esac
    done
-   IFS="${DEFAULT_IFS}"
+   IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
@@ -137,10 +136,10 @@ os_excludes_add()
    local i
 
    # is this faster than case ?
-   IFS=","
+   set -o noglob ; IFS=","
    for i in ${add}
    do
-      IFS="${DEFAULT_IFS}"
+      IFS="${DEFAULT_IFS}"; set +o noglob
 
       os_excludes_validate "$1"
       i="no-os-$i"
@@ -153,7 +152,8 @@ os_excludes_add()
       list="`comma_concat "${list}" "$i" `"
    done
 
-   IFS="${DEFAULT_IFS}"
+   IFS="${DEFAULT_IFS}"; set +o noglob
+
    echo "${list}"
 }
 

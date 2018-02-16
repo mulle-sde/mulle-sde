@@ -184,6 +184,10 @@ main()
 
    install -m "${mode}" "mulle-sde" "${bin}/mulle-sde" || exit 1
    printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde" >&2
+   install -m "${mode}" "mulle-sde-cmake-source-update" "${bin}/mulle-sde-cmake-source-update" || exit 1
+   printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde-cmake-source-update" >&2
+   install -m "${mode}" "mulle-sde-cmake-depedency-update" "${bin}/mulle-sde-cmake-depedency-update" || exit 1
+   printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde-cmake-depedency-update" >&2
 
    for i in src/mulle*
    do

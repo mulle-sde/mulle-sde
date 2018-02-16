@@ -59,10 +59,13 @@ SHOWN_COMMANDS="\
 
 
 HIDDEN_COMMANDS="\
+   callback       : manage callbacks
    init-and-enter : create a new project then immediately start a subshell
    libexec-dir    : print path to mulle-sde libexec
+   task           : manage tasks
    test           : run tests using mulle-test
-   uname          : mulle-sdes simplified uname(1)"
+   uname          : mulle-sdes simplified uname(1)
+   upgrade        : upgrade mulle-sde project files (experimental)"
 
 
 print_commands()
@@ -135,124 +138,6 @@ usage()
    exit 1
 }
 
-#
-# stolen from:
-# http://stackoverflow.com/questions/1055671/how-can-i-get-the-behavior-of-gnus-readlink-f-on-a-mac
-# ----
-#
-_prepend_path_if_relative()
-{
-   case "$2" in
-      /*)
-         echo "$2"
-      ;;
-      *)
-         echo "$1/$2"
-      ;;
-   esac
-}
-
-
-resolve_symlinks()
-{
-   local dir_context
-   local linkpath
-
-   if linkpath="`readlink "$1"`"
-   then
-      dir_context=`dirname -- "$1"`
-      resolve_symlinks "`_prepend_path_if_relative "${dir_context}" "${linkpath}"`"
-   else
-      echo "$1"
-   fi
-}
-
-
-sde_libexec_path()
-{
-   local executablepath="$1"
-
-   local exedir
-   local exedirpath
-   local prefix
-   local libexecpath
-
-   case "${executablepath}" in
-      \.*|/*|~*)
-      ;;
-
-      *)
-         executablepath="`command -v "${executablepath}"`"
-      ;;
-   esac
-
-   executablepath="`resolve_symlinks "${executablepath}"`"
-   exedirpath="`dirname "${executablepath}"`"
-   prefix="`dirname "${exedirpath}"`"
-   libexecpath="${prefix}/libexec/mulle-sde"
-
-   if [ ! -x "${libexecpath}/mulle-sde-monitor.sh" ]
-   then
-      libexecpath="${exedirpath}/src"
-   fi
-
-   case "$libexecpath" in
-      /*|~*)
-      ;;
-
-      *)
-         libexecpath="$PWD/$libexecpath"
-      ;;
-   esac
-
-   if [ -x "${libexecpath}/mulle-sde-monitor.sh" ]
-   then
-      echo "${libexecpath}"
-   fi
-}
-
-
-_init()
-{
-   #
-   # minimal setup exit
-   #
-   if [ "$1" = "version" ]
-   then
-      echo "${MULLE_EXECUTABLE_VERSION}"
-      exit 0
-   fi
-
-   MULLE_SDE_LIBEXEC_DIR="`sde_libexec_path "$0"`"
-   if [ -z "${MULLE_SDE_LIBEXEC_DIR}" ]
-   then
-      echo "$0 fatal error: Could not find libexec ($PWD)" >&2
-      exit 1
-   fi
-
-   #
-   # minimal setup exit
-   #
-   case "$1" in
-      "libexec-dir"|"library-path")
-         echo "${MULLE_SDE_LIBEXEC_DIR}"
-         exit 0
-      ;;
-   esac
-
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env library-path 2> /dev/null`"
-   [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ] && \
-      echo "mulle-bashfunctions-env not installed" >&2 && \
-      exit 1
-
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
-
-   #  set -e # more pain then gain in the end
-   #  set -u # doesn't work with my style
-
-   trap trap_fail INT
-   set -o pipefail
-}
 
 
 main()
@@ -368,18 +253,23 @@ main()
          sde_build_main "${cmd}" "$@"
       ;;
 
-      dependencies)
-         # shellcheck source=src/mulle-sde-dependencies.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependencies.sh"
-
-         sde_dependencies_main "$@"
+      callback|patternfile|task)
+         MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
+            exekutor mulle-monitor "${cmd}" "$@"
       ;;
 
-      extensions)
-         # shellcheck source=src/mulle-sde-extensions.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extensions.sh"
+      dependency)
+         # shellcheck source=src/mulle-sde-dependency.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
 
-         sde_extensions_main "$@"
+         sde_dependency_main "$@"
+      ;;
+
+      extension)
+         # shellcheck source=src/mulle-sde-extension.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+
+         sde_extension_main "$@"
       ;;
 
       help)
@@ -402,20 +292,17 @@ main()
             mulle-env ${MULLE_ENV_FLAGS}
       ;;
 
-      libraries)
-         # shellcheck source=src/mulle-sde-libraries.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-libraries.sh"
+      library)
+         # shellcheck source=src/mulle-sde-library.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
 
-         sde_libraries_main "$@"
+         sde_library_main "$@"
       ;;
 
       libexec-dir|library-path)
          echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
-      # for the user it's a sde, but internally we call it
-      # a clone for historical reasons, and also sde_sde is
-      # stupid
       monitor)
          # shellcheck source=src/mulle-sde-monitor.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
@@ -427,25 +314,32 @@ main()
          create_motd "$@"
       ;;
 
-      subprojects|minions)
-         # shellcheck source=src/mulle-sde-subprojects.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subprojects.sh"
+      subproject|minion)
+         # shellcheck source=src/mulle-sde-subproject.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh"
 
-         sde_subprojects_main "$@"
+         sde_subproject_main "$@"
       ;;
 
-      tools)
-         # shellcheck source=src/mulle-sde-tools.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-tools.sh"
+      tool)
+         # shellcheck source=src/mulle-sde-tool.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-tool.sh"
 
-         sde_tools_main "$@"
+         sde_tool_main "$@"
       ;;
 
       update)
-         # shellcheck source=src/mulle-sde-monitor.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
+         # shellcheck source=src/mulle-sde-update.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
 
-         sde_monitor_main --once --no-craft "$@"
+         sde_update_main "$@"
+      ;;
+
+      upgrade)
+         # shellcheck source=src/mulle-sde-upgrade.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
+
+         sde_upgrade_main "$@"
       ;;
 
       uname)
@@ -479,6 +373,71 @@ main()
       ;;
    esac
 }
+
+
+########
+###
+### INIT
+###
+_init()
+{
+   #
+   # minimal setup exit
+   #
+   if [ "$1" = "version" ]
+   then
+      echo "${MULLE_EXECUTABLE_VERSION}"
+      exit 0
+   fi
+
+   if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
+   then
+      MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir 2> /dev/null`"
+      if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
+      then
+         if [ -z "`command -v "${executablepath}"`" ]
+         then
+             echo "Fatal Error: Could not find mulle-bashfunctions-env in PATH (not installed ?)" >&2
+         else
+            echo "Fatal Error: Could not find libexec of mulle-bashfunctions-env ($PWD)" >&2
+         fi
+         exit 1
+      fi
+   fi
+
+      # shellcheck source=../mulle-bashfunctions/src/mulle-string.sh
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" || \
+      fail "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
+
+   local _libexec_dir
+
+   _get_libexec_dir "$0" "mulle-sde" "mulle-sde-build.sh"
+
+   MULLE_SDE_LIBEXEC_DIR="${_libexec_dir}"
+
+   #
+   # minimal setup exit
+   #
+   case "$1" in
+      "libexec-dir"|"library-path")
+         echo "${MULLE_SDE_LIBEXEC_DIR}"
+         exit 0
+      ;;
+   esac
+
+   #  set -e # more pain then gain in the end
+   #  set -u # doesn't work with my style
+
+   trap trap_fail INT
+   set -o pipefail
+
+   MULLE_ARGUMENTS="$*"
+}
+###
+### INIT
+###
+########
+
 
 
 _init "$@" # needs params

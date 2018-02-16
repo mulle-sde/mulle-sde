@@ -83,6 +83,10 @@ main()
    expect_pattern_not_matches_text "/foo/" "bar/foo/a.c"
    log_verbose "----- #7 PASSED -----"
 
+   # in the wild problem
+   expect_pattern_matches_text 'src/' 'src' ''
+   log_verbose "----- #8 PASSED -----"
+
    log_info "----- ALL PASSED -----"
 }
 

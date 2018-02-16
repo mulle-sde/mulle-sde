@@ -29,25 +29,105 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_MONITOR_SH="included"
+MULLE_SDE_UPDATE_SH="included"
 
 
-sde_monitor_main()
+_callback_run()
 {
-   log_entry "sde_monitor_main" "$@"
+   log_entry "_callback_run"
 
-   if [ -z "${MULLE_SDE_NO_UPDATE}" ]
+   local callback="$1"
+
+   local rval
+
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
+   MULLE_SDE_LIBEXEC_DIR="${MULLE_SDE_LIBEXEC_DIR}" \
+   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
+   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
+      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} callback run "${callback}"
+}
+
+
+_task_run()
+{
+   log_entry "_task_run"
+
+   local taskj="$1"
+
+   local rval
+
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
+   MULLE_SDE_LIBEXEC_DIR="${MULLE_SDE_LIBEXEC_DIR}" \
+   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
+   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
+      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} task run "${task}"
+}
+
+
+_task_status()
+{
+   log_entry "_task_has_run"
+
+   local taskj="$1"
+
+   local rval
+
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
+   MULLE_SDE_LIBEXEC_DIR="${MULLE_SDE_LIBEXEC_DIR}" \
+   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
+   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
+      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} task status "${task}"
+}
+
+
+_task_run_if_needed()
+{
+   log_entry "_task_run_if_needed"
+
+   local task="$1"
+
+   local status
+
+   status="unknown"
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
    then
-      if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-      fi
-
-      MULLE_SDE_CRAFT_AFTER_UPDATE="YES" sde_update_main
+      status="`_task_status "${task}"`"
    fi
 
-   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
-   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
-      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} run --ignore "$@"
+   case "${status}" in
+      success)
+         return
+      ;;
+   esac
+
+   _task_run "${task}"
+}
+
+
+sde_update_main()
+{
+   log_entry "sde_update_main"
+
+   local task
+   local status
+
+   task="`_callback_run "source"`"
+   if [ ! -z "${task}" ]
+   then
+      _task_run_if_needed "${task}"
+   fi
+
+   task="`_callback_run "sourcetree"`"
+   if [ ! -z "${task}" ]
+   then
+      _task_run_if_needed "${task}"
+   fi
+
+   #
+   # this is set by mulle-sde monitor
+   #
+   if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" = "YES" ]
+   then
+      _task_run_if_needed "craft"
+   fi
 }

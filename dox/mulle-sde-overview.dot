@@ -1,21 +1,13 @@
 digraph G {
     graph [rankdir = TD];
 
-    node[shape=record];
+    node[ shape=record];
 
-    subgraph agnostic
-    {
-        label = "Language agnostic";
+    "mulle-sde" -> "mulle-env"
+    "mulle-sde" -> "mulle-sourcetree"
+    "mulle-sde" -> "mulle-monitor"
+    "mulle-sde" -> "mulle-craft"
+    "mulle-sde" -> "mulle-test"
 
-        "mulle-sde" -> "mulle-env"
-        "mulle-sde" -> "mulle-sourcetree"
-        "mulle-sde" -> "mulle-craft"
-        "mulle-sde" -> "mulle-test"
-
-        "mulle-sde"   [ color="dodgerblue"; fontcolor="dodgerblue"; penwidth="2"]
-        "mulle-env"   [ label="mulle-env" ];
-        "mulle-test"  [ label="{ mulle-test|{<p0>build-test|<p1>run-test} }"];
-        "mulle-craft" [ label="{ mulle-craft|{<p0>mulle-dispense|<p1>mulle-make|<p1>mulle-sourcetree} }"];
-        "mulle-sourcetree" [ label="{ mulle-sourcetree|{<p0>mulle-fetch} }"];
-    }
+    "mulle-sde"   [ color="dodgerblue"; fontcolor="dodgerblue"; penwidth="2"]
 }

@@ -2,13 +2,17 @@
 
 ... for Linux, OS X, FreeBSD, Windows
 
-**mulle-sde** is a command-line based software development environment. The idea is to organize your project with the filesystem, and then let **mulle-sde** reflect the changed filesystem back to the "Makefile".
+**mulle-sde** is a command-line based software development environment. The
+idea is to organize your project with the filesystem, and then let
+**mulle-sde** reflect the changed filesystem back to the "Makefile".
 
-* creates projects
-* can build your project via **mulle-craft** or some other buildtool
-* tests your project via **mulle-test** or some other testtool
-* adds and removes dependencies via **mulle-sourcetree**
-* monitors filesystem changes and updates your project files
+** mulle-sde**
+
+* provides a form of package management (called dependencies)
+* creates projects and template files
+* can build your project with [mulle-craft](//github.com/mulle-sde/mulle-craft) or some other buildtool
+* tests your project with [mulle-test](//github.com/mulle-sde/mulle-test) or some other testtool
+* monitors filesystem changes via [mulle-monitor](//github.com/mulle-sde/mulle-monitor) and updates your project files
 * can be extended to other languages and buildtools
 
 ![](dox/mulle-sde-overview.png)
@@ -84,13 +88,13 @@ mulle-sde dependencies add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 
 Extensiontype  | Vendor  | Name   | Description
 ---------------|---------|--------|--------------------------
-common         | builtin | common | Provides the executables `create-build-motd`, `is-test-file`, `source-directory-names`, `test-directory-names`. It also provides a default README.md file.
-runtime        | builtin | c      | Provides the executables `classify-headers`, `classify-sources`, `is-header-or-source` for C projects. And it also provides a bunch of template files for initial C projects.
+common         | builtin | common | Provides the executable `create-build-motd`. It also provides a default README.md file.
+runtime        | builtin | c      | Provides the plugins `classify-headers.sh`, `classify-sources.sh`, for C projects. And it also provides a bunch of template files for initial C project creation.
 buildtool      | builtin | cmake  | Provides the executables `did-update-sourcetree`, `did-update-src` for cmake projects. And it also provides a bunch of template files for cmake projects.
 
-Use `mulle-sde extensions list` to check if your extensions are picked up.
+Use `mulle-sde extensions list` to check all the extensions available.
 
-See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more information about extensions.
+See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more information about adding extensions.
 
 
 ### mulle-sde libraries
@@ -121,6 +125,7 @@ affect **monitor**.
 > You can use a different built tool, than `mulle-craft`, but you'll be losing
 > out on a lot of functionality.
 
+
 ### mulle-sde tools
 
 ![](dox/mulle-sde-tools.png)
@@ -140,27 +145,16 @@ In the case of `cmake` the script `did-update-src` will create the files `_CMake
 
 ![](dox/mulle-sde-update.png)
 
-The way **update** is creating the output can be customized. You can substitute the `did-update-...` scripts with your own. Or you can tweak the output quite a bit, by changes to the inferior scripts like `classify-sources`.
+The way **update** is creating the output can be customized. You can substitute the `did-update-...` scripts with your own. Or you can tweak the output quite a bit, by changes to the plugins like `classify-sources.sh`.
 
 Environment                        | Default                  | Description
 -----------------------------------|--------------------------|-------------------
 `MULLE_SDE_DID_UPDATE_SRC`         | `did-update-src`         | Invoked, when a change to sourcefiles has been detected. If you set this to "NO", it will not be called.
 `MULLE_SDE_DID_UPDATE_SOURCETREE`  | `did-update-sourcetree`  | Invoked, when a change to a `./mulle-sourcetree/config` has been detected. . If you set this to "NO", it will not be called.
-`MULLE_SDE_IS_HEADER_OR_SOURCE`    | `is-header-or-source"`   | Determines by filename if a file is a source file
-`MULLE_SDE_IS_TEST_FILE`           | `is-test-file`           | Determines by filename if a file is a test file
-`MULLE_SDE_CLASSIFY_HEADERS`       | `classify-headers`       | Classify headers as public, private
-`MULLE_SDE_CLASSIFY_SOURCES`       | `classify-sources`       | Classify sources as normal or standalone
+Determines by filename if a file is a test file
+`MULLE_SDE_CLASSIFY_HEADERS_SH`    | `classify-headers.sh`    | Classify headers as public, private
+`MULLE_SDE_CLASSIFY_SOURCES_SH`    | `classify-sources.sh`    | Classify sources as normal or standalone
 
 
-If you did set both `MULLE_SDE_DID_UPDATE_SRC` and `MULLE_SDE_DID_UPDATE_SOURCETREE`
-to "NO", nothing will happen.
-
->
-> It is probably easiest, to copy the installed script and edit it. Then set the environment variable to use
-> your edited script instead of the default.
->
-> You could also just edit the installed script directly. It is after all a private copy to the project.
-> But there is a slight chance of losing your changes, if someone reinitializes your project
-> (to use a different buildtool maybe)
->
-
+If you set both `MULLE_SDE_DID_UPDATE_SRC` and `MULLE_SDE_DID_UPDATE_SOURCETREE`
+to "NO", nothing will happen during an update.

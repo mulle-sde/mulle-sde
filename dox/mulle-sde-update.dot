@@ -8,7 +8,7 @@ digraph G {
     { rank = same;  "src", ".mulle-sde" ".mulle-sourcetree", "_CMakeHeaders.cmake", "_CMakeSources.cmake", "_CMakeLibraries.cmake", "_CMakeDependencies.cmake"};
     { rank = same;  "bin", "libexec", "config"}
     { rank = same;  "classify-directory.sh" };
-    { rank = same;  "did-update-src", "did-update-sourcetree" };
+    { rank = same;  "did-update-source", "did-update-sourcetree" };
     { rank = last;  "mulle-sde update" };
 
     "_CMakeHeaders.cmake"      [ shape="note", penwidth="2" ]
@@ -16,7 +16,7 @@ digraph G {
     "_CMakeDependencies.cmake" [ shape="note", penwidth="2" ]
     "_CMakeLibraries.cmake"    [ shape="note", penwidth="2" ]
 
-    "did-update-src"           [ shape="box", color="magenta", fontcolor="magenta" ]
+    "did-update-source"        [ shape="box", color="magenta", fontcolor="magenta" ]
     "did-update-sourcetree"    [ shape="box", color="magenta", fontcolor="magenta" ]
     "classify-directory.sh"    [ shape="box", color="magenta", fontcolor="magenta" ]
 
@@ -37,13 +37,13 @@ digraph G {
     "config"            [ shape="note" ]
 
     "mulle-sde update"  [ shape="none", fontname="monospace", fontcolor="blue"]
-    "did-update-src"        -> "mulle-sde update"   [ style="invis" ]
+    "did-update-source"        -> "mulle-sde update"   [ style="invis" ]
     "did-update-sourcetree" -> "mulle-sde update"   [ style="invis" ]
 
 
     ".mulle-sde" -> "bin"
     ".mulle-sde" -> "libexec"
-    "bin"  -> "did-update-src"
+    "bin"  -> "did-update-source"
     "bin"  -> "did-update-sourcetree"
     "libexec"  -> "classify-directory.sh"
 
@@ -51,16 +51,16 @@ digraph G {
 
     edge[ arrowhead="", style="dotted", color="black" ]
 
-    "mulle-sde update"  -> "did-update-src"        [ label="run" ]
+    "mulle-sde update"  -> "did-update-source"        [ label="run" ]
     "mulle-sde update"  -> "did-update-sourcetree" [ label="run"]
 
-    "did-update-src" -> "_CMakeHeaders.cmake"      [ label="write" ]
-    "did-update-src" -> "_CMakeSources.cmake"      [ label="write" ]
-    "did-update-src" -> "classify-directory.sh"    [ label="include" ]
+    "did-update-source" -> "_CMakeHeaders.cmake"      [ label="write" ]
+    "did-update-source" -> "_CMakeSources.cmake"      [ label="write" ]
+    "did-update-source" -> "classify-directory.sh"    [ label="include" ]
 
     "did-update-sourcetree" -> "_CMakeDependencies.cmake" [ label="write" ]
     "did-update-sourcetree" -> "_CMakeLibraries.cmake"    [ label="write" ]
 
-    "did-update-src"        -> "src"       [ label="read" ]
+    "did-update-source"        -> "src"       [ label="read" ]
     "did-update-sourcetree" -> "config"    [ label="read" ]
 }

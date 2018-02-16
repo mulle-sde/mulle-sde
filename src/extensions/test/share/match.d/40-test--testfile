@@ -1,0 +1,5 @@
+tests/*.ccdiag
+tests/*.stderr
+tests/*.stdin
+tests/*.stdout
+tests/Makefile

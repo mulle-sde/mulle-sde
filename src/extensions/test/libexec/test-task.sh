@@ -29,44 +29,49 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_BUILD_SH="included"
 
-
-sde_build_main()
+#
+# path handling
+#
+path_without_first_directory()
 {
-   log_entry "sde_build_main" "$@"
+   case "$@" in
+      /*)
+         path_without_first_directory `echo "$@" | cut -c2-`
+         ;;
 
-   local cmd="$1"; shift
+      */*)
+         echo "$@" | LC_ALL=C sed 's,^[^/]*/,,'
+         ;;
+      *)
+         echo "$@"
+         ;;
+   esac
+}
 
-   local auxflags
-   local touchfile
 
-   # drop alias
-   if [ "${cmd}" = "craft" ]
-   then
-      cmd="all"
-   fi
+#
+# test watch handling
+#
+task_test_run()
+{
+   log_entry "task_test_run" "$@"
 
-   case "${cmd}" in
-      all|build|onlydependencies|nodependencies|project|sourcetree)
-         auxflags="--motd"
+   local filename="$1"
 
-         if [ -z "${MULLE_SDE_NO_UPDATE}" ]
-         then
-            if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-            then
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-            fi
+   local name
 
-            sde_update_main
-         fi
+   case "${filename}" in
+      "")
+         exekutor "${MULLE_SDE_TEST}"
       ;;
 
-      clean)
-         rmdir_safer "${MULLE_SDE_DIR}/run"
+      *)
+         name="`path_without_first_directory "${filename}"`"
+         log_fluff "==> Run test ${name}"
+         exekutor "${MULLE_SDE_TEST}" "${filename}"
       ;;
    esac
-
-
-   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
 }
+
+
