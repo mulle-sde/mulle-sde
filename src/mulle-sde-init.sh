@@ -58,7 +58,7 @@ Options:
    -n             : do not install files into project template files
    -p <name>      : project name
    -r <runtime>   : specify runtime extension to use (<vendor>:c)
-   -v <vendor>    : extension vendor to use (builtin)
+   -v <vendor>    : extension vendor to use (mulle-sde)
 
 Types:
    executable     : create an executable project
@@ -179,6 +179,7 @@ install_dependency_extension()
    local exttype="$1"; shift
    local dependency="$1"; shift
    local marks="$1"; shift
+   local force="$1"; shift
 
    local parent
    local addmarks
@@ -196,8 +197,9 @@ install_dependency_extension()
    install_extension "${projecttype}" \
                      "${exttype}" \
                      "${extname}" \
-                     "${vendor:-builtin}" \
+                     "${vendor:-mulle-sde}" \
                      "${marks}" \
+                     "${force}" \
                      "$@"
 }
 
@@ -206,10 +208,11 @@ install_dependencies()
 {
    log_entry "install_dependencies" "$@"
 
-   local dependencies="$1" ; shift
+   local dependenciesfile="$1" ; shift
    local projecttype="$1" ; shift
    local defaultexttype="$1" ; shift
    local marks="$1" ; shift
+   local force="$1" ; shift
 
    local dependency
    local exttype
@@ -222,13 +225,13 @@ install_dependencies()
       then
          continue
       fi
-
       install_dependency_extension "${projecttype}" \
                                    "${exttype:-${defaultexttype}}" \
                                    "${dependency}" \
                                    "${marks}" \
+                                   "${force}" \
                                    "$@"
-   done < <( "`LC_ALL=C egrep -v '^#' "${dependencies}" 2> /dev/null`")
+   done < <( LC_ALL=C egrep -s -v '^#' "${dependenciesfile}" )
    IFS="${DEFAULT_IFS}"
 }
 
@@ -284,6 +287,7 @@ projecttype \"${projecttype}\""
                                  "${projecttype}" \
                                  "${exttype}" \
                                  "${marks}" \
+                                 "${force}" \
                                  "$@"
          fi
       ;;
@@ -523,7 +527,7 @@ install_project()
       then
          extra_vendor="`cut -s -d':' -f1 <<< "${extra}" `"
          extra_name="` cut -d':' -f2 <<< "${extra}" `"
-         extra_vendor="${extra_vendor:-builtin}"
+         extra_vendor="${extra_vendor:-mulle-sde}"
 
          install_extension "${projecttype}" \
                            "extra" \
@@ -595,9 +599,9 @@ sde_init_main()
    local OPTION_COMMON="sde"
    local OPTION_RUNTIME=""
    local OPTION_BUILDTOOL=""
-   local OPTION_VENDOR="builtin"
+   local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV="YES"
-   local OPTION_ENV_STYLE="mulle:restricted"
+   local OPTION_ENV_STYLE="mulle:inherit" # least culture shock initially
    local OPTION_BLURB=""
 
    local OPTION_MARKS=""

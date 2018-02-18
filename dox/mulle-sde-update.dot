@@ -4,63 +4,17 @@ digraph G {
     node[shape=record];
     edge[ arrowhead="none", color="gray"]
 
-    { rank = same;  "project" };
-    { rank = same;  "src", ".mulle-sde" ".mulle-sourcetree", "_CMakeHeaders.cmake", "_CMakeSources.cmake", "_CMakeLibraries.cmake", "_CMakeDependencies.cmake"};
-    { rank = same;  "bin", "libexec", "config"}
-    { rank = same;  "classify-directory.sh" };
-    { rank = same;  "did-update-source", "did-update-sourcetree" };
+    { rank = same;  "source-callback", "sourcetree-callback" };
     { rank = last;  "mulle-sde update" };
 
-    "_CMakeHeaders.cmake"      [ shape="note", penwidth="2" ]
-    "_CMakeSources.cmake"      [ shape="note", penwidth="2" ]
-    "_CMakeDependencies.cmake" [ shape="note", penwidth="2" ]
-    "_CMakeLibraries.cmake"    [ shape="note", penwidth="2" ]
+    "source-callback"        [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"source\""];
+    "sourcetree-callback"    [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"sourcetree\""];
 
-    "did-update-source"        [ shape="box", color="magenta", fontcolor="magenta" ]
-    "did-update-sourcetree"    [ shape="box", color="magenta", fontcolor="magenta" ]
-    "classify-directory.sh"    [ shape="box", color="magenta", fontcolor="magenta" ]
-
-    "project"                              [ shape="folder", color="gray", fontcolor="gray" ]
-    "project" -> "src"                      [ arrowhead="none" ]
-    "project" -> ".mulle-sde"               [ arrowhead="none", color="gray", fontcolor="gray" ]
-    "project" -> ".mulle-sourcetree"        [ arrowhead="none", color="gray", fontcolor="gray" ]
-    "project" -> "_CMakeHeaders.cmake"      [ arrowhead="none" ]
-    "project" -> "_CMakeSources.cmake"      [ arrowhead="none" ]
-    "project" -> "_CMakeDependencies.cmake" [ arrowhead="none" ]
-    "project" -> "_CMakeLibraries.cmake"    [ arrowhead="none" ]
-
-    "src"               [ shape="folder"]
-    ".mulle-sde"        [ shape="folder", color="gray", fontcolor="gray" ]
-    ".mulle-sourcetree" [ shape="folder", color="gray", fontcolor="gray" ]
-    "bin"               [ shape="folder", color="gray", fontcolor="gray" ]
-    "libexec"           [ shape="folder", color="gray", fontcolor="gray" ]
-    "config"            [ shape="note" ]
 
     "mulle-sde update"  [ shape="none", fontname="monospace", fontcolor="blue"]
-    "did-update-source"        -> "mulle-sde update"   [ style="invis" ]
-    "did-update-sourcetree" -> "mulle-sde update"   [ style="invis" ]
-
-
-    ".mulle-sde" -> "bin"
-    ".mulle-sde" -> "libexec"
-    "bin"  -> "did-update-source"
-    "bin"  -> "did-update-sourcetree"
-    "libexec"  -> "classify-directory.sh"
-
-    ".mulle-sourcetree" -> "config"
 
     edge[ arrowhead="", style="dotted", color="black" ]
 
-    "mulle-sde update"  -> "did-update-source"        [ label="run" ]
-    "mulle-sde update"  -> "did-update-sourcetree" [ label="run"]
-
-    "did-update-source" -> "_CMakeHeaders.cmake"      [ label="write" ]
-    "did-update-source" -> "_CMakeSources.cmake"      [ label="write" ]
-    "did-update-source" -> "classify-directory.sh"    [ label="include" ]
-
-    "did-update-sourcetree" -> "_CMakeDependencies.cmake" [ label="write" ]
-    "did-update-sourcetree" -> "_CMakeLibraries.cmake"    [ label="write" ]
-
-    "did-update-source"        -> "src"       [ label="read" ]
-    "did-update-sourcetree" -> "config"    [ label="read" ]
+    "mulle-sde update"  -> "source-callback"        [ label="callback" ]
+    "mulle-sde update"  -> "sourcetree-callback"    [ label="callback" ]
 }

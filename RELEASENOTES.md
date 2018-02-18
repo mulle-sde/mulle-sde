@@ -1,3 +1,10 @@
+## 0.9.0
+
+* redo extension lookup so its more amenable to development
+* improve and simplify documentation
+* move c and cmake extensions into their own projects
+
+
 ## 0.8.0
 
 * use a gitignore like scheme to classify files and directories

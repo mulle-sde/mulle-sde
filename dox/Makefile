@@ -1,5 +1,7 @@
 
-PIX=mulle-sde-dependency.png \
+PIX=\
+mulle-sde-craft.png \
+mulle-sde-dependency.png \
 mulle-sde-library.png \
 mulle-sde-tool.png \
 mulle-sde-monitor.png \

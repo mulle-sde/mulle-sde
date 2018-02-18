@@ -32,6 +32,9 @@
 MULLE_SDE_DEPENDENCY_SH="included"
 
 
+DEPENDENCY_MARKS=""  # no-cmake-include"
+
+
 sde_dependency_usage()
 {
     cat <<EOF >&2
@@ -231,10 +234,6 @@ sde_dependency_main()
          return $?
       ;;
 
-      #
-      # future: retrieve list as CSV and interpret it
-      # for now stay layme
-      #
       list)
          export MULLE_EXECUTABLE_NAME
 

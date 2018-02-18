@@ -32,6 +32,9 @@
 MULLE_SDE_SUBPROJECT_SH="included"
 
 
+SUBPROJECT_MARKS="no-update,no-delete"
+
+
 sde_subproject_usage()
 {
     cat <<EOF >&2
@@ -150,7 +153,7 @@ sde_subproject_set_main()
       os-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
-                                     "${LIBRARY_MARKS}" \
+                                     "${SUBPROJECT_MARKS}" \
                                      "${OPTION_APPEND}"
       ;;
 

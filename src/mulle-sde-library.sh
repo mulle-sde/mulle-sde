@@ -31,6 +31,9 @@
 #
 MULLE_SDE_LIBRARY_SH="included"
 
+
+LIBRARY_MARKS="no-fs,no-cmake-include,no-dependency,no-build,no-update,no-delete"
+
 #
 # This puts some additional stuff into userinfo of the sourcetree
 # which is then queryable
@@ -142,9 +145,6 @@ EOF
   exit 1
 }
 
-
-
-LIBRARY_MARKS="no-fs,no-include,no-dependency,no-build,no-update,no-delete"
 
 sde_library_add_main()
 {

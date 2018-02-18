@@ -63,20 +63,28 @@ expand_filename_variables()
    local escaped_pn
    local escaped_pi
    local escaped_pui
+   local escaped_pdi
 
    # verify minimal set
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
    [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
-   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ] && internal_fail "PROJECT_UPCASE_IDENTIFIER is empty"
+
+   local project_upcase_identifier
+   local project_downcase_identifier
+
+   project_downcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'A-Z' 'a-z'`"
+   project_upcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'a-z' 'A-Z'`"
 
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
-   escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
+   escaped_pui="` escaped_sed_pattern "${project_upcase_identifier}" `"
+   escaped_pdi="` escaped_sed_pattern "${project_downcase_identifier}" `"
 
 
    LC_ALL=C \
       rexekutor sed -e "s/PROJECT_NAME/${escaped_pn}/g" \
                     -e "s/PROJECT_IDENTIFIER/${escaped_pi}/g" \
+                    -e "s/PROJECT_DOWNCASE_IDENTIFIER/${escaped_pdi}/g" \
                     -e "s/PROJECT_UPCASE_IDENTIFIER/${escaped_pui}/g"
 }
 
@@ -88,7 +96,9 @@ expand_template_variables()
    local escaped_pn
    local escaped_pi
    local escaped_pl
+   local escaped_pdi
    local escaped_pui
+   local escaped_pdl
    local escaped_pul
    local escaped_chn
    local escaped_umcli
@@ -97,17 +107,26 @@ expand_template_variables()
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
    [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
    [ -z "${PROJECT_LANGUAGE}" ] && internal_fail "PROJECT_LANGUAGE is empty"
-   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ] && internal_fail "PROJECT_UPCASE_IDENTIFIER is empty"
 
    local project_upcase_language
+   local project_downcase_language
 
+   project_downcase_language="`tr A-Z a-z <<< "${PROJECT_LANGUAGE}" `"
    project_upcase_language="`tr a-z A-Z <<< "${PROJECT_LANGUAGE}" `"
+
+   local project_upcase_identifier
+   local project_downcase_identifier
+
+   project_downcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'A-Z' 'a-z'`"
+   project_upcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'a-z' 'A-Z'`"
 
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
    escaped_pl="` escaped_sed_pattern "${PROJECT_LANGUAGE}" `"
-   escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
+   escaped_pdi="` escaped_sed_pattern "${project_downcase_identifier}" `"
+   escaped_pui="` escaped_sed_pattern "${project_upcase_identifier}" `"
    escaped_pul="` escaped_sed_pattern "${project_upcase_language}" `"
+   escaped_pdl="` escaped_sed_pattern "${project_downcase_language}" `"
 
    local escaped_a
    local escaped_d
@@ -134,7 +153,9 @@ expand_template_variables()
       rexekutor sed -e "s/<|PROJECT_NAME|>/${escaped_pn}/g" \
                     -e "s/<|PROJECT_IDENTIFIER|>/${escaped_pi}/g" \
                     -e "s/<|PROJECT_LANGUAGE|>/${escaped_pl}/g" \
+                    -e "s/<|PROJECT_DOWNCASE_IDENTIFIER|>/${escaped_pdi}/g" \
                     -e "s/<|PROJECT_UPCASE_IDENTIFIER|>/${escaped_pui}/g" \
+                    -e "s/<|PROJECT_DOWNCASE_LANGUAGE|>/${escaped_pdl}/g" \
                     -e "s/<|PROJECT_UPCASE_LANGUAGE|>/${escaped_pul}/g" \
                     -e "s/<|AUTHOR|>/${escaped_a}/g" \
                     -e "s/<|DATE|>/${escaped_d}/g" \
@@ -220,6 +241,7 @@ _template_main()
    local PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_UPCASE_IDENTIFIER
+   local PROJECT_DOWNCASE_IDENTIFIER
 
    TEMPLATE_DIR="`dirname -- "$0"`/project"
    TEMPLATE_DIR="`absolutepath "${TEMPLATE_DIR}" `"
@@ -322,13 +344,10 @@ _template_main()
 
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}"
    PROJECT_NAME="${PROJECT_NAME:-${dir_name}}"
-   PROJECT_IDENTIFIER="`echo "${PROJECT_NAME}" | tr '-' '_' | tr '[A-Z]' '[a-z]'`"
-   PROJECT_UPCASE_IDENTIFIER="`echo "${PROJECT_IDENTIFIER}" | tr '[a-z]' '[A-Z]'`"
+   PROJECT_IDENTIFIER="`echo "${PROJECT_NAME}" | tr '-' '_'`"
 
    log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
    log_debug "PROJECT_NAME=${PROJECT_NAME}"
-   log_debug "PROJECT_IDENTIFIER=${PROJECT_IDENTIFIER}"
-   log_debug "PROJECT_UPCASE_IDENTIFIER=${PROJECT_UPCASE_IDENTIFIER}"
 
    case "${cmd}" in
       version)
@@ -340,7 +359,7 @@ _template_main()
          "${template_callback}" "${TEMPLATE_DIR}" \
                                 "${PROJECT_NAME}" \
                                 "${PROJECT_IDENTIFIER}" \
-                                "${PROJECT_UPCASE_IDENTIFIER}"
+                                "${PROJECT_LANGUAGE}"
       ;;
    esac
 }

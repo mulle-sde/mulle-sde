@@ -3,7 +3,10 @@ digraph G {
 
     node[shape=record];
 
-    "mulle-sde libraries"  [ label="mulle-sde libraries add ...", shape="none", fontname="monospace", fontcolor="blue"]
+    "mulle-sde library"  [ label="mulle-sde library add ...", shape="none", fontname="monospace", fontcolor="blue"]
 
-    "mulle-sde libraries"  -> "mulle-sourcetree"
+    "mulle-sde library"  -> "mulle-sourcetree"
+
+    "mulle-sourcetree"      [ color="magenta", fontcolor="magenta"]
+
 }

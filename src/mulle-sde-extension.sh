@@ -91,26 +91,39 @@ extension_get_search_path()
    local extensionsdir
    local homeextensionsdir
 
-   local s
+   local i
+   local searchpath
+
+   #
+   # allow environment to add more extensions, mostly useful for development
+   # where you don't really want to reinstall extensions with every little
+   # edit
+   #
+   IFS=":"; set -o noglob
+   for i in ${MULLE_SDE_EXTENSION_PATH}
+   do
+      i="`filepath_concat "${i}" "${vendor}"`"
+      s="`colon_concat "$s" "$i" `"
+   done
+   IFS="${DEFAULT_IFS}"; set +o noglob
 
    case "${vendor}" in
-      builtin)
-         s="`colon_concat "$s" "${MULLE_SDE_LIBEXEC_DIR}/extensions" `"
+      ""|mulle-sde)
+         extensionsdir="`filepath_concat "${MULLE_SDE_LIBEXEC_DIR}/extensions" "${vendor}"`"
+         s="`colon_concat "$s" "${extensionsdir}" `"
       ;;
 
-
       *)
-         extensionsdir="share/mulle-sde/extensions"
-         extensionsdir="`filepath_concat "${extensionsdir}" "${vendor}"`"
-
          homeextensionsdir="`extension_get_home_config_dir`/mulle-sde/extensions"
          homeextensionsdir="`filepath_concat  "${homeextensionsdir}" "${vendor}"`"
 
          s="`colon_concat "$s" "${homeextensionsdir}" `"
+
+         extensionsdir="share/mulle-sde/extensions"
+         extensionsdir="`filepath_concat "${extensionsdir}" "${vendor}"`"
          s="`colon_concat "$s" "/usr/local/${extensionsdir}" `"
          s="`colon_concat "$s" "/usr/${extensionsdir}" `"
       ;;
-
    esac
 
    log_fluff "Extension search path for vendor \"${vendor}\": \"$s\""
@@ -119,37 +132,16 @@ extension_get_search_path()
 }
 
 
-extension_get_vendor_pathcomponent()
-{
-   log_entry "extension_get_vendor_pathcomponent" "$@"
-
-   local vendor="$1"
-
-   case "${vendor}" in
-      builtin)
-      ;;
-
-      *)
-         echo "mulle-sde/${vendor}"
-      ;;
-   esac
-}
-
-
 _extension_get_vendors()
 {
    log_entry "_extension_get_vendors" "$@"
-
-   echo "builtin"
 
    local path
    local i
 
    path="`extension_get_search_path ""`"
 
-   set -o noglob ; IFS="
-"
-
+   set -o noglob ; IFS=":"
    for i in ${path}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob

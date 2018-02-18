@@ -3,7 +3,9 @@ digraph G {
 
     node[shape=record];
 
-    "mulle-sde subprojects"  [ label="mulle-sde subprojects add ...", shape="none", fontname="monospace", fontcolor="blue"]
+    "mulle-sde subproject"  [ label="mulle-sde subproject add ...", shape="none", fontname="monospace", fontcolor="blue"]
 
-    "mulle-sde subprojects"  -> "mulle-sourcetree"
+    "mulle-sde subproject"  -> "mulle-sourcetree"
+
+    "mulle-sourcetree"      [ color="magenta", fontcolor="magenta"]
 }

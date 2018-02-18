@@ -24,16 +24,21 @@ Executable      | Description
 `mulle-sde`     | Create projects, add and remove dependencies, monitor filesystem and rebuild and test on demand
 
 
-> **mulle-sde** strives to be buildtool and language agnostic. But out of the box, it supports only C
+> **mulle-sde** strives to be buildtool and language agnostic. But out of the 
+> box, it supports only C
 > and cmake as no other extensions are available yet.
 
 
 ## Create a **mulle-sde** "hello world" project
 
-As the various tools that comprise **mulle-sde** are configured with environment variables, `mulle-sde init` will create  a virtual environment using **mulle-env**, so that various projects can coexist on a filesystem with minimized interference.
+As the various tools that comprise **mulle-sde** are configured with 
+environment variables, `mulle-sde init` will create  a virtual environment 
+using **mulle-env**, so that various projects can coexist on a filesystem with 
+minimized interference.
 
 > For the following you need to install the following extensions:
-> [mulle-sde-c](//github.com/mulle-sde/mulle-sde-c) and [mulle-sde-cmake](//github.com/mulle-sde/mulle-sde-cmake) 
+> [mulle-sde-c](//github.com/mulle-sde/mulle-sde-c) and 
+> [mulle-sde-cmake](//github.com/mulle-sde/mulle-sde-cmake) 
 > 
 
 This is an example, that creates a cmake project for C (this is the default):
@@ -60,7 +65,9 @@ Run it:
 $ ./build/hello
 ```
 
-Monitor the filesystem for new, deleted or modified source files. Then update some of your source or project files. **mulle-sde** will rebuild your project automatically:
+Monitor the filesystem for new, deleted or modified source files. Then update 
+some of your source or project files. **mulle-sde** will rebuild your project 
+automatically:
 
 ```
 $ mulle-sde monitor
@@ -72,48 +79,75 @@ Leave the environment:
 $ exit
 ```
 
-## Commands
+# Commands
 
-### mulle-sde dependency
+## mulle-sde craft
+
+![](dox/mulle-sde-craft.png)
+
+Builds your project including all dependencies.
+
+
+```
+mulle-sde craft
+```
+
+
+## mulle-sde dependency
 
 ![](dox/mulle-sde-dependency.png)
 
-**Dependencies** are typically GitHub projects, that provide a library (like zlib).
-These will be downloaded, unpacked and built into `dependencies`:
+*Dependencies* are typically GitHub projects, that provide a library (like zlib).
+These will be downloaded, unpacked and built into `dependencies` with the next build:
 
 ```
 mulle-sde dependency add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 ```
 
 
-### mulle-sde extension
+## mulle-sde extension
 
-**Extensions** are the build systems supported by mulle-sde. The built-in support is:
+*Extensions* add support for build systems, language runtimes and other tools to mulle-sde. *Extensions* are used during *init* to setup a project. A project, setup with a hypothetically "spellcheck" mulle-sde extension, might be look like this:
 
-Extensiontype  | Vendor  | Name   | Description
----------------|---------|--------|--------------------------
-common         | builtin | common | Provides the executable `create-build-motd`. It also provides a default README.md file.
-runtime        | builtin | c      | Provides the plugins `classify-headers.sh`, `classify-sources.sh`, for C projects. And it also provides a bunch of template files for initial C project creation.
-buildtool      | builtin | cmake  | Provides the executables `did-update-sourcetree`, `did-update-src` for cmake projects. And it also provides a bunch of template files for cmake projects.
+![](dox/mulle-sde-extension.png)
 
-Use `mulle-sde extension list` to check all the extensions available.
+There is a *patternfile* `00-text-all` to classify interesting files to spellcheck. There is a *callback* `text-callback` that gets activated via this *patternfile* that will schedule the *task* `aspell-task.sh`. Also the extension may install template files like `demo.txt`.
 
-See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more information about adding extensions.
+*mulle-sde* knows about four different extension types
+
+Extensiontype  | Description
+---------------|-------------------------------------
+common         | Provides most basic functionality like a default README file.
+buildtool      | Support for buildtools like **cmake** .
+runtime        | Support for language/runtime combinations like C with X11 
+extra          | Support for extra features like **git**
+
+The builtin support is:
+
+Extensiontype  | Vendor    | Name   | Description
+---------------|-----------|--------|--------------------------
+common         | mulle-sde | sde    | Provides the executable `create-build-motd`. It also provides a default README.md file.
+
+Use `mulle-sde extension list` to check the extensions available.
+
+See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more 
+information about adding and writing extensions.
 
 
-### mulle-sde library
+## mulle-sde library
 
 ![](dox/mulle-sde-library.png)
 
-Libraries are OS provide libraries (like libm.a) that you don't want to build yourself as a dependency.
+Libraries are operating system provided libraries (like `libm.a`) that you don't want to build 
+yourself as a dependency.
 
 ```
 mulle-sde library add m
 ```
 
-### mulle-sde monitor
+## mulle-sde monitor
 
-Conceptually, **monitor** waits on changes to the filesystem and then calls **update** (see below) to rebuild and retest your project.
+Conceptually, *monitor* waits on changes to the filesystem and then calls the appropriate callback (see below) to rebuild and retest your project.
 
 ![](dox/mulle-sde-monitor.png)
 
@@ -123,42 +157,30 @@ Environment       | Default        | Description
 `MULLE_SDE_CRAFT` | `mulle-craft`  | Build tool to invoke
 `MULLE_SDE_TEST`  | `mulle-test`   | Test tool to invoke
 
-See **update** for a slew of other environment variables, that also
-affect **monitor**.
-
-> You can use a different built tool, than `mulle-craft`, but you'll be losing
-> out on a lot of functionality.
+> Resist the itch to replace `mulle-craft` with **make** or some other tool. Rather
+> write a *buildtool* extension to create Makefiles and write a **mulle-craft** plugin
+> to let it deal with Makefiles. 
 
 
-### mulle-sde tool
+
+## mulle-sde tool
 
 ![](dox/mulle-sde-tool.png)
 
-**Tools** are the commandline tools available in the virtual environment provided by [mulle-env](/mulle-sde/mulle-env).
+*Tools* are the commandline tools available in the virtual environment 
+provided by [mulle-env](/mulle-sde/mulle-env).
 You can add or remove tools with this command set.
+
+> This is only applicable to environment styles `:restricted` and `:none`.
+> The `:inherit` style uses the default **PATH**.
 
 ```
 mulle-sde tool add nroff
 ```
 
-### mulle-sde update
+## mulle-sde update
 
-An **update** reflects your changes made in the filesystem back into 'Makefiles'.
-
-In the case of `cmake` the script `did-update-src` will create the files `_CMakeHeaders.cmake` and `_CMakeSources.cmake`. They will be created by examining the contents of the folder `src` and its subfolders. `did-update-sourcetree` will create `_CMakeDependencies.cmake` and `_CMakeLibraries.cmake` from the contents of the [mulle-sourcetree](/mulle-sde/mulle-sourcetree).
+An *update* reflects changes made in the filesystem back into the buildsystem "Makefiles". **mulle-sde** executes the task returned by the *callbacks* `source` and `sourcetree`. The actual work is done by *tasks* of the chosen *extensions*.
 
 ![](dox/mulle-sde-update.png)
 
-The way **update** is creating the output can be customized. You can substitute the `did-update-...` scripts with your own. Or you can tweak the output quite a bit, by changes to the plugins like `classify-sources.sh`.
-
-Environment                        | Default                  | Description
------------------------------------|--------------------------|-------------------
-`MULLE_SDE_DID_UPDATE_SRC`         | `did-update-src`         | Invoked, when a change to sourcefiles has been detected. If you set this to "NO", it will not be called.
-`MULLE_SDE_DID_UPDATE_SOURCETREE`  | `did-update-sourcetree`  | Invoked, when a change to a `./mulle-sourcetree/config` has been detected. . If you set this to "NO", it will not be called.
-Determines by filename if a file is a test file
-`MULLE_SDE_CLASSIFY_HEADERS_SH`    | `classify-headers.sh`    | Classify headers as public, private
-`MULLE_SDE_CLASSIFY_SOURCES_SH`    | `classify-sources.sh`    | Classify sources as normal or standalone
-
-
-If you set both `MULLE_SDE_DID_UPDATE_SRC` and `MULLE_SDE_DID_UPDATE_SOURCETREE`
-to "NO", nothing will happen during an update.
