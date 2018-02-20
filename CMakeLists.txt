@@ -22,14 +22,17 @@ src/mulle-sde-common.sh
 src/mulle-sde-dependency.sh
 src/mulle-sde-extension.sh
 src/mulle-sde-init.sh
+src/mulle-sde-installed.sh
 src/mulle-sde-library.sh
 src/mulle-sde-monitor.sh
 src/mulle-sde-plugin.sh
+src/mulle-sde-projectname.sh
 src/mulle-sde-subproject.sh
 src/mulle-sde-template.sh
 src/mulle-sde-tool.sh
 src/mulle-sde-update.sh
 src/mulle-sde-upgrade.sh
+
 )
 
 set( EXTENSIONS

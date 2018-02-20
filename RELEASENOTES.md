@@ -1,3 +1,8 @@
+## 0.10.0
+
+* lots of work and refinement on extensions
+
+
 ## 0.9.0
 
 * redo extension lookup so its more amenable to development

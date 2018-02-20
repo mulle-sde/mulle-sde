@@ -87,6 +87,15 @@ sde_upgrade_main()
    log_entry "sde_upgrade_main" "$@"
 
    local OPTION_FORCE_OPTION="YES"
+
+   #
+   # experimental options with those you should be able to
+   # change project types, build systems and what have you
+   #
+   local OPTION_EXTENSIONS
+   local OPTION_TYPE
+   local OPTION_STYLE
+
    #
    # handle options
    #
@@ -97,13 +106,33 @@ sde_upgrade_main()
             sde_upgrade_usage
          ;;
 
+         --extensions)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_EXTENSIONS="$1"
+         ;;
+
+         --type)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_TYPE="$1"
+         ;;
+
+         --style)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_STYLE="$1"
+         ;;
+
          --no-force)
             OPTION_FORCE_OPTION="NO"
          ;;
 
          -*)
-            fail "unknown option \"$1\""
-            sde_upgrade_usage
+            sde_upgrade_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -116,25 +145,44 @@ sde_upgrade_main()
 
    local style
    local filename
+   local projecttype
 
-   filename=".mulle-env/etc/style"
-   style="`grep -v '^#' <<< "${filename}"`"
+   style="${OPTION_STYLE}"
    if [ -z "${style}" ]
    then
-      fail "mulle-env style could not be determined from \"${filename}\""
+      filename=".mulle-env/etc/style"
+      style="`grep -v '^#' < "${filename}"`"
+      if [ -z "${style}" ]
+      then
+         fail "mulle-env style could not be determined from \"${filename}\""
+      fi
    fi
 
-   filename=".mulle-sde/etc/extensions"
-   extensions="`grep -v '^#' <<< "${filename}"`"
+   extensions="${OPTION_EXTENSIONS}"
    if [ -z "${extensions}" ]
    then
-      fail "mulle-sde extensions could not be determined from \"${filename}\""
+      filename=".mulle-sde/etc/extensions"
+      extensions="`grep -v '^#' < "${filename}"`"
+      if [ -z "${extensions}" ]
+      then
+         fail "mulle-sde extensions could not be determined from \"${filename}\""
+      fi
    fi
 
+   projecttype="${OPTION_TYPE}"
+   if [ -z "${projecttype}" ]
+   then
+      filename=".mulle-sde/etc/projecttype"
+      projecttype="`grep -v '^#' < "${filename}"`"
+      if [ -z "${projecttype}" ]
+      then
+         fail "mulle-sde project-type could not be determined from \"${filename}\""
+      fi
+   fi
 
    #
    # Force: how does it work ?
-   # since we'er upgrading we pretty much want -f
+   # since we are upgrading we pretty much want -f
    #
    # But we only need it for project anyway. But then it's usually not
    # convenient to really copy the buildtime templates again.
@@ -147,7 +195,8 @@ sde_upgrade_main()
    local force
 
    force="NO"
-   options="--no-bin
+   options="\
+--no-bin
 --no-etc
 --no-libexec
 --no-init
@@ -155,13 +204,18 @@ sde_upgrade_main()
 --no-buildtool-project
 --no-common-project
 --no-extra-project
+--no-meta-project
 --no-runtime-project
 --no-buildtool-init
 --no-common-init
 --no-extra-init
+--no-meta-init
 --no-runtime-init
 --no-share"
 
+   #
+   # By default upgrade "bin" "libexec" "share" which is cmd="scripts"
+   #
    while :
    do
       if [ "$#" -eq 0 ]
@@ -178,36 +232,41 @@ sde_upgrade_main()
 
       case "${cmd}" in
          buildtool-extension)
-            options="`egrep -v '--no-buildtool-project|--no-buildtool-init' <<< "${options}" `"
+            options="`egrep -v -e '--no-buildtool-project|--no-buildtool-init' <<< "${options}" `"
             force="${OPTION_FORCE_OPTION}"
          ;;
 
          common-extension)
-            options="`egrep -v '--no-common-project|--no-common-init' <<< "${options}" `"
+            options="`egrep -v -e '--no-common-project|--no-common-init' <<< "${options}" `"
+            force="${OPTION_FORCE_OPTION}"
+         ;;
+
+         meta-extension)
+            options="`egrep -v -e '--no-meta-project|--no-meta-init' <<< "${options}" `"
             force="${OPTION_FORCE_OPTION}"
          ;;
 
          extra-extension)
-            options="`egrep -v '--no-extra-project|--no-extra-init' <<< "${options}" `"
+            options="`egrep -v -e '--no-extra-project|--no-extra-init' <<< "${options}" `"
             force="${OPTION_FORCE_OPTION}"
          ;;
 
          etc)
-            options="`egrep -v '--no-etc' <<< "${options}" `"
+            options="`egrep -v -e '--no-etc' <<< "${options}" `"
          ;;
 
          project)
-            options="`egrep -v '--no-*-project|--no-*-init' <<< "${options}" `"
+            options="`egrep -v -e '--no-*-project|--no-*-init' <<< "${options}" `"
             force="${OPTION_FORCE_OPTION}"
          ;;
 
          runtime-extension)
-            options="`egrep -v '--no-runtime-project|--no-runtime-init' <<< "${options}" `"
+            options="`egrep -v -e '--no-runtime-project|--no-runtime-init' <<< "${options}" `"
             force="${OPTION_FORCE_OPTION}"
          ;;
 
          scripts)
-            options="`egrep -v '--no-bin|--no-libexec|--no-share' <<< "${options}" `"
+            options="`egrep -v -e '--no-bin|--no-libexec|--no-share' <<< "${options}" `"
          ;;
 
          *)
@@ -221,5 +280,5 @@ sde_upgrade_main()
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    MULLE_FLAG_MAGNUM_FORCE="${force}" \
-      sde_init_main ${options} ${style} ${extensions}
+      sde_init_main ${options} ${style} ${extensions} "${projecttype}"
 }

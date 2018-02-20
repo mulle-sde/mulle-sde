@@ -40,11 +40,7 @@ _callback_run()
 
    local rval
 
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
-   MULLE_SDE_LIBEXEC_DIR="${MULLE_SDE_LIBEXEC_DIR}" \
-   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
-   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
-      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} callback run "${callback}"
+   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} callback run "${callback}"
 }
 
 
@@ -52,15 +48,11 @@ _task_run()
 {
    log_entry "_task_run"
 
-   local taskj="$1"
+   local task="$1"
 
    local rval
 
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
-   MULLE_SDE_LIBEXEC_DIR="${MULLE_SDE_LIBEXEC_DIR}" \
-   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
-   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
-      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} task run "${task}"
+   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task run "${task}"
 }
 
 
@@ -68,15 +60,11 @@ _task_status()
 {
    log_entry "_task_has_run"
 
-   local taskj="$1"
+   local task="$1"
 
    local rval
 
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
-   MULLE_SDE_LIBEXEC_DIR="${MULLE_SDE_LIBEXEC_DIR}" \
-   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
-   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
-      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} task status "${task}"
+   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task status "${task}"
 }
 
 
@@ -92,10 +80,14 @@ _task_run_if_needed()
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
    then
       status="`_task_status "${task}"`"
+      log_fluff "Last known status of task \"${task}\" is \"${status}\""
+   else
+      log_fluff "Forced run of \"${task}\""
    fi
 
    case "${status}" in
-      success)
+      "done")
+         log_fluff "Skip task"
          return
       ;;
    esac
@@ -110,6 +102,13 @@ sde_update_main()
 
    local task
    local status
+
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+   set_projectname_environment "read"
+
 
    task="`_callback_run "source"`"
    if [ ! -z "${task}" ]

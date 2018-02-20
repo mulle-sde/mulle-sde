@@ -29,49 +29,43 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
+MULLE_SDE_PROJECTNAME_SH="included"
 
-#
-# path handling
-#
-path_without_first_directory()
+
+set_projectname_environment()
 {
-   case "$@" in
-      /*)
-         path_without_first_directory `echo "$@" | cut -c2-`
-         ;;
+   log_entry "set_projectname_environment" "$@"
 
-      */*)
-         echo "$@" | LC_ALL=C sed 's,^[^/]*/,,'
+   local mode="$1"
+
+   if [ -z "${PROJECT_NAME}" ]
+   then
+      case "${mode}" in
+         read)
+            PROJECT_NAME="`egrep -s -v '^#' <<< ".mulle-sde/etc/projectname"`"
          ;;
-      *)
-         echo "$@"
-         ;;
-   esac
+      esac
+
+      if [ -z "${PROJECT_NAME}" ]
+      then
+         PROJECT_NAME="`fast_basename "${PWD}"`"
+      fi
+   fi
+
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME cant be empty"
+
+   PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9' '_'`"
+   PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z' 'a-z' <<< "${PROJECT_IDENTIFIER}"`"
+   PROJECT_UPCASE_IDENTIFIER="`tr 'a-z' 'A-Z' <<< "${PROJECT_IDENTIFIER}"`"
+
+   export PROJECT_NAME
+   export PROJECT_IDENTIFIER
+   export PROJECT_DOWNCASE_IDENTIFIER
+   export PROJECT_UPCASE_IDENTIFIER
+
+   # gratuitous optimization
+   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+   export MULLE_MONITOR_DIR
+   export MULLE_SDE_LIBEXEC_DIR
+   export MULLE_SDE_DIR
 }
-
-
-#
-# test watch handling
-#
-task_test_run()
-{
-   log_entry "task_test_run" "$@"
-
-   local filename="$1"
-
-   local name
-
-   case "${filename}" in
-      "")
-         exekutor "${MULLE_SDE_TEST}"
-      ;;
-
-      *)
-         name="`path_without_first_directory "${filename}"`"
-         log_fluff "==> Run test ${name}"
-         exekutor "${MULLE_SDE_TEST}" "${filename}"
-      ;;
-   esac
-}
-
-

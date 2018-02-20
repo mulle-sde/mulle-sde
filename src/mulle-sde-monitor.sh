@@ -46,8 +46,11 @@ sde_monitor_main()
       MULLE_SDE_CRAFT_AFTER_UPDATE="YES" sde_update_main
    fi
 
-   MULLE_SDE_DIR="${MULLE_SDE_DIR}" \
-   MULLE_MONITOR_DIR="${MULLE_SDE_DIR}" \
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" \
-      exekutor mulle-monitor ${MULLE_MONITOR_FLAGS} run --ignore "$@"
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+   set_projectname_environment "read"
+
+   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
 }

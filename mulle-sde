@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.9.0
+MULLE_EXECUTABLE_VERSION=0.10.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -62,6 +62,7 @@ HIDDEN_COMMANDS="\
    callback       : manage callbacks
    init-and-enter : create a new project then immediately start a subshell
    libexec-dir    : print path to mulle-sde libexec
+   installed      : list installed extension of project with version numbers
    task           : manage tasks
    test           : run tests using mulle-test
    uname          : mulle-sdes simplified uname(1)
@@ -232,7 +233,7 @@ main()
          all|build|clean|craft|onlydependencies|nodependencies|project|sourcetree)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
-         dependencies|libraries|monitor|subprojects|minions|tools|update)
+         dependency|installed|library|monitor|subproject|minion|tool|update|upgrade)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
       esac
@@ -241,6 +242,12 @@ main()
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
 
    MULLE_EXECUTABLE_OPTIONS="$@"
+
+   MULLE_SOURCETREE="${MULLE_SOURCETREE:-`command -v mulle-sourcetree`}"
+   [ -z "${MULLE_SOURCETREE}" ] && fail "mulle-sourcetree not in PATH"
+
+   MULLE_MONITOR="${MULLE_MONITOR:-`command -v mulle-monitor`}"
+   [ -z "${MULLE_MONITOR}" ] && fail "mulle-monitor not in PATH"
 
    case "${cmd}" in
       #

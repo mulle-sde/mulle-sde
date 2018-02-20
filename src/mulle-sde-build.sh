@@ -58,6 +58,8 @@ sde_build_main()
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
             fi
 
+            log_verbose "Run update if needed"
+
             sde_update_main
          fi
       ;;
@@ -67,6 +69,13 @@ sde_build_main()
       ;;
    esac
 
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+   set_projectname_environment "read"
+
+   log_verbose "Craft project \"${cmd}\""
 
    exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
 }

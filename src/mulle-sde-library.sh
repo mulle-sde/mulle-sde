@@ -182,9 +182,9 @@ sde_library_add_main()
       esac
    fi
 
-   mulle-sourcetree add --nodetype none \
-                        --marks "${LIBRARY_MARKS}" \
-                        "${libname}"
+   exekutor "${MULLE_SOURCETREE}" add --nodetype none \
+                                      --marks "${LIBRARY_MARKS}" \
+                                    "${libname}"
 }
 
 
@@ -322,8 +322,8 @@ sde_library_list_main()
    log_fluff "Just pass through to mulle-sourcetree"
    export MULLE_EXECUTABLE_NAME
 
-   exekutor mulle-sourcetree -s ${MULLE_SOURCETREE_FLAGS} list \
-      --format "ami={aliases,-------,aliases}" \
+   exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+      --format "ami={aliases,,-------}" \
       --nodetypes "none" \
       --marks "${LIBRARY_MARKS}" \
       --no-output-marks "${LIBRARY_MARKS}" \
@@ -353,7 +353,7 @@ sde_library_remove_main()
    log_fluff "Just pass through to mulle-sourcetree"
    export MULLE_EXECUTABLE_NAME
 
-   exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} remove "$@"
+   exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
 }
 
 

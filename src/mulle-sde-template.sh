@@ -69,16 +69,10 @@ expand_filename_variables()
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
    [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
 
-   local project_upcase_identifier
-   local project_downcase_identifier
-
-   project_downcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'A-Z' 'a-z'`"
-   project_upcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'a-z' 'A-Z'`"
-
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
-   escaped_pui="` escaped_sed_pattern "${project_upcase_identifier}" `"
-   escaped_pdi="` escaped_sed_pattern "${project_downcase_identifier}" `"
+   escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
+   escaped_pdi="` escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}" `"
 
 
    LC_ALL=C \
@@ -114,17 +108,11 @@ expand_template_variables()
    project_downcase_language="`tr A-Z a-z <<< "${PROJECT_LANGUAGE}" `"
    project_upcase_language="`tr a-z A-Z <<< "${PROJECT_LANGUAGE}" `"
 
-   local project_upcase_identifier
-   local project_downcase_identifier
-
-   project_downcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'A-Z' 'a-z'`"
-   project_upcase_identifier="`echo "${PROJECT_IDENTIFIER}" | tr 'a-z' 'A-Z'`"
-
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
    escaped_pl="` escaped_sed_pattern "${PROJECT_LANGUAGE}" `"
-   escaped_pdi="` escaped_sed_pattern "${project_downcase_identifier}" `"
-   escaped_pui="` escaped_sed_pattern "${project_upcase_identifier}" `"
+   escaped_pdi="` escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}" `"
+   escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
    escaped_pul="` escaped_sed_pattern "${project_upcase_language}" `"
    escaped_pdl="` escaped_sed_pattern "${project_downcase_language}" `"
 
@@ -338,13 +326,15 @@ _template_main()
       template_callback="template_setup"
    fi
 
-   local dir_name
 
-   dir_name="`basename -- "${PWD}"`"
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+
+   set_projectname_environment "none"
 
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}"
-   PROJECT_NAME="${PROJECT_NAME:-${dir_name}}"
-   PROJECT_IDENTIFIER="`echo "${PROJECT_NAME}" | tr '-' '_'`"
 
    log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
    log_debug "PROJECT_NAME=${PROJECT_NAME}"

@@ -33,12 +33,34 @@
 #
 MULLE_SDE_EXTENSION_SH="included"
 
-
 sde_extension_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} extension [options] <type>
+   ${MULLE_EXECUTABLE_NAME} extension <command>
+
+   Operations for mulle-sde extensions
+
+Options:
+   -v vendor : specify a different extension vendor
+
+Commands:
+   list      : list available extensions
+   status    : list project extensions with version
+EOF
+   exit 1
+}
+
+
+sde_extension_list_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_EXECUTABLE_NAME} extension [options] list [type]
 
    List available mulle-sde extension.
 
@@ -48,11 +70,26 @@ Options:
 Types:
    common    : common extension
    buildtool : buildtool extension
+   extra     : extra extension
+   meta      : meta extension
    runtime   : runtime extension (default)
 EOF
    exit 1
 }
 
+
+sde_extension_status_usage()
+{
+  [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_EXECUTABLE_NAME} extension status
+
+   Show mulle-sde extensions, that are installed in the current project.
+EOF
+   exit 1
+}
 
 
 extension_get_home_config_dir()
@@ -293,6 +330,151 @@ emit_extension()
 }
 
 
+sde_extension_list_main()
+{
+   log_entry "sde_extension_list_main" "$@"
+
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h|--help)
+            sde_extension_list_usage
+         ;;
+
+         -v|--vendor)
+            [ $# -eq 1 ] && sde_extension_list_usage "missing argument for \"$1\""
+            shift
+
+            OPTION_VENDOR="$1"
+         ;;
+
+         -*)
+            sde_extension_list_usage
+            ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local common_extension
+   local runtime_extension
+   local buildtool_extension
+   local meta_extension
+   local extra_extension
+   local vendor
+
+   if [ ! -z "${OPTION_VENDOR}" ]
+   then
+      common_extension="`collect_extension "${OPTION_VENDOR}" common `"  || return 1
+      runtime_extension="`collect_extension "${OPTION_VENDOR}" runtime `"  || return 1
+      meta_extension="`collect_extension "${OPTION_VENDOR}" meta `"  || return 1
+      buildtool_extension="`collect_extension "${OPTION_VENDOR}" buildtool `"  || return 1
+      extra_extension="`collect_extension "${OPTION_VENDOR}" extra `"  || return 1
+   else
+      local all_vendors
+
+      all_vendors="`extension_get_vendors`"
+
+      log_verbose "Available vendors:"
+      log_verbose "`sort -u <<< "${all_vendors}"`"
+
+      IFS="
+"; set -o noglob
+      for vendor in ${all_vendors}
+      do
+         if [ -z "${vendor}" ]
+         then
+            continue
+         fi
+
+         IFS="${DEFAULT_IFS}"; set +o noglob
+
+         tmp="`collect_extension "${vendor}" common `"  || return 1
+         common_extension="`add_line "${common_extension}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extension "${vendor}" runtime `"  || return 1
+         runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extension "${vendor}" meta `"  || return 1
+         meta_extension="`add_line "${meta_extension}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extension "${vendor}" buildtool `" || return 1
+         buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extension "${vendor}" extra `" || return 1
+         extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
+      done
+      IFS="${DEFAULT_IFS}"; set +o noglob
+   fi
+
+   emit_extension "${meta_extension}" "meta" "[-m <extension>]" &&
+   emit_extension "${common_extension}" "common" "[-c <extension>]" &&
+   emit_extension "${runtime_extension}" "runtime" "[-r <extension>" &&
+   emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]" &&
+   emit_extension "${extra_extension}" "extra" "[-e <extension>]*"
+}
+
+
+sde_extension_status_main()
+{
+   log_entry "sde_extension_status_main" "$@"
+
+
+   while :
+   do
+      case "$1" in
+         -h|--help)
+            sde_extension_status_usage
+         ;;
+
+         -*)
+            sde_extension_status_usage
+            ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ ! -d "${MULLE_SDE_DIR}" ] && fail "This doesn't look like a mulle-sde project"
+
+   local version
+   local vendor
+   local extension
+   local filename
+
+   log_info "Installed Extensions"
+
+   (
+      IFS="
+"
+      for filename in `find "${MULLE_SDE_DIR}/etc/version" -type f -print`
+      do
+         IFS="${DEFAULT_IFS}"
+
+         version="`egrep -v '^#' < "${filename}"`"
+
+         extension="`fast_basename "${filename}"`"
+         vendor="`fast_dirname "${filename}"`"
+         vendor="`fast_basename "${vendor}"`"
+
+         echo "${vendor}:${extension}" "${version}"
+      done
+      IFS="${DEFAULT_IFS}"
+   ) | sort
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -300,7 +482,7 @@ sde_extension_main()
 {
    log_entry "sde_extension_main" "$@"
 
-   local OPTION_VENDOR=""
+   local OPTION_VENDOR=""{fi}
 
    #
    # handle options
@@ -331,58 +513,25 @@ sde_extension_main()
       shift
    done
 
-   [ "$#" -gt 1 ] && sde_extension_usage
+   local cmd="$1"
+   [ $# -ne 0 ] && shift
 
+   case "${cmd}" in
+      list)
+         sde_extension_list_main "$@"
+      ;;
 
-   local common_extension
-   local runtime_extension
-   local buildtool_extension
-   local extra_extension
-   local vendor
+      status)
+         sde_extension_status_main "$@"
+      ;;
 
-   if [ ! -z "${OPTION_VENDOR}" ]
-   then
-      common_extension="`collect_extension "${OPTION_VENDOR}" common `"  || return 1
-      runtime_extension="`collect_extension "${OPTION_VENDOR}" runtime `"  || return 1
-      buildtool_extension="`collect_extension "${OPTION_VENDOR}" buildtool `"  || return 1
-      extra_extension="`collect_extension "${OPTION_VENDOR}" extra `"  || return 1
-   else
-      local all_vendors
+      "")
+         sde_extension_usage
+      ;;
 
-      all_vendors="`extension_get_vendors`"
-
-      log_verbose "Available vendors:"
-      log_verbose "`sort -u <<< "${all_vendors}"`"
-
-      IFS="
-"; set -o noglob
-      for vendor in ${all_vendors}
-      do
-         if [ -z "${vendor}" ]
-         then
-            continue
-         fi
-
-         IFS="${DEFAULT_IFS}"; set +o noglob
-
-         tmp="`collect_extension "${vendor}" common `"  || return 1
-         common_extension="`add_line "${common_extension}" "${tmp}" `"  || return 1
-
-         tmp="`collect_extension "${vendor}" runtime `"  || return 1
-         runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
-
-         tmp="`collect_extension "${vendor}" buildtool `" || return 1
-         buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
-
-         tmp="`collect_extension "${vendor}" extra `" || return 1
-         extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
-      done
-      IFS="${DEFAULT_IFS}"; set +o noglob
-   fi
-
-   emit_extension "${common_extension}" "common" "[-c <extension>]" &&
-   emit_extension "${runtime_extension}" "runtime" "[-r <extension>" &&
-   emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]" &&
-   emit_extension "${extra_extension}" "extra" "[-e <extension>]*"
+      *)
+         sde_extension_usage "unknown command \"${cmd}\""
+      ;;
+   esac
 }
 
