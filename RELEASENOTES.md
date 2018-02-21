@@ -1,3 +1,7 @@
+### 0.11.1
+
+* Various small improvements
+
 ## 0.10.0
 
 * lots of work and refinement on extensions

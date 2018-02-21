@@ -273,6 +273,8 @@ find_extension()
          log_fluff "Found extension \"${directory}/${name}\""
          echo "${directory}/${name}"
          return 0
+      else
+         log_fluff "Extension \"${directory}/${name}\" is not there"
       fi
    done
 

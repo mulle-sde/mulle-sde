@@ -282,9 +282,9 @@ install_extension()
 
    local extensiondir
 
-   if ! extensiondir="`find_extension "${extname}" "${vendor}"`"
+   if ! extensiondir="`find_extension "${vendor}" "${extname}"`"
    then
-      log_error "Could not find extension \"${extname}\" from \
+      log_error "Could not find extension \"${extname}\" by \
 vendor \"${vendor}\""
       return 1
    fi
@@ -897,7 +897,7 @@ sde_init_main()
    mkdir_if_missing ".mulle-sde" || exit 1
 
    case "${projecttype}" in
-      empty|library|executable)
+      empty|library|executable|extension)
       ;;
 
       *)
