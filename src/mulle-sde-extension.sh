@@ -249,8 +249,8 @@ find_extension()
 {
    log_entry "find_extension" "$@"
 
-   local name="$1"
-   local vendor="$2"
+   local vendor="$1"
+   local name="$2"
 
    local searchpath
 
@@ -311,6 +311,25 @@ collect_extension()
 
    result="`collect_extension_dirs "${vendor}" "${extensiontype}"`"
    extensionnames_from_extension_dirs "${vendor}" "${result}"
+}
+
+
+collect_extension_projecttypes()
+{
+   log_entry "collect_extension" "$@"
+
+   local extensiondir="$1"
+
+   (
+      shopt -s nullglob
+      for i in ${extensiondir}/project/*
+      do
+         if [ -d "$i" ]
+         then
+            fast_basename "$i"
+         fi
+      done
+   )
 }
 
 
@@ -475,6 +494,69 @@ sde_extension_status_main()
 }
 
 
+sde_extension_usage_main()
+{
+   log_entry "sde_extension_usage_main" "$@"
+
+   while :
+   do
+      case "$1" in
+         -h|--help)
+            sde_extension_status_usage
+         ;;
+
+         -*)
+            sde_extension_status_usage
+            ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local extension="$1"
+
+   local vendor
+
+   vendor="${OPTION_VENDOR}"
+
+   local extensiondir
+
+   case "${extension}" in
+      *:*)
+         IFS=":" read vendor extension <<< "${extension}"
+      ;;
+   esac
+
+   extensiondir="`find_extension "${vendor}" "${extension}"`" \
+         || fail "Unknown extension \"${vendor}:${extension}\""
+
+
+   local exttype
+   local usagetext
+
+   exttype="`egrep -v '^#' < "${extensiondir}/type"`"
+
+   echo "Usage:"
+   echo "   mulle-sde init --${exttype}" "${vendor}:${extension} <type>"
+   echo
+
+   usagetext="`cat "${extensiondir}/usage" 2> /dev/null`"
+   if [ ! -z "${usagetext}" ]
+   then
+      sed 's/^/   /' <<< "${usagetext}"
+      echo
+   fi
+   echo "Types:"
+
+   collect_extension_projecttypes "${extensiondir}" | sed 's/^/   /'
+
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -482,7 +564,7 @@ sde_extension_main()
 {
    log_entry "sde_extension_main" "$@"
 
-   local OPTION_VENDOR=""{fi}
+   local OPTION_VENDOR=""
 
    #
    # handle options
@@ -523,6 +605,10 @@ sde_extension_main()
 
       status)
          sde_extension_status_main "$@"
+      ;;
+
+      usage)
+         sde_extension_usage_main "$@"
       ;;
 
       "")

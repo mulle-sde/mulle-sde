@@ -328,6 +328,13 @@ main()
          sde_subproject_main "$@"
       ;;
 
+      template)
+         # shellcheck source=src/mulle-sde-tool.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh"
+
+         sde_template_main "$@"
+      ;;
+
       tool)
          # shellcheck source=src/mulle-sde-tool.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-tool.sh"

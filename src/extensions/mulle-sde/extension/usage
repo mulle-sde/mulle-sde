@@ -1,0 +1,15 @@
+Specify the following variables during init:
+
+   VENDOR_NAME, PROJECT_DESCRIPTION, VENDOR_CONTACT
+
+VENDOR_NAME is required and important. The other two values are for
+CMakePackage.cmake.
+
+e.g.
+
+```
+mulle-sde init --common mulle-sde:extension \
+               -DVENDOR="my-vendor" \
+               -DPROJECT_DESCRIPTION="my extension"
+               -DVENDOR_CONTACT="you@my-vendor.org" extension
+```

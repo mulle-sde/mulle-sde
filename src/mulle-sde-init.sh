@@ -50,6 +50,7 @@ Usage:
    e.g.  mulle-sde init -m mulle-sde:cmake-c executable
 
 Options:
+   -D <key>=<val> : specify a key/value pair for template substitution
    -b <buildtool> : specify the buildtool extension to use (<vendor>:cmake)
    -c <common>    : specify the common extensions to install (<vendor:sde)
    -d <dir>       : directory to populate (working directory)
@@ -165,7 +166,7 @@ _copy_extension_template_files()
          force=""
       fi
 
-      _template_main --embedded ${force} --template-dir "${projectdir}" "$@" || exit 1
+      eval _template_main --embedded '${force}' --template-dir "'${projectdir}'" "$@" || exit 1
    else
       log_fluff "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
    fi
@@ -598,28 +599,28 @@ install_project()
                         "${meta_vendor}" \
                         "${marks}" \
                         "${force}" \
-                        -p "${OPTION_NAME}" &&
+                        -p "${OPTION_NAME}" "${OPTION_USERDEFINES}" &&
       install_extension "${projecttype}" \
                         "buildtool" \
                         "${buildtool_name}" \
                         "${buildtool_vendor}" \
                         "${marks}" \
                         "${force}" \
-                        -p "${OPTION_NAME}" &&
+                        -p "'${OPTION_NAME}'" "${OPTION_USERDEFINES}" &&
       install_extension "${projecttype}" \
                         "runtime" \
                         "${runtime_name}" \
                         "${runtime_vendor}" \
                         "${marks}" \
                         "${force}" \
-                        -p "${OPTION_NAME}" &&
+                        -p "${OPTION_NAME}" "${OPTION_USERDEFINES}" &&
       install_extension "${projecttype}" \
                         "common" \
                         "${common_name}" \
                         "${common_vendor}" \
                         "${marks}" \
                         "${force}" \
-                        -p "${OPTION_NAME}"
+                        -p "${OPTION_NAME}" "${OPTION_USERDEFINES}"
    ) || return 1
 
    #
@@ -651,7 +652,7 @@ install_project()
                            "${extra_vendor}" \
                            "${marks}" \
                            "${force}" \
-                           -p "${OPTION_NAME}"
+                           -p "${OPTION_NAME}" "${OPTION_USERDEFINES}"
 
          option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
          cmdline_options="`concat "${cmdline_options}" "${option}"`"
@@ -684,7 +685,7 @@ install_project()
    typefile=".mulle-sde/etc/projecttype"
    extensionsfile=".mulle-sde/etc/extensions"
    versionfile=".mulle-sde/etc/mulle-sde"
-   namefile=".mulle-sde/etc/projecttype"
+   namefile=".mulle-sde/etc/projectname"
 
    log_verbose "Creating \"${extensionsfile}\""
    redirect_exekutor "${extensionsfile}" echo "${cmdline_options}"
@@ -743,8 +744,8 @@ sde_init_main()
    local OPTION_BLURB=""
    local OPTION_TEMPLATE_FILES="YES"
    local OPTION_INIT_FLAGS
-
    local OPTION_MARKS=""
+   local OPTION_USERDEFINES
 
    #
    # handle options
@@ -756,11 +757,16 @@ sde_init_main()
             sde_init_usage
          ;;
 
-         -p|--project-name)
+         -D?*)
+            keyvalue="`sed s'/^-D//' <<< "$1"`"
+            OPTION_USERDEFINES="`concat "${OPTION_USERDEFINES}" "-D '${1:2}'" `"
+         ;;
+
+         -D)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
 
-            OPTION_NAME="$1"
+            OPTION_USERDEFINES="`concat "${OPTION_USERDEFINES}" "-D '$1'" `"
          ;;
 
          -b|--buildtool)
@@ -777,6 +783,14 @@ sde_init_main()
             OPTION_COMMON="`tr 'A-Z' 'a-z' <<< "$1" `"
          ;;
 
+         -d|--directory)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            exekutor mkdir -p "$1" 2> /dev/null
+            exekutor cd "$1" || fail "can't change to \"$1\""
+         ;;
+
          -e|--extra)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
@@ -785,14 +799,6 @@ sde_init_main()
 
             extra="`tr 'A-Z' 'a-z' <<< "$1" `"
             OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "${extra}" `"
-         ;;
-
-         -d|--directory)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
-            shift
-
-            exekutor mkdir -p "$1" 2> /dev/null
-            exekutor cd "$1" || fail "can't change to \"$1\""
          ;;
 
          -i|--init-flags)
@@ -809,16 +815,11 @@ sde_init_main()
             OPTION_META="`tr 'A-Z' 'a-z' <<< "$1" `"
          ;;
 
-         --no-blurb)
-            OPTION_BLURB="--no-blurb"
-         ;;
+         -p|--project-name)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
 
-         --no-env)
-            OPTION_INIT_ENV="NO"
-         ;;
-
-         --no-*)
-            OPTION_MARKS="`concat "${OPTION_MARKS}" "${1:2}"`"
+            OPTION_NAME="$1"
          ;;
 
          -r|--runtime)
@@ -833,6 +834,18 @@ sde_init_main()
             shift
 
             OPTION_VENDOR="$1"
+         ;;
+
+         --no-blurb)
+            OPTION_BLURB="--no-blurb"
+         ;;
+
+         --no-env)
+            OPTION_INIT_ENV="NO"
+         ;;
+
+         --no-*)
+            OPTION_MARKS="`concat "${OPTION_MARKS}" "${1:2}"`"
          ;;
 
          --style|--env-style)
