@@ -42,14 +42,13 @@ SHOWN_COMMANDS="\
 
 HIDDEN_COMMANDS="\
    buildtool-extension : upgrade buildtool extension template content
-   common-extension    : upgrade common extension template content
    extra-extension     : upgrade extra extension template content
    runtime-extension   : upgrade runtime extension template content
 "
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} upgrade [command]*
+   ${UPGRADE_USAGE_NAME:-${MULLE_EXECUTABLE_NAME} upgrade [command]*
 
    Upgrade to a newer mulle-sde version. The default is to upgrade the scripts
    and share data only. Upgrading etc is not recommended, as you would lose
@@ -93,8 +92,8 @@ sde_upgrade_main()
    # change project types, build systems and what have you
    #
    local OPTION_EXTENSIONS
+   local OPTION_INIT
    local OPTION_TYPE
-   local OPTION_STYLE
 
    #
    # handle options
@@ -120,11 +119,8 @@ sde_upgrade_main()
             OPTION_TYPE="$1"
          ;;
 
-         --style)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
-            shift
-
-            OPTION_STYLE="$1"
+         --no-init)
+            OPTION_INIT="NO"
          ;;
 
          --no-force)
@@ -143,25 +139,13 @@ sde_upgrade_main()
       shift
    done
 
-   local style
    local filename
    local projecttype
-
-   style="${OPTION_STYLE}"
-   if [ -z "${style}" ]
-   then
-      filename=".mulle-env/etc/style"
-      style="`grep -v '^#' < "${filename}"`"
-      if [ -z "${style}" ]
-      then
-         fail "mulle-env style could not be determined from \"${filename}\""
-      fi
-   fi
 
    extensions="${OPTION_EXTENSIONS}"
    if [ -z "${extensions}" ]
    then
-      filename=".mulle-sde/etc/extensions"
+      filename="${MULLE_SDE_ETC_DIR}c/extensions"
       extensions="`grep -v '^#' < "${filename}"`"
       if [ -z "${extensions}" ]
       then
@@ -172,7 +156,7 @@ sde_upgrade_main()
    projecttype="${OPTION_TYPE}"
    if [ -z "${projecttype}" ]
    then
-      filename=".mulle-sde/etc/projecttype"
+      filename="${MULLE_SDE_ETC_DIR}/projecttype"
       projecttype="`grep -v '^#' < "${filename}"`"
       if [ -z "${projecttype}" ]
       then
@@ -195,90 +179,70 @@ sde_upgrade_main()
    local force
 
    force="NO"
-   options="\
---no-bin
---no-etc
---no-libexec
---no-init
---no-motd
---no-buildtool-project
---no-common-project
---no-extra-project
---no-meta-project
---no-runtime-project
---no-buildtool-init
---no-common-init
---no-extra-init
---no-meta-init
---no-runtime-init
---no-share"
 
    #
    # By default upgrade "bin" "libexec" "share" which is cmd="scripts"
    #
-   while :
-   do
-      if [ "$#" -eq 0 ]
-      then
-         if [ ! -z "${cmd}" ]
-         then
-            break
-         fi
-         cmd="scripts"
-      else
-         cmd="$1"
-         shift
-      fi
+   if [ "$#" -eq 0 ]
+   then
+   options="\
+--no-demo
+--no-project"
+   else
+      options="\
+--no-motd
+--no-demo
+--no-project
+\
+--no-buildtool-project
+--no-extra-project
+--no-meta-project
+--no-runtime-project
+\
+--no-buildtool-init
+--no-extra-init
+--no-meta-init
+--no-runtime-init"
 
-      case "${cmd}" in
-         buildtool-extension)
-            options="`egrep -v -e '--no-buildtool-project|--no-buildtool-init' <<< "${options}" `"
-            force="${OPTION_FORCE_OPTION}"
-         ;;
+      while :
+      do
+         case "${cmd}" in
+            buildtool-extension)
+               options="`egrep -v -e '--no-buildtool-project|--no-buildtool-init' <<< "${options}" `"
+            ;;
 
-         common-extension)
-            options="`egrep -v -e '--no-common-project|--no-common-init' <<< "${options}" `"
-            force="${OPTION_FORCE_OPTION}"
-         ;;
+            meta-extension)
+               options="`egrep -v -e '--no-meta-project|--no-meta-init' <<< "${options}" `"
+            ;;
 
-         meta-extension)
-            options="`egrep -v -e '--no-meta-project|--no-meta-init' <<< "${options}" `"
-            force="${OPTION_FORCE_OPTION}"
-         ;;
+            extra-extension)
+               options="`egrep -v -e '--no-extra-project|--no-extra-init' <<< "${options}" `"
+            ;;
 
-         extra-extension)
-            options="`egrep -v -e '--no-extra-project|--no-extra-init' <<< "${options}" `"
-            force="${OPTION_FORCE_OPTION}"
-         ;;
+            runtime-extension)
+               options="`egrep -v -e '--no-runtime-project|--no-runtime-init' <<< "${options}" `"
+            ;;
 
-         etc)
-            options="`egrep -v -e '--no-etc' <<< "${options}" `"
-         ;;
+            project)
+               options="`egrep -v -e '--no-*-project|--no-*-init' <<< "${options}" `"
+            ;;
 
-         project)
-            options="`egrep -v -e '--no-*-project|--no-*-init' <<< "${options}" `"
-            force="${OPTION_FORCE_OPTION}"
-         ;;
+            *)
+               log_error "Unknown command \"${cmd}\""
+               sde_upgrade_usage
+            ;;
+         esac
+      done
+   fi
 
-         runtime-extension)
-            options="`egrep -v -e '--no-runtime-project|--no-runtime-init' <<< "${options}" `"
-            force="${OPTION_FORCE_OPTION}"
-         ;;
-
-         scripts)
-            options="`egrep -v -e '--no-bin|--no-libexec|--no-share' <<< "${options}" `"
-         ;;
-
-         *)
-            log_error "Unknown command \"${cmd}\""
-            sde_upgrade_usage
-         ;;
-      esac
-   done
+   if [ "${OPTION_INIT}" = "NO" ]
+   then
+      options="`add_line "${options}" "--no-init" `"
+   fi
 
    # shellcheck source=src/mulle-sde-init.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   MULLE_FLAG_MAGNUM_FORCE="${force}" \
-      sde_init_main ${options} ${style} ${extensions} "${projecttype}"
+   MULLE_FLAG_MAGNUM_FORCE="${OPTION_FORCE_OPTION}" \
+      sde_init_main --no-env ${options} ${style} ${extensions} "${projecttype}"
 }

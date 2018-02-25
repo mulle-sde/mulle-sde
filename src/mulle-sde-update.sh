@@ -38,6 +38,9 @@ _callback_run()
 
    local callback="$1"
 
+   [ -z "${callback}" ]      && internal_fail "callback is empty"
+   [ -z "${MULLE_MONITOR}" ] && internal_fail "MULLE_MONITOR is empty"
+
    local rval
 
    exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} callback run "${callback}"
@@ -49,6 +52,9 @@ _task_run()
    log_entry "_task_run"
 
    local task="$1"
+
+   [ -z "${task}" ]          && internal_fail "task is empty"
+   [ -z "${MULLE_MONITOR}" ] && internal_fail "MULLE_MONITOR is empty"
 
    local rval
 
@@ -96,11 +102,12 @@ _task_run_if_needed()
 }
 
 
-sde_update_main()
+_sde_update_main()
 {
-   log_entry "sde_update_main"
+   log_entry "_sde_update_main"
 
-   local task
+   local runner="$1" ; shift
+
    local status
 
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
@@ -109,24 +116,63 @@ sde_update_main()
    fi
    set_projectname_environment "read"
 
+   local callbacks
 
-   task="`_callback_run "source"`"
-   if [ ! -z "${task}" ]
+   # default by preference
+   callbacks="`egrep -s -v '^#' "${MULLE_SDE_ETC_DIR}/update-callbacks"`"
+   if [ -z "${callbacks}" ]
    then
-      _task_run_if_needed "${task}"
+      callbacks="`egrep -s -v '^#' "${MULLE_SDE_DIR}/share/update-callbacks"`"
+   fi
+   if [ -z "${callbacks}" ]
+   then
+      log_verbose "No update-callbacks defined, doing nothing."
+      return
    fi
 
-   task="`_callback_run "sourcetree"`"
-   if [ ! -z "${task}" ]
-   then
-      _task_run_if_needed "${task}"
-   fi
+   local task
+   local name
+
+   set -o noglob; IFS="
+"
+   for name in ${callbacks}
+   do
+      set +o noglob; IFS="${DEFAULT_IFS}"
+
+      if [ -z "${name}" ]
+      then
+         continue
+      fi
+
+      task="`_callback_run "${name}"`"
+      if [ ! -z "${task}" ]
+      then
+         "${runner}" "${task}"
+      fi
+   done
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    #
    # this is set by mulle-sde monitor
    #
    if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" = "YES" ]
    then
-      _task_run_if_needed "craft"
+      "${runner}" "craft"
    fi
+}
+
+
+sde_update_main()
+{
+   log_entry "sde_update_main"
+
+   _sde_update_main "_task_run" "$@"
+}
+
+
+sde_update_if_needed_main()
+{
+   log_entry "sde_update_if_needed_main"
+
+   _sde_update_main "_task_run_if_needed" "$@"
 }

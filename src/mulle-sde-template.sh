@@ -53,103 +53,18 @@ ${TEMPLATE_USAGE_TEXT:-   Copy template files into the project.}
 
 Options:
    -d <dir>   : use "dir" instead of working directory
-   -p <name>  : give project a name
-   -l <lang>  : specify project's main language (C)
+   -n <name>  : give project a name
+   -l <lang>  : specify project's main language
    -t <dir>   : template directory to copy and expand from
+   -s <seds>  : sed expressions to use for template substitution
 EOF
    exit 1
 }
 
 
-
-make_define_option()
-{
-   log_entry "make_define_option" "$@"
-
-   local key="$1"
-   local value="$2"
-
-   case "${key}" in
-      "")
-         fail "Define key must not be empty"
-      ;;
-      __USER__*)
-         fail "Define key \"${key}\" must not have __USER__ prefix"
-      ;;
-   esac
-
-   local identifier
-
-   identifier="`printf "%s" "${key}" | tr -c 'a-zA-Z0-9-' '_'`"
-
-   if [ "${identifier}" != "${key}" ]
-   then
-      fail "Define \"${key}\" is not a valid identifier"
-   fi
-
-   identifier="`tr 'a-z-' 'A-Z_' <<< "${key}"`"
-   eval "__USER__${identifier}='${value}'"
-
-   log_fluff "__USER__${identifier} defined as \"${value}\""
-
-   USERDEFINES="`comma_concat "${USERDEFINES}" "__USER__${identifier}"`"
-}
-
-
-make_define_option_keyvalue()
-{
-   log_entry "make_define_option_keyvalue" "$@"
-
-   local keyvalue="$1"
-
-   [ -z "${keyvalue}" ] && internal_fail "Missing keyvalue"
-
-   local key
-   local value
-
-   key="`echo "${keyvalue}" | cut -d= -f1`"
-   if [ -z "${key}" ]
-   then
-      key="${keyvalue}"
-   else
-      value="`echo "${keyvalue}" | cut -d= -f2-`"
-   fi
-
-   make_define_option "${key}" "${value}"
-}
-
-
-emit_userdefined_seds()
-{
-   log_entry "emit_userdefined_seds" "$@"
-
-   local o="$1"
-   local c="$2"
-
-   local key
-   local value
-   local cmdline
-   local escaped_value
-   local cmdline
-
-   set -o noglob; IFS=","
-   for key in ${USERDEFINES}
-   do
-      set +o noglob; IFS="${DEFAULT_IFS}"
-      value="`eval echo "\\\$$key"`"
-      escaped_value="` escaped_sed_pattern "${value}" `"
-      key="${key:8}"  # remove __USER__
-      cmdline="`concat "${cmdline}" "-e 's/${o}${key}${c}/${escaped_value}/g'"`"
-   done
-   set +o noglob; IFS="${DEFAULT_IFS}"
-
-   echo "${cmdline}"
-}
-
-
 emit_projectname_seds()
 {
-   log_entry "emit_projectname_seds" "$@"
+#   log_entry "emit_projectname_seds" "$@"
 
    local o="$1"
    local c="$2"
@@ -181,7 +96,7 @@ emit_projectname_seds()
 
 emit_projectlanguage_seds()
 {
-   log_entry "emit_projectlanguage_seds" "$@"
+#   log_entry "emit_projectlanguage_seds" "$@"
 
    local o="$1"
    local c="$2"
@@ -189,7 +104,6 @@ emit_projectlanguage_seds()
    local escaped_pl
    local escaped_pdl
    local escaped_pul
-   local escaped_umcli
 
    [ -z "${PROJECT_LANGUAGE}" ] && internal_fail "PROJECT_LANGUAGE is empty"
 
@@ -213,9 +127,42 @@ emit_projectlanguage_seds()
 }
 
 
+emit_projectdialect_seds()
+{
+#   log_entry "emit_projectdialect_seds" "$@"
+
+   local o="$1"
+   local c="$2"
+
+   local escaped_pl
+   local escaped_pdl
+   local escaped_pul
+
+   [ -z "${PROJECT_DIALECT}" ] && internal_fail "PROJECT_DIALECT is empty"
+
+   local project_upcase_dialect
+   local project_downcase_dialect
+
+   project_downcase_language="`tr A-Z a-z <<< "${PROJECT_DIALECT}" `"
+   project_upcase_language="`tr a-z A-Z <<< "${PROJECT_DIALECT}" `"
+
+   escaped_pl="` escaped_sed_pattern "${PROJECT_DIALECT}" `"
+   escaped_pul="` escaped_sed_pattern "${project_upcase_dialect}" `"
+   escaped_pdl="` escaped_sed_pattern "${project_downcase_dialect}" `"
+
+   local cmdline
+
+   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DIALECT${c}/${escaped_pl}/g'"`"
+   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_DIALECT${c}/${escaped_pul}/g'"`"
+   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${escaped_pdl}/g'"`"
+
+   echo "${cmdline}"
+}
+
+
 emit_author_date_seds()
 {
-   log_entry "emit_author_date_seds" "$@"
+#   log_entry "emit_author_date_seds" "$@"
 
    local o="$1"
    local c="$2"
@@ -255,9 +202,9 @@ emit_author_date_seds()
 }
 
 
-expand_filename_variables()
+template_filename_replacement_command()
 {
-   log_entry "expand_filename_variables" "$@"
+  log_entry "template_filename_replacement_command" "$@"
 
    local cmdline
 
@@ -268,16 +215,26 @@ expand_filename_variables()
    seds="`emit_projectname_seds`"
    cmdline="`concat "${cmdline}" "${seds}"`"
 
-   seds="`emit_userdefined_seds`"
+   #
+   # get VENDOR_NAME for file replacement
+   # or by the user
+   #
+   seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
+             rexekutor mulle-env ${MULLE_ENV_FLAGS} environment \
+                                                      --output-sed  \
+                                                      get VENDOR_NAME |  tr '\n' ' '`"
+
    cmdline="`concat "${cmdline}" "${seds}"`"
 
-   LC_ALL=C reval_exekutor "${cmdline}"
+   log_debug "${cmdline}"
+
+   echo "${cmdline}"
 }
 
 
-expand_template_variables()
+template_contents_replacement_command()
 {
-   log_entry "expand_template_variables" "$@"
+   log_entry "template_contents_replacement_command" "$@"
 
    local cmdline
 
@@ -291,13 +248,28 @@ expand_template_variables()
    seds="`emit_projectlanguage_seds "<|" "|>"`"
    cmdline="`concat "${cmdline}" "${seds}"`"
 
+   seds="`emit_projectdialect_seds "<|" "|>"`"
+   cmdline="`concat "${cmdline}" "${seds}"`"
+
    seds="`emit_author_date_seds "<|" "|>"`"
    cmdline="`concat "${cmdline}" "${seds}"`"
 
-   seds="`emit_userdefined_seds "<|" "|>"`"
+   #
+   # get current environment (as maybe already set by an extensions)
+   # or by the user
+   #
+   seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
+             rexekutor mulle-env ${MULLE_ENV_FLAGS} environment  \
+                                                      --output-sed  \
+                                                      --sed-key-prefix '<|' \
+                                                      --sed-key-suffix '|>' \
+                                                      list | tr '\n' ' '`"
+
    cmdline="`concat "${cmdline}" "${seds}"`"
 
-   LC_ALL=C reval_exekutor "${cmdline}"
+   log_debug "${cmdline}"
+
+   echo "${cmdline}"
 }
 
 
@@ -307,6 +279,8 @@ copy_and_expand_template()
 
    local templatedir="$1"
    local dstfile="$2"
+   local filename_sed="$3"
+   local template_sed="$4"
 
    if [ -e "${dst}" -a "${FLAG_FORCE}" != "YES" ]
    then
@@ -322,14 +296,19 @@ copy_and_expand_template()
 
    local expanded_dstfile
 
-   expanded_dstfile="`expand_filename_variables <<< "${dstfile}" `"
+   expanded_dstfile="`eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
 
    local text
 
-   text="`expand_template_variables < "${templatefile}" `"
+   text="`eval_exekutor "${template_sed}" < "${templatefile}" `"
 
-   mkdir_if_missing "`dirname -- "${expanded_dstfile}" `"
+   mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
    redirect_exekutor "${expanded_dstfile}" echo "${text}"
+
+   local permissions
+
+   permissions="`lso "${templatefile}"`"
+   chmod "${permissions}" "${expanded_dstfile}"
 }
 
 
@@ -345,11 +324,19 @@ default_template_setup()
       return 0
    fi
 
+   local template_sed
+   local filename_sed
+
+   filename_sed="`template_filename_replacement_command`"
+   template_sed="`template_contents_replacement_command`"
+
+   local filename
+
    IFS="
 "
    for filename in `( cd "${templatedir}" ; find . -type f -print )`
    do
-      copy_and_expand_template "${templatedir}" "${filename}"
+      copy_and_expand_template "${templatedir}" "${filename}" "${filename_sed}" "${template_sed}"
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -374,7 +361,8 @@ _template_main()
    local FLAG_FORCE="NO"
    local TEMPLATE_DIR
    local PROJECT_NAME
-   local PROJECT_LANGUAGE
+   local PROJECT_LANGUAGE="none"
+   local PROJECT_DIALECT
    local PROJECT_UPCASE_IDENTIFIER
    local PROJECT_DOWNCASE_IDENTIFIER
 
@@ -399,13 +387,6 @@ _template_main()
             template_usage
          ;;
 
-         -D)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
-            shift
-
-            make_define_option_keyvalue "$1"
-         ;;
-
          -d|--directory)
             [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
@@ -414,7 +395,7 @@ _template_main()
             exekutor cd "$1"
          ;;
 
-         -p|--project-name)
+         -n|--name|--project-name)
             [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
 
@@ -425,9 +406,16 @@ _template_main()
             FLAG_FORCE="YES"
          ;;
 
-         -l|--language)
+         --dialect|--project-dialect)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
-            [ $# -eq 0 ] && template_usage
+
+            PROJECT_DIALECT="$1"
+         ;;
+
+         -l|--language|--project-language)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            shift
 
             PROJECT_LANGUAGE="$1"
          ;;
@@ -483,10 +471,11 @@ _template_main()
 
    set_projectname_environment "none"
 
-   PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}"
+   PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
 
-   log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
    log_debug "PROJECT_NAME=${PROJECT_NAME}"
+   log_debug "PROJECT_DIALECT=${PROJECT_DIALECT}"
+   log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
 
    if [ -z "${TEMPLATE_DIR}" ]
    then
@@ -503,7 +492,6 @@ _template_main()
       *)
          "${template_callback}" "${TEMPLATE_DIR}" \
                                 "${PROJECT_NAME}" \
-                                "${PROJECT_IDENTIFIER}" \
                                 "${PROJECT_LANGUAGE}"
       ;;
    esac

@@ -50,6 +50,7 @@ trap_fail()
 SHOWN_COMMANDS="\
    craft          : build the project using mulle-craft
    dependency     : manage third party components (like a Github project)
+   environment    : manage environment variables
    extension      : show available language and buildtool extensions
    init           : create a new project
    library        : manage OS libraries (like pthread)
@@ -60,13 +61,13 @@ SHOWN_COMMANDS="\
 
 HIDDEN_COMMANDS="\
    callback       : manage callbacks
+   find           : find file matching patternfiles
    init-and-enter : create a new project then immediately start a subshell
    libexec-dir    : print path to mulle-sde libexec
    installed      : list installed extension of project with version numbers
    task           : manage tasks
    test           : run tests using mulle-test
-   uname          : mulle-sdes simplified uname(1)
-   upgrade        : upgrade mulle-sde project files (experimental)"
+   uname          : mulle-sdes simplified uname(1)"
 
 
 print_commands()
@@ -233,14 +234,14 @@ main()
          all|build|clean|craft|onlydependencies|nodependencies|project|sourcetree)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
-         dependency|installed|library|monitor|subproject|minion|tool|update|upgrade)
+         dependency|installed|library|monitor|subproject|minion|update)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
       esac
    fi
 
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
-
+   MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
    MULLE_EXECUTABLE_OPTIONS="$@"
 
    MULLE_SOURCETREE="${MULLE_SOURCETREE:-`command -v mulle-sourcetree`}"
@@ -248,6 +249,7 @@ main()
 
    MULLE_MONITOR="${MULLE_MONITOR:-`command -v mulle-monitor`}"
    [ -z "${MULLE_MONITOR}" ] && fail "mulle-monitor not in PATH"
+
 
    case "${cmd}" in
       #
@@ -262,7 +264,7 @@ main()
 
       callback|patternfile|task)
          MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
-            exekutor mulle-monitor "${cmd}" "$@"
+            exekutor "${MULLE_MONITOR}" "${cmd}" "$@"
       ;;
 
       dependency)
@@ -272,12 +274,22 @@ main()
          sde_dependency_main "$@"
       ;;
 
+      environment)
+         mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+      ;;
+
       extension)
          # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
          sde_extension_main "$@"
       ;;
+
+      find)
+         MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
+            "${MULLE_MONITOR}" "find" --format "%e: %f [%c]\\n"
+      ;;
+
 
       help)
          usage "${MULLE_TRACE}"
@@ -336,10 +348,7 @@ main()
       ;;
 
       tool)
-         # shellcheck source=src/mulle-sde-tool.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-tool.sh"
-
-         sde_tool_main "$@"
+         mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
       update)
@@ -347,13 +356,6 @@ main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
 
          sde_update_main "$@"
-      ;;
-
-      upgrade)
-         # shellcheck source=src/mulle-sde-upgrade.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
-
-         sde_upgrade_main "$@"
       ;;
 
       uname)
@@ -366,24 +368,34 @@ main()
       ;;
 
       *)
-         if [ $# -ne 0 ]
-         then
-            MULLE_EXECUTABLE_FAIL_PREFIX="${MULLE_EXECUTABLE_NAME}"
-            log_error "Unknown command \"${cmd}\""
-            usage
-         fi
+         #
+         # If we are inside of the environment it's a mistyped command.
+         #
+         local mistyped
 
-         #
-         # if we are outside of the environment, assume that
-         # we want to enter. Otherwise its probably a mistyped command
-         #
+         mistyped="NO"
          if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            usage "${MULLE_TRACE}"
+            mistyped="YES"
          else
-            export MULLE_EXECUTABLE_NAME
-            mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            if [ ! -z "${cmd}" -a ! -d "${cmd}" ]
+            then
+               mistyped="YES"
+            fi
          fi
+
+         # more than a parameter is also a mistype
+         if [ "${mistyped}" = "YES" -o "$#" -ne 0 ]
+         then
+            if [ ! -z "${cmd}" ]
+            then
+               log_error "unknown command \"${cmd}\""
+            fi
+            usage "${MULLE_TRACE}"
+         fi
+
+         MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
+            exekutor mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
    esac
 }

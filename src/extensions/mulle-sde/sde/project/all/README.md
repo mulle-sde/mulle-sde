@@ -6,11 +6,11 @@ It has it's own virtual environment, that will be automatically setup for you
 once you enter it with:
 
 ```
-mulle-sde
+mulle-sde <|PROJECT_NAME|>
 ```
 
-Now you can let **mulle-sde** fetch the required dependencies and build the project
-for you:
+Now you can let **mulle-sde** fetch the required dependencies and build the 
+project for you:
 
 ```
 mulle-sde craft

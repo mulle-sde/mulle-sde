@@ -41,10 +41,21 @@ sde_build_main()
    local auxflags
    local touchfile
 
-   # drop alias
+   # default by preference
    if [ "${cmd}" = "craft" ]
    then
-      cmd="all"
+      cmd="`egrep -s -v '^#' "${MULLE_SDE_ETC_DIR}/craft-style"`"
+      if [ -z "${cmd}" ]
+      then
+         cmd="`egrep -s -v '^#' "${MULLE_SDE_DIR}/share/craft-style"`"
+      fi
+      if [ -z "${cmd}" ]
+      then
+         log_fluff "Fallback craft-style \"all\""
+         cmd="all"
+      else
+         log_fluff "Using default craft-style \"${cmd}\""
+      fi
    fi
 
    case "${cmd}" in
@@ -60,7 +71,7 @@ sde_build_main()
 
             log_verbose "Run update if needed"
 
-            sde_update_main
+            sde_update_if_needed_main
          fi
       ;;
 

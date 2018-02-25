@@ -42,7 +42,7 @@ set_projectname_environment()
    then
       case "${mode}" in
          read)
-            PROJECT_NAME="`egrep -s -v '^#' <<< ".mulle-sde/etc/projectname"`"
+            PROJECT_NAME="`egrep -s -v '^#' <<< "${MULLE_SDE_ETC_DIR}/projectname"`"
          ;;
       esac
 

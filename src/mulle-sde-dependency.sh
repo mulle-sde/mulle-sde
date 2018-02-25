@@ -83,6 +83,7 @@ Options:
    --embedded      : the dependency source code is not built
    --headerless    : the dependency has no headerfile
    --headeronly    : the dependency has no library
+   --if-missing    : if a node with the same address is present, do nothing
    --plain         : do not enhance URLs with environment variables
       (see: mulle-sourcetree -v add -h for more information about options)
 EOF
@@ -301,7 +302,7 @@ sde_dependency_add_main()
    local branch
    local marks="${DEPENDENCY_MARKS}"
 
-   local OPTION_ENHANCE="YES"  # enrich URL
+   local OPTION_ENHANCE="YES"     # enrich URL
 
    #
    # grab options for mulle-sourcetree
@@ -317,6 +318,10 @@ sde_dependency_add_main()
          --cmake-include)
             marks="`sed -e 's/,no-cmake-include//'
                         -e 's/no-cmake-include//' <<< "${marks}"`"
+         ;;
+
+         --if-missing)
+            options="`concat "${options}" "--if-missing"`"
          ;;
 
          --header-less|--headerless)
