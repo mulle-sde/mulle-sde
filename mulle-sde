@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.12.0
+MULLE_EXECUTABLE_VERSION=0.12.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -47,7 +47,11 @@ trap_fail()
 }
 
 
-SHOWN_COMMANDS="\
+print_commands()
+{
+   local show_all="${1:-NO}"
+
+   SHOWN_COMMANDS="\
    craft          : build the project using mulle-craft
    dependency     : manage third party components (like a Github project)
    environment    : manage environment variables
@@ -59,7 +63,7 @@ SHOWN_COMMANDS="\
    update         : run only updates, once"
 
 
-HIDDEN_COMMANDS="\
+   HIDDEN_COMMANDS="\
    callback       : manage callbacks
    find           : find file matching patternfiles
    init-and-enter : create a new project then immediately start a subshell
@@ -69,10 +73,6 @@ HIDDEN_COMMANDS="\
    test           : run tests using mulle-test
    uname          : mulle-sdes simplified uname(1)"
 
-
-print_commands()
-{
-   local show_all="${1:-NO}"
 
    echo "${SHOWN_COMMANDS}"
 
@@ -170,6 +170,10 @@ main()
       fi
 
       case "$1" in
+         -h|--help|help)
+            usage "${MULLE_TRACE}"
+         ;;
+
          -e)
             FLAG_OUTSIDE_ENV="YES"
             MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
@@ -178,10 +182,6 @@ main()
          -f|--force)
             MULLE_FLAG_MAGNUM_FORCE="YES"
             MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
-         ;;
-
-         -h|--help)
-            usage "${MULLE_TRACE}"
          ;;
 
          --git-terminal-prompt)

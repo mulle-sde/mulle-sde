@@ -34,38 +34,50 @@
 MULLE_SDE_INIT_SH="included"
 
 
+
 sde_init_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
    INIT_USAGE_NAME="${INIT_USAGE_NAME:-${MULLE_EXECUTABLE_NAME} init}"
+
+   COMMON_OPTIONS="\
+   -D <key>=<val> : specify an environment variable
+   -d <dir>       : directory to populate (working directory)
+   -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
+   -m <meta>      : specify meta extensions
+   -p <name>      : project name"
+
+   HIDDEN_OPTIONS="\
+   -b <buildtool> : specify the buildtool extension to use
+   --no-demo      : do not install gratuitous demo files, like main.c
+   -r <runtime>   : specify runtime extension to use
+   -v <vendor>    : extension vendor to use (mulle-sde)"
+
    cat <<EOF >&2
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   Create a mulle-sde project, which can be either an executable or a
-   library. See \`mulle-sde extension list\` for what is available.
+   See with \`mulle-sde extension list\`  what extensions are available on
+   your system. Pick a meta extension to install. Check with
+   \`mulle-sde extension usage\` what types are available from your chosen
+   extension.  Create a mulle-sde project with your chosen type.
 
-   It is generally best to use a meta extension and nothing else.
+   e.g.  mulle-sde init -m mulle-sde:c-cmake executable
 
-   e.g.  mulle-sde init -m mulle-sde:cmake-c executable
+   Use \`mulle-sde extension add\` to add extra extensions.
 
 Options:
-   -D <key>=<val> : specify a key/value pair for template substitution
-   -b <buildtool> : specify the buildtool extension to use
-   -d <dir>       : directory to populate (working directory)
-   -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
-   -m <meta>      : specify meta extensions
-   --no-demo      : do not install gratuitous demo files, like main.c
-   -p <name>      : project name
-   -r <runtime>   : specify runtime extension to use
-   -v <vendor>    : extension vendor to use (mulle-sde)
-
-Types:
-   executable     : create an executable project
-   library        : create a library project
-   empty          : does not produce project files
 EOF
+   (
+      echo "${COMMON_OPTIONS}"
+      if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
+      then
+         echo "${HIDDEN_OPTIONS}"
+      fi
+   ) | sort
+
+   echo "      (\`${MULLE_EXECUTABLE_NAME} -v init help\` for more options)"
    exit 1
 }
 
@@ -724,16 +736,16 @@ install_motd()
    log_entry "install_motd" "$@"
 
    local text="$1"
-   local motdfile="${MULLE_SDE_ETC_DIR}/motd"
+
+   motdfile=".mulle-env/etc/motd"
 
    if [ -z "${text}" ]
    then
-      remove_file_if_present "$motdfile"
       return
    fi
 
-   mkdir_if_missing "${MULLE_SDE_ETC_DIR}"
-   redirect_exekutor "${MULLE_SDE_ETC_DIR}/motd" echo "${text}"
+   # just clobber it
+   redirect_exekutor ".mulle-env/etc/motd" echo "${text}"
 }
 
 
@@ -747,6 +759,64 @@ fix_permissions()
       chmod +x "${MULLE_SDE_DIR}/bin"/* 2> /dev/null
       chmod +x "${MULLE_SDE_DIR}/libexec"/* 2> /dev/null
    )
+}
+
+
+install_extra_extensions()
+{
+   log_entry "install_extra_extensions" "$@"
+
+   local projecttype="$1"
+   local marks="$2"
+   local force="$3"
+
+   #
+   # optionally install "extra" extensions
+   # f.e. a "git" extension could auto-init the project and create
+   # a .gitignore file
+   #
+   # Extra extensions must be fully qualified.
+   #
+   local extra
+   local extra_vendor
+   local extra_name
+   local option
+
+   IFS="
+"; set -o noglob
+   for extra in ${OPTION_EXTRAS}
+   do
+      IFS="${DEFAULT_IFS}"; set +o noglob
+
+      case "${extra}" in
+         "")
+            continue
+         ;;
+
+         *:*)
+            extra_vendor="${extra%%:*}"
+            extra_name="${extra##*:}"
+         ;;
+
+         *)
+            fail  "Extra extension \"${extra}\" must be fully qualifier <vendor>:<extension>"
+         ;;
+      esac
+
+      [ -z "${extra_name}" ]   && fail "Missing extension name \"${extra}\""
+      [ -z "${extra_vendor}" ] && fail "Missing extension vendor \"${extra}\""
+
+      install_extension "${projecttype}" \
+                        "extra" \
+                        "${extra_name}" \
+                        "${extra_vendor}" \
+                        "${marks}" \
+                        "${force}"
+
+      option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
+      cmdline_options="`concat "${cmdline_options}" "${option}"`"
+   done
+   IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
@@ -855,7 +925,8 @@ install_project()
    # https://github.com/mulle-sde/mulle-sde/wiki/.mulle-sde-directory
    #
    rmdir_safer "${MULLE_SDE_DIR}/var"
-   rmdir_safer "${MULLE_SDE_DIR}/data"
+
+   # we wipe this, if we aren't adding
    rmdir_safer "${MULLE_SDE_DIR}/share"
 
    #
@@ -881,53 +952,7 @@ install_project()
                      "${marks}" \
                      "${force}" || exit 1
 
-   #
-   # optionally install "extra" extensions
-   # f.e. a "git" extension could auto-init the project and create
-   # a .gitignore file
-   #
-   # Extra extensions must be fully qualified.
-   #
-   local extra
-   local extra_vendor
-   local extra_name
-   local option
-
-   IFS="
-"; set -o noglob
-   for extra in ${OPTION_EXTRAS}
-   do
-      IFS="${DEFAULT_IFS}"; set +o noglob
-
-      case "${extra}" in
-         "")
-            continue
-         ;;
-
-         *:*)
-            extra_vendor="${extra%%:*}"
-            extra_name="${extra##*:}"
-         ;;
-
-         *)
-            fail  "Extra extension \"${extra}\" must be fully qualifier <vendor>:<extension>"
-         ;;
-      esac
-
-      [ -z "${extra_name}" ]   && fail "Missing extension name \"${extra}\""
-      [ -z "${extra_vendor}" ] && fail "Missing extension vendor \"${extra}\""
-
-      install_extension "${projecttype}" \
-                        "extra" \
-                        "${extra_name}" \
-                        "${extra_vendor}" \
-                        "${marks}" \
-                        "${force}"
-
-      option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
-      cmdline_options="`concat "${cmdline_options}" "${option}"`"
-   done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   install_extra_extensions "${projecttype}" "${marks}" "${force}"
 
    #
    # remember type and installed extensions
@@ -942,19 +967,19 @@ install_project()
    # values that the user may want to edit
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_EXTENSIONS=\"${cmdline_options}"\"
-   exekutor "${MULLE_ENV}" environment --all set MULLE_SDE_INSTALLED_EXTENSIONS "${cmdline_options}"
+   exekutor "${MULLE_ENV}" environment --share set MULLE_SDE_INSTALLED_EXTENSIONS "${cmdline_options}"
 
    log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV}" environment --all set PROJECT_NAME "${PROJECT_NAME}"
+   exekutor "${MULLE_ENV}" environment --share set PROJECT_NAME "${PROJECT_NAME}"
 
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV}" environment --all set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}"
+   exekutor "${MULLE_ENV}" environment --share set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}"
 
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV}" environment --all set PROJECT_DIALECT "${PROJECT_DIALECT}"
+   exekutor "${MULLE_ENV}" environment --share set PROJECT_DIALECT "${PROJECT_DIALECT}"
 
    log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
-   exekutor "${MULLE_ENV}" environment --all set PROJECT_TYPE "${projecttype}"
+   exekutor "${MULLE_ENV}" environment --share set PROJECT_TYPE "${projecttype}"
 
 
    fix_permissions
@@ -995,6 +1020,37 @@ add_environment_variables()
 }
 
 
+_sde_init_add()
+{
+   [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
+
+   [ -z "${PROJECT_TYPE}" ] && fail "PROJECT_TYPE is not defined"
+
+   if [ ! -d "${MULLE_SDE_DIR}" ]
+   then
+      fail "You must init first, before you can add and extra extension"
+   fi
+
+   if [ ! -z "${OPTION_RUNTIME}" -o \
+        ! -z "${OPTION_BUILDTOOL}" -o \
+        ! -z "${OPTION_META}" ]
+   then
+      fail "Only extra extensions can be added"
+   fi
+
+   if [ -z "${OPTION_EXTRA}" ]
+   then
+      fail "You must specify an extra extensions to be added"
+   fi
+
+   add_environment_variables "${OPTION_DEFINES}"
+
+   install_extra_extensions "${PROJECT_TYPE}" \
+                            "${OPTION_MARKS}" \
+                            "${MULLE_FLAG_MAGNUM_FORCE}"
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1010,13 +1066,14 @@ sde_init_main()
    local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV="YES"
-   local OPTION_ENV_STYLE="none:wild" # least culture shock initially
+   local OPTION_ENV_STYLE="mulle:wild" # wild is least culture shock initially
    local OPTION_BLURB=""
    local OPTION_TEMPLATE_FILES="YES"
    local OPTION_INIT_FLAGS
    local OPTION_MARKS=""
    local OPTION_DEFINES
    local OPTION_UPGRADE
+   local OPTION_ADD
 
    #
    # handle options
@@ -1024,7 +1081,7 @@ sde_init_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_init_usage
          ;;
 
@@ -1038,6 +1095,10 @@ sde_init_main()
             shift
 
             OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'$1'" `"
+         ;;
+
+         -a|--add)
+            OPTION_ADD="YES"
          ;;
 
          -b|--buildtool)
@@ -1156,16 +1217,19 @@ sde_init_main()
    fi
    MULLE_SDE_DIR=".mulle-sde"
 
-   #
-   # make nicer in the future for now just hax
-   #
-   [ "$#" -eq 0 ] && sde_init_usage "missing project type"
+   if [ "${OPTION_ADD}" = "YES" ]
+   then
+      _sde_init_add "$@"
+      return $?
+   fi
 
    local projecttype
+   local env_blurb
 
    projecttype="$1"
+   [ -z "${projecttype}" ] && sde_init_usage "missing project type"
+   [ "$#" -eq 1 ] || sde_init_usage "extranous arguments \"$*\""
    shift
-   [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
 
    if [ "${OPTION_UPGRADE}" != "YES" -a -d "${MULLE_SDE_DIR}" ]
    then
@@ -1179,17 +1243,15 @@ Use \`mulle-sde upgrade\` for maintainance"
       fi
    fi
 
-
    #
    # if we init env now, then extensions can add environment variables
    # and tools
    #
-   local env_blurb
 
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
-      env_blurb="`exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} init ${OPTION_BLURB} \
-                             --style "${OPTION_ENV_STYLE}"`"
+      exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} init --no-blurb \
+                             --style "${OPTION_ENV_STYLE}"
       case $? in
          0)
          ;;
@@ -1218,6 +1280,9 @@ Some files may be missing and the project may not be craftable."
       ;;
    esac
 
+
+   install_extra_extensions "${projecttype}" "${marks}" "${force}"
+
    if ! install_project "${projecttype}" \
                         "${OPTION_MARKS}" \
                         "${MULLE_FLAG_MAGNUM_FORCE}"
@@ -1225,5 +1290,9 @@ Some files may be missing and the project may not be craftable."
       exit 1
    fi
 
-   printf "%b" "${env_blurb}"
+   if [ "${OPTION_BLURB}" != "NO" ]
+   then
+      log_info "Enter the environment:
+   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD}\"${C_INFO}"
+   fi
 }

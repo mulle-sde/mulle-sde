@@ -1,6 +1,11 @@
-## 0.12.0
+### 0.12.1
 
 * Various small improvements
+
+
+## 0.12.0
+
+* Greatly improved extension handling
 
 
 ### 0.11.1

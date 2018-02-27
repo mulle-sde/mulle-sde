@@ -72,7 +72,21 @@ sde_build_main()
       ;;
 
       clean)
-         rmdir_safer "${MULLE_SDE_DIR}/run"
+         if [ -z "${MULLE_PATH}" ]
+         then
+            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+         fi
+
+         if [ -z "${MULLE_FILE}" ]
+         then
+            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+         fi
+
+         rmdir_safer "${MULLE_SDE_DIR}/var"
+         if [ -d "${BUILD_DIR}" ]
+         then
+            rmdir_safer "${BUILD_DIR}"
+         fi
       ;;
    esac
 

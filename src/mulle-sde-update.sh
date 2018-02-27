@@ -129,8 +129,8 @@ _sde_update_main()
    local task
    local name
 
-   set -o noglob; IFS="
-"
+   # call backs are actually comma separated
+   set -o noglob; IFS=","
    for name in ${callbacks}
    do
       set +o noglob; IFS="${DEFAULT_IFS}"

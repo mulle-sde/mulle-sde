@@ -311,7 +311,7 @@ sde_dependency_add_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_dependency_usage
          ;;
 
@@ -437,7 +437,7 @@ sde_dependency_main()
    while :
    do
       case "$1" in
-         -h*|--help)
+         -h*|--help|help)
             sde_dependency_usage
          ;;
 

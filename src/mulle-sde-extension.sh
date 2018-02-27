@@ -607,7 +607,7 @@ sde_extension_status_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_extension_status_usage
          ;;
 
@@ -955,12 +955,12 @@ sde_extension_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_extension_usage
          ;;
 
          -*)
-            sde_extension_usage
+            sde_extension_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -989,7 +989,7 @@ sde_extension_main()
 
       upgrade)
          case "$1" in
-            -h|--help)
+            -h|--help|help)
                sde_extension_upgrade_usage
             ;;
          esac

@@ -40,6 +40,8 @@ LIBRARY_MARKS="no-fs,no-cmake-include,no-dependency,no-build,no-update,no-delete
 #
 sde_library_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_EXECUTABLE_NAME} library [options] [command]
@@ -66,6 +68,8 @@ EOF
 
 sde_library_add_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_EXECUTABLE_NAME} library add <name>
@@ -82,6 +86,8 @@ EOF
 
 sde_library_set_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_EXECUTABLE_NAME} library set [options] <name> <key> <value>
@@ -104,6 +110,8 @@ EOF
 
 sde_library_get_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_EXECUTABLE_NAME} library get <name> <key>
@@ -123,6 +131,8 @@ EOF
 
 sde_library_remove_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_EXECUTABLE_NAME} library remove <name>
@@ -136,6 +146,8 @@ EOF
 
 sde_library_list_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_EXECUTABLE_NAME} library list
@@ -156,7 +168,12 @@ sde_library_add_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
+            sde_library_add_usage
+         ;;
+
+         -*)
+            log_error "unknown option \"$1\""
             sde_library_add_usage
          ;;
 
@@ -200,7 +217,7 @@ sde_library_set_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_library_set_usage
          ;;
 
@@ -209,8 +226,7 @@ sde_library_set_main()
          ;;
 
          -*)
-            log_error "unknown option \"$1\""
-            sde_library_set_usage
+            sde_library_set_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -263,8 +279,12 @@ sde_library_get_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_library_get_usage
+         ;;
+
+         -*)
+            sde_library_get_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -306,11 +326,32 @@ sde_library_list_main()
 {
    log_entry "sde_library_list_main" "$@"
 
+   local marks
+
+   marks="${LIBRARY_MARKS}"
+
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_library_list_usage
+         ;;
+
+         --marks)
+            [ "$#" -eq 1 ] && usage "missing argument to \"$1\""
+            shift
+
+            marks="`comma_concat "${marks}" "$1"`"
+         ;;
+
+         --)
+            # pass rest to mulle-sourcetree
+            shift
+            break
+         ;;
+
+         -*)
+            sde_library_list_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -326,7 +367,7 @@ sde_library_list_main()
    exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
       --format "ami={aliases,,-------}" \
       --nodetypes "none" \
-      --marks "${LIBRARY_MARKS}" \
+      --marks "${marks}" \
       --no-output-marks "${LIBRARY_MARKS}" \
        "$@"
 }
@@ -339,8 +380,12 @@ sde_library_remove_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h|--help|help)
             sde_library_remove_usage
+         ;;
+
+         -*)
+            sde_library_list_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -371,8 +416,12 @@ sde_library_main()
    while :
    do
       case "$1" in
-         -*)
+         -h|--help|help)
             sde_library_usage
+         ;;
+
+         -*)
+            sde_library_usage "unknown option \"$1\""
          ;;
 
          *)
