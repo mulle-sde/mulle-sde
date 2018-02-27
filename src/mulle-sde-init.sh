@@ -129,6 +129,7 @@ _append_to_motd()
       text="`LC_ALL=C egrep -v '^#' "${extensiondir}/motd" `"
       if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
       then
+         log_fluff "Append \"${extensiondir}/motd\" to motd"
          _MOTD="`add_line "${_MOTD}" "${text}" `"
       fi
    fi
@@ -197,7 +198,7 @@ _run_extension_init()
 
    if [ -x "${extensiondir}/init" ]
    then
-      log_fluff "Running init script \"${extensiondir}/init\""
+      log_warning "Running init script \"${extensiondir}/init\""
       eval_exekutor "${extensiondir}/init" ${INIT_FLAGS} "${flags}" "${projecttype}" \
         || fail "init script \"${extensiondir}/init\" failed"
    else
@@ -216,16 +217,16 @@ install_dependency_extension()
    local marks="$1"; shift
    local force="$1"; shift
 
-   local parent
+   local extension
    local addmarks
    local extname
    local vendor
 
-   parent="`cut -d';' -f1 <<< "${dependency}" `"
-   addmarks="`cut -s -d';' -f2 <<< "${dependency}" `"
+   extension="${dependency%%;*}"
+   addmarks="${dependency##*;}"
 
-   vendor="`cut -s -d':' -f1 <<< "${parent}" `"
-   extname="`cut -d':' -f2 <<< "${parent}" `"
+   vendor="${extension%%:*}"
+   extname="${extension##*:}"
 
    marks="`comma_concat "${marks}" "${addmarks}"`"
 
@@ -243,17 +244,15 @@ install_inheritfile()
 {
    log_entry "install_inheritfile" "$@"
 
-   local inheritfilefile="$1" ; shift
+   local inheritfilename="$1" ; shift
    local projecttype="$1" ; shift
    local defaultexttype="$1" ; shift
    local marks="$1" ; shift
    local force="$1" ; shift
 
-   local dependency
-   local exttype
    local text
 
-   text="`LC_ALL=C egrep -s -v '^#' "${inheritfilefile}"`"
+   text="`LC_ALL=C egrep -s -v '^#' "${inheritfilename}"`"
 
    log_debug "text: $text"
 
@@ -262,26 +261,232 @@ install_inheritfile()
    # for only for the first iteration.
    # shell programming...
    #
-   IFS=";"
-   while read dependency exttype
+   local line
+
+   IFS="
+"
+   while read -r line
    do
-      if [ -z "${dependency}" ]
+      local dependency
+      local exttype
+
+      case "${line}" in
+         "")
+            continue
+         ;;
+
+         *\;*)
+            dependency="${line%%;*}"
+            exttype="${line##*;}"
+         ;;
+
+         *)
+            dependency="${line}"
+         ;;
+      esac
+
+      log_debug "read \"${line}\" -> \"${dependency}\";\"${exttype}\""
+
+      IFS="${DEFAULT_IFS}"
+
+      install_dependency_extension "${projecttype}" \
+                                   "${exttype:-${defaultexttype}}" \
+                                   "${dependency}" \
+                                   "${marks}" \
+                                   "${force}" \
+                                   "$@"
+      IFS="
+"
+    done <<< "${text}"
+
+   IFS="${DEFAULT_IFS}"
+}
+
+
+environment_mset_log()
+{
+   log_entry "environment_mset_log" "$@"
+
+   local environment="$1"
+
+   local line
+   local key
+   local value
+
+   IFS="
+"
+   while read -r line
+   do
+      key="${1%%=*}"
+      value="${1#${key}=}"
+      value="${value%##*}"
+
+      log_verbose "Environment: ${key:1}=${value%?}"
+
+   done <<< "${environment}"
+   IFS="${DEFAULT_IFS}"
+}
+
+
+environmenttext_to_mset()
+{
+   log_entry "environmenttext_to_mset" "$@"
+
+   local text="$1"
+
+   # add lf for read
+   text="${text}
+"
+
+   local line
+
+   local comment
+
+   IFS="
+"
+   while read -r line
+   do
+      case "${line}" in
+         *\#\#*)
+            fail "environment line \"${line}\": comment must not contain ##"
+         ;;
+
+         *\\\n*)
+            fail "environment line \"${line}\": comment must not contain \\n (two characters)"
+         ;;
+
+         \#\ *)
+            comment="`concat "${comment:2}" "${line}" "\\n"`"
+            continue
+         ;;
+
+         \#*)
+            comment="`concat "${comment:1}" "${line}" "\\n"`"
+            continue
+         ;;
+
+         "")
+            continue
+         ;;
+
+         *=\"*\")
+         ;;
+
+         *)
+            fail "environment line \"${line}\": must be of form <key>=\"<value>\""
+         ;;
+      esac
+
+      # use "${x%##*}" to retrieve line
+      # use "${x##*##}" to retrieve comment
+      if [ -z "${comment}" ]
       then
-         continue
+         echo "'${line}'"
+      else
+         echo "'${line}##${comment}'"
+         comment=
       fi
-
-      (
-         IFS="${DEFAULT_IFS}"
-
-         install_dependency_extension "${projecttype}" \
-                                      "${exttype:-${defaultexttype}}" \
-                                      "${dependency}" \
-                                      "${marks}" \
-                                      "${force}" \
-                                      "$@"
-      )
    done <<< "${text}"
+   IFS="${DEFAULT_IFS}"
+}
 
+
+add_to_libraries()
+{
+   log_entry "add_to_libraries" "$@"
+
+   local filename="$1"
+
+   if [ -z "${MULLE_SDE_LIBRARY_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-library.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
+   fi
+
+   local line
+
+   IFS="
+"
+   for line in `egrep -s -v -e '^#' "${filename}"`
+   do
+      IFS="${DEFAULT_IFS}"
+
+      #
+      # we "eval" the line so that install time environment variables
+      # can be picked up
+      #
+      if [ ! -z "${line}" ]
+      then
+         MULLE_VIRTUAL_ROOT="${PWD}" \
+         MULLE_SOURCETREE_FLAGS="-e -N ${MULLE_SOURCETREE_FLAGS}" \
+            eval sde_library_add_main --if-missing ${line} || exit 1
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+add_to_dependencies()
+{
+   log_entry "add_to_dependencies" "$@"
+
+   local filename="$1"
+
+   if [ -z "${MULLE_SDE_DEPENDENCY_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-dependency.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+   fi
+
+   local line
+
+   IFS="
+"
+   for line in `egrep -s -v -e '^#' "${filename}"`
+   do
+      IFS="${DEFAULT_IFS}"
+
+      #
+      # we "eval" the line so that install time environment variables
+      # can be picked up
+      #
+      if [ ! -z "${line}" ]
+      then
+         MULLE_VIRTUAL_ROOT="${PWD}" \
+         MULLE_SOURCETREE_FLAGS="-e -N ${MULLE_SOURCETREE_FLAGS}" \
+            eval sde_dependency_add_main --if-missing ${line} || exit 1
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+add_to_tools()
+{
+   log_entry "add_to_dependencies" "$@"
+
+   local filename="$1"
+
+   if [ -f "${filename}.${MULLE_UNAME}" ]
+   then
+      filename="${filename}.${MULLE_UNAME}"
+   fi
+
+   local line
+
+   IFS="
+"
+   for line in `egrep -s -v -e '^#' "${filename}"`
+   do
+      IFS="${DEFAULT_IFS}"
+
+      if [ ! -z "${line}" ]
+      then
+         log_verbose "Adding \"${line}\" to tools"
+         MULLE_VIRTUAL_ROOT="${PWD}" \
+            exekutor "${MULLE_ENV}" tool add "${line}" || exit 1
+      fi
+   done
    IFS="${DEFAULT_IFS}"
 }
 
@@ -308,6 +513,7 @@ install_extension()
       log_fluff "Extension \"${vendor}:${extname}\" is already installed"
       return
    fi
+   _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}:${extname}"`"
 
    local extensiondir
 
@@ -351,7 +557,16 @@ vendor \"${vendor}\""
             log_fluff "No language file \"${extensiondir}/dialect\" found"
          fi
       ;;
+
+      meta|extra|buildtool)
+      ;;
+
+      *)
+         internal_fail "Unknown extension type \"${exttype}\""
+      ;;
    esac
+
+   log_info "Installing ${exttype} extension \"${vendor}:${extname}\""
 
    #
    # it's called inherit, so .ignoringdependencies doesn't kill it
@@ -378,7 +593,50 @@ vendor \"${vendor}\""
       ;;
    esac
 
-   log_info "Installing ${exttype} extension \"${vendor}:${extname}\""
+   local environment
+   local text
+
+   if [ -f "${extensiondir}/environment" ]
+   then
+      log_debug "environment: `cat "${extensiondir}/environment"`"
+
+      # add an empty linefeed for read
+      text="`cat "${extensiondir}/environment"`"
+      environment="`environmenttext_to_mset "${text}"`" || exit 1
+      if [ ! -z "${environment}" ]
+      then
+         if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
+         then
+            environment_mset_log "${environment}"
+         fi
+         MULLE_VIRTUAL_ROOT="${PWD}" \
+            eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
+                                 --share mset "${environment}" || exit 1
+      fi
+   else
+      log_fluff "No environment file \"${extensiondir}/environment\" found"
+   fi
+
+   if [ -f "${extensiondir}/dependency" ]
+   then
+      add_to_dependencies "${extensiondir}/dependency"
+   else
+      log_fluff "No dependency file \"${extensiondir}/dependency\" found"
+   fi
+
+   if [ -f "${extensiondir}/library" ]
+   then
+      add_to_libraries "${extensiondir}/library"
+   else
+      log_fluff "No library file \"${extensiondir}/library\" found"
+   fi
+
+   if [ -f "${extensiondir}/tool" ]
+   then
+      add_to_tools "${extensiondir}/tool"
+   else
+      log_fluff "No tool file \"${extensiondir}/tool\" found"
+   fi
 
    case "${marks}" in
       *no-share*|*no-${exttype}-share*)
@@ -458,8 +716,6 @@ marks"
          _append_to_motd "${extensiondir}"
       ;;
    esac
-
-   _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}:${extname}"`"
 }
 
 
@@ -518,14 +774,17 @@ install_project()
          log_warning "Specifying --meta together with --runtime or --buildtool is unusual"
       fi
 
-      meta_name="` cut -s -d':' -f2 <<< "${OPTION_META}" `"
-      if [ -z "${meta_name}" ]
-      then
-         meta_vendor="${OPTION_VENDOR}"
-         meta_name="${OPTION_META}"
-      else
-         meta_vendor="`cut -s -d':' -f1 <<< "${OPTION_META}" `"
-      fi
+      case "${OPTION_META}" in
+         *:*)
+            meta_vendor="${OPTION_META%%:*}"
+            meta_name="${OPTION_META##*:}"
+         ;;
+
+         *)
+            meta_vendor="${OPTION_VENDOR}"
+            meta_name="${OPTION_META}"
+         ;;
+      esac
 
       option="--meta `colon_concat "${meta_vendor}" "${meta_name}"`"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
@@ -533,14 +792,17 @@ install_project()
 
    if [ ! -z "${OPTION_RUNTIME}" ]
    then
-      runtime_name="` cut -s -d':' -f2 <<< "${OPTION_RUNTIME}" `"
-      if [ -z "${runtime_name}" ]
-      then
-         runtime_vendor="${OPTION_VENDOR}"
-         runtime_name="${OPTION_RUNTIME}"
-      else
-         runtime_vendor="`cut -s -d':' -f1 <<< "${OPTION_RUNTIME}" `"
-      fi
+      case "${OPTION_RUNTIME}" in
+         *:*)
+            runtime_vendor="${OPTION_RUNTIME%%:*}"
+            runtime_name="${OPTION_RUNTIME##*:}"
+         ;;
+
+         *)
+            runtime_vendor="${OPTION_VENDOR}"
+            runtime_name="${OPTION_RUNTIME}"
+         ;;
+      esac
 
       option="--meta `colon_concat "${runtime_vendor}" "${runtime_name}"`"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
@@ -548,14 +810,17 @@ install_project()
 
    if [ ! -z "${OPTION_BUILDTOOL}" ]
    then
-      buildtool_name="` cut -s -d':' -f2 <<< "${OPTION_BUILDTOOL}" `"
-      if [ -z "${buildtool_name}" ]
-      then
-         buildtool_vendor="${OPTION_VENDOR}"
-         buildtool_name="${OPTION_BUILDTOOL}"
-      else
-         buildtool_vendor="`cut -s -d':' -f1 <<< "${OPTION_BUILDTOOL}" `"
-      fi
+      case "${OPTION_BUILDTOOL}" in
+         *:*)
+            buildtool_vendor="${OPTION_BUILDTOOL%%:*}"
+            buildtool_name="${OPTION_BUILDTOOL##*:}"
+         ;;
+
+         *)
+            buildtool_vendor="${OPTION_VENDOR}"
+            buildtool_name="${OPTION_BUILDTOOL}"
+         ;;
+      esac
 
       option="--meta `colon_concat "${buildtool_vendor}" "${buildtool_name}"`"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
@@ -633,54 +898,64 @@ install_project()
    for extra in ${OPTION_EXTRAS}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
-      if [ ! -z "${extra}" ]
-      then
-         extra_vendor="`cut -s -d':' -f1 <<< "${extra}" `"
-         extra_name="` cut -d':' -f2 <<< "${extra}" `"
-         extra_vendor="${extra_vendor:-mulle-sde}"
 
-         install_extension "${projecttype}" \
-                           "extra" \
-                           "${extra_name}" \
-                           "${extra_vendor}" \
-                           "${marks}" \
-                           "${force}"
+      case "${extra}" in
+         "")
+            continue
+         ;;
 
-         option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
-         cmdline_options="`concat "${cmdline_options}" "${option}"`"
-      fi
+         *:*)
+            extra_vendor="${extra%%:*}"
+            extra_name="${extra##*:}"
+         ;;
+
+         *)
+            fail  "Extra extension \"${extra}\" must be fully qualifier <vendor>:<extension>"
+         ;;
+      esac
+
+      [ -z "${extra_name}" ]   && fail "Missing extension name \"${extra}\""
+      [ -z "${extra_vendor}" ] && fail "Missing extension vendor \"${extra}\""
+
+      install_extension "${projecttype}" \
+                        "extra" \
+                        "${extra_name}" \
+                        "${extra_vendor}" \
+                        "${marks}" \
+                        "${force}"
+
+      option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
+      cmdline_options="`concat "${cmdline_options}" "${option}"`"
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
-
 
    #
    # remember type and installed extensions
    # also remember version and given project name, which we may need to
    # create files later after init
    #
-   local typefile
-   local extensionsfile
-   local versionfile
-   local namefile
+   log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
+   exekutor "${MULLE_ENV}" environment --share set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}"
 
-   mkdir_if_missing "${MULLE_SDE_ETC_DIR}" || exit 1
+   #
+   # setup the initial environment-all.sh (if missing) with some
+   # values that the user may want to edit
+   #
+   log_verbose "Environment: MULLE_SDE_INSTALLED_EXTENSIONS=\"${cmdline_options}"\"
+   exekutor "${MULLE_ENV}" environment --all set MULLE_SDE_INSTALLED_EXTENSIONS "${cmdline_options}"
 
-   typefile="${MULLE_SDE_ETC_DIR}/projecttype"
-   extensionsfile="${MULLE_SDE_ETC_DIR}/extensions"
-   versionfile="${MULLE_SDE_ETC_DIR}/mulle-sde-version"
-   namefile="${MULLE_SDE_ETC_DIR}/projectname"
+   log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
+   exekutor "${MULLE_ENV}" environment --all set PROJECT_NAME "${PROJECT_NAME}"
 
-   log_verbose "Creating \"${extensionsfile}\""
-   redirect_exekutor "${extensionsfile}" echo "${cmdline_options}"
+   log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
+   exekutor "${MULLE_ENV}" environment --all set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}"
 
-   log_verbose "Creating \"${versionfile}\""
-   redirect_exekutor "${versionfile}" echo "${MULLE_EXECUTABLE_VERSION}"
+   log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
+   exekutor "${MULLE_ENV}" environment --all set PROJECT_DIALECT "${PROJECT_DIALECT}"
 
-   log_verbose "Creating \"${typefile}\""
-   redirect_exekutor "${typefile}" echo "${projecttype}"
+   log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
+   exekutor "${MULLE_ENV}" environment --all set PROJECT_TYPE "${projecttype}"
 
-   log_verbose "Creating \"${namefile}\""
-   redirect_exekutor "${namefile}" echo "${projectname}"
 
    fix_permissions
 
@@ -715,7 +990,7 @@ add_environment_variables()
    local defines="$1"
 
    MULLE_VIRTUAL_ROOT="${PWD}" \
-      eval_exekutor mulle-env "${MULLE_ENV_FLAGS}" environment \
+      eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
                            mset "${defines}" || exit 1
 }
 
@@ -913,9 +1188,7 @@ Use \`mulle-sde upgrade\` for maintainance"
 
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
-      export MULLE_EXECUTABLE_NAME
-
-      env_blurb="`exekutor mulle-env ${MULLE_ENV_FLAGS} init ${OPTION_BLURB} \
+      env_blurb="`exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} init ${OPTION_BLURB} \
                              --style "${OPTION_ENV_STYLE}"`"
       case $? in
          0)

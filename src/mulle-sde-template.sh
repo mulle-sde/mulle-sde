@@ -220,9 +220,10 @@ template_filename_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor mulle-env ${MULLE_ENV_FLAGS} environment \
-                                                      --output-sed  \
-                                                      get VENDOR_NAME |  tr '\n' ' '`"
+             rexekutor "${MULLE_ENV}" -s \
+                           ${MULLE_ENV_FLAGS} environment \
+                                                 --output-sed  \
+                                                 get VENDOR_NAME |  tr '\n' ' '`"
 
    cmdline="`concat "${cmdline}" "${seds}"`"
 
@@ -259,11 +260,11 @@ template_contents_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor mulle-env ${MULLE_ENV_FLAGS} environment  \
-                                                      --output-sed  \
-                                                      --sed-key-prefix '<|' \
-                                                      --sed-key-suffix '|>' \
-                                                      list | tr '\n' ' '`"
+             rexekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment  \
+                                                           --output-sed  \
+                                                           --sed-key-prefix '<|' \
+                                                           --sed-key-suffix '|>' \
+                                                           list | tr '\n' ' '`"
 
    cmdline="`concat "${cmdline}" "${seds}"`"
 
@@ -332,11 +333,17 @@ default_template_setup()
 
    local filename
 
+   # too funny, IFS="" is wrong IFS="\n" is wrong also
+   # only hardcoded LF works
+
    IFS="
 "
    for filename in `( cd "${templatedir}" ; find . -type f -print )`
    do
+      IFS="${DEFAULT_IFS}"
       copy_and_expand_template "${templatedir}" "${filename}" "${filename_sed}" "${template_sed}"
+      IFS="
+"
    done
    IFS="${DEFAULT_IFS}"
 }

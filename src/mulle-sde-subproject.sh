@@ -223,7 +223,6 @@ sde_subproject_main()
    case "${cmd}" in
       add)
          log_fluff "Just pass through to mulle-sourcetree"
-         export MULLE_EXECUTABLE_NAME
 
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} add "$@"
       ;;
@@ -237,7 +236,6 @@ sde_subproject_main()
 
       remove)
          log_fluff "Just pass through to mulle-sourcetree"
-         export MULLE_EXECUTABLE_NAME
 
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
       ;;
@@ -255,7 +253,6 @@ sde_subproject_main()
       #
       list)
          log_fluff "Just pass through to mulle-sourcetree"
-         export MULLE_EXECUTABLE_NAME
 
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} list \
             --marks "dependency,no-delete" \

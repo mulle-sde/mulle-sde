@@ -1,3 +1,8 @@
+## 0.12.0
+
+* Various small improvements
+
+
 ### 0.11.1
 
 * Various small improvements

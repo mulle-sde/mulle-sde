@@ -44,11 +44,7 @@ sde_build_main()
    # default by preference
    if [ "${cmd}" = "craft" ]
    then
-      cmd="`egrep -s -v '^#' "${MULLE_SDE_ETC_DIR}/craft-style"`"
-      if [ -z "${cmd}" ]
-      then
-         cmd="`egrep -s -v '^#' "${MULLE_SDE_DIR}/share/craft-style"`"
-      fi
+      cmd="${MULLE_SDE_CRAFT_STYLE}"
       if [ -z "${cmd}" ]
       then
          log_fluff "Fallback craft-style \"all\""

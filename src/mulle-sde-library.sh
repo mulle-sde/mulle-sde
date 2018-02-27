@@ -182,6 +182,8 @@ sde_library_add_main()
       esac
    fi
 
+   log_verbose "Adding \"${libname}\" to libraries"
+
    exekutor "${MULLE_SOURCETREE}" add --nodetype none \
                                       --marks "${LIBRARY_MARKS}" \
                                     "${libname}"
@@ -320,7 +322,6 @@ sde_library_list_main()
    done
 
    log_fluff "Just pass through to mulle-sourcetree"
-   export MULLE_EXECUTABLE_NAME
 
    exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
       --format "ami={aliases,,-------}" \

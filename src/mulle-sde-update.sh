@@ -119,14 +119,10 @@ _sde_update_main()
    local callbacks
 
    # default by preference
-   callbacks="`egrep -s -v '^#' "${MULLE_SDE_ETC_DIR}/update-callbacks"`"
+   callbacks="${MULLE_SDE_UPDATE_CALLBACKS}"
    if [ -z "${callbacks}" ]
    then
-      callbacks="`egrep -s -v '^#' "${MULLE_SDE_DIR}/share/update-callbacks"`"
-   fi
-   if [ -z "${callbacks}" ]
-   then
-      log_verbose "No update-callbacks defined, doing nothing."
+      log_verbose "MULLE_SDE_UPDATE_CALLBACKS is not defined, doing nothing."
       return
    fi
 

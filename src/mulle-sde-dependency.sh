@@ -267,8 +267,8 @@ _sde_enhance_url()
             *github.com/*)
                last="${url##*/}"         # basename
                leading="${url%${last}}"  # dirname
-               branch="${last%.*}"
-               extension="${last##*.}"   # dirname
+               branch="${last%%.*}"
+               extension="${last#*.}"   # dirname
 
                url="${leading}\${${upcaseid}_BRANCH:-${branch}}.${extension}"
             ;;
@@ -277,7 +277,7 @@ _sde_enhance_url()
          *mulle-kybernetik*/git/*)
                last="${url##*/}"         # basename
                leading="${url%${last}}"  # dirname
-               branch="${last%.*}"
+               branch="${last%%.*}"
 
                url="${leading}\${${upcaseid}_BRANCH:-${branch}}"
             ;;
@@ -342,29 +342,34 @@ sde_dependency_add_main()
 
          --branch)
             [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
-            branch="$2"
             shift
+
+            branch="$1"
          ;;
 
          --nodetype)
             [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
-            nodetype="$2"
             shift
+
+            nodetype="$1"
          ;;
 
          --address)
             [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
-            address="$2"
             shift
+
+            address="$1"
          ;;
 
          --marks)
             [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
-            marks="`comma_concat "${marks}" "$2"`"
+            shift
+
+            marks="`comma_concat "${marks}" "$1"`"
          ;;
 
          --url)
-            fail "Can't have --url here. Specfiy as last argument"
+            fail "Can't have --url here. Specify the URL as the last argument"
          ;;
 
          --*)
@@ -413,8 +418,9 @@ sde_dependency_add_main()
       options="`concat "${options}" "--marks '${marks}'"`"
    fi
 
+   log_verbose "Dependency: ${url}"
    eval_exekutor "${MULLE_SOURCETREE}" "${MULLE_SOURCETREE_FLAGS}" \
-                                          add "${options}" --url "'${url}'"
+                                          add "${options}" "'${url}'"
 }
 
 
@@ -457,7 +463,6 @@ sde_dependency_main()
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         export MULLE_EXECUTABLE_NAME
          sde_dependency_add_main "$@"
          return $?
       ;;
@@ -471,8 +476,6 @@ sde_dependency_main()
       ;;
 
       remove)
-         export MULLE_EXECUTABLE_NAME
-
          exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} remove "$@"
       ;;
 
@@ -485,8 +488,6 @@ sde_dependency_main()
       ;;
 
       list)
-         export MULLE_EXECUTABLE_NAME
-
          exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
             --format "um" \
             --marks "dependency" \

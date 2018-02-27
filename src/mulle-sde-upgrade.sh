@@ -145,22 +145,20 @@ sde_upgrade_main()
    extensions="${OPTION_EXTENSIONS}"
    if [ -z "${extensions}" ]
    then
-      filename="${MULLE_SDE_ETC_DIR}c/extensions"
-      extensions="`grep -v '^#' < "${filename}"`"
+      extensions="${MULLE_SDE_INSTALLED_EXTENSIONS}"
       if [ -z "${extensions}" ]
       then
-         fail "mulle-sde extensions could not be determined from \"${filename}\""
+         fail "Environment variable MULLE_SDE_INSTALLED_EXTENSIONS not set"
       fi
    fi
 
    projecttype="${OPTION_TYPE}"
    if [ -z "${projecttype}" ]
    then
-      filename="${MULLE_SDE_ETC_DIR}/projecttype"
-      projecttype="`grep -v '^#' < "${filename}"`"
+      projecttype="${PROJECT_TYPE}"
       if [ -z "${projecttype}" ]
       then
-         fail "mulle-sde project-type could not be determined from \"${filename}\""
+         fail "Environment variable PROJECT_TYPE not set"
       fi
    fi
 
@@ -244,5 +242,5 @@ sde_upgrade_main()
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    MULLE_FLAG_MAGNUM_FORCE="${OPTION_FORCE_OPTION}" \
-      sde_init_main --no-env ${options} ${style} ${extensions} "${projecttype}"
+      sde_init_main --no-env ${options} ${extensions} "${projecttype}"
 }

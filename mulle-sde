@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.11.1
+MULLE_EXECUTABLE_VERSION=0.12.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -250,6 +250,8 @@ main()
    MULLE_MONITOR="${MULLE_MONITOR:-`command -v mulle-monitor`}"
    [ -z "${MULLE_MONITOR}" ] && fail "mulle-monitor not in PATH"
 
+   MULLE_ENV="${MULLE_ENV:-`command -v mulle-env`}"
+   [ -z "${MULLE_ENV}" ] && fail "mulle-env not in PATH"
 
    case "${cmd}" in
       #
@@ -263,8 +265,7 @@ main()
       ;;
 
       callback|patternfile|task)
-         MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
-            exekutor "${MULLE_MONITOR}" "${cmd}" "$@"
+         exekutor "${MULLE_MONITOR}" "${cmd}" "$@"
       ;;
 
       dependency)
@@ -275,7 +276,7 @@ main()
       ;;
 
       environment)
-         mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+         exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
       extension)
@@ -286,8 +287,7 @@ main()
       ;;
 
       find)
-         MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
-            "${MULLE_MONITOR}" "find" --format "%e: %f [%c]\\n"
+         exekutor "${MULLE_MONITOR}" "find" --format "%e: %f [%c]\\n"
       ;;
 
 
@@ -307,8 +307,7 @@ main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          sde_init_main --no-blurb "$@" &&
-            export MULLE_EXECUTABLE_NAME &&
-            mulle-env ${MULLE_ENV_FLAGS}
+            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS}
       ;;
 
       library)
@@ -319,7 +318,7 @@ main()
       ;;
 
       libexec-dir|library-path)
-         echo "${MULLE_SDE_LIBEXEC_DIR}"
+         exekutor echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
       monitor)
@@ -348,7 +347,7 @@ main()
       ;;
 
       tool)
-         mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+         exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
       update)
@@ -359,11 +358,11 @@ main()
       ;;
 
       uname)
-         echo "${UNAME}"
+         exekutor echo "${UNAME}"
       ;;
 
       version)
-         echo "${MULLE_EXECUTABLE_VERSION}"
+         exekutor echo "${MULLE_EXECUTABLE_VERSION}"
          return 0
       ;;
 
@@ -394,8 +393,7 @@ main()
             usage "${MULLE_TRACE}"
          fi
 
-         MULLE_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
-            exekutor mulle-env ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+         exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
    esac
 }

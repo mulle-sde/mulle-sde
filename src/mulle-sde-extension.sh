@@ -61,10 +61,14 @@ sde_extension_list_usage()
 Usage:
    ${MULLE_EXECUTABLE_NAME} extension list [options]
 
-   List available mulle-sde extension.
+   List available mulle-sde extensions of types "meta" and "extra". Those are
+   usually the candidates to select. The "meta" in turn loads the "runtime"
+   and "buildtool" extension.
 
 Options:
    --installed : list extensions installed in project
+   --all       : also list buildtool and runtime extensions
+   --version   : show version of extension
 EOF
    exit 1
 }
@@ -235,13 +239,18 @@ collect_extension_dirs()
          continue
       fi
 
+#     log_debug "$directory: ${directory}"
       IFS="
 "
       for extensiondir in `find "${directory}" -mindepth 1 -maxdepth 1 -type d -print`
       do
          IFS="${DEFAULT_IFS}"
+
+#         log_debug "$extensiondir: ${extensiondir}"
+
          if [ ! -z "${extensiontype}" ]
          then
+
             foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
             log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
 
@@ -253,6 +262,7 @@ collect_extension_dirs()
          fi
          rexekutor echo "${extensiondir}"
       done
+      IFS=":"; set -o noglob
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -362,7 +372,7 @@ collect_extension_inherits()
    local exttype
 
    IFS=";"
-   while read dependency exttype
+   while read -r dependency exttype
    do
       if [ -z "${dependency}" ]
       then
@@ -390,8 +400,21 @@ collect_inherit_extensiondirs()
    do
       set +o noglob ; IFS="${DEFAULT_IFS}"
 
-      vendor="${dependency%%:*}"
-      extension="${dependency##*:}"
+      case "${dependency}" in
+         "")
+            continue
+         ;;
+
+         *:*)
+            vendor="${dependency%%:*}"
+            extension="${dependency##*:}"
+         ;;
+
+         *)
+            fail "Inherit \"${dependency}\" must be fully qualified <vendor>:<extension>"
+         ;;
+      esac
+
       if ! find_extension "${vendor}" "${extension}"
       then
          log_warning "Inheriting unknown extension \"${vendor}:${extension}\""
@@ -461,8 +484,13 @@ emit_extension()
    do
       IFS="${DEFAULT_IFS}"
 
-      version="`extension_get_version "${extension}"`"
-      echo "${extension}" "${version}"
+      if [ "${OPTION_VERSION}" = "YES" ]
+      then
+         version="`extension_get_version "${extension}"`"
+         echo "${extension}" "${version}"
+      else
+         echo "${extension}"
+      fi
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -473,6 +501,8 @@ sde_extension_list_main()
    log_entry "sde_extension_list_main" "$@"
 
    local OPTION_INSTALLED
+   local OPTION_ALL
+   local OPTION_VERSION
 
    #
    # handle options
@@ -484,12 +514,20 @@ sde_extension_list_main()
             sde_extension_list_usage
          ;;
 
+         --all)
+            OPTION_ALL="YES"
+         ;;
+
          --installed)
             OPTION_INSTALLED="YES"
          ;;
 
+         --version)
+            OPTION_VERSION="YES"
+         ;;
+
          -*)
-            sde_extension_list_usage
+            sde_extension_list_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -508,7 +546,12 @@ sde_extension_list_main()
 
    if [ "${OPTION_INSTALLED}" = "YES" ]
    then
-      sde_extension_status_main "$@"
+      if [ "${OPTION_VERSION}" = "YES" ]
+      then
+         sde_extension_status_main --version "$@"
+      else
+         sde_extension_status_main "$@"
+      fi
    fi
 
    local all_vendors
@@ -529,17 +572,20 @@ sde_extension_list_main()
          continue
       fi
 
-      tmp="`collect_extension "${vendor}" runtime `"  || return 1
-      runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
-
       tmp="`collect_extension "${vendor}" meta `"  || return 1
       meta_extension="`add_line "${meta_extension}" "${tmp}" `"  || return 1
 
-      tmp="`collect_extension "${vendor}" buildtool `" || return 1
-      buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
-
       tmp="`collect_extension "${vendor}" extra `" || return 1
       extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
+
+      if [ "${OPTION_ALL}" = "YES" ]
+      then
+         tmp="`collect_extension "${vendor}" runtime `"  || return 1
+         runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
+
+         tmp="`collect_extension "${vendor}" buildtool `" || return 1
+         buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
+      fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -556,11 +602,17 @@ sde_extension_status_main()
 {
    log_entry "sde_extension_status_main" "$@"
 
+   local OPTION_VERSION
+
    while :
    do
       case "$1" in
          -h|--help)
             sde_extension_status_usage
+         ;;
+
+         --version)
+            OPTION_VERSION="YES"
          ;;
 
          -*)
@@ -591,13 +643,17 @@ sde_extension_status_main()
       do
          IFS="${DEFAULT_IFS}"
 
-         version="`LC_ALL=C egrep -v '^#' < "${filename}"`"
-
          extension="`fast_basename "${filename}"`"
          vendor="`fast_dirname "${filename}"`"
          vendor="`fast_basename "${vendor}"`"
 
-         echo "${vendor}:${extension}" "${version}"
+         if [ "${OPTION_VERSION}" = "YES" ]
+         then
+            version="`LC_ALL=C egrep -v '^#' < "${filename}"`"
+            echo "${vendor}:${extension}" "${version}"
+         else
+            echo "${vendor}:${extension}"
+         fi
       done
       IFS="${DEFAULT_IFS}"
    ) | sort
@@ -697,7 +753,7 @@ __emit_extension_usage()
          (
             cd "${extensiondir}/share/ignore.d"
             ls -1 [0-9]*-*--* 2> /dev/null
-         ) | sed 's/^/   /'
+         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
 
@@ -707,7 +763,7 @@ __emit_extension_usage()
          (
             cd "${extensiondir}/share/match.d"
             ls -1 [0-9]*-*--*  2> /dev/null
-         ) | sed 's/^/   /'
+         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
 
@@ -717,7 +773,7 @@ __emit_extension_usage()
          (
             cd "${extensiondir}/share/bin"
             ls -1 *-callback 2> /dev/null | sed -e 's/-callback//'
-         ) | sed 's/^/   /'
+         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
 
@@ -727,7 +783,39 @@ __emit_extension_usage()
          (
             cd "${extensiondir}/share/libexec"
             ls -1 *-task.sh 2> /dev/null | sed -e 's/-task\.sh//'
-         ) | sed 's/^/   /'
+         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         echo
+      fi
+
+      if [ -f "${extensiondir}/dependency" ]
+      then
+         echo "Dependencies:"
+         egrep -v '^#' "${extensiondir}/dependency" \
+            | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         echo
+      fi
+
+      if [ -f "${extensiondir}/library" ]
+      then
+         echo "Libraries:"
+         egrep -v '^#' "${extensiondir}/library" \
+            | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         echo
+      fi
+
+      if [ -f "${extensiondir}/environment" ]
+      then
+         echo "Environment:"
+         egrep -v '^#' "${extensiondir}/environment" \
+            | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         echo
+      fi
+
+      if [ -f "${extensiondir}/tool" ]
+      then
+         echo "Tools:"
+         egrep -v '^#' "${extensiondir}/tool" \
+            | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
    fi
