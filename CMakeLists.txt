@@ -14,7 +14,6 @@ set( PROJECT_VERSION "${MULLE_SDE_VERSION}")
 
 set( SCRIPTS
 mulle-sde
-mulle-sde-create-motd
 )
 
 set( LIBRARY_SCRIPTS

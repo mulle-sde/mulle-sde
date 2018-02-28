@@ -92,7 +92,7 @@ _copy_extension_dir()
 
    local flags
 
-   if [ "${MULLE_FLAG_LOG_FLUFF}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
    then
       flags=-v
    fi
@@ -184,6 +184,8 @@ _copy_extension_template_files()
          force=""
       fi
 
+      log_fluff "Copying \"${projectdir}\" with template expansion"
+
       # put in own shell to avoid side effects
       (
          eval _template_main --embedded \
@@ -196,25 +198,6 @@ _copy_extension_template_files()
       ) || fail "template generation failed"
    else
       log_fluff "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
-   fi
-}
-
-
-_run_extension_init()
-{
-   log_entry "_run_extension_init" "$@"
-
-   local extensiondir="$1"
-   local flags="$2"
-   local projecttype="$3"
-
-   if [ -x "${extensiondir}/init" ]
-   then
-      log_warning "Running init script \"${extensiondir}/init\""
-      eval_exekutor "${extensiondir}/init" ${INIT_FLAGS} "${flags}" "${projecttype}" \
-        || fail "init script \"${extensiondir}/init\" failed"
-   else
-      log_fluff "No init script \"${extensiondir}/init\" found"
    fi
 }
 
@@ -329,11 +312,21 @@ environment_mset_log()
 "
    while read -r line
    do
-      key="${1%%=*}"
-      value="${1#${key}=}"
+      log_debug "line: ${line}"
+
+      key="${line%%=*}"
+      value="${line#${key}=}"
       value="${value%##*}"
 
-      log_verbose "Environment: ${key:1}=${value%?}"
+      case "${value}" in
+         *\')
+            log_verbose "Environment: ${key:1}=${value%?}"
+         ;;
+
+         *)
+            log_verbose "Environment: ${key:1}=${value}"
+         ;;
+      esac
 
    done <<< "${environment}"
    IFS="${DEFAULT_IFS}"
@@ -358,6 +351,7 @@ environmenttext_to_mset()
 "
    while read -r line
    do
+      log_debug "line: ${line}"
       case "${line}" in
          *\#\#*)
             fail "environment line \"${line}\": comment must not contain ##"
@@ -368,12 +362,12 @@ environmenttext_to_mset()
          ;;
 
          \#\ *)
-            comment="`concat "${comment:2}" "${line}" "\\n"`"
+            comment="`concat "${comment}" "${line:2}" "\\n"`"
             continue
          ;;
 
          \#*)
-            comment="`concat "${comment:1}" "${line}" "\\n"`"
+            comment="`concat "${comment}" "${line:1}" "\\n"`"
             continue
          ;;
 
@@ -389,8 +383,10 @@ environmenttext_to_mset()
          ;;
       esac
 
+      #
       # use "${x%##*}" to retrieve line
       # use "${x##*##}" to retrieve comment
+      #
       if [ -z "${comment}" ]
       then
          echo "'${line}'"
@@ -473,6 +469,38 @@ add_to_dependencies()
 }
 
 
+add_to_environment()
+{
+   log_entry "add_to_environment" "$@"
+
+   local filename="$1"
+
+   local environment
+   local text
+
+   log_debug "environment: `cat "${filename}"`"
+
+   # add an empty linefeed for read
+   text="`cat "${filename}"`"
+   environment="`environmenttext_to_mset "${text}"`" || exit 1
+   if [ -z "${environment}" ]
+   then
+      return
+   fi
+
+   if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
+   then
+      environment_mset_log "${environment}"
+   fi
+
+   # remove lf for command line
+   environment="`tr '\n' ' ' <<< "${environment}"`"
+   MULLE_VIRTUAL_ROOT="${PWD}" \
+      eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
+                           --share mset "${environment}" || exit 1
+}
+
+
 add_to_tools()
 {
    log_entry "add_to_dependencies" "$@"
@@ -500,6 +528,53 @@ add_to_tools()
       fi
    done
    IFS="${DEFAULT_IFS}"
+}
+
+
+run_init()
+{
+   log_entry "run_init" "$@"
+
+   local executable="$1"
+   local projectytpe="$2"
+   local vendor="$3"
+   local extname="$4"
+
+   local flags
+   local escaped
+
+   # i need this for testing somtimes
+   case "${OPTION_INIT_FLAGS}" in
+      *,${vendor}:${extname}=*|${vendor}:${extname}=*)
+         escaped="`escaped_sed_pattern "${vendor}:${extname}"`"
+
+         flags="`sed -n -e "s/.*${escaped}=\\([^,]*\\).*/\\1/p" <<< "${OPTION_INIT_FLAGS}"`"
+      ;;
+   esac
+
+   log_warning "Running init script \"${executable}\""
+   eval_exekutor "${executable}" ${INIT_FLAGS} "${flags}" "${projecttype}" \
+        || fail "init script \"${executable}\" failed"
+}
+
+
+is_disabled_by_marks()
+{
+   local marks="$1"
+   local pattern="$2"
+
+   IFS=","; set -o noglob
+   for mark in ${marks}
+   do
+      case "${mark}" in
+         ${pattern})
+            IFS="${DEFAULT_IFS}"; set +o noglob
+            return 0
+         ;;
+      esac
+   done
+   IFS="${DEFAULT_IFS}"; set +o noglob
+   return 1
 }
 
 
@@ -578,52 +653,49 @@ vendor \"${vendor}\""
       ;;
    esac
 
+   if is_disabled_by_marks "${marks}" "no-extension-${vendor}-${extname}"
+   then
+      log_verbose "Not installing \"${vendor}:${extname}\" by request"
+      return
+   fi
+
+
    log_info "Installing ${exttype} extension \"${vendor}:${extname}\""
 
    #
    # it's called inherit, so .ignoringdependencies doesn't kill it
    # when syncing f.e.
    #
-   case "${marks}" in
-      *no-inherit*|*no-${exttype}-inherit*)
-         log_fluff "${vendor}:${extname}: ignoring \
- \"${extensiondir}/inherit\" due to no-dependency mark"
-      ;;
-
-      *)
-         if [ -f "${extensiondir}/inherit" ]
-         then
-            install_inheritfile "${extensiondir}/inherit" \
-                                "${projecttype}" \
-                                "${exttype}" \
-                                "${marks}" \
-                                "${force}" \
-                                "$@"
-         else
-            log_fluff "No inherit file \"${extensiondir}/inherit\" found"
-         fi
-      ;;
-   esac
-
-   local environment
-   local text
+   if is_disabled_by_marks "${marks}" "no-inherit" || \
+      is_disabled_by_marks "${marks}" "no-inherit-${exttype}" || \
+      is_disabled_by_marks "${marks}" "no-inherit-${vendor}-${extname}"
+   then
+      log_fluff "${vendor}:${extname}: ignoring \
+ \"${extensiondir}/inherit\" due to no-inherit mark"
+   else
+      if [ -f "${extensiondir}/inherit" ]
+      then
+         install_inheritfile "${extensiondir}/inherit" \
+                             "${projecttype}" \
+                             "${exttype}" \
+                             "${marks}" \
+                             "${force}" \
+                             "$@"
+      else
+         log_fluff "No inherit file \"${extensiondir}/inherit\" found"
+      fi
+   fi
 
    if [ -f "${extensiondir}/environment" ]
    then
-      log_debug "environment: `cat "${extensiondir}/environment"`"
-
-      # add an empty linefeed for read
-      text="`cat "${extensiondir}/environment"`"
-      environment="`environmenttext_to_mset "${text}"`" || exit 1
-      if [ ! -z "${environment}" ]
+      if is_disabled_by_marks "${marks}" "no-environment" || \
+         is_disabled_by_marks "${marks}" "no-environment-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-environment-${vendor}-${extname}"
       then
-         if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
-         then
-            environment_mset_log "${environment}"
-         fi
-         MULLE_VIRTUAL_ROOT="${PWD}" \
-            eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
-                                 --share mset "${environment}" || exit 1
+         log_fluff "${vendor}:${extname}: ignoring \
+ \"${extensiondir}/environment\" due to no-environment mark"
+      else
+         add_to_environment "${extensiondir}/environment"
       fi
    else
       log_fluff "No environment file \"${extensiondir}/environment\" found"
@@ -631,103 +703,133 @@ vendor \"${vendor}\""
 
    if [ -f "${extensiondir}/dependency" ]
    then
-      add_to_dependencies "${extensiondir}/dependency"
+      if is_disabled_by_marks "${marks}" "no-dependency" || \
+         is_disabled_by_marks "${marks}" "no-dependency-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-dependency-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/dependency\" due to no-dependency mark"
+      else
+         add_to_dependencies "${extensiondir}/dependency"
+      fi
    else
       log_fluff "No dependency file \"${extensiondir}/dependency\" found"
    fi
 
    if [ -f "${extensiondir}/library" ]
    then
-      add_to_libraries "${extensiondir}/library"
+      if is_disabled_by_marks "${marks}" "no-library" || \
+         is_disabled_by_marks "${marks}" "no-library-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-library-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/library\" due to no-library mark"
+      else
+         add_to_libraries "${extensiondir}/library"
+      fi
    else
       log_fluff "No library file \"${extensiondir}/library\" found"
    fi
 
    if [ -f "${extensiondir}/tool" ]
    then
-      add_to_tools "${extensiondir}/tool"
+      if is_disabled_by_marks "${marks}" "no-tool" || \
+         is_disabled_by_marks "${marks}" "no-tool-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-tool-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/tool\" due to no-tool mark"
+      else
+         add_to_tools "${extensiondir}/tool"
+      fi
    else
       log_fluff "No tool file \"${extensiondir}/tool\" found"
    fi
 
-   case "${marks}" in
-      *no-share*|*no-${exttype}-share*)
-         log_fluff "${vendor}:${extname}: ignoring ${MULLE_SDE_DIR}/share directories \
-due to marks"
-      ;;
-
-      *)
-         #
-         # make share protected, so that files aren't accidentally
-         # edited
-         #
+   if [ -d "${extensiondir}/share" ]
+   then
+      if is_disabled_by_marks "${marks}" "no-share" || \
+         is_disabled_by_marks "${marks}" "no-share-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-share-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/share\" due to no-share mark"
+      else
          _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
             fail "Could not copy \"${extensiondir}/share\""
-      ;;
-   esac
+      fi
+   else
+      log_fluff "No share directory \"${extensiondir}/share\" found"
+   fi
 
-   case "${marks}" in
-      *no-init*|*no-${exttype}-init*)
-         log_fluff "${vendor}:${extname}: ignoring an init script due to marks"
-      ;;
-
-      *)
-         local flags
-         local escaped
-
-         # i need this for testing somtimes
-         case "${OPTION_INIT_FLAGS}" in
-            *,${vendor}:${extname}=*|${vendor}:${extname}=*)
-               escaped="`escaped_sed_pattern "${vendor}:${extname}"`"
-
-               flags="`sed -n -e "s/.*${escaped}=\\([^,]*\\).*/\\1/p" <<< "${OPTION_INIT_FLAGS}"`"
-            ;;
-         esac
-
-         _run_extension_init "${extensiondir}" "${flags}" "${projecttype}"
-      ;;
-   esac
-
-   # project and other custom stuff
-   case "${marks}" in
-      *no-project*|*no-${exttype}-project*)
-         log_fluff "${vendor}:${extname}: ignoring any project files due to marks"
-      ;;
-
-      *)
+   if [ -d "${extensiondir}/project" ]
+   then
+      if is_disabled_by_marks "${marks}" "no-project" || \
+         is_disabled_by_marks "${marks}" "no-project-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-project-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/project\" due to no-project mark"
+      else
          _copy_extension_template_files "${extensiondir}" \
                                         "${projecttype}" \
                                         "project" \
                                         "${force}" \
                                         "$@"
-      ;;
-   esac
+      fi
+   else
+      log_fluff "No project directory \"${extensiondir}/project\" found"
+   fi
 
-   # demo main.c files stuff like this
-   case "${marks}" in
-      *no-demo*|*no-${exttype}-demo*)
-         log_fluff "${vendor}:${extname}: ignoring any demo files due to marks"
-      ;;
-
-      *)
+   if [ -d "${extensiondir}/demo" ]
+   then
+      if is_disabled_by_marks "${marks}" "no-demo" || \
+         is_disabled_by_marks "${marks}" "no-demo-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-demo-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/demo\" due to no-demo mark"
+      else
          _copy_extension_template_files "${extensiondir}" \
                                         "${projecttype}" \
                                         "demo" \
                                         "${force}" \
                                         "$@"
-      ;;
-   esac
+      fi
+   else
+      log_fluff "No demo directory \"${extensiondir}/demo\" found"
+   fi
 
-   case "${marks}" in
-      *no-motd*|*no-${exttype}-motd*)
-         log_fluff "${vendor}:${extname}: ignoring any motd info due to \
+
+   if [ -x "${extensiondir}/init" ]
+   then
+      if is_disabled_by_marks "${marks}" "no-init" || \
+         is_disabled_by_marks "${marks}" "no-init-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-init-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/init\" due to no-init mark"
+      else
+         run_init "${extensiondir}/init" "${projecttype}" "${vendor}" "${extname}"
+      fi
+   else
+      if [ -f "${extensiondir}/init" ]
+      then
+         fail "\"${extensiondir}/init\" must have execute permissions"
+      else
+         log_fluff "No init executable \"${extensiondir}/init\" found"
+      fi
+   fi
+
+   if is_disabled_by_marks "${marks}" "no-motd" || \
+      is_disabled_by_marks "${marks}" "no-motd-${exttype}" || \
+      is_disabled_by_marks "${marks}" "no-motd-${vendor}-${extname}"
+   then
+      log_fluff "${vendor}:${extname}: ignoring any motd info due to \
 marks"
-      ;;
-
-      *)
-         _append_to_motd "${extensiondir}"
-      ;;
-   esac
+   else
+      _append_to_motd "${extensiondir}"
+   fi
 }
 
 

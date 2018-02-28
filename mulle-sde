@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.12.1
+MULLE_EXECUTABLE_VERSION=0.12.2
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -454,6 +454,7 @@ _init()
 
    trap trap_fail INT
    set -o pipefail
+   shopt -s extglob
 
    MULLE_ARGUMENTS="$*"
 }

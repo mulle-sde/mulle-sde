@@ -35,30 +35,19 @@ MULLE_SDE_UPDATESUPPORT_SH="included"
 sde_upgrade_usage()
 {
 SHOWN_COMMANDS="\
-   etc                 : upgrade .mulle-env etc folder (DANGEROUS!)
-   project             : upgrade project template content  (rarely useful)
-   scripts             : upgrade .mulle-env folders bin,share,libexec (default)
-"
-
-HIDDEN_COMMANDS="\
-   buildtool-extension : upgrade buildtool extension template content
-   extra-extension     : upgrade extra extension template content
-   runtime-extension   : upgrade runtime extension template content
+   project    : upgrade project template content  (rarely useful)
 "
 
     cat <<EOF >&2
 Usage:
-   ${UPGRADE_USAGE_NAME:-${MULLE_EXECUTABLE_NAME} upgrade [command]*
+   ${UPGRADE_USAGE_NAME:-${MULLE_EXECUTABLE_NAME} upgrade [project]
 
-   Upgrade to a newer mulle-sde version. The default is to upgrade the scripts
-   and share data only. Upgrading etc is not recommended, as you would lose
-   your customizations. Upgrading project is also not recommended, as you
-   could lose changes in your main file and the Makefiles.
+   Upgrade to a newer mulle-sde version. The default is to upgrade the non
+   project files only. Upgrading project files is usally also not recommended,
+   as you could lose changes.
 
 Options:
-   -h                  : show this usage
-   --no-force          : do not overwrite files (used by "project" and
-                         "*-extension" only)
+   --no-init   : do not run init again
 
 Commands:
 EOF
@@ -162,76 +151,35 @@ sde_upgrade_main()
       fi
    fi
 
-   #
-   # Force: how does it work ?
-   # since we are upgrading we pretty much want -f
-   #
-   # But we only need it for project anyway. But then it's usually not
-   # convenient to really copy the buildtime templates again.
-   # So in general we say force, as that's harmless. For project related
-   # stuff it is set to YES, except if the user said --no-force.
-   #
-
    local options
    local cmd
-   local force
-
-   force="NO"
 
    #
-   # By default upgrade "bin" "libexec" "share" which is cmd="scripts"
+   # By default upgrade "share" only
    #
-   if [ "$#" -eq 0 ]
-   then
-   options="\
---no-demo
+   options="--no-demo
 --no-project"
-   else
-      options="\
---no-motd
---no-demo
---no-project
-\
---no-buildtool-project
---no-extra-project
---no-meta-project
---no-runtime-project
-\
---no-buildtool-init
---no-extra-init
---no-meta-init
---no-runtime-init"
 
-      while :
-      do
-         case "${cmd}" in
-            buildtool-extension)
-               options="`egrep -v -e '--no-buildtool-project|--no-buildtool-init' <<< "${options}" `"
-            ;;
+   #
+   # support some hackish stuff, ain't documented yet
+   # this triggers the various is_disabled_by_marks lines in init
+   # that way you can selectively turn on/off part of what to upgrade
+   # which might be nice down the road (or not)
+   #
+   while [ "$#" -ne 0 ]
+   do
+      case "$1" in
+         no-*)
+            options="`add_line "${options}" "--$1" `"
+         ;;
 
-            meta-extension)
-               options="`egrep -v -e '--no-meta-project|--no-meta-init' <<< "${options}" `"
-            ;;
-
-            extra-extension)
-               options="`egrep -v -e '--no-extra-project|--no-extra-init' <<< "${options}" `"
-            ;;
-
-            runtime-extension)
-               options="`egrep -v -e '--no-runtime-project|--no-runtime-init' <<< "${options}" `"
-            ;;
-
-            project)
-               options="`egrep -v -e '--no-*-project|--no-*-init' <<< "${options}" `"
-            ;;
-
-            *)
-               log_error "Unknown command \"${cmd}\""
-               sde_upgrade_usage
-            ;;
-         esac
-      done
-   fi
+         *)
+            pattern="`escaped_grep_pattern "$1"`"
+            options="`egrep -v -e "--no-${pattern}" <<< "${options}" `"
+         ;;
+      esac
+      shift
+   done
 
    if [ "${OPTION_INIT}" = "NO" ]
    then

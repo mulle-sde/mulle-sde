@@ -548,9 +548,9 @@ sde_extension_list_main()
    then
       if [ "${OPTION_VERSION}" = "YES" ]
       then
-         sde_extension_status_main --version "$@"
+         sde_extension_list_installed --version "$@"
       else
-         sde_extension_status_main "$@"
+         sde_extension_list_installed "$@"
       fi
    fi
 
@@ -598,9 +598,9 @@ sde_extension_list_main()
 }
 
 
-sde_extension_status_main()
+sde_extension_list_installed()
 {
-   log_entry "sde_extension_status_main" "$@"
+   log_entry sde_extension_list_installed "$@"
 
    local OPTION_VERSION
 
@@ -608,7 +608,7 @@ sde_extension_status_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_extension_status_usage
+            sde_extension_list_usage
          ;;
 
          --version)
@@ -616,7 +616,7 @@ sde_extension_status_main()
          ;;
 
          -*)
-            sde_extension_status_usage
+            sde_extension_list_usage
          ;;
 
          *)
@@ -895,7 +895,7 @@ sde_extension_usage_main()
    do
       case "$1" in
          -h|--help)
-            sde_extension_status_usage
+            sde_extension_usage_usage
          ;;
 
          -i|--info)
