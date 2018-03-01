@@ -98,5 +98,6 @@ sde_build_main()
 
    log_verbose "Craft project \"${cmd}\""
 
-   exekutor mulle-craft ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_CRAFT}" ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
 }

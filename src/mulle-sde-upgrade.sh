@@ -40,7 +40,7 @@ SHOWN_COMMANDS="\
 
     cat <<EOF >&2
 Usage:
-   ${UPGRADE_USAGE_NAME:-${MULLE_EXECUTABLE_NAME} upgrade [project]
+   ${UPGRADE_USAGE_NAME:-${MULLE_USAGE_NAME} upgrade [project]
 
    Upgrade to a newer mulle-sde version. The default is to upgrade the non
    project files only. Upgrading project files is usally also not recommended,
@@ -190,5 +190,5 @@ sde_upgrade_main()
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    MULLE_FLAG_MAGNUM_FORCE="${OPTION_FORCE_OPTION}" \
-      sde_init_main --no-env ${options} ${extensions} "${projecttype}"
+      sde_init_main --no-blurb --no-env ${options} ${extensions} "${projecttype}"
 }

@@ -222,9 +222,8 @@ template_filename_replacement_command()
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
              rexekutor "${MULLE_ENV}" -s \
                            ${MULLE_ENV_FLAGS} environment \
-                                                 --output-sed  \
-                                                 get VENDOR_NAME |  tr '\n' ' '`"
-
+                                 get --output-sed VENDOR_NAME`" || exit 1
+   seds="`tr '\n' ' ' <<< "${seds}"`"
    cmdline="`concat "${cmdline}" "${seds}"`"
 
    log_debug "${cmdline}"
@@ -260,11 +259,11 @@ template_contents_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment  \
-                                                           --output-sed  \
-                                                           --sed-key-prefix '<|' \
-                                                           --sed-key-suffix '|>' \
-                                                           list | tr '\n' ' '`"
+             rexekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS}  \
+                  environment list --output-sed  \
+                                   --sed-key-prefix '<|' \
+                                   --sed-key-suffix '|>'`" || exit 1
+   seds="`tr '\n' ' ' <<< "${seds}"`"
 
    cmdline="`concat "${cmdline}" "${seds}"`"
 

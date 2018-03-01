@@ -44,7 +44,7 @@ sde_library_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} library [options] [command]
+   ${MULLE_USAGE_NAME} library [options] [command]
 
    A library is a OS (Operating System) supplied library. Like -lm for example.
    It's usually not useful to build these yourself (like a dependency).
@@ -72,13 +72,13 @@ sde_library_add_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} library add <name>
+   ${MULLE_USAGE_NAME} library add <name>
 
    Add a OS supplied library to your project. The name of the library is
    without prefix or suffix. E.g. "libm.a" is just "m"
 
    Example:
-      ${MULLE_EXECUTABLE_NAME} libraries add pthread
+      ${MULLE_USAGE_NAME} libraries add pthread
 EOF
   exit 1
 }
@@ -90,12 +90,12 @@ sde_library_set_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} library set [options] <name> <key> <value>
+   ${MULLE_USAGE_NAME} library set [options] <name> <key> <value>
 
    Modify library settings by its name.
 
    Examples:
-      ${MULLE_EXECUTABLE_NAME} library set -a pthread aliases pthreads
+      ${MULLE_USAGE_NAME} library set -a pthread aliases pthreads
 
 Options:
    --append    : append value instead of set
@@ -114,12 +114,12 @@ sde_library_get_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} library get <name> <key>
+   ${MULLE_USAGE_NAME} library get <name> <key>
 
    Retrieve library settings by its name.
 
    Examples:
-      ${MULLE_EXECUTABLE_NAME} library get pthread aliases
+      ${MULLE_USAGE_NAME} library get pthread aliases
 
 Keys:
    aliases     : alternate names of library, separated by comma
@@ -135,7 +135,7 @@ sde_library_remove_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} library remove <name>
+   ${MULLE_USAGE_NAME} library remove <name>
 
    Remove a library by its name from the project.
 EOF
@@ -150,7 +150,7 @@ sde_library_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} library list
+   ${MULLE_USAGE_NAME} library list
 
    List libraries of this project.
 EOF
@@ -399,7 +399,8 @@ sde_library_remove_main()
    log_fluff "Just pass through to mulle-sourcetree"
    export MULLE_EXECUTABLE_NAME
 
-   exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
+   MULLE_USAGE_NAME="${MULLE_EXECUTABLE_NAME}" \
+      exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
 }
 
 

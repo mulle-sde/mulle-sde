@@ -31,8 +31,11 @@
 #
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
+
 emit_executable_motd()
 {
+   log_entry "emit_executable_motd" "$@"
+
    local builddir="$1"
    local name="$2"
 
@@ -46,6 +49,8 @@ emit_executable_motd()
 
 emit_library_motd()
 {
+   log_entry "emit_library_motd" "$@"
+
    # nothing yet
    :
 }
@@ -53,6 +58,19 @@ emit_library_motd()
 
 main()
 {
+   while [ $# -ne 0 ]
+   do
+      if options_technical_flags "$1"
+      then
+         shift
+         continue
+      fi
+
+      break
+   done
+
+   options_setup_trace "${MULLE_TRACE}"
+
    local buildtype="$1"
    local builddir="$2"
    local name="$3"
@@ -65,11 +83,16 @@ main()
       executable)
          text="`emit_executable_motd "$2" "$3" `"
       ;;
+
+      *)
+         log_verbose "Unknown buildtype \"${buildtype}\", ignoring it"
+      ;;
    esac
 
    if [ ! -z "${text}" ]
    then
-      echo "${text}" > "${builddir}/.motd"
+      log_fluff "Writing motd..."
+      redirect_exekutor "${builddir}/.motd" echo "${text}"
    fi
 }
 
@@ -81,7 +104,7 @@ _init()
       echo "mulle-bashfunctions-env not installed" >&2 && \
       exit 1
 
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" || exit 1
 }
 
 

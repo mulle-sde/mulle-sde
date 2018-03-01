@@ -10,3 +10,4 @@ build-*.d/
 mulle-project/publisher-info.sh
 _CMakeHeaders.cmake
 _CMakeSources.cmake
+mulle-sde.graffle/

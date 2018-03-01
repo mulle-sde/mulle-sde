@@ -39,7 +39,7 @@ sde_subproject_usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} subproject [options] [command]
+   ${MULLE_USAGE_NAME} subproject [options] [command]
 
    A subproject is another mulle-sde project of yours, that serves
    as a dependency here. Subprojects are subdirectories.
@@ -61,13 +61,13 @@ sde_subproject_add_usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} subproject add <name>
+   ${MULLE_USAGE_NAME} subproject add <name>
 
    Add a subproject to your project. The name of the subproject
    is its relative file path.
 
    Example:
-      ${MULLE_EXECUTABLE_NAME} subproject add subproject/mylib
+      ${MULLE_USAGE_NAME} subproject add subproject/mylib
 EOF
   exit 1
 }
@@ -77,12 +77,12 @@ sde_subproject_set_usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} subproject set [options] <name> <key> <value>
+   ${MULLE_USAGE_NAME} subproject set [options] <name> <key> <value>
 
    Modify a subproject settings, which is referenced by its name.
 
    Examples:
-      ${MULLE_EXECUTABLE_NAME} subproject set subproject/mylib \
+      ${MULLE_USAGE_NAME} subproject set subproject/mylib \
                                                    os-excludes darwin
 
 Options:
@@ -99,12 +99,12 @@ sde_subproject_get_usage()
 {
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} subproject get <name> <key>
+   ${MULLE_USAGE_NAME} subproject get <name> <key>
 
    Retrieve subproject settings by its name.
 
    Examples:
-      ${MULLE_EXECUTABLE_NAME} subproject get subproject/mylib os-excludes
+      ${MULLE_USAGE_NAME} subproject get subproject/mylib os-excludes
 
 Keys:
    os-excludes : names of OSes to exclude, separated by comma

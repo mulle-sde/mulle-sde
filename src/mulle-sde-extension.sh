@@ -40,7 +40,7 @@ sde_extension_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} extension <command>
+   ${MULLE_USAGE_NAME} extension <command>
 
    List or upgrade mulle-sde extensions.
 
@@ -59,7 +59,7 @@ sde_extension_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} extension list [options]
+   ${MULLE_USAGE_NAME} extension list [options]
 
    List available mulle-sde extensions of types "meta" and "extra". Those are
    usually the candidates to select. The "meta" in turn loads the "runtime"
@@ -80,11 +80,11 @@ sde_extension_add_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} extension add <extension>
+   ${MULLE_USAGE_NAME} extension add <extension>
 
    Add an extension to your project. This extension must be of type "extra".
    To reconfigure your project with another runtime or buildtool, use
-   \`${MULLE_EXECUTABLE_NAME} init\`
+   \`${MULLE_USAGE_NAME} init\`
 EOF
    exit 1
 }
@@ -96,7 +96,7 @@ sde_extension_usage_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} extension usage [options] <extension>
+   ${MULLE_USAGE_NAME} extension usage [options] <extension>
 
    Show usage information (and more) of an extension.
 
@@ -979,7 +979,7 @@ sde_extension_main()
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-         INIT_USAGE_NAME="${MULLE_EXECUTABLE_NAME} init" \
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} init" \
             sde_init_main --add --extra "$@"
       ;;
 
@@ -997,7 +997,7 @@ sde_extension_main()
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
 
-         UPGRADE_USAGE_NAME="${MULLE_EXECUTABLE_NAME} add" \
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} add" \
             sde_upgrade_main "$@"
       ;;
 

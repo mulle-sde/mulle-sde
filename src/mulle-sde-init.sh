@@ -39,7 +39,7 @@ sde_init_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
-   INIT_USAGE_NAME="${INIT_USAGE_NAME:-${MULLE_EXECUTABLE_NAME} init}"
+   INIT_USAGE_NAME="${INIT_USAGE_NAME:-${MULLE_USAGE_NAME} init}"
 
    COMMON_OPTIONS="\
    -D <key>=<val> : specify an environment variable
@@ -77,7 +77,7 @@ EOF
       fi
    ) | sort
 
-   echo "      (\`${MULLE_EXECUTABLE_NAME} -v init help\` for more options)"
+   echo "      (\`${MULLE_USAGE_NAME} -v init help\` for more options)"
    exit 1
 }
 
@@ -503,7 +503,7 @@ add_to_environment()
 
 add_to_tools()
 {
-   log_entry "add_to_dependencies" "$@"
+   log_entry "add_to_tools" "$@"
 
    local filename="$1"
 
@@ -522,7 +522,7 @@ add_to_tools()
 
       if [ ! -z "${line}" ]
       then
-         log_verbose "Adding \"${line}\" to tools"
+         log_verbose "Adding \"${line}\" to tool"
          MULLE_VIRTUAL_ROOT="${PWD}" \
             exekutor "${MULLE_ENV}" tool add "${line}" || exit 1
       fi
@@ -622,7 +622,7 @@ vendor \"${vendor}\""
 
          if [ -f "${extensiondir}/language" ]
          then
-            tmp="`egrep -v -e '^#' < "${extensiondir}/language"`"
+            tmp="`egrep -v -e '^#' "${extensiondir}/language"`"
             if [ ! -z "${tmp}" ]
             then
                PROJECT_LANGUAGE="${tmp}"
@@ -634,7 +634,7 @@ vendor \"${vendor}\""
 
          if [ -f "${extensiondir}/dialect" ]
          then
-            tmp="`egrep -v -e '^#' < "${extensiondir}/dialect"`"
+            tmp="`egrep -v -e '^#' "${extensiondir}/dialect"`"
             if [ ! -z "${tmp}" ]
             then
                PROJECT_DIALECT="${tmp}"
@@ -839,7 +839,7 @@ install_motd()
 
    local text="$1"
 
-   motdfile=".mulle-env/etc/motd"
+   motdfile=".mulle-env/share/motd"
 
    if [ -z "${text}" ]
    then
@@ -847,7 +847,14 @@ install_motd()
    fi
 
    # just clobber it
-   redirect_exekutor ".mulle-env/etc/motd" echo "${text}"
+   local directory
+
+   directory=".mulle-env/share"
+   exekutor chmod a+wX "${directory}"
+   remove_file_if_present "${motdfile}"
+   redirect_exekutor "${motdfile}" echo "${text}"
+   exekutor chmod a-w "${motdfile}" || exit 1
+   exekutor chmod a-w "${directory}" || exit 1
 }
 
 
@@ -1054,7 +1061,7 @@ install_project()
                      "${marks}" \
                      "${force}" || exit 1
 
-   install_extra_extensions "${projecttype}" "${marks}" "${force}"
+   install_extra_extensions "${projecttype}" "${marks}" "${force}" || exit 1
 
    #
    # remember type and installed extensions
@@ -1062,26 +1069,32 @@ install_project()
    # create files later after init
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
-   exekutor "${MULLE_ENV}" environment --share set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}"
+   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+      set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
 
    #
-   # setup the initial environment-all.sh (if missing) with some
+   # setup the initial environment-global.sh (if missing) with some
    # values that the user may want to edit
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_EXTENSIONS=\"${cmdline_options}"\"
-   exekutor "${MULLE_ENV}" environment --share set MULLE_SDE_INSTALLED_EXTENSIONS "${cmdline_options}"
+   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+      set MULLE_SDE_INSTALLED_EXTENSIONS "${cmdline_options}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV}" environment --share set PROJECT_NAME "${PROJECT_NAME}"
+   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV}" environment --share set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}"
+   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV}" environment --share set PROJECT_DIALECT "${PROJECT_DIALECT}"
+   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
-   exekutor "${MULLE_ENV}" environment --share set PROJECT_TYPE "${projecttype}"
+   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_TYPE "${projecttype}" || internal_fail "failed env set"
 
 
    fix_permissions
@@ -1169,7 +1182,7 @@ sde_init_main()
    local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV="YES"
    local OPTION_ENV_STYLE="mulle:wild" # wild is least culture shock initially
-   local OPTION_BLURB=""
+   local OPTION_BLURB="YES"
    local OPTION_TEMPLATE_FILES="YES"
    local OPTION_INIT_FLAGS
    local OPTION_MARKS=""
@@ -1268,7 +1281,7 @@ sde_init_main()
          ;;
 
          --no-blurb)
-            OPTION_BLURB="--no-blurb"
+            OPTION_BLURB="NO"
          ;;
 
          --no-env)
@@ -1392,7 +1405,7 @@ Some files may be missing and the project may not be craftable."
       exit 1
    fi
 
-   if [ "${OPTION_BLURB}" != "NO" ]
+   if [ "${OPTION_BLURB}" = "YES" ]
    then
       log_info "Enter the environment:
    ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD}\"${C_INFO}"

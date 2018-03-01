@@ -41,7 +41,7 @@ sde_dependency_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} dependency [options] [command]
+   ${MULLE_USAGE_NAME} dependency [options] [command]
 
    A dependency is a third party package, that is fetched via an URL.
    I will be built along with your project.
@@ -66,7 +66,7 @@ sde_dependency_add_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} dependency add [options] <url>
+   ${MULLE_USAGE_NAME} dependency add [options] <url>
 
    Add a dependency to your project. A dependency is a git repository or
    a tar or zip archive (more options may be available if
@@ -75,7 +75,7 @@ Usage:
    The default dependency is a library with a headerfile.
 
    Example:
-      ${MULLE_EXECUTABLE_NAME} dependency add https://github.com/mulle-c/mulle-allocator.git
+      ${MULLE_USAGE_NAME} dependency add https://github.com/mulle-c/mulle-allocator.git
 
 Options:
    --branch <name> : specify branch to checkout for git repositories
@@ -97,12 +97,12 @@ sde_dependency_set_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} dependency set [options] <url> <key> <value>
+   ${MULLE_USAGE_NAME} dependency set [options] <url> <key> <value>
 
    Modify a dependency's settings, which is referenced by its url.
 
    Examples:
-      ${MULLE_EXECUTABLE_NAME} dependency set --append pthreads aliases pthread
+      ${MULLE_USAGE_NAME} dependency set --append pthreads aliases pthread
 
 Options:
    --append    : append value instead of set
@@ -120,12 +120,12 @@ sde_dependency_get_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_EXECUTABLE_NAME} dependency get <url> <key>
+   ${MULLE_USAGE_NAME} dependency get <url> <key>
 
    Retrieve dependency settings by its url.
 
    Examples:
-      ${MULLE_EXECUTABLE_NAME} dependency get pthreads aliases
+      ${MULLE_USAGE_NAME} dependency get pthreads aliases
 
 Keys:
    os-excludes : names of OSes to exclude, separated by comma
@@ -133,6 +133,24 @@ EOF
   exit 1
 }
 
+
+sde_dependency_list_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency list
+
+   List dependencies of this project.
+EOF
+  exit 1
+}
+
+
+#
+#
+#
 
 sde_dependency_set_main()
 {
@@ -207,6 +225,57 @@ sde_dependency_get_main()
          sde_dependency_get_usage
       ;;
    esac
+}
+
+
+sde_dependency_list_main()
+{
+   log_entry "sde_dependency_list_main" "$@"
+
+   local marks
+
+   marks="${DEPENDENCY_MARKS}"
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_list_usage
+         ;;
+
+         --marks)
+            [ "$#" -eq 1 ] && sde_dependency_list_usage "missing argument to \"$1\""
+            shift
+
+            marks="`comma_concat "${marks}" "$1"`"
+         ;;
+
+         --)
+            # pass rest to mulle-sourcetree
+            shift
+            break
+         ;;
+
+         -*)
+            sde_dependency_list_usage "unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   log_fluff "Just pass through to mulle-sourcetree"
+
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+         --format "ami={aliases,,-------}" \
+         --marks "${marks}" \
+         --no-output-marks "${DEPENDENCY_MARKS}" \
+          "$@"
 }
 
 
@@ -420,7 +489,7 @@ sde_dependency_add_main()
 
    log_verbose "Dependency: ${url}"
    eval_exekutor "${MULLE_SOURCETREE}" "${MULLE_SOURCETREE_FLAGS}" \
-                                          add "${options}" "'${url}'"
+                                             add "${options}" "'${url}'"
 }
 
 
@@ -444,6 +513,12 @@ sde_dependency_main()
          -*)
             fail "unknown option \"$1\""
             sde_dependency_usage
+         ;;
+
+         --)
+            # pass rest to mulle-sourcetree
+            shift
+            break
          ;;
 
          *)
@@ -476,7 +551,8 @@ sde_dependency_main()
       ;;
 
       remove)
-         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} remove "$@"
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} remove "$@"
       ;;
 
       set)
@@ -488,10 +564,7 @@ sde_dependency_main()
       ;;
 
       list)
-         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-            --format "um" \
-            --marks "dependency" \
-             "$@"
+         sde_dependency_list_main "$@"
       ;;
 
       *)

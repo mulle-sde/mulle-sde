@@ -52,5 +52,6 @@ sde_monitor_main()
    fi
    set_projectname_environment "read"
 
-   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
 }
