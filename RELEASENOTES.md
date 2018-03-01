@@ -1,3 +1,7 @@
+### 0.12.4
+
+* fix -D environment variables not showing up in templates
+
 ### 0.12.2
 
 * Various small improvements

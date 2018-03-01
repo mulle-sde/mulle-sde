@@ -263,6 +263,8 @@ template_contents_replacement_command()
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
                                    --sed-key-suffix '|>'`" || exit 1
+
+   log_debug "seds from environment: ${seds}"
    seds="`tr '\n' ' ' <<< "${seds}"`"
 
    cmdline="`concat "${cmdline}" "${seds}"`"

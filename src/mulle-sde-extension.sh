@@ -42,12 +42,13 @@ sde_extension_usage()
 Usage:
    ${MULLE_USAGE_NAME} extension <command>
 
-   List or upgrade mulle-sde extensions.
+   Maintain mulle-sde extensions in your project after you ran
+   mulle-sde init.
 
 Commands:
-   add       : add an extension
-   list      : list extensions
-   upgrade   : upgrade project extensions to latest version
+   add       : add an extra extension to your project
+   list      : list available and installed extensions
+   upgrade   : upgrade project extensions to the latest version
 EOF
    exit 1
 }
@@ -62,13 +63,13 @@ Usage:
    ${MULLE_USAGE_NAME} extension list [options]
 
    List available mulle-sde extensions of types "meta" and "extra". Those are
-   usually the candidates to select. The "meta" in turn loads the "runtime"
-   and "buildtool" extension.
+   usually the candidates to select. The "meta" extension in tells mulle-sde
+   to load the required "runtime" and "buildtool" extensions.
 
 Options:
-   --installed : list extensions installed in project
-   --all       : also list buildtool and runtime extensions
-   --version   : show version of extension
+   --all       : list otherwise suppressed buildtool and runtime extensions
+   --installed : list extensions installed in your project
+   --version   : show version of the extensions
 EOF
    exit 1
 }
@@ -627,7 +628,10 @@ sde_extension_list_installed()
       shift
    done
 
-   [ ! -d "${MULLE_SDE_DIR}" ] && fail "This doesn't look like a mulle-sde project"
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "Listing installed extensions \
+doesn't work outside of the mulle-sde environment"
+   [ ! -d "${MULLE_SDE_DIR}" ]      && fail "\"${PWD}\" doesn't look like \
+a mulle-sde project"
 
    local version
    local vendor
@@ -715,18 +719,56 @@ __emit_extension_usage()
 
    exttype="`LC_ALL=C egrep -v '^#' < "${extensiondir}/type"`"
 
-   echo "Usage:"
-   echo "   mulle-sde init --${exttype}" "${vendor}:${extension} <type>"
-   echo
+   if [ "${OPTION_USAGE_ONLY}" != "YES" ]
+   then
+      echo "Usage:"
+      echo "   mulle-sde init --${exttype}" "${vendor}:${extension} <type>"
+      echo
+   fi
+
 
    local usagetext
 
    usagetext="`collect_file_info "${extensiondir}" "usage"`"
 
-   if [ ! -z "${usagetext}" ]
+   if [ "${OPTION_USAGE_ONLY}" != "YES" ]
    then
-      sed 's/^/   /' <<< "${usagetext}"
+      if [ ! -z "${usagetext}" ]
+      then
+         sed 's/^/   /' <<< "${usagetext}"
+         echo
+      fi
+   fi
+
+   local inherit_text
+
+   inherit_text="`collect_extension_inherits "${extensiondir}"`"
+
+   if [ ! -z "${inherit_text}" ]
+   then
+      local dependency
+
+
+      IFS="
+"
+      for dependency in `sed 's/^\([^;]*\).*/\1/' <<< "${inherit_text}"`
+      do
+         mulle-sde extension usage --usage-only "${dependency}" | \
+               sed -e 's/^   \[i\]//'g | \
+               sed -e 's/^/   [i]/'
+      done
+      IFS="${DEFAULT_IFS}"
+
       echo
+   fi
+
+   if [ "${OPTION_USAGE_ONLY}" = "YES" ]
+   then
+      if [ ! -z "${usagetext}" ]
+      then
+         sed 's/^/   /' <<< "${usagetext}"
+      fi
+      return
    fi
 
    local text
@@ -742,6 +784,7 @@ __emit_extension_usage()
    text="${text:-none}"
 
    echo "Inherits:"
+   text="${inherit_text:-none}"
    sed 's/^/   /' <<< "${text}"
    echo
 
@@ -890,6 +933,7 @@ sde_extension_usage_main()
    local OPTION_LIST=
    local OPTION_INFO="NO"
    local OPTION_RECURSE="NO"
+   local OPTION_USAGE_ONLY="NO"
 
    while :
    do
@@ -918,6 +962,10 @@ sde_extension_usage_main()
             shift
 
             OPTION_VENDOR="$1"
+         ;;
+
+         --usage-only)
+            OPTION_USAGE_ONLY="YES"
          ;;
 
          -*)

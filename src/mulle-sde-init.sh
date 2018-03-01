@@ -1125,18 +1125,20 @@ install_project()
 
 add_environment_variables()
 {
-   log_entry "sde_init_main" "$@"
+   log_entry "add_environment_variables" "$@"
 
    local defines="$1"
 
    MULLE_VIRTUAL_ROOT="${PWD}" \
       eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
-                           mset "${defines}" || exit 1
+                           --share mset "${defines}" || exit 1
 }
 
 
 _sde_init_add()
 {
+   log_entry "_sde_init_add" "$@"
+
    [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
 
    [ -z "${PROJECT_TYPE}" ] && fail "PROJECT_TYPE is not defined"
@@ -1166,6 +1168,28 @@ _sde_init_add()
 }
 
 
+mset_quoted_env_line()
+{
+   local line="$1"
+
+   local key
+   local value
+
+   key="${line%%=*}"
+   value="${line#*=}"
+
+   case "${value}" in
+      \"*\")
+         echo "${line}"
+      ;;
+
+      *)
+         echo "${key}=\"${value}\""
+      ;;
+   esac
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1190,6 +1214,8 @@ sde_init_main()
    local OPTION_UPGRADE
    local OPTION_ADD
 
+   local line
+
    #
    # handle options
    #
@@ -1201,15 +1227,16 @@ sde_init_main()
          ;;
 
          -D?*)
-            keyvalue="`sed s'/^-D//' <<< "$1"`"
-            OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'${1:2}'" `"
+            line="`mset_quoted_env_line "${1:2}"`"
+            OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'${line}'" `"
          ;;
 
          -D)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
 
-            OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'$1'" `"
+            line="`mset_quoted_env_line "$1"`"
+            OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'${line}'" `"
          ;;
 
          -a|--add)
