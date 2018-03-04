@@ -1,3 +1,7 @@
+### 0.12.5
+
+* uniform help, remove obsolete cmake-include
+
 ### 0.12.4
 
 * fix -D environment variables not showing up in templates

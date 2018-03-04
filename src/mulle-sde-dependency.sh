@@ -32,7 +32,7 @@
 MULLE_SDE_DEPENDENCY_SH="included"
 
 
-DEPENDENCY_MARKS="no-cmake-include"
+DEPENDENCY_MARKS="dependency"  # basically bullshit :)
 
 
 sde_dependency_usage()
@@ -79,7 +79,6 @@ Usage:
 
 Options:
    --branch <name> : specify branch to checkout for git repositories
-   --cmake-include : provides a CMakeDependenciesAndLibraries.cmake include
    --embedded      : the dependency source code is not built
    --headerless    : the dependency has no headerfile
    --headeronly    : the dependency has no library
@@ -382,11 +381,6 @@ sde_dependency_add_main()
       case "$1" in
          -h|--help|help)
             sde_dependency_usage
-         ;;
-
-         --cmake-include)
-            marks="`sed -e 's/,no-cmake-include//'
-                        -e 's/no-cmake-include//' <<< "${marks}"`"
          ;;
 
          --if-missing)

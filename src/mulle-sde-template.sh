@@ -391,7 +391,7 @@ _template_main()
       fi
 
       case "$1" in
-         -h|--help)
+         -h*|--help|help)
             template_usage
          ;;
 

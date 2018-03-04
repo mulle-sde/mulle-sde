@@ -90,7 +90,7 @@ sde_upgrade_main()
    while :
    do
       case "$1" in
-         -h*|--help)
+         -h*|--help|help)
             sde_upgrade_usage
          ;;
 

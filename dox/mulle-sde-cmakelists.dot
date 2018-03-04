@@ -11,20 +11,20 @@ digraph G {
 
     "CMakeLists.txt"                    [ shape="note", color="#16a085", fontcolor="#16a085" ]
 
-    "CMakeHeadersAndSources.cmake"        [ shape="note", color="#16a085", fontcolor="#16a085" ]
-    "CMakeDependenciesAndLibraries.cmake" [ shape="note", color="#16a085", fontcolor="#16a085" ]
+    "HeadersAndSources.cmake"        [ shape="note", color="#16a085", fontcolor="#16a085" ]
+    "DependenciesAndLibraries.cmake" [ shape="note", color="#16a085", fontcolor="#16a085" ]
 
-    "_CMakeHeaders.cmake"                 [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
-    "_CMakeSources.cmake"                 [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
-    "_CMakeDependencies.cmake"            [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
-    "_CMakeLibraries.cmake"               [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_Headers.cmake"                 [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_Sources.cmake"                 [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_Dependencies.cmake"            [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
+    "_Libraries.cmake"               [ shape="note", color="#9b59b6", fontcolor="#9b59b6" ]
 
-    "CMakeLists.txt" -> "CMakeHeadersAndSources.cmake"         [ style="dotted", label="include (2)" ]
-    "CMakeLists.txt" -> "CMakeDependenciesAndLibraries.cmake"  [ style="dotted", label="include (5)" ]
+    "CMakeLists.txt" -> "HeadersAndSources.cmake"         [ style="dotted", label="include (2)" ]
+    "CMakeLists.txt" -> "DependenciesAndLibraries.cmake"  [ style="dotted", label="include (5)" ]
 
-    "CMakeHeadersAndSources.cmake" -> "_CMakeHeaders.cmake"       [ style="dotted", label="include (3)" ]
-    "CMakeHeadersAndSources.cmake" -> "_CMakeSources.cmake"       [ style="dotted", label="include (4)" ]
+    "HeadersAndSources.cmake" -> "_Headers.cmake"       [ style="dotted", label="include (3)" ]
+    "HeadersAndSources.cmake" -> "_Sources.cmake"       [ style="dotted", label="include (4)" ]
 
-    "CMakeDependenciesAndLibraries.cmake" -> "_CMakeDependencies.cmake"  [ style="dotted", label="include (6)" ]
-    "CMakeDependenciesAndLibraries.cmake" -> "_CMakeLibraries.cmake"     [ style="dotted", label="include (7)" ]
+    "DependenciesAndLibraries.cmake" -> "_Dependencies.cmake"  [ style="dotted", label="include (6)" ]
+    "DependenciesAndLibraries.cmake" -> "_Libraries.cmake"     [ style="dotted", label="include (7)" ]
 }

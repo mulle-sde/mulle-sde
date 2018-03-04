@@ -5,16 +5,18 @@ digraph G {
 
     { rank = same;  "project" };
     { rank = same;  ".mulle-sde", "src" };
-    { rank = same;  "bin", "libexec", "share"}
+    { rank = same;  "share" };
+    { rank = same;  "bin", "libexec" }
     { rank = same;  "match.d" }
 
     "project"
     "project" -> ".mulle-sde"
     "project" -> "src"
 
-    ".mulle-sde" -> "bin"
     ".mulle-sde" -> "share"
-    ".mulle-sde" -> "libexec"
+
+    "share" -> "bin"
+    "share" -> "libexec"
 
     "src"   -> "demo.txt"
     "bin"   -> "text-callback"

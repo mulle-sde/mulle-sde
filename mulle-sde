@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.12.4
+MULLE_EXECUTABLE_VERSION=0.12.5
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -141,6 +141,34 @@ usage()
 }
 
 
+determine_project_dir()
+{
+   local current
+
+   current="`pwd -P`"
+
+   while [ "${current}" != "/" ]
+   do
+      if [ -d "${current}/.mulle-sde" ]
+      then
+         exekutor echo "${current}"
+         return
+      fi
+
+      if [ -z "${MULLE_PATH_SH}" ]
+      then
+         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+      fi
+      if [ -z "${MULLE_FILE_SH}" ]
+      then
+         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
+      fi
+
+      current="`fast_dirname "${current}"`"
+   done
+   return 1
+}
+
 
 main()
 {
@@ -195,6 +223,14 @@ main()
             MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
          ;;
 
+         --style)
+            [ $# -eq 1 ] && fail "missing argument to \"$1\""
+            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1" `"
+            shift
+
+            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1" `"
+         ;;
+
          --version)
             echo "${MULLE_EXECUTABLE_VERSION}"
             exit 0
@@ -234,7 +270,7 @@ main()
          all|build|clean|craft|onlydependencies|nodependencies|project|sourcetree)
             fail "To run ${MULLE_USAGE_NAME} outside of mulle-env, pass the -e flag"
          ;;
-         dependency|installed|library|monitor|subproject|minion|update)
+         dependency|installed|library|monitor|subproject|minion|style|update)
             fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
          ;;
       esac
@@ -296,11 +332,6 @@ main()
             exekutor "${MULLE_MONITOR}" "find" --format "%e: %f [%c]\\n"
       ;;
 
-
-      help)
-         usage "${MULLE_TRACE}"
-      ;;
-
       init)
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
@@ -328,6 +359,10 @@ main()
          exekutor echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
+      project-dir)
+         determine_project_dir
+      ;;
+
       monitor)
          # shellcheck source=src/mulle-sde-monitor.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
@@ -337,6 +372,12 @@ main()
 
       motd)
          create_motd "$@"
+      ;;
+
+      style)
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+
       ;;
 
       subproject|minion)

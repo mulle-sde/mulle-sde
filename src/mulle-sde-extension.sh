@@ -511,7 +511,7 @@ sde_extension_list_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h*|--help|help)
             sde_extension_list_usage
          ;;
 
@@ -861,6 +861,14 @@ __emit_extension_usage()
             | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
+
+      if [ -f "${extensiondir}/optionaltool" ]
+      then
+         echo "Optional Tools:"
+         egrep -v '^#' "${extensiondir}/optionaltool" \
+            | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         echo
+      fi
    fi
 
    if [ -z "${OPTION_LIST}" ]
@@ -938,7 +946,7 @@ sde_extension_usage_main()
    while :
    do
       case "$1" in
-         -h|--help)
+         -h*|--help|help)
             sde_extension_usage_usage
          ;;
 

@@ -117,7 +117,7 @@ information about dependencies.
 ![](dox/mulle-sde-environment.png)
 
 *Environment* variables are the setting mechanism of **mulle-sde**. They are
-handled by [mulle-env](/mulle-sde/mulle-env). These settings can vary, 
+handled by [mulle-env](/mulle-sde/mulle-env). These settings can vary,
 depending on operating system, host or user.
 
 You can add or remove environment variables with  *environment*.
@@ -221,7 +221,7 @@ The monitor is a complex beast and has its own
 provided by [mulle-env](/mulle-sde/mulle-env).
 You can add or remove tools with this command set.
 
-> This is only applicable to environment styles `:restricted` and `:none`.
+> This is only applicable to environment styles `:restricted` and `:tight`.
 > The `:inherit` style uses the default **PATH**.
 
 ```

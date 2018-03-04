@@ -32,7 +32,7 @@
 MULLE_SDE_LIBRARY_SH="included"
 
 
-LIBRARY_MARKS="no-fs,no-cmake-include,no-dependency,no-build,no-update,no-delete"
+LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 
 #
 # This puts some additional stuff into userinfo of the sourcetree

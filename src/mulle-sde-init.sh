@@ -34,7 +34,6 @@
 MULLE_SDE_INIT_SH="included"
 
 
-
 sde_init_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -46,11 +45,12 @@ sde_init_usage()
    -d <dir>       : directory to populate (working directory)
    -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
    -m <meta>      : specify meta extensions
-   -p <name>      : project name"
+   -p <name>      : project name
+   --existing     : skips project and demo files. Does not run init scripts."
 
    HIDDEN_OPTIONS="\
    -b <buildtool> : specify the buildtool extension to use
-   --no-demo      : do not install gratuitous demo files, like main.c
+   --no-demo      : do not install gratuitous demo files, like main.
    -r <runtime>   : specify runtime extension to use
    -v <vendor>    : extension vendor to use (mulle-sde)"
 
@@ -58,12 +58,16 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   See with \`mulle-sde extension list\`  what extensions are available on
-   your system. Pick a meta extension to install. Check with
-   \`mulle-sde extension usage\` what types are available from your chosen
-   extension.  Create a mulle-sde project with your chosen type.
+   See with \`mulle-sde extension list\`  what extensions are available on your
+   system. Pick a meta extension to install. Check with what types are present
+   in your chosen extension with \`mulle-sde extension usage\`.
+   Create a mulle-sde project with your chosen type. To setup a new project:
 
-   e.g.  mulle-sde init -m mulle-sde:c-cmake executable
+      mulle-sde init -d ./my-project -m mulle-sde:c-cmake executable
+
+   To modify an existing project:
+
+      cd my-project ; mulle-sde init --existing -m mulle-sde:c-cmake executable
 
    Use \`mulle-sde extension add\` to add extra extensions.
 
@@ -506,6 +510,7 @@ add_to_tools()
    log_entry "add_to_tools" "$@"
 
    local filename="$1"
+   local scope="$2"
 
    if [ -f "${filename}.${MULLE_UNAME}" ]
    then
@@ -524,7 +529,7 @@ add_to_tools()
       then
          log_verbose "Adding \"${line}\" to tool"
          MULLE_VIRTUAL_ROOT="${PWD}" \
-            exekutor "${MULLE_ENV}" tool add "${line}" || exit 1
+            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} tool ${scope} add "${line}" || exit 1
       fi
    done
    IFS="${DEFAULT_IFS}"
@@ -744,6 +749,21 @@ vendor \"${vendor}\""
       fi
    else
       log_fluff "No tool file \"${extensiondir}/tool\" found"
+   fi
+
+   if [ -f "${extensiondir}/optionaltool" ]
+   then
+      if is_disabled_by_marks "${marks}" "no-optionaltool" || \
+         is_disabled_by_marks "${marks}" "no-optionaltool-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-optionaltool-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}:${extname}: ignoring \
+\"${extensiondir}/optionaltool\" due to no-optionaltool mark"
+      else
+         add_to_tools  "${extensiondir}/optionaltool" "--optional"
+      fi
+   else
+      log_fluff "No optionaltool file \"${extensiondir}/optionaltool\" found"
    fi
 
    if [ -d "${extensiondir}/share" ]
@@ -1096,11 +1116,10 @@ install_project()
    exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_TYPE "${projecttype}" || internal_fail "failed env set"
 
-
    fix_permissions
 
    case "${marks}" in
-      *no-motd*)
+      no-motd|*,no-motd,*|*,no-motd)
       ;;
 
       *)
@@ -1303,6 +1322,10 @@ sde_init_main()
             OPTION_VENDOR="$1"
          ;;
 
+         --existing)
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-init,no-project,no-demo"`"
+         ;;
+
          --upgrade)
             OPTION_UPGRADE="YES"
          ;;
@@ -1316,7 +1339,7 @@ sde_init_main()
          ;;
 
          --no-*)
-            OPTION_MARKS="`concat "${OPTION_MARKS}" "${1:2}"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "${1:2}"`"
          ;;
 
          --style|--env-style)
@@ -1380,6 +1403,12 @@ sde_init_main()
          rmdir_safer "${MULLE_SDE_DIR}"
          # rmdir_safer ".mulle-env"
       else
+         if [ -f "${MULLE_SDE_DIR}/.init" ]
+         then
+            fail "There is already a ${MULLE_SDE_DIR} folder here. \
+It looks like an init gone bad."
+         fi
+
          fail "There is already a ${MULLE_SDE_DIR} folder here. \
 Use \`mulle-sde upgrade\` for maintainance"
       fi
@@ -1389,11 +1418,11 @@ Use \`mulle-sde upgrade\` for maintainance"
    # if we init env now, then extensions can add environment variables
    # and tools
    #
-
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
-      exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} init --no-blurb \
-                             --style "${OPTION_ENV_STYLE}"
+      exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} --style "${OPTION_ENV_STYLE}" \
+                                 init --no-blurb
+
       case $? in
          0)
          ;;
@@ -1411,6 +1440,7 @@ Use \`mulle-sde upgrade\` for maintainance"
    add_environment_variables "${OPTION_DEFINES}"
 
    mkdir_if_missing "${MULLE_SDE_DIR}" || exit 1
+   redirect_exekutor "${MULLE_SDE_DIR}/.init" echo "Start init: `date`"
 
    case "${projecttype}" in
       empty|library|executable|extension)
@@ -1431,6 +1461,8 @@ Some files may be missing and the project may not be craftable."
    then
       exit 1
    fi
+
+   remove_file_if_present "${MULLE_SDE_DIR}/.init"
 
    if [ "${OPTION_BLURB}" = "YES" ]
    then
