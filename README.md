@@ -45,10 +45,17 @@ minimized interference.
 > [mulle-sde-cmake-c](//github.com/mulle-sde/mulle-sde-cmake)
 
 
+
+Enable bash completion:
+
+```
+$ . `mulle-sde bash-completion`
+```
+
 This is an example, that creates a cmake project for C (this is the default):
 
 ```
-$ mulle-sde init -d hello -m mulle-sde:cmake-c executable
+$ mulle-sde init -d hello -m mulle-sde/cmake-c executable
 ```
 
 Enter the environment:
@@ -168,8 +175,16 @@ Use *usage* to see special notes for a certain *extensions*:
 
 
 ```
-mulle-sde extension usage mulle-sde:extension
+mulle-sde extension usage mulle-sde/extension
 ```
+
+*upgrade* is the mechanism to install newer or different versions of your
+choice of *extensions*
+
+```
+mulle-sde extension upgrade
+```
+
 
 
 See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
@@ -221,27 +236,12 @@ The monitor is a complex beast and has its own
 provided by [mulle-env](/mulle-sde/mulle-env).
 You can add or remove tools with this command set.
 
-> This is only applicable to environment styles `:restricted` and `:tight`.
-> The `:inherit` style uses the default **PATH**.
+> This is only applicable to environment styles `-restricted` and `-tight`.
+> The `-inherit` style uses the default **PATH**.
 
 ```
 mulle-sde tool add nroff
 ```
-
-
-## mulle-sde upgrade
-
-*upgrade* is the mechanism to install newer or different versions of your
-choice of *extensions*. This is also the intended way to switch between
-different *runtimes* and *buildtools*.
-
-
-![](dox/mulle-sde-upgrade.png)
-
-```
-mulle-sde tool upgrade
-```
-
 
 
 ## mulle-sde update

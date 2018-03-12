@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.12.5
+MULLE_EXECUTABLE_VERSION=0.13.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -65,13 +65,18 @@ print_commands()
 
    HIDDEN_COMMANDS="\
    callback       : manage callbacks
-   find           : find file matching patternfiles
+   fetch          : fetch the sourcetree
+   find           : find files that match the installed patternfiles
    init-and-enter : create a new project then immediately start a subshell
    libexec-dir    : print path to mulle-sde libexec
+   mark           : add a mark to a dependency or library
+   match          : experiment with patternfiles
    installed      : list installed extension of project with version numbers
+   patternfile    : manage patternfiles
    task           : manage tasks
    test           : run tests using mulle-test
-   uname          : mulle-sdes simplified uname(1)"
+   uname          : mulle-sdes simplified uname(1)
+   unmark         : add a mark to a dependency or library"
 
 
    echo "${SHOWN_COMMANDS}"
@@ -292,6 +297,9 @@ main()
    MULLE_CRAFT="${MULLE_CRAFT:-`command -v mulle-craft`}"
    [ -z "${MULLE_CRAFT}" ] && fail "mulle-craft not in PATH"
 
+   MULLE_MATCH="${MULLE_MATCH:-`command -v mulle-match`}"
+   [ -z "${MULLE_MATCH}" ] && fail "mulle-match not in PATH"
+
    case "${cmd}" in
       #
       # forward stuff to mulle-craft verbatim
@@ -303,9 +311,14 @@ main()
          sde_build_main "${cmd}" "$@"
       ;;
 
-      callback|patternfile|task)
+      bash-completion)
+         echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
+      ;;
+
+      callback|task)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MONITOR}" "${cmd}" "$@"
+            exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_MONITOR_FLAGS} "${cmd}" "$@"
       ;;
 
       dependency)
@@ -317,7 +330,8 @@ main()
 
       environment)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
       extension)
@@ -329,7 +343,9 @@ main()
 
       find)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MONITOR}" "find" --format "%e: %f [%c]\\n"
+            exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_MATCH_FLAGS} "find" \
+                          --format "%t/%c: %f\\n"
       ;;
 
       init)
@@ -345,7 +361,13 @@ main()
 
          # interactive shell, dont set usage
          sde_init_main --no-blurb "$@" &&
-            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS}
+            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS}
+      ;;
+
+      fetch)
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
       ;;
 
       library)
@@ -359,8 +381,18 @@ main()
          exekutor echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
-      project-dir)
-         determine_project_dir
+
+      mark|unmark)
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS} "${cmd}" "$@"
+
+      ;;
+
+      match|patternfile)
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_MATCH_FLAGS} "${cmd}" "$@"
       ;;
 
       monitor)
@@ -374,9 +406,14 @@ main()
          create_motd "$@"
       ;;
 
+      project-dir)
+         determine_project_dir
+      ;;
+
       style)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} "${cmd}" "$@"
 
       ;;
 
@@ -396,7 +433,8 @@ main()
 
       tool)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
       update)

@@ -46,7 +46,7 @@ sde_init_usage()
    -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
    -m <meta>      : specify meta extensions
    -p <name>      : project name
-   --existing     : skips project and demo files. Does not run init scripts."
+   --existing     : skips project and demo files"
 
    HIDDEN_OPTIONS="\
    -b <buildtool> : specify the buildtool extension to use
@@ -63,11 +63,11 @@ Usage:
    in your chosen extension with \`mulle-sde extension usage\`.
    Create a mulle-sde project with your chosen type. To setup a new project:
 
-      mulle-sde init -d ./my-project -m mulle-sde:c-cmake executable
+      mulle-sde init -d ./my-project -m mulle-sde/c-cmake executable
 
-   To modify an existing project:
+   To setup an existing project:
 
-      cd my-project ; mulle-sde init --existing -m mulle-sde:c-cmake executable
+      cd my-project ; mulle-sde init --existing -m mulle-sde/c-cmake executable
 
    Use \`mulle-sde extension add\` to add extra extensions.
 
@@ -224,8 +224,8 @@ install_dependency_extension()
    extension="${dependency%%;*}"
    addmarks="${dependency##*;}"
 
-   vendor="${extension%%:*}"
-   extname="${extension##*:}"
+   vendor="${extension%%/*}"
+   extname="${extension##*/}"
 
    marks="`comma_concat "${marks}" "${addmarks}"`"
 
@@ -550,8 +550,8 @@ run_init()
 
    # i need this for testing somtimes
    case "${OPTION_INIT_FLAGS}" in
-      *,${vendor}:${extname}=*|${vendor}:${extname}=*)
-         escaped="`escaped_sed_pattern "${vendor}:${extname}"`"
+      *,${vendor}/${extname}=*|${vendor}/${extname}=*)
+         escaped="`escaped_sed_pattern "${vendor}/${extname}"`"
 
          flags="`sed -n -e "s/.*${escaped}=\\([^,]*\\).*/\\1/p" <<< "${OPTION_INIT_FLAGS}"`"
       ;;
@@ -600,12 +600,12 @@ install_extension()
       return
    fi
 
-   if fgrep -q -s -x "${vendor}:${extname}" <<< "${_INSTALLED_EXTENSIONS}"
+   if fgrep -q -s -x "${vendor}/${extname}" <<< "${_INSTALLED_EXTENSIONS}"
    then
-      log_fluff "Extension \"${vendor}:${extname}\" is already installed"
+      log_fluff "Extension \"${vendor}/${extname}\" is already installed"
       return
    fi
-   _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}:${extname}"`"
+   _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname}"`"
 
    local extensiondir
 
@@ -618,7 +618,7 @@ vendor \"${vendor}\""
 
    if [ ! -f "${extensiondir}/share/version/${vendor}/${extname}" ]
    then
-      fail "Extension \"${vendor}:${extname}\" is unversioned."
+      fail "Extension \"${vendor}/${extname}\" is unversioned."
    fi
 
    case "${exttype}" in
@@ -660,12 +660,12 @@ vendor \"${vendor}\""
 
    if is_disabled_by_marks "${marks}" "no-extension-${vendor}-${extname}"
    then
-      log_verbose "Not installing \"${vendor}:${extname}\" by request"
+      log_verbose "Not installing \"${vendor}/${extname}\" by request"
       return
    fi
 
 
-   log_info "Installing ${exttype} extension \"${vendor}:${extname}\""
+   log_info "Installing ${exttype} extension \"${vendor}/${extname}\""
 
    #
    # it's called inherit, so .ignoringdependencies doesn't kill it
@@ -675,7 +675,7 @@ vendor \"${vendor}\""
       is_disabled_by_marks "${marks}" "no-inherit-${exttype}" || \
       is_disabled_by_marks "${marks}" "no-inherit-${vendor}-${extname}"
    then
-      log_fluff "${vendor}:${extname}: ignoring \
+      log_fluff "${vendor}/${extname}: ignoring \
  \"${extensiondir}/inherit\" due to no-inherit mark"
    else
       if [ -f "${extensiondir}/inherit" ]
@@ -697,7 +697,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-environment-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-environment-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
  \"${extensiondir}/environment\" due to no-environment mark"
       else
          add_to_environment "${extensiondir}/environment"
@@ -712,7 +712,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-dependency-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-dependency-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/dependency\" due to no-dependency mark"
       else
          add_to_dependencies "${extensiondir}/dependency"
@@ -727,7 +727,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-library-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-library-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/library\" due to no-library mark"
       else
          add_to_libraries "${extensiondir}/library"
@@ -742,7 +742,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-tool-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-tool-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/tool\" due to no-tool mark"
       else
          add_to_tools "${extensiondir}/tool"
@@ -757,7 +757,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-optionaltool-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-optionaltool-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/optionaltool\" due to no-optionaltool mark"
       else
          add_to_tools  "${extensiondir}/optionaltool" "--optional"
@@ -772,7 +772,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-share-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-share-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/share\" due to no-share mark"
       else
          _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
@@ -788,7 +788,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-project-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-project-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/project\" due to no-project mark"
       else
          _copy_extension_template_files "${extensiondir}" \
@@ -807,7 +807,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-demo-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-demo-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/demo\" due to no-demo mark"
       else
          _copy_extension_template_files "${extensiondir}" \
@@ -827,7 +827,7 @@ vendor \"${vendor}\""
          is_disabled_by_marks "${marks}" "no-init-${exttype}" || \
          is_disabled_by_marks "${marks}" "no-init-${vendor}-${extname}"
       then
-         log_fluff "${vendor}:${extname}: ignoring \
+         log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/init\" due to no-init mark"
       else
          run_init "${extensiondir}/init" "${projecttype}" "${vendor}" "${extname}"
@@ -845,7 +845,7 @@ vendor \"${vendor}\""
       is_disabled_by_marks "${marks}" "no-motd-${exttype}" || \
       is_disabled_by_marks "${marks}" "no-motd-${vendor}-${extname}"
    then
-      log_fluff "${vendor}:${extname}: ignoring any motd info due to \
+      log_fluff "${vendor}/${extname}: ignoring any motd info due to \
 marks"
    else
       _append_to_motd "${extensiondir}"
@@ -922,9 +922,9 @@ install_extra_extensions()
             continue
          ;;
 
-         *:*)
-            extra_vendor="${extra%%:*}"
-            extra_name="${extra##*:}"
+         */*)
+            extra_vendor="${extra%%/*}"
+            extra_name="${extra##*/}"
          ;;
 
          *)
@@ -974,9 +974,9 @@ install_project()
       fi
 
       case "${OPTION_META}" in
-         *:*)
-            meta_vendor="${OPTION_META%%:*}"
-            meta_name="${OPTION_META##*:}"
+         */*)
+            meta_vendor="${OPTION_META%%/*}"
+            meta_name="${OPTION_META##*/}"
          ;;
 
          *)
@@ -992,9 +992,9 @@ install_project()
    if [ ! -z "${OPTION_RUNTIME}" ]
    then
       case "${OPTION_RUNTIME}" in
-         *:*)
-            runtime_vendor="${OPTION_RUNTIME%%:*}"
-            runtime_name="${OPTION_RUNTIME##*:}"
+         */*)
+            runtime_vendor="${OPTION_RUNTIME%%/*}"
+            runtime_name="${OPTION_RUNTIME##*/}"
          ;;
 
          *)
@@ -1010,9 +1010,9 @@ install_project()
    if [ ! -z "${OPTION_BUILDTOOL}" ]
    then
       case "${OPTION_BUILDTOOL}" in
-         *:*)
-            buildtool_vendor="${OPTION_BUILDTOOL%%:*}"
-            buildtool_name="${OPTION_BUILDTOOL##*:}"
+         */*)
+            buildtool_vendor="${OPTION_BUILDTOOL%%/*}"
+            buildtool_name="${OPTION_BUILDTOOL##*/}"
          ;;
 
          *)
@@ -1224,7 +1224,7 @@ sde_init_main()
    local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV="YES"
-   local OPTION_ENV_STYLE="mulle:wild" # wild is least culture shock initially
+   local OPTION_ENV_STYLE="mulle/wild" # wild is least culture shock initially
    local OPTION_BLURB="YES"
    local OPTION_TEMPLATE_FILES="YES"
    local OPTION_INIT_FLAGS
@@ -1234,6 +1234,8 @@ sde_init_main()
    local OPTION_ADD
 
    local line
+
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] || fail "You can not run init inside an environment shell"
 
    #
    # handle options
@@ -1323,7 +1325,7 @@ sde_init_main()
          ;;
 
          --existing)
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-init,no-project,no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project,no-demo"`"
          ;;
 
          --upgrade)
@@ -1400,7 +1402,8 @@ sde_init_main()
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
       then
-         rmdir_safer "${MULLE_SDE_DIR}"
+         rmdir_safer ".mulle-sde/share"
+         rmdir_safer ".mulle-sde/var"
          # rmdir_safer ".mulle-env"
       else
          if [ -f "${MULLE_SDE_DIR}/.init" ]
@@ -1420,7 +1423,15 @@ Use \`mulle-sde upgrade\` for maintainance"
    #
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
-      exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} --style "${OPTION_ENV_STYLE}" \
+      local flags
+
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+      then
+         flags="-f"
+      fi
+
+      exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} ${flags} \
+                                 --style "${OPTION_ENV_STYLE}" \
                                  init --no-blurb
 
       case $? in

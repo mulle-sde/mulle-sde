@@ -1,3 +1,10 @@
+## 0.13.0
+
+* use / as vendor extension separator instead of :
+* added bash completion
+* adapt to changes in inferior tools
+
+
 ### 0.12.5
 
 * uniform help, remove obsolete cmake-include

@@ -365,7 +365,7 @@ sde_library_list_main()
    log_fluff "Just pass through to mulle-sourcetree"
 
    exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-      --format "ami={aliases,,-------}" \
+      --format "%a;%m;%i={aliases,,-------}\\n" \
       --nodetypes "none" \
       --marks "${marks}" \
       --no-output-marks "${LIBRARY_MARKS}" \

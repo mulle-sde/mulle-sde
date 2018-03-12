@@ -18,7 +18,7 @@ main()
 
    local i
 
-   log_verbose "mulle-sde: `mulle-sde version` (`mulle-sde library-path`)"
+   log_verbose "mulle-sde/ `mulle-sde version` (`mulle-sde library-path`)"
 
    OUTPUT_DEVICE=
    for i in "${TEST_DIR}"/*
@@ -41,7 +41,7 @@ main()
 
 init()
 {
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env library-path`" || exit 1
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir`" || exit 1
 
    . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
 }

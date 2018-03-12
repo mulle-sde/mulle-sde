@@ -41,18 +41,17 @@ sde_dependency_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency [options] [command]
+   ${MULLE_USAGE_NAME} dependency [command]
 
    A dependency is a third party package, that is fetched via an URL.
    I will be built along with your project.
 
-Options:
-   -h           : show this usage
-
 Commands:
-   add <url>    : add a dependency
-   remove <url> : remove a dependency
-   list         : list dependencies (default)
+   add    : add a dependency
+   get    : retrieve dependency settings
+   list   : list dependencies (default)
+   remove : remove a dependency
+   set    : change dependency settings
          (use <command> -h for more help about commands)
 EOF
    exit 1
@@ -232,7 +231,9 @@ sde_dependency_list_main()
    log_entry "sde_dependency_list_main" "$@"
 
    local marks
+   local formatstring
 
+   formatstring="%a;%m;%i={aliases,,-------}"
    marks="${DEPENDENCY_MARKS}"
 
    while :
@@ -240,6 +241,10 @@ sde_dependency_list_main()
       case "$1" in
          -h|--help|help)
             sde_dependency_list_usage
+         ;;
+
+         --name-only)
+            formatstring="%a\\n" 
          ;;
 
          --marks)
@@ -271,7 +276,7 @@ sde_dependency_list_main()
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-         --format "ami={aliases,,-------}" \
+         --format "${formatstring}" \
          --marks "${marks}" \
          --no-output-marks "${DEPENDENCY_MARKS}" \
           "$@"
@@ -380,7 +385,7 @@ sde_dependency_add_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_usage
+            sde_dependency_add_usage
          ;;
 
          --if-missing)
@@ -392,11 +397,11 @@ sde_dependency_add_main()
          ;;
 
          --header-only|--headeronly)
-            marks="`comma_concat "${marks}" "no-link"`"
+            marks="`comma_concat "${marks}" "no-build,no-link"`"
          ;;
 
          --embedded)
-            marks="`comma_concat "${marks}" "no-share,no-build"`"
+            marks="`comma_concat "${marks}" "no-build,no-header,no-share"`"
          ;;
 
          --plain)
@@ -404,28 +409,28 @@ sde_dependency_add_main()
          ;;
 
          --branch)
-            [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
             shift
 
             branch="$1"
          ;;
 
          --nodetype)
-            [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
             shift
 
             nodetype="$1"
          ;;
 
          --address)
-            [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
             shift
 
             address="$1"
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
             shift
 
             marks="`comma_concat "${marks}" "$1"`"
@@ -436,7 +441,7 @@ sde_dependency_add_main()
          ;;
 
          --*)
-            [ "$#" -eq 1 ] && sde_dependency_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
 
             options="`concat "${options}" "$1 '$2'"`"
             shift
@@ -451,7 +456,7 @@ sde_dependency_add_main()
    done
 
    local url="$1"
-   [ -z "${url}" ] && sde_dependency_get_usage "missing url"
+   [ -z "${url}" ] && sde_dependency_add_usage "missing url"
    shift
 
    if [ "${OPTION_ENHANCE}" = "YES" ]

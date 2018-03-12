@@ -60,16 +60,22 @@ sde_extension_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} extension list [options]
+   ${MULLE_USAGE_NAME} extension list [options] [type]
 
    List available mulle-sde extensions of types "meta" and "extra". Those are
    usually the candidates to select. The "meta" extension in tells mulle-sde
    to load the required "runtime" and "buildtool" extensions.
 
 Options:
-   --all       : list otherwise suppressed buildtool and runtime extensions
-   --installed : list extensions installed in your project
    --version   : show version of the extensions
+
+Types:
+   all       : list all available extensions
+   buildtool : list available buildtool extensions
+   extra     : list available extra extensions
+   installed : list extensions installed in your project
+   meta      : list available meta extensions
+   runtime   : list available runtime extensions
 EOF
    exit 1
 }
@@ -110,23 +116,6 @@ EOF
 }
 
 
-extension_get_home_config_dir()
-{
-   log_entry "extension_get_home_config_dir" "$@"
-
-   case "${UNAME}" in
-      darwin)
-         # or what ?
-         echo "${HOME}/Library/Preferences"
-      ;;
-
-      *)
-         echo "${HOME}/.config"
-      ;;
-   esac
-}
-
-
 #
 # An extension must be present at init time. Nothing from the project
 # exists (there is nothing in MULLE_VIRTUAL_ROOT/dependencies)
@@ -157,27 +146,51 @@ extension_get_search_path()
    IFS=":"; set -o noglob
    for i in ${MULLE_SDE_EXTENSION_PATH}
    do
-      i="`filepath_concat "${i}" "${vendor}"`"
-      s="`colon_concat "$s" "$i" `"
+      if [ ! -z "${vendor}" ]
+      then
+         i="${i}/${vendor}"
+      fi
+      s="${s}:${i}"
    done
+
    IFS="${DEFAULT_IFS}"; set +o noglob
 
    case "${vendor}" in
-      ""|mulle-sde)
-         extensionsdir="`filepath_concat "${MULLE_SDE_LIBEXEC_DIR}/extensions" "${vendor}"`"
-         s="`colon_concat "$s" "${extensionsdir}" `"
+      "")
+         extensionsdir="${MULLE_SDE_LIBEXEC_DIR}/extensions"
+         s="$s:${extensionsdir}"
+      ;;
+
+      mulle-sde)
+         extensionsdir="${MULLE_SDE_LIBEXEC_DIR}/extensions/${vendor}"
+         s="$s:${extensionsdir}"
       ;;
 
       *)
-         homeextensionsdir="`extension_get_home_config_dir`/mulle-sde/extensions"
-         homeextensionsdir="`filepath_concat  "${homeextensionsdir}" "${vendor}"`"
+         case "${MULLE_UNAME}" in
+            darwin)
+               # or what ?
+               homeextensionsdir="${HOME}/Library/Preferences"
+            ;;
 
-         s="`colon_concat "$s" "${homeextensionsdir}" `"
+            *)
+               homeextensionsdir="${HOME}/.config"
+            ;;
+         esac
 
-         extensionsdir="share/mulle-sde/extensions"
-         extensionsdir="`filepath_concat "${extensionsdir}" "${vendor}"`"
-         s="`colon_concat "$s" "/usr/local/${extensionsdir}" `"
-         s="`colon_concat "$s" "/usr/${extensionsdir}" `"
+         homeextensionsdir="${homeextensionsdir}/mulle-sde/extensions/${vendor}"
+
+         s="$s:${homeextensionsdir}"
+
+         extensionsdir="share/mulle-sde/extensions/${vendor}"
+         s="$s:/usr/local/${extensionsdir}"
+         s="$s:/usr/${extensionsdir}"
+      ;;
+   esac
+
+   case "$s" in
+      :*)
+         s="${s:1}"
       ;;
    esac
 
@@ -276,6 +289,16 @@ find_extension()
    local vendor="$1"
    local name="$2"
 
+   case "${name}" in
+      */*)
+         internal_fail "Inherit \"${name}\" was not correctly parsed"
+      ;;
+
+      *:*)
+         fail "Inherit \"${name}\" is in obsolete <vendor>:<extension> format. Use / separator"
+      ;;
+   esac
+
    local searchpath
 
    searchpath="`extension_get_search_path "${vendor}" `"
@@ -320,7 +343,7 @@ extensionnames_from_extension_dirs()
 " ; set -o noglob
    for directory in ${extensiondirs}
    do
-      echo "${vendor}:`basename -- "${directory}"`"
+      echo "${vendor}/`basename -- "${directory}"`"
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 }
@@ -406,19 +429,19 @@ collect_inherit_extensiondirs()
             continue
          ;;
 
-         *:*)
-            vendor="${dependency%%:*}"
-            extension="${dependency##*:}"
+         */*)
+            vendor="${dependency%%/*}"
+            extension="${dependency##*/}"
          ;;
 
          *)
-            fail "Inherit \"${dependency}\" must be fully qualified <vendor>:<extension>"
+            fail "Inherit \"${dependency}\" must be fully qualified <vendor>/<extension>"
          ;;
       esac
 
       if ! find_extension "${vendor}" "${extension}"
       then
-         log_warning "Inheriting unknown extension \"${vendor}:${extension}\""
+         log_warning "Inheriting unknown extension \"${vendor}/${extension}\""
       fi
    done
    set +o noglob ; IFS="${DEFAULT_IFS}"
@@ -435,7 +458,7 @@ _extension_get_version()
    local directory
 
    directory="`find_extension "${vendor}" "${name}"`"
-   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}:${result}\""
+   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
 
    local versionfile
 
@@ -444,7 +467,7 @@ _extension_get_version()
    if [ ! -f "${versionfile}" ]
    then
       log_debug "File \"${versionfile}\" is missing or unreadable"
-      log_warning "Extension \"${vendor}:${name}\" is unversioned and therefore not usable"
+      log_warning "Extension \"${vendor}/${name}\" is unversioned and therefore not usable"
    fi
 
    LC_ALL=C egrep -v '^#' < "${versionfile}"
@@ -457,7 +480,7 @@ extension_get_version()
 
    local extension="$1"
 
-   _extension_get_version "${extension%%:*}" "${extension##*:}"
+   _extension_get_version "${extension%%/*}" "${extension##*/}"
 }
 
 
@@ -470,7 +493,7 @@ emit_extension()
 
    if [ -z "${result}" ]
    then
-      log_verbose "No ${extensiontype} extensions found"
+      log_fluff "No ${extensiontype} extensions found"
       return
    fi
 
@@ -501,8 +524,6 @@ sde_extension_list_main()
 {
    log_entry "sde_extension_list_main" "$@"
 
-   local OPTION_INSTALLED
-   local OPTION_ALL
    local OPTION_VERSION
 
    #
@@ -513,14 +534,6 @@ sde_extension_list_main()
       case "$1" in
          -h*|--help|help)
             sde_extension_list_usage
-         ;;
-
-         --all)
-            OPTION_ALL="YES"
-         ;;
-
-         --installed)
-            OPTION_INSTALLED="YES"
          ;;
 
          --version)
@@ -539,21 +552,24 @@ sde_extension_list_main()
       shift
    done
 
+
+   case "$1" in
+      installed)
+         if [ "${OPTION_VERSION}" = "YES" ]
+         then
+            sde_extension_list_installed --version "$@"
+         else
+            sde_extension_list_installed "$@"
+         fi
+         return
+      ;;
+   esac
+
    local runtime_extension
    local buildtool_extension
    local meta_extension
    local extra_extension
    local vendor
-
-   if [ "${OPTION_INSTALLED}" = "YES" ]
-   then
-      if [ "${OPTION_VERSION}" = "YES" ]
-      then
-         sde_extension_list_installed --version "$@"
-      else
-         sde_extension_list_installed "$@"
-      fi
-   fi
 
    local all_vendors
 
@@ -573,20 +589,27 @@ sde_extension_list_main()
          continue
       fi
 
-      tmp="`collect_extension "${vendor}" meta `"  || return 1
-      meta_extension="`add_line "${meta_extension}" "${tmp}" `"  || return 1
+      case "${1:-default}" in
+         all|default|meta)
+            tmp="`collect_extension "${vendor}" meta `"  || return 1
+            meta_extension="`add_line "${meta_extension}" "${tmp}" `"  || return 1
+         ;;
 
-      tmp="`collect_extension "${vendor}" extra `" || return 1
-      extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
+         all|default|extra)
+            tmp="`collect_extension "${vendor}" extra `" || return 1
+            extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
+         ;;
 
-      if [ "${OPTION_ALL}" = "YES" ]
-      then
-         tmp="`collect_extension "${vendor}" runtime `"  || return 1
-         runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
+         all|runtime)
+            tmp="`collect_extension "${vendor}" runtime `"  || return 1
+            runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
+         ;;
 
-         tmp="`collect_extension "${vendor}" buildtool `" || return 1
-         buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
-      fi
+         all|buildtool)
+            tmp="`collect_extension "${vendor}" buildtool `" || return 1
+            buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
+         ;;
+      esac
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -654,9 +677,9 @@ a mulle-sde project"
          if [ "${OPTION_VERSION}" = "YES" ]
          then
             version="`LC_ALL=C egrep -v '^#' < "${filename}"`"
-            echo "${vendor}:${extension}" "${version}"
+            echo "${vendor}/${extension}" "${version}"
          else
-            echo "${vendor}:${extension}"
+            echo "${vendor}/${extension}"
          fi
       done
       IFS="${DEFAULT_IFS}"
@@ -687,21 +710,55 @@ collect_file_info()
 
 __set_extension_vars()
 {
+   log_entry "__set_extension_vars" "$@"
+
    vendor="${OPTION_VENDOR}"
+
    case "${extension}" in
       *:*)
-         vendor="${extension%%:*}"
-         extension="${extension##*:}"
+         internal_fail "obsolete extension format"
+      ;;
+
+      */*)
+         vendor="${extension%%/*}"
+         extension="${extension##*/}"
       ;;
    esac
 
    extensiondir="`find_extension "${vendor}" "${extension}"`" \
-         || fail "Unknown extension \"${vendor}:${extension}\""
+         || fail "Unknown extension \"${vendor}/${extension}\""
 
 
    inherits="`collect_extension_inherits "${extensiondir}"`"
 }
 
+
+__emit_extension_list_types()
+{
+   local extensiondir="$1"
+   local regexp="$2"
+
+   local projectdir
+   local name
+
+   for projectdir in "${extensiondir}/project"/${regexp}
+   do
+      if [ ! -d "${projectdir}" ]
+      then
+         continue
+      fi
+#      local capitalized
+#
+#      capitalized="`tr a-z A-Z <<< "${OPTION_LIST:0:1}"`"
+#      capitalized="${capitalized}${OPTION_LIST:1}"
+
+      name="`fast_basename "${projectdir}"`"
+      (
+         cd "${projectdir}" || exit 1
+         find ./ -print | sed -e '/^\.*$/d' -e 's|^./||'
+      )
+   done
+}
 
 __emit_extension_usage()
 {
@@ -715,6 +772,12 @@ __emit_extension_usage()
 
    __set_extension_vars
 
+   if [ "${OPTION_LIST_TYPES}" = "YES" ]
+   then
+       collect_extension_projecttypes "${extensiondir}"
+       return
+   fi
+
    local exttype
 
    exttype="`LC_ALL=C egrep -v '^#' < "${extensiondir}/type"`"
@@ -722,14 +785,14 @@ __emit_extension_usage()
    if [ "${OPTION_USAGE_ONLY}" != "YES" ]
    then
       echo "Usage:"
-      echo "   mulle-sde init --${exttype}" "${vendor}:${extension} <type>"
+      echo "   mulle-sde init --${exttype}" "${vendor}/${extension} <type>"
       echo
    fi
-
 
    local usagetext
 
    usagetext="`collect_file_info "${extensiondir}" "usage"`"
+
 
    if [ "${OPTION_USAGE_ONLY}" != "YES" ]
    then
@@ -876,28 +939,10 @@ __emit_extension_usage()
       return
    fi
 
-   local projectdir
-   local name
-
-   for projectdir in "${extensiondir}/project"/${OPTION_LIST}
-   do
-      if [ ! -d "${projectdir}" ]
-      then
-         continue
-      fi
-#      local capitalized
-#
-#      capitalized="`tr a-z A-Z <<< "${OPTION_LIST:0:1}"`"
-#      capitalized="${capitalized}${OPTION_LIST:1}"
-
-      name="`fast_basename "${projectdir}"`"
-      echo "Project-files \"${name}\":"
-      (
-         cd "${projectdir}" || exit 1
-         find ./ -print | sed -e '/^\.*$/d' -e 's|^./||' | sed -e '/^$/d'
-      ) | sed 's/^/   /'
-      echo
-   done
+   echo "Project Types:"
+   __emit_extension_list_types "${extensiondir}" "${OPTION_LIST}" \
+      | sed -e '/^[ ]*$/d' -e 's/^/   /'
+   echo
 }
 
 
@@ -924,8 +969,11 @@ emit_extension_usage()
          set +o noglob ; IFS="${DEFAULT_IFS}"
 
          emit_extension_usage "${dependency}"
-         echo "------------------------------------------------------------"
-         echo
+         if [ "${OPTION_LIST_TYPES}" = "NO" ]
+         then
+            echo "------------------------------------------------------------"
+            echo
+         fi
       done
       set +o noglob ; IFS="${DEFAULT_IFS}"
    fi
@@ -939,9 +987,11 @@ sde_extension_usage_main()
 
    local OPTION_VENDOR="mulle-sde"
    local OPTION_LIST=
+   local OPTION_LIST_TYPES="NO"
    local OPTION_INFO="NO"
    local OPTION_RECURSE="NO"
    local OPTION_USAGE_ONLY="NO"
+   local OPTION_NO_USAGE="NO"
 
    while :
    do
@@ -976,6 +1026,10 @@ sde_extension_usage_main()
             OPTION_USAGE_ONLY="YES"
          ;;
 
+         --list-types)
+            OPTION_LIST_TYPES="YES"
+         ;;
+
          -*)
             sde_extension_usage_usage "unknown option \"$1\""
             ;;
@@ -994,7 +1048,12 @@ sde_extension_usage_main()
 
    [ "$#" -ne 0 ] && sde_extension_usage_usage "superflous arguments \"$*\""
 
-   emit_extension_usage "${extension}"
+   if [ "${OPTION_LIST_TYPES}" = "YES" ]
+   then
+      emit_extension_usage "${extension}" | sort -u
+   else
+      emit_extension_usage "${extension}"
+   fi
 }
 
 
@@ -1041,6 +1100,10 @@ sde_extension_main()
 
       list)
          sde_extension_list_main "$@"
+      ;;
+
+      searchpath)
+         extension_get_search_path
       ;;
 
       upgrade)
