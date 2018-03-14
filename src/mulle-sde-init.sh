@@ -500,8 +500,8 @@ add_to_environment()
    # remove lf for command line
    environment="`tr '\n' ' ' <<< "${environment}"`"
    MULLE_VIRTUAL_ROOT="${PWD}" \
-      eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
-                           --share mset "${environment}" || exit 1
+      eval_exekutor "'${MULLE_ENV}'" -s "${MULLE_ENV_FLAGS}" environment \
+                           --aux mset "${environment}" || exit 1
 }
 
 
@@ -942,7 +942,8 @@ install_extra_extensions()
                         "${marks}" \
                         "${force}"
 
-      option="--extra `colon_concat "${extra_vendor}" "${extra_name}"`"
+      tmp="`filepath_concat "${extra_vendor}" "${extra_name}"`"
+      option="--extra '${tmp}'"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -965,6 +966,7 @@ install_project()
 
    local cmdline_options
    local option
+   local tmp
 
    if [ ! -z "${OPTION_META}" ]
    then
@@ -985,7 +987,8 @@ install_project()
          ;;
       esac
 
-      option="--meta `colon_concat "${meta_vendor}" "${meta_name}"`"
+      tmp="`filepath_concat "${meta_vendor}" "${meta_name}"`"
+      option="--meta '${tmp}'"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
    fi
 
@@ -1003,7 +1006,8 @@ install_project()
          ;;
       esac
 
-      option="--meta `colon_concat "${runtime_vendor}" "${runtime_name}"`"
+      tmp="`filepath_concat "${runtime_vendor}" "${runtime_vendor}"`"
+      option="--runtime '${tmp}'"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
    fi
 
@@ -1021,7 +1025,8 @@ install_project()
          ;;
       esac
 
-      option="--meta `colon_concat "${buildtool_vendor}" "${buildtool_name}"`"
+      tmp="`filepath_concat "${buildtool_vendor}" "${buildtool_name}"`"
+      option="--buildtool '${tmp}'"
       cmdline_options="`concat "${cmdline_options}" "${option}"`"
    fi
 
@@ -1089,7 +1094,7 @@ install_project()
    # create files later after init
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
-   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
 
    #
@@ -1097,23 +1102,23 @@ install_project()
    # values that the user may want to edit
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_EXTENSIONS=\"${cmdline_options}"\"
-   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set MULLE_SDE_INSTALLED_EXTENSIONS "${cmdline_options}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
-   exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set PROJECT_TYPE "${projecttype}" || internal_fail "failed env set"
 
    fix_permissions
@@ -1150,7 +1155,7 @@ add_environment_variables()
 
    MULLE_VIRTUAL_ROOT="${PWD}" \
       eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
-                           --share mset "${defines}" || exit 1
+                           --aux mset "${defines}" || exit 1
 }
 
 
@@ -1234,8 +1239,6 @@ sde_init_main()
    local OPTION_ADD
 
    local line
-
-   [ -z "${MULLE_VIRTUAL_ROOT}" ] || fail "You can not run init inside an environment shell"
 
    #
    # handle options
@@ -1362,6 +1365,11 @@ sde_init_main()
 
       shift
    done
+
+   if [ "${OPTION_INIT_ENV}" = "YES" ]
+   then
+      [ -z "${MULLE_VIRTUAL_ROOT}" ] || fail "You can not run init inside an environment shell"
+   fi
 
    if [ -z "${MULLE_PATH}" ]
    then

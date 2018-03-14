@@ -1,3 +1,7 @@
+### 0.13.1
+
+* bug fixes, save extensions with quotes and use --aux for init environment
+
 ## 0.13.0
 
 * use / as vendor extension separator instead of :

@@ -2,12 +2,13 @@ digraph G {
     graph [rankdir = TD];
 
     node[ shape=record];
+    edge [ label=" runs", style="dotted" ]
 
     "mulle-sde" -> "mulle-env"
     "mulle-sde" -> "mulle-sourcetree"
     "mulle-sde" -> "mulle-monitor"
     "mulle-sde" -> "mulle-craft"
-    "mulle-sde" -> "mulle-test"
+    "mulle-sde" -> "mulle-match"
 
     "mulle-sde"   [ color="dodgerblue"; fontcolor="dodgerblue"; penwidth="2"]
 }

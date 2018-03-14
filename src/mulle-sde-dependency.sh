@@ -244,7 +244,7 @@ sde_dependency_list_main()
          ;;
 
          --name-only)
-            formatstring="%a\\n" 
+            formatstring="%a\\n"
          ;;
 
          --marks)
@@ -397,11 +397,11 @@ sde_dependency_add_main()
          ;;
 
          --header-only|--headeronly)
-            marks="`comma_concat "${marks}" "no-build,no-link"`"
+            marks="`comma_concat "${marks}" "no-link"`"
          ;;
 
          --embedded)
-            marks="`comma_concat "${marks}" "no-build,no-header,no-share"`"
+            marks="`comma_concat "${marks}" "no-build,no-header,no-link,no-share"`"
          ;;
 
          --plain)

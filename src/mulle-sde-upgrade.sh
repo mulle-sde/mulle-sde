@@ -34,7 +34,7 @@ MULLE_SDE_UPDATESUPPORT_SH="included"
 
 sde_upgrade_usage()
 {
-SHOWN_COMMANDS="\
+   SHOWN_COMMANDS="\
    project    : upgrade project template content  (rarely useful)
 "
 
@@ -186,9 +186,11 @@ sde_upgrade_main()
       options="`add_line "${options}" "--no-init" `"
    fi
 
+   options="`tr '\n' ' ' <<< "${options}"`"
+
    # shellcheck source=src/mulle-sde-init.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    MULLE_FLAG_MAGNUM_FORCE="${OPTION_FORCE_OPTION}" \
-      sde_init_main --no-blurb --no-env ${options} ${extensions} "${projecttype}"
+      eval_exekutor sde_init_main --no-blurb --no-env "${options}" "${extensions}" "'${projecttype}'"
 }

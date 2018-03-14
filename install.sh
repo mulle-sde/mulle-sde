@@ -2,7 +2,7 @@
 #
 # (c) 2015, coded by Nat!, Mulle KybernetiK
 #
-[ "${TRACE}" = "YES" ] && set -x
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 if [ "${MULLE_NO_COLOR}" != "YES" ]
 then

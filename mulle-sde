@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.13.0
+MULLE_EXECUTABLE_VERSION=0.13.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -345,7 +345,7 @@ main()
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_MATCH_FLAGS} "find" \
-                          --format "%t/%c: %f\\n"
+                          --format "%t/%c: %f\\n" "$@"
       ;;
 
       init)
@@ -353,6 +353,19 @@ main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          sde_init_main "$@"
+      ;;
+
+      reinit)
+         PROJECT_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
+         PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
+         MULLE_SDE_INSTALLED_EXTENSIONS="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} environment get MULLE_SDE_INSTALLED_EXTENSIONS`"
+
+         log_info "Re-init commandline"
+         echo "mulle-sde -f init --existing --project-name \"${PROJECT_NAME}\" \
+${MULLE_SDE_INSTALLED_EXTENSIONS} \"${PROJECT_TYPE}\""
       ;;
 
       init-and-enter)
