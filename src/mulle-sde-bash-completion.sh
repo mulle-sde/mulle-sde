@@ -42,10 +42,12 @@ then
    . "$(mulle-craft libexec-dir)/mulle-craft-bash-completion.sh"
 fi
 
-if [ "`type -t "_mulle_env_complete"`" != "function" ]
-then
-   . "$(mulle-env libexec-dir)/mulle-env-bash-completion.sh"
-fi
+# will be loaded by mulle-env
+
+# if [ "`type -t "_mulle_env_complete"`" != "function" ]
+# then
+#   . "$(mulle-env libexec-dir)/mulle-env-bash-completion.sh"
+#fi
 
 if [ "`type -t "_mulle_monitor_complete"`" != "function" ]
 then

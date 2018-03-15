@@ -566,6 +566,10 @@ sde_dependency_main()
          sde_dependency_list_main "$@"
       ;;
 
+      "")
+         sde_dependency_usage
+      ;;
+
       *)
          log_error "Unknown command \"${cmd}\""
          sde_dependency_usage

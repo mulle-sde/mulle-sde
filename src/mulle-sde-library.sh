@@ -445,7 +445,12 @@ sde_library_main()
          sde_library_${cmd}_main "$@"
       ;;
 
+      "")
+         sde_library_usage
+      ;;
+
       *)
+         log_error "Unknown command \"${cmd}\""
          sde_library_usage
       ;;
    esac

@@ -91,7 +91,7 @@ Usage:
 
    Add an extension to your project. This extension must be of type "extra".
    To reconfigure your project with another runtime or buildtool, use
-   \`${MULLE_USAGE_NAME} init\`
+   \`${MULLE_USAGE_NAME} init\` to setup anew.
 EOF
    exit 1
 }
@@ -295,7 +295,8 @@ find_extension()
       ;;
 
       *:*)
-         fail "Inherit \"${name}\" is in obsolete <vendor>:<extension> format. Use / separator"
+         fail "Inherit \"${name}\" is in obsolete <vendor>:<extension> format. \
+Use / separator"
       ;;
    esac
 
@@ -1089,13 +1090,24 @@ sde_extension_main()
    local cmd="$1"
    [ $# -ne 0 ] && shift
 
+   case "$1" in
+      -h|--help|help)
+         if [ "`type -t "sde_extension_${cmd}_usage"`" = "function" ]
+         then
+            sde_extension_${cmd}_usage
+         else
+            sde_extension_usage
+         fi
+      ;;
+   esac
+
    case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} init" \
-            sde_init_main --add --extra "$@"
+            sde_init_main --no-blurb --no-env --add --extra "$@"
       ;;
 
       list)
@@ -1107,12 +1119,6 @@ sde_extension_main()
       ;;
 
       upgrade)
-         case "$1" in
-            -h|--help|help)
-               sde_extension_upgrade_usage
-            ;;
-         esac
-
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
 

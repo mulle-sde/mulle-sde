@@ -74,50 +74,11 @@ sde_upgrade_main()
 {
    log_entry "sde_upgrade_main" "$@"
 
-   local OPTION_FORCE_OPTION="YES"
-
-   #
-   # experimental options with those you should be able to
-   # change project types, build systems and what have you
-   #
-   local OPTION_EXTENSIONS
-   local OPTION_INIT
-   local OPTION_TYPE
-
-   #
-   # handle options
-   #
    while :
    do
       case "$1" in
          -h*|--help|help)
             sde_upgrade_usage
-         ;;
-
-         --extensions)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
-            shift
-
-            OPTION_EXTENSIONS="$1"
-         ;;
-
-         --type)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
-            shift
-
-            OPTION_TYPE="$1"
-         ;;
-
-         --no-init)
-            OPTION_INIT="NO"
-         ;;
-
-         --no-force)
-            OPTION_FORCE_OPTION="NO"
-         ;;
-
-         -*)
-            sde_upgrade_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -128,69 +89,9 @@ sde_upgrade_main()
       shift
    done
 
-   local filename
-   local projecttype
-
-   extensions="${OPTION_EXTENSIONS}"
-   if [ -z "${extensions}" ]
-   then
-      extensions="${MULLE_SDE_INSTALLED_EXTENSIONS}"
-      if [ -z "${extensions}" ]
-      then
-         fail "Environment variable MULLE_SDE_INSTALLED_EXTENSIONS not set"
-      fi
-   fi
-
-   projecttype="${OPTION_TYPE}"
-   if [ -z "${projecttype}" ]
-   then
-      projecttype="${PROJECT_TYPE}"
-      if [ -z "${projecttype}" ]
-      then
-         fail "Environment variable PROJECT_TYPE not set"
-      fi
-   fi
-
-   local options
-   local cmd
-
-   #
-   # By default upgrade "share" only
-   #
-   options="--no-demo
---no-project"
-
-   #
-   # support some hackish stuff, ain't documented yet
-   # this triggers the various is_disabled_by_marks lines in init
-   # that way you can selectively turn on/off part of what to upgrade
-   # which might be nice down the road (or not)
-   #
-   while [ "$#" -ne 0 ]
-   do
-      case "$1" in
-         no-*)
-            options="`add_line "${options}" "--$1" `"
-         ;;
-
-         *)
-            pattern="`escaped_grep_pattern "$1"`"
-            options="`egrep -v -e "--no-${pattern}" <<< "${options}" `"
-         ;;
-      esac
-      shift
-   done
-
-   if [ "${OPTION_INIT}" = "NO" ]
-   then
-      options="`add_line "${options}" "--no-init" `"
-   fi
-
-   options="`tr '\n' ' ' <<< "${options}"`"
-
    # shellcheck source=src/mulle-sde-init.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   MULLE_FLAG_MAGNUM_FORCE="${OPTION_FORCE_OPTION}" \
-      eval_exekutor sde_init_main --no-blurb --no-env "${options}" "${extensions}" "'${projecttype}'"
+   MULLE_FLAG_MAGNUM_FORCE="YES" \
+      eval_exekutor sde_init_main --upgrade "$@"
 }

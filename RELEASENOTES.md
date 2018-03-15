@@ -1,3 +1,12 @@
+## 0.14.0
+
+* simplify ignore by just looking into src and tests (and .mulle-sourcetree/etc)
+* extension add should work now well
+* dial back to `MULLE_VIRTUAL_ROOT` for a choice of commands
+* simplify upgrade
+* reinit is now a proper command
+
+
 ### 0.13.1
 
 * bug fixes, save extensions with quotes and use --aux for init environment
