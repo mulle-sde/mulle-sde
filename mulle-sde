@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.14.0
+MULLE_EXECUTABLE_VERSION=0.14.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -51,19 +51,6 @@ print_commands()
 {
    local show_all="${1:-NO}"
 
-   SHOWN_COMMANDS="\
-   clean          : clean various parts of the project
-   craft          : build the project using mulle-craft
-   dependency     : manage third party components (like a Github project)
-   environment    : manage environment variables
-   extension      : show available language and buildtool extensions
-   init           : create a new project
-   library        : manage OS libraries (like pthread)
-   monitor        : monitor project files, run updates and build
-   subproject     : manage local subprojects
-   update         : run only updates, once"
-
-
    HIDDEN_COMMANDS="\
    callback       : manage callbacks
    fetch          : fetch the sourcetree
@@ -78,12 +65,46 @@ print_commands()
    uname          : mulle-sdes simplified uname(1)
    unmark         : add a mark to a dependency or library"
 
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      SHOWN_COMMANDS="\
+   extension      : show available language and buildtool extensions
+   init           : create a new project"
 
-   echo "${SHOWN_COMMANDS}"
+      HIDDEN_COMMANDS="\
+   clean          : clean various parts of the project
+   craft          : build the project using mulle-craft
+   dependency     : manage third party components (like GitHub projects)
+   environment    : manage environment variables (project settings)
+   clean          : clean various parts of the project
+   craft          : build the project using mulle-craft
+   dependency     : manage third party components (like GitHub projects)
+   environment    : manage environment variables (project settings)
+   extension      : show available language and buildtool extensions
+   init           : create a new project
+   library        : manage second party (OS) libraries (like pthread)
+   monitor        : monitor project files, run update and build
+   subproject     : manage local subprojects
+   update         : update project makefiles"
+   else
+      SHOWN_COMMANDS="\
+   clean          : clean various parts of the project
+   craft          : build the project using mulle-craft
+   dependency     : manage third party components (like GitHub projects)
+   environment    : manage environment variables (project settings)
+   extension      : show available language and buildtool extensions
+   init           : create a new project
+   library        : manage second party (OS) libraries (like pthread)
+   monitor        : monitor project files, run update and build
+   subproject     : manage local subprojects
+   update         : update project makefiles"
+   fi
+
+   echo "${SHOWN_COMMANDS}" | sort
 
    if [ "${show_all}" != "NO" ]
    then
-      echo "${HIDDEN_COMMANDS}"
+      echo "${HIDDEN_COMMANDS}" | sort
    fi
 }
 
@@ -111,6 +132,24 @@ Usage:
 
    The commandline IDE.
 
+EOF
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      cat <<EOF
+   Create a new project with \`mulle-sde init\` or enter an existing one with
+   \`mulle-sde <directory>\`.
+
+EOF
+   else
+      cat <<EOF
+   To start development run \`mulle-sde monitor\` in this shell and edit your
+   source files in 'src' in another shell. Or periodically run
+   \`mulle-sde update\` followed by \`mulle-sde craft\` to build.
+
+EOF
+   fi
+
+   cat <<EOF
 Flags:
 EOF
    print_flags  | sort

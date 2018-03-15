@@ -305,6 +305,10 @@ copy_and_expand_template()
    text="`eval_exekutor "${template_sed}" < "${templatefile}" `"
 
    mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
+   if [ -f "${expanded_dstfile}" ]
+   then
+      exekutor chmod ug+w "${expanded_dstfile}"
+   fi
    redirect_exekutor "${expanded_dstfile}" echo "${text}"
 
    local permissions
@@ -461,7 +465,7 @@ _template_main()
 
    if [ "${MULLE_FLAG_EXEKUTOR_DRY_RUN}" = "YES" ]
    then
-      FLAG_FORCE="YES"
+      FLAG_FORCE="YES" # ignore existing dst, since we are doing nothing
    fi
 
    if [ "${OPTION_EMBEDDED}" = "NO" ]

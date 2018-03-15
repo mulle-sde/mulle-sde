@@ -59,13 +59,14 @@ Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
    See with \`mulle-sde extension list\`  what extensions are available on your
-   system. Pick a meta extension to install. Check with what types are present
-   in your chosen extension with \`mulle-sde extension usage\`.
-   Create a mulle-sde project with your chosen type. To setup a new project:
+   system. Pick a meta extension to install. Check what project types are
+   present for your chosen extension with \`mulle-sde extension usage\`.
+
+   Now you can create a mulle-sde project of your chosen type:
 
       mulle-sde init -d ./my-project -m mulle-sde/c-cmake executable
 
-   To setup an existing project:
+   To use an existing project with mulle-sde:
 
       cd my-project ; mulle-sde init --existing -m mulle-sde/c-cmake executable
 
@@ -103,9 +104,7 @@ _copy_extension_dir()
 
    #
    # the extensions have "overwrite" semantics, so that previous
-   # files are overwritten. So force is not interesting here
-   # except for "etc" stuff, which is considered to be sacred as it
-   # can be edited by the user
+   # files are overwritten.
    #
    if [ "${overwrite}" = "NO" ]
    then
@@ -121,13 +120,20 @@ _copy_extension_dir()
       name="`fast_basename "${directory}"`"
       if [ -d "${MULLE_SDE_DIR}/${name}" ]
       then
-         exekutor chmod -R a+wX "${MULLE_SDE_DIR}/${name}"
+         find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ug+w {} \;
       fi
+
       exekutor cp -Ra ${flags} "${directory}" "${MULLE_SDE_DIR}/" &&
       if [ "${writeprotect}" = "YES" ]
       then
-         exekutor chmod -R a-w "${MULLE_SDE_DIR}/${name}"
+         #
+         # for git its not nice to write protect directories like share,
+         # in case you checkout an old version. So just protect single files
+         #
+         find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ugo-w {} \;
       fi
+   else
+      log_fluff "Nothing to copy as \"${directory}\" is not there"
    fi
 }
 
@@ -148,6 +154,8 @@ _append_to_motd()
          log_fluff "Append \"${extensiondir}/motd\" to motd"
          _MOTD="`add_line "${_MOTD}" "${text}" `"
       fi
+   else
+      log_fluff "Nothing to append to MOTD as \"${extensiondir}/motd\" is not there ($PWD)"
    fi
 }
 
@@ -165,10 +173,6 @@ _copy_extension_template_files()
    local projectdir
 
    projectdir="${extensiondir}/${subdirectory}/${projecttype}"
-   if [ ! -d "${projectdir}" ]
-   then
-      projectdir="${extensiondir}/${subdirectory}/all"
-   fi
 
    #
    # copy and expand stuff from project folder. Be extra careful not to
@@ -181,11 +185,11 @@ _copy_extension_template_files()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
       fi
 
+      local flags
+
       if [ "${force}" = "YES" ]
       then
-         force="-f"
-      else
-         force=""
+         flags="-f"
       fi
 
       log_fluff "Copying \"${projectdir}\" with template expansion"
@@ -193,7 +197,7 @@ _copy_extension_template_files()
       # put in own shell to avoid side effects
       (
          eval _template_main --embedded \
-                             '${force}' \
+                             ${flags} \
                              --template-dir "'${projectdir}'" \
                              --name "'${PROJECT_NAME}'" \
                              --language "'${PROJECT_LANGUAGE}'" \
@@ -644,16 +648,25 @@ assert_sane_extension_values()
    local extname="$3"
 
    case "${extname}" in
+      "")
+          fail "empty extension name"
+      ;;
       *[^a-z-_0-9]*)
           fail "illegal extension name \"${extname}\" (lowercase only pls)"
       ;;
    esac
    case "${vendor}" in
+      "")
+          fail "empty vendor name"
+      ;;
       *[^a-z-_0-9]*)
           fail "illegal vendor name \"${vendor}\" (lowercase only pls)"
       ;;
    esac
    case "${exttype}" in
+      "")
+          fail "empty extension type"
+      ;;
       *[^a-z-_0-9]*)
           fail "illegal extension type \"${exttype}\" (lowercase only pls)"
       ;;
@@ -772,6 +785,8 @@ vendor \"${vendor}\""
       fi
    fi
 
+   log_fluff "Installing ${exttype} extension \"${vendor}/${extname}\" for real now :P"
+
    if [ -f "${extensiondir}/environment" ]
    then
       if is_disabled_by_marks "${marks}" "no-environment" || \
@@ -833,6 +848,12 @@ vendor \"${vendor}\""
 \"${extensiondir}/project\" due to no-project mark"
       else
          _copy_extension_template_files "${extensiondir}" \
+                                        "all" \
+                                        "project" \
+                                        "${force}" \
+                                        "$@"
+
+         _copy_extension_template_files "${extensiondir}" \
                                         "${projecttype}" \
                                         "project" \
                                         "${force}" \
@@ -848,6 +869,36 @@ vendor \"${vendor}\""
       fi
    else
       log_fluff "No project directory \"${extensiondir}/project\" found"
+   fi
+
+   #
+   # the clobber folder is like project but may always overwrite
+   # this is used for refreshing cmake/share and such, where the user should
+   # not edit
+   #
+   if [ -d "${extensiondir}/clobber" ]
+   then
+      if is_disabled_by_marks "${marks}" "no-clobber" || \
+         is_disabled_by_marks "${marks}" "no-clobber-${exttype}" || \
+         is_disabled_by_marks "${marks}" "no-clobber-${vendor}-${extname}"
+      then
+         log_fluff "${vendor}/${extname}: ignoring \
+\"${extensiondir}/clobber\" due to no-clobber mark"
+      else
+         _copy_extension_template_files "${extensiondir}" \
+                                        "all" \
+                                        "clobber" \
+                                        "YES" \
+                                        "$@"
+
+         _copy_extension_template_files "${extensiondir}" \
+                                        "${projecttype}" \
+                                        "clobber" \
+                                        "YES" \
+                                        "$@"
+      fi
+   else
+      log_fluff "No clobber directory \"${extensiondir}/clobber\" found"
    fi
 
    if [ -f "${extensiondir}/tool" ]
@@ -1022,7 +1073,7 @@ recall_installed_extensions()
    #
    rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
          ${MULLE_ENV_FLAGS} environment get MULLE_SDE_INSTALLED_EXTENSIONS \
-      | sed -e 's/--\([a-z]*\)\ \([-A-Za-z0-9_/]*\)/\2;\1,/g' \
+      | sed -e "s/--\\([a-z]*\\)\\ '\\([^']*\\)'/\\2;\\1,/g" \
       | tr ',' '\n'
 }
 
@@ -1567,9 +1618,10 @@ sde_init_main()
       projecttype="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
    else
+      [ "$#" -eq 0 ] && sde_init_usage
       projecttype="$1"
-      [ "$#" -eq 1 ] || sde_init_usage "extranous arguments \"$*\""
       shift
+      [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
    fi
 
    [ -z "${projecttype}" ] && sde_init_usage "missing project type"

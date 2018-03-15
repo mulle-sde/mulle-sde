@@ -56,8 +56,6 @@ install_bash_completion()
 {
    log_entry "install_bash_completion" "$@"
 
-   local filename
-
    local text
 
    text='\
@@ -74,14 +72,15 @@ fi
 '
 
    local dstdir
-
-   chmod -R ug+wX ".mulle-env/share"
+   local filename
 
    dstdir=".mulle-env/share/libexec"
-
    mkdir_if_missing "${dstdir}"
-   redirect_exekutor "${dstdir}/load-bash-completion.sh" echo "${text}"
-   chmod -R a-w ".mulle-env/share"
+
+   filename="${dstdir}/load-bash-completion.sh"
+   redirect_exekutor "${filename}" echo "${text}"
+
+   exekutor chmod ugo-w "${filename}"
 }
 
 

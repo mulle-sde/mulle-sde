@@ -1106,7 +1106,7 @@ sde_extension_main()
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} init" \
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
             sde_init_main --no-blurb --no-env --add --extra "$@"
       ;;
 

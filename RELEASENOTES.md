@@ -1,3 +1,7 @@
+### 0.14.1
+
+* improved usage texts, support clobber and all extension folders
+
 ## 0.14.0
 
 * simplify ignore by just looking into src and tests (and .mulle-sourcetree/etc)
