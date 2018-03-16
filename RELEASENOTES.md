@@ -1,3 +1,7 @@
+### 0.14.2
+
+* make upgrade a bit more foolproof
+
 ### 0.14.1
 
 * improved usage texts, support clobber and all extension folders

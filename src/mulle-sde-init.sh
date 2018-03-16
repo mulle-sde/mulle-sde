@@ -1063,6 +1063,10 @@ install_extra_extensions()
 }
 
 
+#
+# for reinit and .git it's nice to store the installed extensions in
+# a separate file instead of the environment
+#
 recall_installed_extensions()
 {
    log_entry "recall_installed_extensions" "$@"
@@ -1071,10 +1075,28 @@ recall_installed_extensions()
    # also read old format
    # use mulle-env so we can get at it from the outside
    #
-   rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-         ${MULLE_ENV_FLAGS} environment get MULLE_SDE_INSTALLED_EXTENSIONS \
-      | sed -e "s/--\\([a-z]*\\)\\ '\\([^']*\\)'/\\2;\\1,/g" \
-      | tr ',' '\n'
+   if [ -f "${OPTION_EXTENSION_FILE}" ]
+   then
+      exekutor egrep -v '^#' < "${OPTION_EXTENSION_FILE}"
+      return $?
+   fi
+
+   local value
+
+   value="${MULLE_SDE_INSTALLED_EXTENSIONS}"
+   if [ -z "${value}" ]
+   then
+      value="`rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                                        ${MULLE_ENV_FLAGS} environment get \
+                                          MULLE_SDE_INSTALLED_EXTENSIONS`"
+   fi
+
+   if [ ! -z "${value}" ]
+   then
+      echo "${value}" \
+         | sed -e "s/--\\([a-z]*\\)\\ '\\([^']*\\)'/\\2;\\1,/g" \
+         | tr ',' '\n'
+   fi
 }
 
 
@@ -1084,12 +1106,8 @@ memorize_installed_extensions()
 
    local extensions="$1"
 
-   extensions="`tr '\n' ',' <<< "${extensions}"`"
-   extensions="`sed 's/,$//g' <<< "${extensions}"`"
-
-   log_verbose "Environment: MULLE_SDE_INSTALLED_EXTENSIONS=\"${extensions}"\"
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
-      set MULLE_SDE_INSTALLED_EXTENSIONS "${extensions}" || internal_fail "failed env set"
+   mkdir_if_missing "${MULLE_SDE_DIR}/share"
+   redirect_exekutor "${MULLE_SDE_DIR}/share/extension" echo "${extensions}"
 }
 
 
@@ -1180,18 +1198,6 @@ install_project()
    local _INSTALLED_EXTENSIONS
 
    _MOTD=""
-
-   #
-   # always wipe these during init
-   # if you want to "add" an extra extension, then you need to reinit with
-   # all extensions, otherwise it's not reproducable
-   #
-   # https://github.com/mulle-sde/mulle-sde/wiki/.mulle-sde-directory
-   #
-   rmdir_safer "${MULLE_SDE_DIR}/var"
-
-   # we wipe this, if we aren't adding
-   rmdir_safer "${MULLE_SDE_DIR}/share"
 
    #
    # buildtool is the most likely to fail, due to a mistyped
@@ -1366,6 +1372,12 @@ __get_installed_extensions()
    local extensions
 
    extensions="`recall_installed_extensions`"
+   if [ -z "${extensions}" ]
+   then
+      log_fluff "No extensions found"
+      return 1
+   fi
+
    log_debug "Found extension: ${extensions}"
 
    local extension
@@ -1382,11 +1394,13 @@ __get_installed_extensions()
             then
                OPTION_META="${extension%;*}"
                log_debug "Reinit meta extension: ${OPTION_META}"
+               OPTION_BUILDTOOL=
+               OPTION_RUNTIME=
             fi
          ;;
 
          *\;buildtool)
-            if [ -z "${OPTION_BUILDTOOL}" ]
+            if [ -z "${OPTION_META}" -a -z "${OPTION_BUILDTOOL}" ]
             then
                OPTION_BUILDTOOL="${extension%;*}"
                log_debug "Reinit buildtool extension: ${OPTION_BUILDTOOL}"
@@ -1394,7 +1408,7 @@ __get_installed_extensions()
          ;;
 
          *\;buildtool)
-            if [ -z "${OPTION_RUNTIME}" ]
+            if [ -z "${OPTION_META}" -a -z "${OPTION_RUNTIME}" ]
             then
                OPTION_RUNTIME="${extension%;*}"
                log_debug "Reinit runtime extension: ${OPTION_META}"
@@ -1435,7 +1449,7 @@ sde_init_main()
    local OPTION_UPGRADE
    local OPTION_ADD
    local OPTION_REINIT
-
+   local OPTION_EXTENSION_FILE=".mulle-sde/share/extension"
    local line
 
    #
@@ -1526,6 +1540,13 @@ sde_init_main()
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project,no-demo"`"
          ;;
 
+         --extension-file)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_EXTENSION_FILE="$1"
+         ;;
+
          --reinit)
             OPTION_REINIT="YES"
             OPTION_BLURB="NO"
@@ -1602,7 +1623,7 @@ sde_init_main()
    if [ "${OPTION_ADD}" = "YES" ]
    then
       [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ] && \
-      fail "--addd and --reinit/--upgrade exclude each other"
+      fail "--add and --reinit/--upgrade exclude each other"
 
       __sde_init_add "$@"
       return $?
@@ -1612,7 +1633,11 @@ sde_init_main()
 
    if [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ]
    then
-      __get_installed_extensions
+      if ! __get_installed_extensions
+      then
+         fail "Could not retrieve previous extension information"
+      fi
+
       OPTION_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                       ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
       projecttype="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
@@ -1631,22 +1656,20 @@ sde_init_main()
    #
    if [ "${OPTION_UPGRADE}" != "YES" -a -d "${MULLE_SDE_DIR}" ]
    then
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" -a -f "${MULLE_SDE_DIR}/.init" ]
       then
-         rmdir_safer ".mulle-sde/share"
-         rmdir_safer ".mulle-sde/var"
-         # rmdir_safer ".mulle-env"
-      else
-         if [ -f "${MULLE_SDE_DIR}/.init" ]
-         then
-            fail "There is already a ${MULLE_SDE_DIR} folder here. \
-It looks like an init gone bad."
-         fi
-
          fail "There is already a ${MULLE_SDE_DIR} folder here. \
-Use \`mulle-sde upgrade\` for maintainance"
+It looks like an init gone bad."
       fi
+
+      fail "There is already a ${MULLE_SDE_DIR} folder here. \
+Use \`mulle-sde upgrade\` for maintainance"
    fi
+
+   # always wipe this for upgrades
+   rmdir_safer ".mulle-sde/share"
+   rmdir_safer ".mulle-sde/var"
+   # rmdir_safer ".mulle-env"
 
    #
    # if we init env now, then extensions can add environment variables

@@ -76,10 +76,13 @@ fi
 
    dstdir=".mulle-env/share/libexec"
    mkdir_if_missing "${dstdir}"
-
    filename="${dstdir}/load-bash-completion.sh"
-   redirect_exekutor "${filename}" echo "${text}"
 
+   if [ -f "${filename}" ]
+   then
+      exekutor chmod ug+w "${filename}"
+   fi
+   redirect_exekutor "${filename}" echo "${text}"
    exekutor chmod ugo-w "${filename}"
 }
 

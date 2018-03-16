@@ -5,6 +5,12 @@
 **mulle-sde** is a command-line based software development environment. The
 idea is to organize your project with the filesystem, and then let
 **mulle-sde** reflect the changed filesystem back to the "Makefile".
+An important aspect of a **mulle-sde** project is, that your project
+is can still be built without **mulle-sde installed.
+
+**mulle-sde** has little to no benefit for an existing project that has no
+dependencies and that you are loathe to reorganize to fit the mulle-sde
+workflow.
 
 
 **mulle-sde**
@@ -16,6 +22,7 @@ idea is to organize your project with the filesystem, and then let
 * creates projects and template files using mulle-sde extensions
 * can support various languages and buildtools using mulle-sde extensions
 * can switch or upgrade extensions
+* projects are easily upgradable
 
 ![](dox/mulle-sde-overview.png)
 
@@ -127,10 +134,14 @@ information about dependencies.
 handled by [mulle-env](/mulle-sde/mulle-env). These settings can vary,
 depending on operating system, host or user.
 
-You can add or remove environment variables with  *environment*.
+You can add or remove environment variables with *environment*.
 
 ```
 mulle-sde environment list
+```
+
+```
+mulle-sde environment set FOO "my foo value"
 ```
 
 
@@ -148,7 +159,7 @@ spellcheck. There is a *callback* `text-callback` that gets activated via this
 *patternfile* that will schedule the *task* `aspell-task.sh`. The
 extension also installs a template file `demo.txt` to get things going quickly.
 
-*mulle-sde* knows about five different extension types
+*mulle-sde* knows about four different extension types
 
 Extensiontype  | Description
 ---------------|-------------------------------------
@@ -162,7 +173,6 @@ The builtin support is:
 Extensiontype  | Vendor    | Name      | Description
 ---------------|-----------|-----------|--------------------------
 buildtool      | mulle-sde | sde       | Provides the executable `create-build-motd` and some *patternfiles* for working with mulle-sourcetree. It also provides a default README.md file.
-runtime        | mulle-sde | extension | An extension to write mulle-sde extensions.
 
 
 Use *list* to see the *extensions* available:
@@ -171,7 +181,7 @@ Use *list* to see the *extensions* available:
 mulle-sde extension list
 ```
 
-Use *usage* to see special notes for a certain *extensions*:
+Use *usage* to see special notes for a certain *extension*:
 
 
 ```
@@ -179,7 +189,7 @@ mulle-sde extension usage mulle-sde/extension
 ```
 
 *upgrade* is the mechanism to install newer or different versions of your
-choice of *extensions*
+choice of *extensions*:
 
 ```
 mulle-sde extension upgrade
@@ -196,7 +206,7 @@ information about adding and writing extensions.
 ![](dox/mulle-sde-library.png)
 
 Libraries are operating system provided libraries (like `libm.a`) that you
-don't want to build yourself as a dependency.
+don't build yourself.
 
 ```
 mulle-sde library add m
