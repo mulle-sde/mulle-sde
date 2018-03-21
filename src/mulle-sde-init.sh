@@ -45,7 +45,7 @@ sde_init_usage()
    -d <dir>       : directory to populate (working directory)
    -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
    -m <meta>      : specify meta extensions
-   -p <name>      : project name
+   -n <name>      : project name
    --existing     : skips project and demo files"
 
    HIDDEN_OPTIONS="\
@@ -133,7 +133,7 @@ _copy_extension_dir()
          find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ugo-w {} \;
       fi
    else
-      log_fluff "Nothing to copy as \"${directory}\" is not there"
+      log_debug "Nothing to copy as \"${directory}\" is not there"
    fi
 }
 
@@ -155,7 +155,7 @@ _append_to_motd()
          _MOTD="`add_line "${_MOTD}" "${text}" `"
       fi
    else
-      log_fluff "Nothing to append to MOTD as \"${extensiondir}/motd\" is not there ($PWD)"
+      log_debug "Nothing to append to MOTD as \"${extensiondir}/motd\" is not there ($PWD)"
    fi
 }
 
@@ -167,6 +167,7 @@ _copy_extension_template_files()
    local extensiondir="$1"; shift
    local projecttype="$1"; shift
    local subdirectory="$1"; shift
+   local onlyfilename="$1"; shift
    local force="$1"; shift
    local file_seds="$1"; shift
 
@@ -186,60 +187,34 @@ _copy_extension_template_files()
       fi
 
       local flags
+      local arguments
 
-      if [ "${force}" = "YES" ]
+      arguments="--embedded \
+               --template-dir '${projectdir}' \
+               --name '${PROJECT_NAME}' \
+               --language '${PROJECT_LANGUAGE}' \
+               --dialect '${PROJECT_DIALECT}'"
+
+      if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
       then
-         flags="-f"
+         arguments="${arguments} -f"
       fi
+
+      if [ ! -z "${onlyfilename}" ]
+      then
+         arguments="${arguments} --file '${onlyfilename}'"
+      fi
+      arguments="${arguments} ${OPTION_USERDEFINES}"
 
       log_fluff "Copying \"${projectdir}\" with template expansion"
 
       # put in own shell to avoid side effects
       (
-         eval _template_main --embedded \
-                             ${flags} \
-                             --template-dir "'${projectdir}'" \
-                             --name "'${PROJECT_NAME}'" \
-                             --language "'${PROJECT_LANGUAGE}'" \
-                             --dialect "'${PROJECT_DIALECT}'" \
-                             "${OPTION_USERDEFINES}"
+         eval _template_main "${arguments}"
       ) || fail "template generation failed"
    else
-      log_fluff "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
+      log_debug "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
    fi
-}
-
-
-install_dependency_extension()
-{
-   log_entry "install_dependency_extension" "$@"
-
-   local projecttype="$1"; shift
-   local exttype="$1"; shift
-   local dependency="$1"; shift
-   local marks="$1"; shift
-   local force="$1"; shift
-
-   local extension
-   local addmarks
-   local extname
-   local vendor
-
-   extension="${dependency%%;*}"
-   addmarks="${dependency##*;}"
-
-   vendor="${extension%%/*}"
-   extname="${extension##*/}"
-
-   marks="`comma_concat "${marks}" "${addmarks}"`"
-
-   install_extension "${projecttype}" \
-                     "${exttype}" \
-                     "${vendor:-mulle-sde}" \
-                     "${extname}" \
-                     "${marks}" \
-                     "${force}" \
-                     "$@"
 }
 
 
@@ -251,6 +226,7 @@ install_inheritfile()
    local projecttype="$1" ; shift
    local defaultexttype="$1" ; shift
    local marks="$1" ; shift
+   local onlyfilename="$1"; shift
    local force="$1" ; shift
 
    local text
@@ -272,6 +248,8 @@ install_inheritfile()
    do
       local dependency
       local exttype
+      local remainder
+      local addmarks
 
       case "${line}" in
          "")
@@ -279,8 +257,9 @@ install_inheritfile()
          ;;
 
          *\;*)
-            dependency="${line%%;*}"
-            exttype="${line##*;}"
+            IFS=";" read dependency exttype addmarks <<< "${line}"
+
+            marks="`comma_concat "${marks}" "${addmarks}"`"
          ;;
 
          *)
@@ -288,16 +267,24 @@ install_inheritfile()
          ;;
       esac
 
-      log_debug "read \"${line}\" -> \"${dependency}\";\"${exttype}\""
+      log_debug "read \"${line}\" -> \"${dependency}\";\"${exttype};\"${addmarks}\""
 
       IFS="${DEFAULT_IFS}"
 
-      install_dependency_extension "${projecttype}" \
-                                   "${exttype:-${defaultexttype}}" \
-                                   "${dependency}" \
-                                   "${marks}" \
-                                   "${force}" \
-                                   "$@"
+      local extname
+      local vendor
+
+      vendor="${extension%%/*}"
+      extname="${extension##*/}"
+
+      install_extension "${projecttype}" \
+                        "${exttype:-${defaultexttype}}" \
+                        "${vendor:-mulle-sde}" \
+                        "${extname}" \
+                        "${marks}" \
+                        "${onlyfilename}" \
+                        "${force}" \
+                        "$@"
       IFS="
 "
     done <<< "${text}"
@@ -413,6 +400,8 @@ add_to_libraries()
 
    local filename="$1"
 
+   [ ! -f "${filename}" ] && log_fluff "\"${filename}\" does not exist" && return
+
    if [ -z "${MULLE_SDE_LIBRARY_SH}" ]
    then
       # shellcheck source=src/mulle-sde-library.sh
@@ -454,6 +443,8 @@ add_to_dependencies()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
    fi
 
+   [ ! -f "${filename}" ] && log_fluff "\"${filename}\" does not exist" && return
+
    local line
 
    IFS="
@@ -485,6 +476,8 @@ add_to_environment()
 
    local environment
    local text
+
+   [ ! -f "${filename}" ] && return
 
    log_debug "environment: `cat "${filename}"`"
 
@@ -519,6 +512,8 @@ add_to_tools()
    if [ -f "${filename}.${MULLE_UNAME}" ]
    then
       filename="${filename}.${MULLE_UNAME}"
+   else
+      [ ! -f "${filename}" ] && log_fluff "\"${filename}\" does not exist" && return
    fi
 
    local line
@@ -551,6 +546,17 @@ run_init()
    local marks="$5"
    local force="$6"
 
+   if [ ! -x "${extensiondir}/init" ]
+   then
+      if [ -f "${extensiondir}/init" ]
+      then
+         fail "\"${extensiondir}/init\" must have execute permissions"
+      else
+         log_fluff "No init executable \"${extensiondir}/init\" found"
+         return
+      fi
+   fi
+
    local flags
    local escaped
 
@@ -581,61 +587,43 @@ run_init()
 
 is_disabled_by_marks()
 {
-   local marks="$1"
-   local pattern="$2"
+   local marks="$1"; shift
 
    # make sure all individual marks are enlosed by ','
    # now we can check against an , enclosed pattern
 
-   case ",${marks}," in
-      *,${pattern},*)
-         return 0
-      ;;
-   esac
+   while [ ! -z "$1" ]
+   do
+      case ",${marks}," in
+         *,$1,*)
+            return 0
+         ;;
+      esac
+      shift
+   done
    return 1
 }
 
 
-install_library_dependency_files()
+install_sourcetree_files()
 {
-   log_entry "install_library_dependency_files" "$@"
+   log_entry "install_sourcetree_files" "$@"
 
    local extensiondir="$1"
-   local exttype="$1"
-   local vendor="$1"
-   local extname="$1"
-   local marks="$1"
-   local force="$1"
+   local vendor="$2"
+   local extname="$3"
+   local marks="$4"
 
-   if [ -f "${extensiondir}/dependency" ]
+   if is_disabled_by_marks "${marks}" "no-sourcetree" \
+                                      "no-sourcetree-${vendor}-${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-dependency" || \
-         is_disabled_by_marks "${marks}" "no-dependency-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-dependency-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/dependency\" due to no-dependency mark"
-      else
-         add_to_dependencies "${extensiondir}/dependency"
-      fi
-   else
-      log_fluff "No dependency file \"${extensiondir}/dependency\" found"
+      log_fluff "${vendor}/${extname}: ignoring \
+\"${extensiondir}/dependency|library\" due to no-sourcetree mark"
+      return
    fi
 
-   if [ -f "${extensiondir}/library" ]
-   then
-      if is_disabled_by_marks "${marks}" "no-library" || \
-         is_disabled_by_marks "${marks}" "no-library-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-library-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/library\" due to no-library mark"
-      else
-         add_to_libraries "${extensiondir}/library"
-      fi
-   else
-      log_fluff "No library file \"${extensiondir}/library\" found"
-   fi
+   add_to_dependencies "${extensiondir}/dependency"
+   add_to_libraries "${extensiondir}/library"
 }
 
 
@@ -649,31 +637,53 @@ assert_sane_extension_values()
 
    case "${extname}" in
       "")
-          fail "empty extension name"
+         fail "empty extension name"
       ;;
       *[^a-z-_0-9]*)
-          fail "illegal extension name \"${extname}\" (lowercase only pls)"
+         fail "illegal extension name \"${extname}\" (lowercase only pls)"
       ;;
    esac
    case "${vendor}" in
       "")
-          fail "empty vendor name"
+         fail "empty vendor name"
       ;;
       *[^a-z-_0-9]*)
-          fail "illegal vendor name \"${vendor}\" (lowercase only pls)"
+         fail "illegal vendor name \"${vendor}\" (lowercase only pls)"
       ;;
    esac
    case "${exttype}" in
       "")
-          fail "empty extension type"
+         fail "empty extension type"
       ;;
       *[^a-z-_0-9]*)
-          fail "illegal extension type \"${exttype}\" (lowercase only pls)"
+         fail "illegal extension type \"${exttype}\" (lowercase only pls)"
       ;;
    esac
 }
 
 
+#
+# With "marks" you control what should be installed:
+#
+# no-extension    | turn off extensions (could be useful for selective upgrade)
+# no-inherit      | control what to inherit (possibly useless)
+#
+# no-env          | mulle-env specifica
+#
+# no-share        | extension files
+# no-init         | extension init
+#
+# no-sourcetree   | mulle-sourcetree specifica
+#
+# no-project
+# no-clobber
+# no-demo
+#
+# Each of these marks can be further qualified by /<vendor>/<name>
+#
+# e.g.   no-project/mulle-sde/cmake
+#
+#
 install_extension()
 {
    log_entry "install_extension" "$@"
@@ -683,6 +693,7 @@ install_extension()
    local vendor="$1"; shift
    local extname="$1"; shift
    local marks="$1"; shift
+   local onlyfilename="$1"; shift
    local force="$1"; shift
 
    # user can turn off extensions by passing ""
@@ -752,22 +763,30 @@ vendor \"${vendor}\""
       ;;
    esac
 
-   if is_disabled_by_marks "${marks}" "no-extension-${vendor}-${extname}"
+   if is_disabled_by_marks "${marks}" "no-extension" \
+                                      "no-extension/${vendor}/${extname}"
    then
       log_verbose "Not installing \"${vendor}/${extname}\" by request"
       return
    fi
 
+   if [ -z "${onlyfilename}" ]
+   then
+      local verb
 
-   log_info "Installing ${exttype} extension \"${vendor}/${extname}\""
+      verb="Installing"
+      if [ "${OPTION_UPGRADE}" = "YES" ]
+      then
+         verb="Upgrading"
+      fi
+      log_info "${verb} ${exttype} extension \"${vendor}/${extname}\""
+   fi
 
    #
-   # it's called inherit, so .ignoringdependencies doesn't kill it
-   # when syncing f.e.
+   # file is called inherit, so .gitignoring dependencies doesn't kill it
    #
-   if is_disabled_by_marks "${marks}" "no-inherit" || \
-      is_disabled_by_marks "${marks}" "no-inherit-${exttype}" || \
-      is_disabled_by_marks "${marks}" "no-inherit-${vendor}-${extname}"
+   if is_disabled_by_marks "${marks}" "no-inherit" \
+                                      "no-inherit/${vendor}/${extname}"
    then
       log_fluff "${vendor}/${extname}: ignoring \
  \"${extensiondir}/inherit\" due to no-inherit mark"
@@ -778,6 +797,7 @@ vendor \"${vendor}\""
                              "${projecttype}" \
                              "${exttype}" \
                              "${marks}" \
+                             "${onlyfilename}" \
                              "${force}" \
                              "$@"
       else
@@ -787,88 +807,67 @@ vendor \"${vendor}\""
 
    log_fluff "Installing ${exttype} extension \"${vendor}/${extname}\" for real now :P"
 
-   if [ -f "${extensiondir}/environment" ]
+   #
+   # mulle-env stuff
+   #
+   if is_disabled_by_marks "${marks}" "no-env" \
+                                      "no-env/${vendor}/${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-environment" || \
-         is_disabled_by_marks "${marks}" "no-environment-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-environment-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
- \"${extensiondir}/environment\" due to no-environment mark"
-      else
-         add_to_environment "${extensiondir}/environment"
-      fi
+      log_fluff "${vendor}/${extname}: ignoring \
+\"${extensiondir}/environment|tool|optionaltool\" due to no-environment mark"
    else
-      log_fluff "No environment file \"${extensiondir}/environment\" found"
+      add_to_environment "${extensiondir}/environment"
+      add_to_tools "${extensiondir}/tool"
+      add_to_tools "${extensiondir}/optionaltool" "--optional"
+      _append_to_motd "${extensiondir}"
    fi
 
-   if [ -d "${extensiondir}/share" ]
+   #
+   # project directory
+   #  no-demo
+   #  no-project
+   #  no-clobber
+   #
+   if is_disabled_by_marks "${marks}" "no-demo" \
+                                      "no-demo/${vendor}/${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-share" || \
-         is_disabled_by_marks "${marks}" "no-share-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-share-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/share\" due to no-share mark"
-      else
-         _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
-            fail "Could not copy \"${extensiondir}/share\""
-      fi
-   else
-      log_fluff "No share directory \"${extensiondir}/share\" found"
-   fi
-
-   if [ -d "${extensiondir}/demo" ]
-   then
-      if is_disabled_by_marks "${marks}" "no-demo" || \
-         is_disabled_by_marks "${marks}" "no-demo-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-demo-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
+      log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/demo\" due to no-demo mark"
-      else
-         _copy_extension_template_files "${extensiondir}" \
-                                        "${projecttype}" \
-                                        "demo" \
-                                        "${force}" \
-                                        "$@"
-      fi
    else
-      log_fluff "No demo directory \"${extensiondir}/demo\" found"
+      _copy_extension_template_files "${extensiondir}" \
+                                     "${projecttype}" \
+                                     "demo" \
+                                     "${onlyfilename}" \
+                                     "${force}" \
+                                     "$@"
    fi
 
    # let project clobber demo
-   if [ -d "${extensiondir}/project" ]
+   if is_disabled_by_marks "${marks}" "no-project" \
+                                      "no-project/${vendor}/${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-project" || \
-         is_disabled_by_marks "${marks}" "no-project-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-project-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
+      log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/project\" due to no-project mark"
-      else
-         _copy_extension_template_files "${extensiondir}" \
-                                        "all" \
-                                        "project" \
-                                        "${force}" \
-                                        "$@"
-
-         _copy_extension_template_files "${extensiondir}" \
-                                        "${projecttype}" \
-                                        "project" \
-                                        "${force}" \
-                                        "$@"
-
-         # install these only along with project
-         install_library_dependency_files "${extensiondir}" \
-                                          "${projecttype}" \
-                                          "${exttype}" \
-                                          "${vendor}" \
-                                          "${extname}" \
-                                          "${marks}"
-      fi
    else
-      log_fluff "No project directory \"${extensiondir}/project\" found"
+      _copy_extension_template_files "${extensiondir}" \
+                                     "all" \
+                                     "project" \
+                                     "${onlyfilename}" \
+                                     "${force}" \
+                                     "$@"
+
+      _copy_extension_template_files "${extensiondir}" \
+                                     "${projecttype}" \
+                                     "project" \
+                                     "${onlyfilename}" \
+                                     "${force}" \
+                                     "$@"
+
+      # install these only along with project
+      install_sourcetree_files "${extensiondir}" \
+                               "${vendor}" \
+                               "${extname}" \
+                               "${marks}"
    fi
 
    #
@@ -876,95 +875,58 @@ vendor \"${vendor}\""
    # this is used for refreshing cmake/share and such, where the user should
    # not edit
    #
-   if [ -d "${extensiondir}/clobber" ]
+   if is_disabled_by_marks "${marks}" "no-clobber" \
+                                      "no-clobber/${vendor}/${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-clobber" || \
-         is_disabled_by_marks "${marks}" "no-clobber-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-clobber-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
+      log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/clobber\" due to no-clobber mark"
-      else
-         _copy_extension_template_files "${extensiondir}" \
-                                        "all" \
-                                        "clobber" \
-                                        "YES" \
-                                        "$@"
-
-         _copy_extension_template_files "${extensiondir}" \
-                                        "${projecttype}" \
-                                        "clobber" \
-                                        "YES" \
-                                        "$@"
-      fi
    else
-      log_fluff "No clobber directory \"${extensiondir}/clobber\" found"
+      _copy_extension_template_files "${extensiondir}" \
+                                     "all" \
+                                     "clobber" \
+                                     "${onlyfilename}" \
+                                     "YES" \
+                                     "$@"
+
+      _copy_extension_template_files "${extensiondir}" \
+                                     "${projecttype}" \
+                                     "clobber" \
+                                     "${onlyfilename}" \
+                                     "YES" \
+                                     "$@"
    fi
 
-   if [ -f "${extensiondir}/tool" ]
+   #
+   # extension specific stuff . it's after project, so that you can do
+   # magic in init, on a fairly complete project
+   #
+   #  no-share
+   #  no-init
+   #  no-sourcetree
+   #
+   if is_disabled_by_marks "${marks}" "no-share" \
+                                      "no-share/${vendor}/${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-tool" || \
-         is_disabled_by_marks "${marks}" "no-tool-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-tool-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/tool\" due to no-tool mark"
-      else
-         add_to_tools "${extensiondir}/tool"
-      fi
+      log_fluff "${vendor}/${extname}: ignoring \
+\"${extensiondir}/share\" due to no-share mark"
    else
-      log_fluff "No tool file \"${extensiondir}/tool\" found"
-   fi
-
-   if [ -f "${extensiondir}/optionaltool" ]
-   then
-      if is_disabled_by_marks "${marks}" "no-optionaltool" || \
-         is_disabled_by_marks "${marks}" "no-optionaltool-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-optionaltool-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/optionaltool\" due to no-optionaltool mark"
-      else
-         add_to_tools  "${extensiondir}/optionaltool" "--optional"
-      fi
-   else
-      log_fluff "No optionaltool file \"${extensiondir}/optionaltool\" found"
+      _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
+         fail "Could not copy \"${extensiondir}/share\""
    fi
 
 
-   if [ -x "${extensiondir}/init" ]
+   if is_disabled_by_marks "${marks}" "no-init" \
+                                      "no-init/${vendor}/${extname}"
    then
-      if is_disabled_by_marks "${marks}" "no-init" || \
-         is_disabled_by_marks "${marks}" "no-init-${exttype}" || \
-         is_disabled_by_marks "${marks}" "no-init-${vendor}-${extname}"
-      then
-         log_fluff "${vendor}/${extname}: ignoring \
+      log_fluff "${vendor}/${extname}: ignoring \
 \"${extensiondir}/init\" due to no-init mark"
-      else
-         run_init "${extensiondir}/init" "${projecttype}" \
-                                         "${exttype}" \
-                                         "${vendor}" \
-                                         "${extname}" \
-                                         "${marks}" \
-                                         "${force}"
-      fi
    else
-      if [ -f "${extensiondir}/init" ]
-      then
-         fail "\"${extensiondir}/init\" must have execute permissions"
-      else
-         log_fluff "No init executable \"${extensiondir}/init\" found"
-      fi
-   fi
-
-   if is_disabled_by_marks "${marks}" "no-motd" || \
-      is_disabled_by_marks "${marks}" "no-motd-${exttype}" || \
-      is_disabled_by_marks "${marks}" "no-motd-${vendor}-${extname}"
-   then
-      log_fluff "${vendor}/${extname}: ignoring any motd info due to \
-marks"
-   else
-      _append_to_motd "${extensiondir}"
+      run_init "${extensiondir}/init" "${projecttype}" \
+                                      "${exttype}" \
+                                      "${vendor}" \
+                                      "${extname}" \
+                                      "${marks}" \
+                                      "${force}"
    fi
 }
 
@@ -1014,7 +976,8 @@ install_extra_extensions()
    local extras="$1"
    local projecttype="$2"
    local marks="$3"
-   local force="$4"
+   local onlyfilename="$4"
+   local force="$5"
 
    #
    # optionally install "extra" extensions
@@ -1057,6 +1020,7 @@ install_extra_extensions()
                         "${extra_vendor}" \
                         "${extra_name}" \
                         "${marks}" \
+                        "${onlyfilename}" \
                         "${force}" || return 1
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1117,7 +1081,8 @@ install_project()
 
    local projecttype="$1"
    local marks="$2"
-   local force="$3"
+   local onlyfilename="$3"
+   local force="$4"
 
    local runtime_vendor
    local buildtool_vendor
@@ -1208,21 +1173,29 @@ install_project()
                      "${meta_vendor}" \
                      "${meta_name}" \
                      "${marks}" \
+                     "${onlyfilename}" \
                      "${force}" &&
    install_extension "${projecttype}" \
                      "runtime" \
                      "${runtime_vendor}" \
                      "${runtime_name}" \
                      "${marks}" \
+                     "${onlyfilename}" \
                      "${force}" &&
    install_extension "${projecttype}" \
                      "buildtool" \
                      "${buildtool_vendor}" \
                      "${buildtool_name}" \
                      "${marks}" \
+                     "${onlyfilename}" \
                      "${force}" || exit 1
 
    install_extra_extensions "${OPTION_EXTRAS}" "${projecttype}" "${marks}" "${force}" || exit 1
+
+   if [ ! -z "${onlyfilename}" ]
+   then
+      return
+   fi
 
    #
    # remember type and installed extensions
@@ -1450,6 +1423,8 @@ sde_init_main()
    local OPTION_ADD
    local OPTION_REINIT
    local OPTION_EXTENSION_FILE=".mulle-sde/share/extension"
+   local OPTION_PROJECT_FILE
+
    local line
 
    #
@@ -1515,7 +1490,21 @@ sde_init_main()
             OPTION_META="$1"
          ;;
 
-         -p|--project-name)
+         # little hack
+         --upgrade-project-file)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_PROJECT_FILE="$1"
+            OPTION_UPGRADE="YES"
+            OPTION_BLURB="NO"
+            # different marks, we upgrade project/demo/clobber!
+            OPTION_MARKS="no-env,no-init,no-share,no-sourcetree"
+            OPTION_INIT_ENV="NO"
+         ;;
+
+
+         -n|--name|--project-name)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
 
@@ -1629,8 +1618,6 @@ sde_init_main()
       return $?
    fi
 
-   local projecttype
-
    if [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ]
    then
       if ! __get_installed_extensions
@@ -1640,16 +1627,30 @@ sde_init_main()
 
       OPTION_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                       ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
-      projecttype="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+      PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
+      [ -z "${PROJECT_TYPE}" ] && \
+         fail "Could not find required PROJECT_TYPE in environment"
    else
       [ "$#" -eq 0 ] && sde_init_usage
-      projecttype="$1"
-      shift
-      [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
+      [ "$#" -ne  1 ] || sde_init_usage "extranous arguments \"$*\""
+
+      PROJECT_TYPE="$1"
    fi
 
-   [ -z "${projecttype}" ] && sde_init_usage "missing project type"
+   case "${PROJECT_TYPE}" in
+      "")
+         fail "project type is \"\""
+      ;;
+
+      empty|library|executable|extension)
+      ;;
+
+      *)
+         log_warning "\"${PROJECT_TYPE}\" is not a standard project type.
+Some files may be missing and the project may not be craftable."
+      ;;
+   esac
 
    #
    # An upgrade is an "inplace" refresh of the extensions
@@ -1666,14 +1667,9 @@ It looks like an init gone bad."
 Use \`mulle-sde upgrade\` for maintainance"
    fi
 
-   # always wipe this for upgrades
-   rmdir_safer ".mulle-sde/share"
-   rmdir_safer ".mulle-sde/var"
-   # rmdir_safer ".mulle-env"
-
    #
-   # if we init env now, then extensions can add environment variables
-   # and tools
+   # if we init env now, then extensions can add environment
+   # variables and tools
    #
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
@@ -1707,19 +1703,22 @@ Use \`mulle-sde upgrade\` for maintainance"
    mkdir_if_missing "${MULLE_SDE_DIR}" || exit 1
    redirect_exekutor "${MULLE_SDE_DIR}/.init" echo "Start init: `date`"
 
-   case "${projecttype}" in
-      empty|library|executable|extension)
-      ;;
+   #
+   # always wipe these for clean upgrades
+   # except if we are just updating a specific project file
+   # (i.e. CMakeLists.txt)
+   #
+   if [ -z "${OPTION_PROJECT_FILE}" ]
+   then
+      rmdir_safer ".mulle-sde/share"
+      rmdir_safer ".mulle-sde/var"
+   fi
 
-      *)
-         log_warning "\"${projecttype}\" is not a standard project type.
-Some files may be missing and the project may not be craftable."
-      ;;
-   esac
+   # rmdir_safer ".mulle-env"
 
-
-   if ! install_project "${projecttype}" \
+   if ! install_project "${PROJECT_TYPE}" \
                         "${OPTION_MARKS}" \
+                        "${OPTION_PROJECT_FILE}" \
                         "${MULLE_FLAG_MAGNUM_FORCE}"
    then
       exit 1

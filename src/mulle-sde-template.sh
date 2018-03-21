@@ -292,23 +292,32 @@ copy_and_expand_template()
 
    local templatefile
 
-   templatefile="` filepath_concat "${templatedir}" "${dstfile}" `"
+   templatefile="`filepath_concat "${templatedir}" "${dstfile}" `"
 
    [ ! -f "${templatefile}" ] && internal_fail "\"${templatefile}\" is missing"
 
-   local expanded_dstfile
-
-   expanded_dstfile="`eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
-
    local text
 
-   text="`eval_exekutor "${template_sed}" < "${templatefile}" `"
+   log_debug "Generating text from template \"${templatefile}\""
+   text="`LC_ALL=C eval_exekutor "${template_sed}" < "${templatefile}" `"
+
+   local expanded_dstfile
+
+   expanded_dstfile="`LC_ALL=C eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
+
+   if [ "${expanded_dstfile}" != "${dstfile}" ]
+   then
+      log_fluff "Expanded \"${dstfile}\" to \"${expanded_dstfile}\""
+   fi
 
    mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
    if [ -f "${expanded_dstfile}" ]
    then
       exekutor chmod ug+w "${expanded_dstfile}"
    fi
+
+   log_debug "Writing expanded file \"${expanded_dstfile}\""
+
    redirect_exekutor "${expanded_dstfile}" echo "${text}"
 
    local permissions
@@ -323,6 +332,7 @@ default_template_setup()
    log_entry "default_template_setup" "$@"
 
    local templatedir="$1"
+   local onlyfile="$4"
 
    if [ ! -d "${templatedir}" ]
    then
@@ -333,20 +343,38 @@ default_template_setup()
    local template_sed
    local filename_sed
 
-   filename_sed="`template_filename_replacement_command`"
-   template_sed="`template_contents_replacement_command`"
-
    local filename
 
-   # too funny, IFS="" is wrong IFS="\n" is wrong also
-   # only hardcoded LF works
+   # too funny, IFS="" is wrong IFS="\n" is also wrong. Only hardcoded LF works
 
    IFS="
 "
    for filename in `( cd "${templatedir}" ; find . -type f -print )`
    do
       IFS="${DEFAULT_IFS}"
-      copy_and_expand_template "${templatedir}" "${filename}" "${filename_sed}" "${template_sed}"
+
+      # suppress OS X uglies
+      case "${filename}" in
+         .*/*.DS_Store)
+            continue
+         ;;
+      esac
+
+      if [ -z "${onlyfile}" -o "${filename}" = "./${onlyfile}" ]
+      then
+         if [ -z "${filename_sed}" ]
+         then
+            filename_sed="`template_filename_replacement_command`"
+            template_sed="`template_contents_replacement_command`"
+         fi
+
+         copy_and_expand_template "${templatedir}" \
+                                  "${filename}" \
+                                  "${filename_sed}" \
+                                  "${template_sed}"
+      else
+         log_debug "Ignoring \"${filename}\"..."
+      fi
       IFS="
 "
    done
@@ -377,6 +405,7 @@ _template_main()
    local PROJECT_DIALECT
    local PROJECT_UPCASE_IDENTIFIER
    local PROJECT_DOWNCASE_IDENTIFIER
+   local OPTION_FILE
 
    local template_callback
 
@@ -416,6 +445,13 @@ _template_main()
 
          -f|--force)
             FLAG_FORCE="YES"
+         ;;
+
+         --file)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_FILE="$1"
          ;;
 
          --dialect|--project-dialect)
@@ -475,7 +511,6 @@ _template_main()
 
    [ $# -ne 0 ] && log_error "superflous parameter \"$*\"" && template_usage
 
-
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
@@ -504,7 +539,8 @@ _template_main()
       *)
          "${template_callback}" "${TEMPLATE_DIR}" \
                                 "${PROJECT_NAME}" \
-                                "${PROJECT_LANGUAGE}"
+                                "${PROJECT_LANGUAGE}" \
+                                "${OPTION_FILE}"
       ;;
    esac
 }
