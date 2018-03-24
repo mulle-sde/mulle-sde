@@ -17,8 +17,10 @@ mulle-sde
 )
 
 set( LIBRARY_SCRIPTS
-src/mulle-sde-build.sh
+src/mulle-sde-bash-completion.sh
+src/mulle-sde-clean.sh
 src/mulle-sde-common.sh
+src/mulle-sde-craft.sh
 src/mulle-sde-dependency.sh
 src/mulle-sde-extension.sh
 src/mulle-sde-init.sh

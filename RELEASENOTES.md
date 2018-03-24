@@ -1,3 +1,7 @@
+### 0.15.1
+
+* fix CMakeLists.txt
+
 ## 0.15.0
 
 * use only singular directory names
