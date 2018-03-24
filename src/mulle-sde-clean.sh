@@ -58,7 +58,7 @@ sde_clean_addiction_main()
 {
    log_entry "sde_clean_addiction_main" "$@"
 
-   rmdir_safer "${ADDICTIONS_DIR}"
+   rmdir_safer "${ADDICTION_DIR}"
 }
 
 
@@ -66,15 +66,27 @@ sde_clean_dependency_main()
 {
    log_entry "sde_clean_dependency_main" "$@"
 
-   rmdir_safer "${DEPENDENCIES_DIR}"
+   rmdir_safer "${DEPENDENCY_DIR}"
 }
 
 
+#
+# use rexekutor to show call, put pass -n flag via technical flags so
+# nothing gets actually deleted with -n
+#
 sde_clean_patternfile_main()
 {
    log_entry "sde_clean_patternfile_main" "$@"
 
-   "${MULLE_MATCH}" clean
+   rexekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} clean
+}
+
+
+sde_clean_monitor_main()
+{
+   log_entry "sde_clean_monitor_main" "$@"
+
+   rexekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} clean
 }
 
 
@@ -82,7 +94,7 @@ sde_clean_project_main()
 {
    log_entry "sde_clean_project_main" "$@"
 
-   "${MULLE_CRAFT}" clean
+   rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean
 }
 
 
@@ -90,7 +102,7 @@ sde_clean_sourcetree_main()
 {
    log_entry "sde_clean_sourcetree_main" "$@"
 
-   "${MULLE_SOURCETREE}" reset
+   rexekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} reset
 }
 
 
@@ -100,6 +112,7 @@ sde_clean_all_main()
 
    sde_clean_addiction_main &&
    sde_clean_dependency_main &&
+   sde_clean_monitor_main &&
    sde_clean_patternfile_main &&
    sde_clean_project_main &&
    sde_clean_sourcetree_main
@@ -145,7 +158,8 @@ sde_clean_main()
    if [ $# -eq 0 ]
    then
       sde_clean_patternfile_main &&
-      sde_clean_project_main
+      sde_clean_monitor_main &&
+      sde_clean_project_main &&
       return $?
    fi
 

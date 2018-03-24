@@ -95,6 +95,12 @@ _copy_extension_dir()
    local overwrite="${2:-YES}"
    local writeprotect="${3:-NO}"
 
+   if [ ! -d "${directory}" ]
+   then
+      log_debug "Nothing to copy as \"${directory}\" is not there"
+      return
+   fi
+
    local flags
 
    if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
@@ -111,31 +117,64 @@ _copy_extension_dir()
       flags="${flags} -n"  # don't clobber
    fi
 
-   if [ -d "${directory}" ]
+   log_fluff "Installing from \"${directory}\""
+
+   local name
+
+   name="`fast_basename "${directory}"`"
+   if [ -d "${MULLE_SDE_DIR}/${name}" ]
    then
-      log_fluff "Installing from \"${directory}\""
+      find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ug+w {} \;
+   fi
 
-      local name
-
-      name="`fast_basename "${directory}"`"
-      if [ -d "${MULLE_SDE_DIR}/${name}" ]
-      then
-         find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ug+w {} \;
-      fi
-
-      exekutor cp -Ra ${flags} "${directory}" "${MULLE_SDE_DIR}/" &&
-      if [ "${writeprotect}" = "YES" ]
-      then
-         #
-         # for git its not nice to write protect directories like share,
-         # in case you checkout an old version. So just protect single files
-         #
-         find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ugo-w {} \;
-      fi
-   else
-      log_debug "Nothing to copy as \"${directory}\" is not there"
+   exekutor cp -Ra ${flags} "${directory}" "${MULLE_SDE_DIR}/" &&
+   if [ "${writeprotect}" = "YES" ]
+   then
+      #
+      # for git its not nice to write protect directories like share,
+      # in case you checkout an old version. So just protect single files
+      #
+      find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ugo-w {} \;
    fi
 }
+
+
+_copy_env_extension_dir()
+{
+   log_entry "_copy_env_extension_dir" "$@"
+
+   local directory="$1"
+
+   if [ ! -d "${directory}/share" ]
+   then
+      log_debug "Nothing to copy as \"${directory}/share\" is not there"
+      return
+   fi
+
+   local flags
+
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
+   then
+      flags=-v
+   fi
+
+   #
+   # the extensions have "overwrite" semantics, so that previous
+   # files are overwritten.
+   #
+
+   log_fluff "Installing from \"${directory}\""
+
+   if [ -d ".mulle-env/share" ]
+   then
+      find ".mulle-env/share" -type f -exec chmod ug+w {} \;
+   fi
+
+   exekutor cp -Ra ${flags} "${directory}/share" ".mulle-env/" &&
+
+   find ".mulle-env/share" -type f -exec chmod ugo-w {} \;
+}
+
 
 
 _append_to_motd()
@@ -144,18 +183,19 @@ _append_to_motd()
 
    local extensiondir="$1"
 
+   if [ ! -f "${extensiondir}/motd" ]
+   then
+      log_debug "Nothing to append to MOTD as \"${extensiondir}/motd\" is not there ($PWD)"
+      return
+   fi
+
    local text
 
-   if [ -f "${extensiondir}/motd" ]
+   text="`LC_ALL=C egrep -v '^#' "${extensiondir}/motd" `"
+   if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
    then
-      text="`LC_ALL=C egrep -v '^#' "${extensiondir}/motd" `"
-      if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
-      then
-         log_fluff "Append \"${extensiondir}/motd\" to motd"
-         _MOTD="`add_line "${_MOTD}" "${text}" `"
-      fi
-   else
-      log_debug "Nothing to append to MOTD as \"${extensiondir}/motd\" is not there ($PWD)"
+      log_fluff "Append \"${extensiondir}/motd\" to motd"
+      _MOTD="`add_line "${_MOTD}" "${text}" `"
    fi
 }
 
@@ -175,46 +215,47 @@ _copy_extension_template_files()
 
    projectdir="${extensiondir}/${subdirectory}/${projecttype}"
 
+   if [ ! -d "${projectdir}" ]
+   then
+      log_debug "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
+      return
+   fi
+
    #
    # copy and expand stuff from project folder. Be extra careful not to
    # clobber project files, except if -f is given
    #
-   if [ -d "${projectdir}" ]
+   if [ -z "${MULLE_SDE_INITSUPPORT_SH}" ]
    then
-      if [ -z "${MULLE_SDE_INITSUPPORT_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
-      fi
-
-      local flags
-      local arguments
-
-      arguments="--embedded \
-               --template-dir '${projectdir}' \
-               --name '${PROJECT_NAME}' \
-               --language '${PROJECT_LANGUAGE}' \
-               --dialect '${PROJECT_DIALECT}'"
-
-      if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
-      then
-         arguments="${arguments} -f"
-      fi
-
-      if [ ! -z "${onlyfilename}" ]
-      then
-         arguments="${arguments} --file '${onlyfilename}'"
-      fi
-      arguments="${arguments} ${OPTION_USERDEFINES}"
-
-      log_fluff "Copying \"${projectdir}\" with template expansion"
-
-      # put in own shell to avoid side effects
-      (
-         eval _template_main "${arguments}"
-      ) || fail "template generation failed"
-   else
-      log_debug "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
    fi
+
+   local flags
+   local arguments
+
+   arguments="--embedded \
+            --template-dir '${projectdir}' \
+            --name '${PROJECT_NAME}' \
+            --language '${PROJECT_LANGUAGE}' \
+            --dialect '${PROJECT_DIALECT}'"
+
+   if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
+   then
+      arguments="${arguments} -f"
+   fi
+
+   if [ ! -z "${onlyfilename}" ]
+   then
+      arguments="${arguments} --file '${onlyfilename}'"
+   fi
+   arguments="${arguments} ${OPTION_USERDEFINES}"
+
+   log_fluff "Copying \"${projectdir}\" with template expansion"
+
+   # put in own shell to avoid side effects
+   (
+      eval _template_main "${arguments}"
+   ) || fail "template generation failed"
 }
 
 
@@ -241,15 +282,17 @@ install_inheritfile()
    # shell programming...
    #
    local line
+   local depmarks
 
    IFS="
 "
    while read -r line
    do
-      local dependency
+      local extension
       local exttype
-      local remainder
-      local addmarks
+      local depmarks
+
+      log_debug "read \"${line}\""
 
       case "${line}" in
          "")
@@ -257,17 +300,17 @@ install_inheritfile()
          ;;
 
          *\;*)
-            IFS=";" read dependency exttype addmarks <<< "${line}"
+            IFS=";" read extension exttype depmarks <<< "${line}"
 
-            marks="`comma_concat "${marks}" "${addmarks}"`"
+            depmarks="`comma_concat "${marks}" "${depmarks}"`"
          ;;
 
          *)
-            dependency="${line}"
+            extension="${line}"
+            depmarks="${marks}"
+            exttype=
          ;;
       esac
-
-      log_debug "read \"${line}\" -> \"${dependency}\";\"${exttype};\"${addmarks}\""
 
       IFS="${DEFAULT_IFS}"
 
@@ -279,7 +322,7 @@ install_inheritfile()
 
       install_extension "${projecttype}" \
                         "${exttype:-${defaultexttype}}" \
-                        "${vendor:-mulle-sde}" \
+                        "${vendor}" \
                         "${extname}" \
                         "${marks}" \
                         "${onlyfilename}" \
@@ -339,7 +382,6 @@ environmenttext_to_mset()
 "
 
    local line
-
    local comment
 
    IFS="
@@ -699,6 +741,7 @@ install_extension()
    # user can turn off extensions by passing ""
    if [ -z "${extname}" ]
    then
+      log_debug "Empty extension name, so nothing to do"
       return
    fi
 
@@ -819,6 +862,10 @@ vendor \"${vendor}\""
       add_to_environment "${extensiondir}/environment"
       add_to_tools "${extensiondir}/tool"
       add_to_tools "${extensiondir}/optionaltool" "--optional"
+
+      _copy_env_extension_dir "${extensiondir}/env" ||
+         fail "Could not copy \"${extensiondir}/env\""
+
       _append_to_motd "${extensiondir}"
    fi
 
@@ -948,11 +995,9 @@ install_motd()
    local directory
 
    directory=".mulle-env/share"
-   exekutor chmod a+wX "${directory}"
    remove_file_if_present "${motdfile}"
    redirect_exekutor "${motdfile}" echo "${text}"
    exekutor chmod a-w "${motdfile}" || exit 1
-   exekutor chmod a-w "${directory}" || exit 1
 }
 
 
@@ -1261,6 +1306,13 @@ add_environment_variables()
    local defines="$1"
 
    [ -z "${defines}" ] && return 0
+
+   if [ "${OPTION_UPGRADE}" = "YES" -a "${_INFOED_ENV_RELOAD}" != "YES" ]
+   then
+      _INFOED_ENV_RELOAD="YES"
+      log_warning "Use ${C_RESET_BOLD}mulle-env-reload${C_INFO} to get environment \
+changes into your subshell"
+   fi
 
    MULLE_VIRTUAL_ROOT="${PWD}" \
       eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
@@ -1706,21 +1758,38 @@ Use \`mulle-sde upgrade\` for maintainance"
    #
    # always wipe these for clean upgrades
    # except if we are just updating a specific project file
-   # (i.e. CMakeLists.txt)
+   # (i.e. CMakeLists.txt). Keep "extension" file around in case something
+   # goes wrong. Also temporarily keep old share
    #
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
-      rmdir_safer ".mulle-sde/share"
+      rmdir_safer "${MULLE_SDE_DIR}/share.old"
+      exekutor mv "${MULLE_SDE_DIR}/share" "${MULLE_SDE_DIR}/share.old"
       rmdir_safer ".mulle-sde/var"
    fi
 
    # rmdir_safer ".mulle-env"
 
-   if ! install_project "${PROJECT_TYPE}" \
-                        "${OPTION_MARKS}" \
-                        "${OPTION_PROJECT_FILE}" \
-                        "${MULLE_FLAG_MAGNUM_FORCE}"
+   # run in subshell so it doesn't really exit
+   if ! (
+         install_project "${PROJECT_TYPE}" \
+                         "${OPTION_MARKS}" \
+                         "${OPTION_PROJECT_FILE}" \
+                         "${MULLE_FLAG_MAGNUM_FORCE}"
+      )
    then
+      if [ "${OPTION_UPGRADE}" = "YES" ]
+      then
+         if [ -d "${MULLE_SDE_DIR}/share.old" ]
+         then
+            log_info "The upgrade failed. Restoring old configuration."
+            rmdir_safer "${MULLE_SDE_DIR}/share"
+            exekutor mv "${MULLE_SDE_DIR}/share.old" "${MULLE_SDE_DIR}/share"
+            remove_file_if_present "${MULLE_SDE_DIR}/.init"
+         else
+            fail "Things went really bad, can't restore old configuration"
+         fi
+      fi
       exit 1
    fi
 

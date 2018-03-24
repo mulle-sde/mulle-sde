@@ -40,16 +40,7 @@ set_projectname_environment()
 
    if [ -z "${PROJECT_NAME}" ]
    then
-      case "${mode}" in
-         read)
-            PROJECT_NAME="`egrep -s -v '^#' <<< "${MULLE_SDE_ETC_DIR}/projectname"`"
-         ;;
-      esac
-
-      if [ -z "${PROJECT_NAME}" ]
-      then
-         PROJECT_NAME="`fast_basename "${PWD}"`"
-      fi
+      PROJECT_NAME="`fast_basename "${PWD}"`"
    fi
 
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME cant be empty"

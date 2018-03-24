@@ -1,3 +1,9 @@
+## 0.15.0
+
+* use only singular directory names
+* mulle-sde craft can now be called from outside of the subshell
+
+
 ### 0.14.3
 
 * Various small improvements

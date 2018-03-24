@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.14.3
+MULLE_EXECUTABLE_VERSION=0.15.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -214,6 +214,16 @@ determine_project_dir()
 }
 
 
+cd_virtual_root()
+{
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
+   fi
+   exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+}
+
+
 main()
 {
    local MULLE_FLAG_MAGNUM_FORCE="NO"
@@ -280,6 +290,10 @@ main()
             exit 0
          ;;
 
+         --no-search)
+            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --no-search`"
+         ;;
+
          -*)
             log_error "Unknown option \"$1\""
             usage "${MULLE_TRACE}"
@@ -306,18 +320,6 @@ main()
       export MULLE_VIRTUAL_ROOT
    fi
 
-   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-   then
-      case "${cmd}" in
-         all|build|clean|craft|onlydependencies|nodependencies|project|sourcetree)
-            fail "To run ${MULLE_USAGE_NAME} outside of mulle-env, pass the -e flag"
-         ;;
-         dependency|library|monitor|subproject|minion|style|update)
-            fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
-         ;;
-      esac
-   fi
-
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
    MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
    MULLE_EXECUTABLE_OPTIONS="$@"
@@ -339,22 +341,21 @@ main()
 
 
    case "${cmd}" in
-      #
-      # forward stuff to mulle-craft verbatim
-      #
-      all|build|craft|onlydependencies|nodependencies|project|sourcetree)
-         # shellcheck source=src/mulle-sde-build.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-build.sh"
-
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
-         sde_build_main "${cmd}" "$@"
-      ;;
-
       bash-completion)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
       ;;
 
+      callback|task)
+         cd_virtual_root
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_MONITOR_FLAGS} "${cmd}" "$@"
+      ;;
+
       clean)
+         cd_virtual_root
+
          # shellcheck source=src/mulle-sde-clean.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
 
@@ -362,16 +363,31 @@ main()
          sde_clean_main "$@"
       ;;
 
-      callback|task)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+      #
+      # forward stuff to mulle-craft verbatim
+      #
+      craft)
+         #
+         # "convenient" short cut to build a project w/o having to enter
+         # a subshell
+         #
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            [ "$#" -eq 0 ] || fail "The \"convenient\" craft takes no arguments"
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_MONITOR_FLAGS} "${cmd}" "$@"
+            cd "`determine_project_dir`" || exit 1
+            exec "${MULLE_ENV}" -c 'mulle-sde craft'
+         fi
+
+         cd_virtual_root
+
+         # shellcheck source=src/mulle-sde-craft.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         sde_craft_main "$@"
       ;;
 
       dependency)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          # shellcheck source=src/mulle-sde-dependency.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
@@ -380,7 +396,7 @@ main()
       ;;
 
       environment)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
@@ -388,7 +404,7 @@ main()
       ;;
 
       extension)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
@@ -397,7 +413,7 @@ main()
       ;;
 
       find)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
@@ -412,20 +428,6 @@ main()
          sde_init_main "$@"
       ;;
 
-      reinit)
-         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
-         then
-            fail "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
-         fi
-
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
-
-         # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
-
-         sde_init_main --reinit "$@"
-      ;;
-
       init-and-enter)
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
@@ -436,7 +438,7 @@ main()
       ;;
 
       fetch)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \
@@ -444,7 +446,7 @@ main()
       ;;
 
       library)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          # shellcheck source=src/mulle-sde-library.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
@@ -456,9 +458,8 @@ main()
          exekutor echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
-
       mark|unmark)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} \
@@ -467,7 +468,7 @@ main()
       ;;
 
       match|patternfile)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
@@ -475,7 +476,7 @@ main()
       ;;
 
       monitor)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          # shellcheck source=src/mulle-sde-monitor.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
@@ -483,23 +484,33 @@ main()
          sde_monitor_main "$@"
       ;;
 
-      motd)
-         create_motd "$@"
-      ;;
 
       project-dir)
          determine_project_dir
+      ;;
+
+      reinit)
+         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+         then
+            fail "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
+         fi
+
+         cd_virtual_root
+
+         # shellcheck source=src/mulle-sde-init.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+
+         sde_init_main --reinit "$@"
       ;;
 
       style)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_ENV_FLAGS} "${cmd}" "$@"
-
       ;;
 
       subproject|minion)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          # shellcheck source=src/mulle-sde-subproject.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh"
@@ -508,6 +519,8 @@ main()
       ;;
 
       template)
+         cd_virtual_root
+
          # shellcheck source=src/mulle-sde-tool.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh"
 
@@ -515,7 +528,7 @@ main()
       ;;
 
       tool)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
@@ -523,7 +536,7 @@ main()
       ;;
 
       update)
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         cd_virtual_root
 
          # shellcheck source=src/mulle-sde-update.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
@@ -568,7 +581,8 @@ main()
          fi
 
          # interactive shell, dont set usage
-         exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+         MULLE_CALLED_EXECUTABLE_NAME="${MULLE_EXECUTABLE_NAME}" \
+            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
    esac
 }
@@ -610,7 +624,7 @@ _init()
 
    local _libexec_dir
 
-   _get_libexec_dir "$0" "mulle-sde" "mulle-sde-build.sh"
+   _get_libexec_dir "$0" "mulle-sde" "mulle-sde-craft.sh"
 
    MULLE_SDE_LIBEXEC_DIR="${_libexec_dir}"
 

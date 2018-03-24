@@ -35,13 +35,13 @@ setup_gitignore()
 # dynamically .mulle-sourcetree-fix is boring
 .mulle-sourcetree-fix
 
-# stashes are generally boring
-stashes/
+# stash is generally boring
+stash/
 
 # build stuff is boring too
 build/
-dependencies/
-addictions/
+dependency/
+addiction/
 *.tmp/
 tmp.*/
 
@@ -51,40 +51,6 @@ tmp.*/
    redirect_append_exekutor .gitignore echo "${text}"
 }
 
-
-install_bash_completion()
-{
-   log_entry "install_bash_completion" "$@"
-
-   local text
-
-   text='\
-#! /usr/bin/env bash
-
-#
-# install completion if not yet present.
-# mulle-sde-bash-completion.sh will load the inferior completes
-#
-if [ "`type -t "_mulle_sde_complete"`" != "function" ]
-then
-   . "$(mulle-sde libexec-dir)/mulle-sde-bash-completion.sh"
-fi
-'
-
-   local dstdir
-   local filename
-
-   dstdir=".mulle-env/share/libexec"
-   mkdir_if_missing "${dstdir}"
-   filename="${dstdir}/load-bash-completion.sh"
-
-   if [ -f "${filename}" ]
-   then
-      exekutor chmod ug+w "${filename}"
-   fi
-   redirect_exekutor "${filename}" echo "${text}"
-   exekutor chmod ugo-w "${filename}"
-}
 
 
 main()
@@ -117,8 +83,7 @@ main()
 
    options_setup_trace "${MULLE_TRACE}"
 
-   setup_gitignore &&
-   install_bash_completion
+   setup_gitignore
 }
 
 

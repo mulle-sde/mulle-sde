@@ -3,7 +3,7 @@
 
 # Except for src and tests
 !src/
-!tests/
+!test/
 
 # Except for mulle-sourcetree where we like the etc directory...
 #

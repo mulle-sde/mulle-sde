@@ -32,73 +32,45 @@
 MULLE_SDE_BUILD_SH="included"
 
 
-sde_build_main()
+#
+# Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
+# user selected style
+# Wan't something special ? Use mulle-craft directly
+#
+sde_craft_main()
 {
-   log_entry "sde_build_main" "$@"
-
-   local cmd="$1"; shift
+   log_entry "sde_craft_main" "$@"
 
    local auxflags
    local touchfile
+   local cmd
 
-   # default by preference
-   if [ "${cmd}" = "craft" ]
+   cmd="${MULLE_SDE_CRAFT_STYLE:-all}"
+
+   auxflags="--motd"
+
+   if [ -z "${MULLE_SDE_NO_UPDATE}" ]
    then
-      cmd="${MULLE_SDE_CRAFT_STYLE}"
-      if [ -z "${cmd}" ]
+      if [ -z "${MULLE_SDE_UPDATE_SH}" ]
       then
-         log_fluff "Fallback craft-style \"all\""
-         cmd="all"
-      else
-         log_fluff "Using default craft-style \"${cmd}\""
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
       fi
+
+      log_verbose "Run update if needed"
+
+      sde_update_if_needed_main
    fi
-
-   case "${cmd}" in
-      all|build|onlydependencies|nodependencies|project|sourcetree)
-         auxflags="--motd"
-
-         if [ -z "${MULLE_SDE_NO_UPDATE}" ]
-         then
-            if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-            then
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-            fi
-
-            log_verbose "Run update if needed"
-
-            sde_update_if_needed_main
-         fi
-      ;;
-
-      clean)
-         if [ -z "${MULLE_PATH}" ]
-         then
-            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-         fi
-
-         if [ -z "${MULLE_FILE}" ]
-         then
-            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
-         fi
-
-         rmdir_safer "${MULLE_SDE_DIR}/var"
-         if [ -d "${BUILD_DIR}" ]
-         then
-            rmdir_safer "${BUILD_DIR}"
-         fi
-      ;;
-   esac
 
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
    fi
+
    set_projectname_environment "read"
 
-   log_verbose "Craft project \"${cmd}\""
+   log_verbose "Craft \"${cmd}\" project \"${PROJECT_NAME}\""
 
-   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
       exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_CRAFT_FLAGS} ${auxflags} "${cmd}" "$@"
 }
