@@ -1,3 +1,7 @@
+### 0.15.2
+
+* add support for include for library
+
 ### 0.15.1
 
 * fix CMakeLists.txt

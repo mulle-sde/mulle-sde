@@ -102,6 +102,7 @@ Options:
 
 Keys:
    aliases     : alternate names of library, separated by comma
+   include     : alternative include filename instead of <name>/<name>.h
    os-excludes : names of OSes to exclude, separated by comma
 EOF
   exit 1
@@ -250,18 +251,18 @@ sde_library_set_main()
    local value="$1"
 
    case "${field}" in
+      aliases|include)
+         _sourcetree_set_userinfo_field "${address}" \
+                                        "${field}" \
+                                        "${value}" \
+                                        "${OPTION_APPEND}"
+      ;;
+
       os-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
                                      "${LIBRARY_MARKS}" \
                                      "${OPTION_APPEND}"
-      ;;
-
-      aliases)
-         _sourcetree_set_userinfo_field "${address}" \
-                                        "${field}" \
-                                        "${value}" \
-                                        "${OPTION_APPEND}"
       ;;
 
       *)
@@ -304,14 +305,13 @@ sde_library_get_main()
    shift
 
    case "${field}" in
-      os-excludes)
-         sourcetree_get_os_excludes "${address}"
+      # can be easily extended with more fields,
+      aliases|include)
+         sourcetree_get_userinfo_field "${address}" "${field}"
       ;;
 
-      # could be easily extended with more fields, just by adding
-      # aliases|newfield)
-      aliases)
-         sourcetree_get_userinfo_field "${address}" "${field}"
+      os-excludes)
+         sourcetree_get_os_excludes "${address}"
       ;;
 
       *)
@@ -365,7 +365,7 @@ sde_library_list_main()
    log_fluff "Just pass through to mulle-sourcetree"
 
    exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-      --format "%a;%m;%i={aliases,,-------}\\n" \
+      --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
       --nodetypes "none" \
       --marks "${marks}" \
       --no-output-marks "${LIBRARY_MARKS}" \

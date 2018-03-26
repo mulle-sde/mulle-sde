@@ -276,6 +276,11 @@ _sourcetree_set_userinfo_field()
    userinfo="`exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
                  get "${address}" "userinfo" `" || return 1
 
+   if [ -z "${MULLE_ARRAY_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
+   fi
+
    if [ "${append}" = "YES" ]
    then
       aliases="`assoc_array_get "${userinfo}" "${field}" `"
@@ -326,6 +331,11 @@ sourcetree_get_userinfo_field()
    if [ $? -ne 0 ]
    then
       return 1
+   fi
+
+   if [ -z "${MULLE_ARRAY_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
    fi
 
    local list
