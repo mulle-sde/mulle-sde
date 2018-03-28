@@ -6,4 +6,3 @@
 #
 VERSIONFILE="mulle-sde"
 VERSIONNAME="MULLE_EXECUTABLE_VERSION"
-VERSIONFILEMIRRORS="src/extensions/mulle-sde/sde/share/version/mulle-sde/sde"

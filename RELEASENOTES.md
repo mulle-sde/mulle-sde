@@ -1,3 +1,8 @@
+### 0.15.4
+
+* move extension out of project, meta extensions now only inherit
+* move extension out of project, meta extensions now only inherit
+
 ### 0.15.2
 
 * add support for include for library
