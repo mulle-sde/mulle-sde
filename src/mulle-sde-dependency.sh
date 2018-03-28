@@ -532,7 +532,7 @@ sde_dependency_main()
 
    [ $# -ne 0 ] && shift
 
-   case "${cmd}" in
+   case "${cmd:-list}" in
       add)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"

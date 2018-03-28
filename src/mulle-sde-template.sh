@@ -134,17 +134,17 @@ emit_projectdialect_seds()
    local o="$1"
    local c="$2"
 
-   local escaped_pl
-   local escaped_pdl
-   local escaped_pul
-
    [ -z "${PROJECT_DIALECT}" ] && internal_fail "PROJECT_DIALECT is empty"
 
    local project_upcase_dialect
    local project_downcase_dialect
 
-   project_downcase_language="`tr A-Z a-z <<< "${PROJECT_DIALECT}" `"
-   project_upcase_language="`tr a-z A-Z <<< "${PROJECT_DIALECT}" `"
+   project_downcase_dialect="`tr A-Z a-z <<< "${PROJECT_DIALECT}" `"
+   project_upcase_dialect="`tr a-z A-Z <<< "${PROJECT_DIALECT}" `"
+
+   local escaped_pl
+   local escaped_pdl
+   local escaped_pul
 
    escaped_pl="` escaped_sed_pattern "${PROJECT_DIALECT}" `"
    escaped_pul="` escaped_sed_pattern "${project_upcase_dialect}" `"
@@ -155,6 +155,14 @@ emit_projectdialect_seds()
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DIALECT${c}/${escaped_pl}/g'"`"
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_DIALECT${c}/${escaped_pul}/g'"`"
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${escaped_pdl}/g'"`"
+
+   local dialect_extension
+   local escaped_de
+
+   dialect_extension="${DIALECT_EXTENSION:-${project_downcase_dialect}}"
+   escaped_de="` escaped_sed_pattern "${dialect_extension}" `"
+
+   cmdline="`concat "${cmdline}" "-e 's/${o}DIALECT_EXTENSION${c}/${escaped_de}/g'"`"
 
    echo "${cmdline}"
 }
@@ -213,6 +221,12 @@ template_filename_replacement_command()
    local seds
 
    seds="`emit_projectname_seds`"
+   cmdline="`concat "${cmdline}" "${seds}"`"
+
+   seds="`emit_projectlanguage_seds`"
+   cmdline="`concat "${cmdline}" "${seds}"`"
+
+   seds="`emit_projectdialect_seds`"
    cmdline="`concat "${cmdline}" "${seds}"`"
 
    #

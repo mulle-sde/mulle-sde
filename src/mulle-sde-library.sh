@@ -440,7 +440,7 @@ sde_library_main()
    # shellcheck source=src/mulle-sde-common.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-   case "${cmd}" in
+   case "${cmd:-list}" in
       add|get|list|remove|set)
          sde_library_${cmd}_main "$@"
       ;;

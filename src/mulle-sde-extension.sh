@@ -1101,7 +1101,7 @@ sde_extension_main()
       ;;
    esac
 
-   case "${cmd}" in
+   case "${cmd:-list}" in
       add)
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"

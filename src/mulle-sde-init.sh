@@ -320,14 +320,25 @@ install_inheritfile()
       vendor="${extension%%/*}"
       extname="${extension##*/}"
 
+      exttype="${exttype:-${defaultexttype}}"
+      if [ "${exttype}" = "meta" ]
+      then
+         fail "A meta extension tried to inherit meta extension (\"${inheritfilename}\")"
+      fi
+
+      if [ "${defaultexttype}" != "meta" -a "${exttype}" != "${defaultexttype}" ]
+      then
+         fail "A \"${defaultexttype}\" extension tries to inherit \"${inheritfilename}\" a \"${exttype}\" extension"
+      fi
+
       install_extension "${projecttype}" \
-                        "${exttype:-${defaultexttype}}" \
+                        "${exttype}" \
                         "${vendor}" \
                         "${extname}" \
                         "${marks}" \
                         "${onlyfilename}" \
                         "${force}" \
-                        "$@"
+                        "$@" || return 1
       IFS="
 "
     done <<< "${text}"
@@ -773,28 +784,26 @@ vendor \"${vendor}\""
       runtime)
          local tmp
 
-         if [ -f "${extensiondir}/language" ]
+         #
+         # do this only once for the first runtime extension
+         #
+         if [ "${LANGUAGE_SET}" != "YES" ] && [ -f "${extensiondir}/language" ]
          then
             tmp="`egrep -v -e '^#' "${extensiondir}/language"`"
-            if [ ! -z "${tmp}" ]
+            IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT DIALECT_EXTENSION <<< "${tmp}"
+
+            [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
+            PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
+            if [ -z "${DIALECT_EXTENSION}" ]
             then
-               PROJECT_LANGUAGE="${tmp}"
-               log_fluff "Project language set to \"${PROJECT_LANGUAGE}\""
+               DIALECT_EXTENSION="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
             fi
+            log_fluff "Project language set to \"${PROJECT_DIALECT}\"
+"            log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
+            log_fluff "Dialect extension set to \"${DIALECT_EXTENSION}\""
+            LANGUAGE_SET="YES"
          else
             log_fluff "No language file \"${extensiondir}/language\" found"
-         fi
-
-         if [ -f "${extensiondir}/dialect" ]
-         then
-            tmp="`egrep -v -e '^#' "${extensiondir}/dialect"`"
-            if [ ! -z "${tmp}" ]
-            then
-               PROJECT_DIALECT="${tmp}"
-               log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
-            fi
-         else
-            log_fluff "No language file \"${extensiondir}/dialect\" found"
          fi
       ;;
 
@@ -842,13 +851,19 @@ vendor \"${vendor}\""
                              "${marks}" \
                              "${onlyfilename}" \
                              "${force}" \
-                             "$@"
+                             "$@"  || exit 1
       else
          log_fluff "No inherit file \"${extensiondir}/inherit\" found"
       fi
    fi
 
    log_fluff "Installing ${exttype} extension \"${vendor}/${extname}\" for real now :P"
+
+   # meta only inherits stuff and doesn't add
+   if [ "${exttype}" = "meta" ]
+   then
+      return 0
+   fi
 
    #
    # mulle-env stuff
@@ -1191,7 +1206,9 @@ install_project()
    local PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT      # for objc
+   local LANGUAGE_SET
 
+   LANGUAGE_SET="NO"
    PROJECT_NAME="${OPTION_NAME}"
    if [ -z "${PROJECT_NAME}" ]
    then
@@ -1268,6 +1285,10 @@ install_project()
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
+
+   log_verbose "Environment: DIALECT_EXTENSION=\"${DIALECT_EXTENSION}\""
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
+      set DIALECT_EXTENSION "${DIALECT_EXTENSION}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
@@ -1684,8 +1705,8 @@ sde_init_main()
       [ -z "${PROJECT_TYPE}" ] && \
          fail "Could not find required PROJECT_TYPE in environment"
    else
-      [ "$#" -eq 0 ] && sde_init_usage
-      [ "$#" -ne  1 ] || sde_init_usage "extranous arguments \"$*\""
+      [ $# -eq 0 ] && sde_init_usage
+      [ $# -eq 1 ] || sde_init_usage "extranous arguments \"$*\""
 
       PROJECT_TYPE="$1"
    fi
@@ -1711,11 +1732,11 @@ Some files may be missing and the project may not be craftable."
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" -a -f "${MULLE_SDE_DIR}/.init" ]
       then
-         fail "There is already a ${MULLE_SDE_DIR} folder here. \
+         fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
 It looks like an init gone bad."
       fi
 
-      fail "There is already a ${MULLE_SDE_DIR} folder here. \
+      fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
 Use \`mulle-sde upgrade\` for maintainance"
    fi
 
@@ -1764,7 +1785,10 @@ Use \`mulle-sde upgrade\` for maintainance"
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
       rmdir_safer "${MULLE_SDE_DIR}/share.old"
-      exekutor mv "${MULLE_SDE_DIR}/share" "${MULLE_SDE_DIR}/share.old"
+      if [ -d "${MULLE_SDE_DIR}/share" ]
+      then
+         exekutor mv "${MULLE_SDE_DIR}/share" "${MULLE_SDE_DIR}/share.old"
+      fi
       rmdir_safer ".mulle-sde/var"
    fi
 

@@ -404,8 +404,6 @@ main()
       ;;
 
       extension)
-         cd_virtual_root
-
          # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 

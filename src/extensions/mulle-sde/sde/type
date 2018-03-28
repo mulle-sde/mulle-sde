@@ -1,5 +1,0 @@
-#
-# its a buildtool, because buildtools inherit from it to gain
-# sourcetree and motd
-#
-buildtool

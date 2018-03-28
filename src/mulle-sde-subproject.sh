@@ -220,7 +220,7 @@ sde_subproject_main()
 
    [ $# -ne 0 ] && shift
 
-   case "${cmd}" in
+   case "${cmd:-list}" in
       add)
          log_fluff "Just pass through to mulle-sourcetree"
 
