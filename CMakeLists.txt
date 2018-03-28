@@ -34,11 +34,6 @@ src/mulle-sde-update.sh
 src/mulle-sde-upgrade.sh
 )
 
-set( EXTENSIONS
-src/extensions
-)
-
-
 INSTALL( FILES ${SCRIPTS}
 PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
             GROUP_EXECUTE GROUP_READ
@@ -52,9 +47,6 @@ PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
             WORLD_EXECUTE WORLD_READ
 DESTINATION "libexec/mulle-sde")
 
-
-INSTALL( DIRECTORY ${EXTENSIONS}
-DESTINATION "share/mulle-sde")
 
 
 ######

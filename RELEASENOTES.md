@@ -1,3 +1,7 @@
+### 0.15.5
+
+* fix cmake
+
 ### 0.15.4
 
 * move extension out of project, meta extensions now only inherit
