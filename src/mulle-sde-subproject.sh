@@ -32,7 +32,7 @@
 MULLE_SDE_SUBPROJECT_SH="included"
 
 
-SUBPROJECT_MARKS="no-update,no-delete"
+SUBPROJECT_MARKS="no-update,no-delete,no-share"
 
 
 sde_subproject_usage()

@@ -237,7 +237,8 @@ _copy_extension_template_files()
             --template-dir '${projectdir}' \
             --name '${PROJECT_NAME}' \
             --language '${PROJECT_LANGUAGE}' \
-            --dialect '${PROJECT_DIALECT}'"
+            --dialect '${PROJECT_DIALECT}' \
+            --extension '${DIALECT_EXTENSION}'"
 
    if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
    then

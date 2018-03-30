@@ -415,8 +415,9 @@ _template_main()
    local FLAG_FORCE="NO"
    local TEMPLATE_DIR
    local PROJECT_NAME
-   local PROJECT_LANGUAGE="none"
+   local PROJECT_LANGUAGE
    local PROJECT_DIALECT
+   local DIALECT_EXTENSION
    local PROJECT_UPCASE_IDENTIFIER
    local PROJECT_DOWNCASE_IDENTIFIER
    local OPTION_FILE
@@ -482,6 +483,13 @@ _template_main()
             PROJECT_LANGUAGE="$1"
          ;;
 
+         --extension|--dialect-extension)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            shift
+
+            DIALECT_EXTENSION="$1"
+         ;;
+
          --callback)
             [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
@@ -532,7 +540,12 @@ _template_main()
 
    set_projectname_environment "none"
 
+   PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-none}"
    PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
+   if [ -z "${DIALECT_EXTENSION}" ]
+   then
+      DIALECT_EXTENSION="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
+   fi
 
    log_debug "PROJECT_NAME=${PROJECT_NAME}"
    log_debug "PROJECT_DIALECT=${PROJECT_DIALECT}"

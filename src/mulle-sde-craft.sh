@@ -68,7 +68,7 @@ sde_craft_main()
 
    set_projectname_environment "read"
 
-   log_verbose "Craft \"${cmd}\" project \"${PROJECT_NAME}\""
+   log_fluff "Craft \"${cmd}\" project \"${PROJECT_NAME}\""
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
       exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \

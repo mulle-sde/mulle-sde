@@ -1,3 +1,7 @@
+### 0.15.6
+
+* support `DIALECT_EXTENSION`
+
 ### 0.15.5
 
 * fix cmake
