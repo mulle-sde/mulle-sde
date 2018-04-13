@@ -234,11 +234,11 @@ _copy_extension_template_files()
    local arguments
 
    arguments="--embedded \
-            --template-dir '${projectdir}' \
-            --name '${PROJECT_NAME}' \
-            --language '${PROJECT_LANGUAGE}' \
-            --dialect '${PROJECT_DIALECT}' \
-            --extension '${DIALECT_EXTENSION}'"
+              --template-dir '${projectdir}' \
+              --name '${PROJECT_NAME}' \
+              --language '${PROJECT_LANGUAGE}' \
+              --dialect '${PROJECT_DIALECT}' \
+              --extensions '${PROJECT_EXTENSIONS}'"
 
    if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
    then
@@ -327,10 +327,21 @@ install_inheritfile()
          fail "A meta extension tried to inherit meta extension (\"${inheritfilename}\")"
       fi
 
-      if [ "${defaultexttype}" != "meta" -a "${exttype}" != "${defaultexttype}" ]
-      then
-         fail "A \"${defaultexttype}\" extension tries to inherit \"${inheritfilename}\" a \"${exttype}\" extension"
-      fi
+      #
+      # extra types can be inherited from anybody
+      #
+      case "${defaultexttype}" in
+         meta)
+         ;;
+
+         *)
+            if [ "${exttype}" != "${defaultexttype}" -a "${exttype}" != "extra" ]
+            then
+               fail "A \"${defaultexttype}\" extension tries to inherit \
+\"${inheritfilename}\" - a \"${exttype}\" extension"
+            fi
+         ;;
+      esac
 
       install_extension "${projecttype}" \
                         "${exttype}" \
@@ -791,17 +802,18 @@ vendor \"${vendor}\""
          if [ "${LANGUAGE_SET}" != "YES" ] && [ -f "${extensiondir}/language" ]
          then
             tmp="`egrep -v -e '^#' "${extensiondir}/language"`"
-            IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT DIALECT_EXTENSION <<< "${tmp}"
+            IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
             [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
             PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
-            if [ -z "${DIALECT_EXTENSION}" ]
+            if [ -z "${PROJECT_EXTENSIONS}" ]
             then
-               DIALECT_EXTENSION="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
+               PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
             fi
-            log_fluff "Project language set to \"${PROJECT_DIALECT}\"
-"            log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
-            log_fluff "Dialect extension set to \"${DIALECT_EXTENSION}\""
+
+            log_fluff "Project language set to \"${PROJECT_DIALECT}\""
+            log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
+            log_fluff "Dialect extensions set to \"${PROJECT_EXTENSIONS}\""
             LANGUAGE_SET="YES"
          else
             log_fluff "No language file \"${extensiondir}/language\" found"
@@ -1267,7 +1279,8 @@ install_project()
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
-      set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
+      set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || \
+            internal_fail "failed env set"
 
    #
    # setup the initial environment-global.sh (if missing) with some
@@ -1287,9 +1300,9 @@ install_project()
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
       set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
 
-   log_verbose "Environment: DIALECT_EXTENSION=\"${DIALECT_EXTENSION}\""
+   log_verbose "Environment: PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
-      set DIALECT_EXTENSION "${DIALECT_EXTENSION}" || internal_fail "failed env set"
+      set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
@@ -1694,6 +1707,8 @@ sde_init_main()
 
    if [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ]
    then
+      [ ! -d "${MULLE_SDE_DIR}" ] && fail "This is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
+
       if ! __get_installed_extensions
       then
          fail "Could not retrieve previous extension information"
@@ -1701,8 +1716,12 @@ sde_init_main()
 
       OPTION_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                       ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
-      PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
+      # once useful to repair lost files
+      if [ -z "${PROJECT_TYPE}" ]
+      then
+         PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
+      fi
       [ -z "${PROJECT_TYPE}" ] && \
          fail "Could not find required PROJECT_TYPE in environment"
    else

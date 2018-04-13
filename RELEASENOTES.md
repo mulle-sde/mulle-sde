@@ -1,3 +1,7 @@
+### 0.15.7
+
+* use : as separator for environment variables, extra extensions can be inherited from all
+
 ### 0.15.6
 
 * support `DIALECT_EXTENSION`

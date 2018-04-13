@@ -130,7 +130,7 @@ _sde_update_main()
    local name
 
    # call backs are actually comma separated
-   set -o noglob; IFS=","
+   set -o noglob; IFS=":"
    for name in ${callbacks}
    do
       set +o noglob; IFS="${DEFAULT_IFS}"

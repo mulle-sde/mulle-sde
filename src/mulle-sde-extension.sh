@@ -654,13 +654,30 @@ sde_extension_list_installed()
 
    [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "Listing installed extensions \
 doesn't work outside of the mulle-sde environment"
-   [ ! -d "${MULLE_SDE_DIR}" ]      && fail "\"${PWD}\" doesn't look like \
-a mulle-sde project"
 
    local version
    local vendor
    local extension
    local filename
+
+   if [ ! -d "${MULLE_SDE_DIR}/share/version" ]
+   then
+      if [ ! -d "${MULLE_SDE_DIR}/share" ]
+      then
+         if [ ! -d "${MULLE_SDE_DIR}" ]
+         then
+            fail "\"${PWD}\" doesn't look like \
+a mulle-sde project"
+         fi
+
+         if [ -d "${MULLE_SDE_DIR}/share.old" ]
+         then
+            fail "\"${PWD}\" looks like a borked extension upgrade"
+         fi
+      fi
+      log_warning "No extensions installed"
+      return 0
+   fi
 
    log_info "Installed Extensions"
 

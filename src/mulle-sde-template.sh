@@ -156,13 +156,16 @@ emit_projectdialect_seds()
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_DIALECT${c}/${escaped_pul}/g'"`"
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${escaped_pdl}/g'"`"
 
-   local dialect_extension
+   #
+   # support only first of PROJECT_EXTENSIONS as "primary"
+   #
+   local extensions
    local escaped_de
 
-   dialect_extension="${DIALECT_EXTENSION:-${project_downcase_dialect}}"
-   escaped_de="` escaped_sed_pattern "${dialect_extension}" `"
+   extensions="${PROJECT_EXTENSIONS:-${project_downcase_dialect}}"
+   escaped_de="` escaped_sed_pattern "${extensions%%:*}" `"
 
-   cmdline="`concat "${cmdline}" "-e 's/${o}DIALECT_EXTENSION${c}/${escaped_de}/g'"`"
+   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_EXTENSION${c}/${escaped_de}/g'"`"
 
    echo "${cmdline}"
 }
@@ -346,7 +349,7 @@ default_template_setup()
    log_entry "default_template_setup" "$@"
 
    local templatedir="$1"
-   local onlyfile="$4"
+   local onlyfile="$5"
 
    if [ ! -d "${templatedir}" ]
    then
@@ -417,7 +420,7 @@ _template_main()
    local PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT
-   local DIALECT_EXTENSION
+   local PROJECT_EXTENSIONS
    local PROJECT_UPCASE_IDENTIFIER
    local PROJECT_DOWNCASE_IDENTIFIER
    local OPTION_FILE
@@ -483,11 +486,11 @@ _template_main()
             PROJECT_LANGUAGE="$1"
          ;;
 
-         --extension|--dialect-extension)
+         --extensions|--project-extensions)
             [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
 
-            DIALECT_EXTENSION="$1"
+            PROJECT_EXTENSIONS="$1"
          ;;
 
          --callback)
@@ -542,14 +545,15 @@ _template_main()
 
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-none}"
    PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
-   if [ -z "${DIALECT_EXTENSION}" ]
+   if [ -z "${PROJECT_EXTENSIONS}" ]
    then
-      DIALECT_EXTENSION="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
+      PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_EXTENSIONS}"`"
    fi
 
    log_debug "PROJECT_NAME=${PROJECT_NAME}"
    log_debug "PROJECT_DIALECT=${PROJECT_DIALECT}"
    log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
+   log_debug "PROJECT_EXTENSIONS=${PROJECT_EXTENSIONS}"
 
    if [ -z "${TEMPLATE_DIR}" ]
    then
@@ -567,6 +571,7 @@ _template_main()
          "${template_callback}" "${TEMPLATE_DIR}" \
                                 "${PROJECT_NAME}" \
                                 "${PROJECT_LANGUAGE}" \
+                                "${PROJECT_EXTENSIONS}" \
                                 "${OPTION_FILE}"
       ;;
    esac

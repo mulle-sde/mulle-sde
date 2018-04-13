@@ -31,7 +31,12 @@
 #
 MULLE_SDE_LIBRARY_SH="included"
 
-
+#
+# no-fs,,no-dependency,no-build: not in the project tree and it's not built
+# and will end up in dependency/
+# no-update,no-delete: does not participate in mulle-sourcetree update
+# no-all-load: not expected to contain ObjC code
+#
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 
 #
@@ -46,10 +51,9 @@ sde_library_usage()
 Usage:
    ${MULLE_USAGE_NAME} library [options] [command]
 
-   A library is a OS (Operating System) supplied library. Like -lm for example.
-   It's usually not useful to build these yourself (like a dependency).
-   They are place into the sourcetree so that the approriat link statements
-   can be generated on a per platform and buildtool basis.
+   A library is a OS (Operating System) supplied C shared library. Like -lm for
+   example. They are place into the sourcetree so that the approriate link
+   statements can be generated on a per platform and buildtool basis.
 
 Options:
    -h     : show this usage
@@ -203,7 +207,7 @@ sde_library_add_main()
    log_verbose "Adding \"${libname}\" to libraries"
 
    exekutor "${MULLE_SOURCETREE}" add --nodetype none \
-                                      --marks "${LIBRARY_MARKS}" \
+                                      --marks "${LIBRARY_MARKS},no-all-load" \
                                     "${libname}"
 }
 
