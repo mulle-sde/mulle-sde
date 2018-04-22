@@ -71,7 +71,7 @@ _mulle_sde_init_complete()
 
    case "$cur" in
       -*)
-         COMPREPLY=( $( compgen -W "-m -d -e" -- $cur ) )
+         COMPREPLY=( $( compgen -W "-m -d -e -s" -- $cur ) )
          return
       ;;
    esac
@@ -99,6 +99,19 @@ _mulle_sde_init_complete()
       -r|--runtime)
          extensions="`mulle-sde -s extension list runtime`"
          COMPREPLY=( $( compgen -W "${extensions}" -- $cur ) )
+      ;;
+
+      -d|--directory)
+         COMPREPLY=( $( compgen -d -- "$cur" ) )
+      ;;
+
+      -s|--styles)
+         if [ "`type -t "_mulle_env_style_complete"`" = "function" ]
+         then
+            _mulle_env_style_complete "mulle"
+         else
+             COMPREPLY=( $( compgen -W "mulle/restrict" -- $cur ) )
+         fi
       ;;
 
       # mulle-sde extension usage -r --list-types "mulle-c/c"

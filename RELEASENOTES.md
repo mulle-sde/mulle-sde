@@ -1,3 +1,7 @@
+### 0.15.8
+
+* improve extension handling again, use new mulle-craft
+
 ### 0.15.7
 
 * use : as separator for environment variables, extra extensions can be inherited from all

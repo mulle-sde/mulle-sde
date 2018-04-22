@@ -553,8 +553,11 @@ sde_extension_list_main()
       shift
    done
 
+   local cmd
 
-   case "$1" in
+   cmd="${1:-default}"
+
+   case "${cmd}" in
       installed)
          if [ "${OPTION_VERSION}" = "YES" ]
          then
@@ -590,22 +593,28 @@ sde_extension_list_main()
          continue
       fi
 
-      case "${1:-default}" in
+      case "${cmd}" in
          all|default|meta)
             tmp="`collect_extension "${vendor}" meta `"  || return 1
             meta_extension="`add_line "${meta_extension}" "${tmp}" `"  || return 1
          ;;
+      esac
 
+      case "${cmd}" in
          all|default|extra)
             tmp="`collect_extension "${vendor}" extra `" || return 1
             extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
          ;;
+      esac
 
+      case "${cmd}" in
          all|runtime)
             tmp="`collect_extension "${vendor}" runtime `"  || return 1
             runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
          ;;
+      esac
 
+      case "${cmd}" in
          all|buildtool)
             tmp="`collect_extension "${vendor}" buildtool `" || return 1
             buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
@@ -615,7 +624,7 @@ sde_extension_list_main()
    IFS="${DEFAULT_IFS}"; set +o noglob
 
    emit_extension "${meta_extension}" "meta" "[-m <extension>]"
-   emit_extension "${runtime_extension}" "language/runtime" "[-r <extension>]"
+   emit_extension "${runtime_extension}" "runtime" "[-r <extension>]"
    emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]"
    emit_extension "${extra_extension}" "extra" "[-e <extension>]*"
 

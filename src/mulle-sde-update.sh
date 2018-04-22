@@ -38,8 +38,7 @@ _callback_run()
 
    local callback="$1"
 
-   [ -z "${callback}" ]      && internal_fail "callback is empty"
-   [ -z "${MULLE_MONITOR}" ] && internal_fail "MULLE_MONITOR is empty"
+   [ -z "${callback}" ] && internal_fail "callback is empty"
 
    local rval
 
@@ -53,8 +52,7 @@ _task_run()
 
    local task="$1"
 
-   [ -z "${task}" ]          && internal_fail "task is empty"
-   [ -z "${MULLE_MONITOR}" ] && internal_fail "MULLE_MONITOR is empty"
+   [ -z "${task}" ] && internal_fail "task is empty"
 
    local rval
 
@@ -64,11 +62,9 @@ _task_run()
 
 _task_status()
 {
-   log_entry "_task_has_run"
+   log_entry "_task_status"
 
    local task="$1"
-
-   local rval
 
    exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task status "${task}"
 }
@@ -87,16 +83,16 @@ _task_run_if_needed()
    then
       status="`_task_status "${task}"`"
       log_fluff "Last known status of task \"${task}\" is \"${status}\""
+
+      case "${status}" in
+         "done")
+            log_fluff "Skip task"
+            return
+         ;;
+      esac
    else
       log_fluff "Forced run of \"${task}\""
    fi
-
-   case "${status}" in
-      "done")
-         log_fluff "Skip task"
-         return
-      ;;
-   esac
 
    _task_run "${task}"
 }

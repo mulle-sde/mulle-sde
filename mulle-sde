@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.15.7
+MULLE_EXECUTABLE_VERSION=0.15.8
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -317,7 +317,8 @@ main()
 
    if [ "${FLAG_OUTSIDE_ENV}" = "YES" ]
    then
-      MULLE_VIRTUAL_ROOT="${PWD}"
+      MULLE_VIRTUAL_ROOT="`pwd -P`"
+      [ "${MULLE_VIRTUAL_ROOT}" = "/" ] && fail "MULLE_VIRTUAL_ROOT can't be /"
       export MULLE_VIRTUAL_ROOT
    fi
 
@@ -369,15 +370,22 @@ main()
       #
       craft)
          #
-         # "convenient" short cut to build a project w/o having to enter
+         # a "convenient" ? short cut to build a project w/o having to enter
          # a subshell
          #
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            [ "$#" -eq 0 ] || fail "The \"convenient\" craft takes no arguments"
-
             cd "`determine_project_dir`" || exit 1
-            exec "${MULLE_ENV}" -c 'mulle-sde craft'
+
+            local cmdline
+
+            cmdline="mulle-sde craft"
+            while [ $# -ne 0 ]
+            do
+               cmdline="${cmdline} '$1'"
+               shift
+            done
+            exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -c "${cmdline}"
          fi
 
          cd_virtual_root
@@ -439,9 +447,10 @@ main()
       fetch)
          cd_virtual_root
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
+         # shellcheck source=src/mulle-sde-fetch.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
+
+         sde_fetch_main "$@"
       ;;
 
       library)

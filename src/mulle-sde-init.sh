@@ -50,7 +50,8 @@ sde_init_usage()
 
    HIDDEN_OPTIONS="\
    -b <buildtool> : specify the buildtool extension to use
-   --no-demo      : do not install gratuitous demo files, like main.
+   --no-<name>    : turn off specific pieces of initialization (see source code)
+   --allow-<name> : reenable specific pieces of initialization (see source code)
    -r <runtime>   : specify runtime extension to use
    -v <vendor>    : extension vendor to use (mulle-sde)"
 
@@ -524,7 +525,7 @@ add_to_dependencies()
       #
       if [ ! -z "${line}" ]
       then
-         MULLE_VIRTUAL_ROOT="${PWD}" \
+         MULLE_VIRTUAL_ROOT="`pwd -P`" \
          MULLE_SOURCETREE_FLAGS="-e -N ${MULLE_SOURCETREE_FLAGS}" \
             eval sde_dependency_add_main --if-missing ${line} || exit 1
       fi
@@ -561,7 +562,7 @@ add_to_environment()
 
    # remove lf for command line
    environment="`tr '\n' ' ' <<< "${environment}"`"
-   MULLE_VIRTUAL_ROOT="${PWD}" \
+   MULLE_VIRTUAL_ROOT="`pwd -P`" \
       eval_exekutor "'${MULLE_ENV}'" -s "${MULLE_ENV_FLAGS}" environment \
                            --aux mset "${environment}" || exit 1
 }
@@ -592,7 +593,7 @@ add_to_tools()
       if [ ! -z "${line}" ]
       then
          log_verbose "Adding \"${line}\" to tool"
-         MULLE_VIRTUAL_ROOT="${PWD}" \
+         MULLE_VIRTUAL_ROOT="`pwd -P`" \
             exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} tool ${scope} add "${line}" || exit 1
       fi
    done
@@ -653,6 +654,7 @@ run_init()
 is_disabled_by_marks()
 {
    local marks="$1"; shift
+   local description="$1"; shift
 
    # make sure all individual marks are enlosed by ','
    # now we can check against an , enclosed pattern
@@ -661,11 +663,15 @@ is_disabled_by_marks()
    do
       case ",${marks}," in
          *,$1,*)
+            log_fluff "${description} is disabled by \"$1\""
             return 0
          ;;
       esac
+
+      log_debug "\"${description}\" not disabled by \"$1\""
       shift
    done
+
    return 1
 }
 
@@ -679,11 +685,10 @@ install_sourcetree_files()
    local extname="$3"
    local marks="$4"
 
-   if is_disabled_by_marks "${marks}" "no-sourcetree" \
+   if is_disabled_by_marks "${marks}" "${extensiondir}/dependency|library" \
+                                      "no-sourcetree" \
                                       "no-sourcetree-${vendor}-${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/dependency|library\" due to no-sourcetree mark"
       return
    fi
 
@@ -724,6 +729,29 @@ assert_sane_extension_values()
          fail "illegal extension type \"${exttype}\" (lowercase only pls)"
       ;;
    esac
+}
+
+
+install_version()
+{
+   log_entry "install_version" "$@"
+
+   local vendor="$1"
+   local extname="$2"
+   local extensiondir="$3"
+
+   mkdir_if_missing "${MULLE_SDE_DIR}/share/version/${vendor}"
+
+   local flags
+
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
+   then
+      flags=-v
+   fi
+
+   exekutor cp ${flags} "${extensiondir}/version" \
+                        "${MULLE_SDE_DIR}/share/version/${vendor}/${extname}"
+   return 0
 }
 
 
@@ -787,7 +815,7 @@ vendor \"${vendor}\""
       return 1
    fi
 
-   if [ ! -f "${extensiondir}/share/version/${vendor}/${extname}" ]
+   if [ ! -f "${extensiondir}/version" ]
    then
       fail "Extension \"${vendor}/${extname}\" is unversioned."
    fi
@@ -828,10 +856,10 @@ vendor \"${vendor}\""
       ;;
    esac
 
-   if is_disabled_by_marks "${marks}" "no-extension" \
+   if is_disabled_by_marks "${marks}" "${vendor}/${extname}" \
+                                      "no-extension" \
                                       "no-extension/${vendor}/${extname}"
    then
-      log_verbose "Not installing \"${vendor}/${extname}\" by request"
       return
    fi
 
@@ -850,12 +878,10 @@ vendor \"${vendor}\""
    #
    # file is called inherit, so .gitignoring dependencies doesn't kill it
    #
-   if is_disabled_by_marks "${marks}" "no-inherit" \
-                                      "no-inherit/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/inherit" \
+                                        "no-inherit" \
+                                        "no-inherit/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
- \"${extensiondir}/inherit\" due to no-inherit mark"
-   else
       if [ -f "${extensiondir}/inherit" ]
       then
          install_inheritfile "${extensiondir}/inherit" \
@@ -872,21 +898,22 @@ vendor \"${vendor}\""
 
    log_fluff "Installing ${exttype} extension \"${vendor}/${extname}\" for real now :P"
 
-   # meta only inherits stuff and doesn't add
+   # install version unconditionally first
+   install_version "${vendor}" "${extname}" "${extensiondir}"
+
+   # meta only inherits stuff and doesn't add (except version)
    if [ "${exttype}" = "meta" ]
    then
-      return 0
+      return
    fi
 
    #
    # mulle-env stuff
    #
-   if is_disabled_by_marks "${marks}" "no-env" \
-                                      "no-env/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment|tool|optionaltool" \
+                                        "no-env" \
+                                        "no-env/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/environment|tool|optionaltool\" due to no-environment mark"
-   else
       add_to_environment "${extensiondir}/environment"
       add_to_tools "${extensiondir}/tool"
       add_to_tools "${extensiondir}/optionaltool" "--optional"
@@ -903,12 +930,10 @@ vendor \"${vendor}\""
    #  no-project
    #  no-clobber
    #
-   if is_disabled_by_marks "${marks}" "no-demo" \
-                                      "no-demo/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/demo" \
+                                        "no-demo" \
+                                        "no-demo/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/demo\" due to no-demo mark"
-   else
       _copy_extension_template_files "${extensiondir}" \
                                      "${projecttype}" \
                                      "demo" \
@@ -918,12 +943,10 @@ vendor \"${vendor}\""
    fi
 
    # let project clobber demo
-   if is_disabled_by_marks "${marks}" "no-project" \
-                                      "no-project/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/project" \
+                                        "no-project" \
+                                        "no-project/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/project\" due to no-project mark"
-   else
       _copy_extension_template_files "${extensiondir}" \
                                      "all" \
                                      "project" \
@@ -950,12 +973,10 @@ vendor \"${vendor}\""
    # this is used for refreshing cmake/share and such, where the user should
    # not edit
    #
-   if is_disabled_by_marks "${marks}" "no-clobber" \
-                                      "no-clobber/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/clobber" \
+                                        "no-clobber" \
+                                        "no-clobber/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/clobber\" due to no-clobber mark"
-   else
       _copy_extension_template_files "${extensiondir}" \
                                      "all" \
                                      "clobber" \
@@ -979,23 +1000,19 @@ vendor \"${vendor}\""
    #  no-init
    #  no-sourcetree
    #
-   if is_disabled_by_marks "${marks}" "no-share" \
-                                      "no-share/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/share" \
+                                        "no-share" \
+                                        "no-share/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/share\" due to no-share mark"
-   else
       _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
          fail "Could not copy \"${extensiondir}/share\""
    fi
 
 
-   if is_disabled_by_marks "${marks}" "no-init" \
-                                      "no-init/${vendor}/${extname}"
+   if ! is_disabled_by_marks "${marks}" "${extensiondir}/init" \
+                                        "no-init" \
+                                        "no-init/${vendor}/${extname}"
    then
-      log_fluff "${vendor}/${extname}: ignoring \
-\"${extensiondir}/init\" due to no-init mark"
-   else
       run_init "${extensiondir}/init" "${projecttype}" \
                                       "${exttype}" \
                                       "${vendor}" \
@@ -1003,6 +1020,7 @@ vendor \"${vendor}\""
                                       "${marks}" \
                                       "${force}"
    fi
+
 }
 
 
@@ -1265,7 +1283,11 @@ install_project()
                      "${onlyfilename}" \
                      "${force}" || exit 1
 
-   install_extra_extensions "${OPTION_EXTRAS}" "${projecttype}" "${marks}" "${force}" || exit 1
+   install_extra_extensions "${OPTION_EXTRAS}" \
+                            "${projecttype}" \
+                            "${marks}" \
+                            "${onlyfilename}" \
+                            "${force}" || exit 1
 
    if [ ! -z "${onlyfilename}" ]
    then
@@ -1349,7 +1371,7 @@ add_environment_variables()
 changes into your subshell"
    fi
 
-   MULLE_VIRTUAL_ROOT="${PWD}" \
+   MULLE_VIRTUAL_ROOT="`pwd -P`" \
       eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
                            --aux mset "${defines}" || exit 1
 }
@@ -1485,6 +1507,33 @@ __get_installed_extensions()
 }
 
 
+
+remove_from_marks()
+{
+   log_entry "remove_from_marks" "$@"
+
+   local marks="$1"
+   local mark="$2"
+
+   local i
+   local newmarks=""
+
+   IFS=","
+   for i in ${marks}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      if [ "${mark}" != "${i}" ]
+      then
+         newmarks="`comma_concat "${newmarks}" "${i}"`"
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+
+   echo "${newmarks}"
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1605,6 +1654,13 @@ sde_init_main()
             OPTION_RUNTIME="$1"
          ;;
 
+         -s|--style)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_ENV_STYLE="$1"
+         ;;
+
          -v|--vendor)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
@@ -1648,11 +1704,9 @@ sde_init_main()
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "${1:2}"`"
          ;;
 
-         --style|--env-style)
-            [ $# -eq 1 ] && sde_init_usage  "missing argument to \"$1\""
-            shift
 
-            OPTION_ENV_STYLE="$1"
+         --allow-*)
+            OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${1:8}"`"
          ;;
 
          -*)
@@ -1725,7 +1779,7 @@ sde_init_main()
       [ -z "${PROJECT_TYPE}" ] && \
          fail "Could not find required PROJECT_TYPE in environment"
    else
-      [ $# -eq 0 ] && sde_init_usage
+      [ $# -eq 0 ] && sde_init_usage "missing project type"
       [ $# -eq 1 ] || sde_init_usage "extranous arguments \"$*\""
 
       PROJECT_TYPE="$1"

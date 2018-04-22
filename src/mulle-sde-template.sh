@@ -234,13 +234,12 @@ template_filename_replacement_command()
 
    #
    # get VENDOR_NAME for file replacement
-   # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
              rexekutor "${MULLE_ENV}" -s \
                            ${MULLE_ENV_FLAGS} environment \
                                  get --output-sed VENDOR_NAME`" || exit 1
-   seds="`tr '\n' ' ' <<< "${seds}"`"
+
    cmdline="`concat "${cmdline}" "${seds}"`"
 
    log_debug "${cmdline}"
@@ -390,7 +389,7 @@ default_template_setup()
                                   "${filename_sed}" \
                                   "${template_sed}"
       else
-         log_debug "Ignoring \"${filename}\"..."
+         log_debug "Ignoring \"${filename}\" (onlyfile=${onlyfile})..."
       fi
       IFS="
 "
