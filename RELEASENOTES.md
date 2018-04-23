@@ -1,3 +1,7 @@
+### 0.15.10
+
+* improve README.md
+
 ### 0.15.9
 
 * fix upgrade and reinit

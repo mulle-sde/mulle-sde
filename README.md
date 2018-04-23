@@ -6,7 +6,7 @@
 idea is to organize your project with the filesystem, and then let
 **mulle-sde** reflect the changed filesystem back to the "Makefile".
 An important aspect of a **mulle-sde** project is, that your project
-is can still be built without **mulle-sde installed.
+is can still be built without **mulle-sde** installed.
 
 **mulle-sde** has little to no benefit for an existing project that has no
 dependencies and that you are loathe to reorganize to fit the mulle-sde
@@ -16,16 +16,12 @@ workflow.
 **mulle-sde**
 
 * provides a form of package management with [mulle-sourcetree](//github.com/mulle-sde/mulle-sourcetree)
-* can build your project with [mulle-craft](//github.com/mulle-sde/mulle-craft) or some other buildtool
+* build your project and its dependencies with [mulle-craft](//github.com/mulle-sde/mulle-craft)
 * monitors filesystem changes via [mulle-monitor](//github.com/mulle-sde/mulle-monitor) and updates your project files
-* tests your project with [mulle-test](//github.com/mulle-sde/mulle-test) or some other testtool
-* creates projects and template files using mulle-sde extensions
-* can support various languages and buildtools using mulle-sde extensions
-* can switch or upgrade extensions
-* projects are easily upgradable
+* is language and buildtool agnostic. projects are configured using *extensions*, that provide language and buildtool bindings
+* projects are upgradable to newer *extension* versions at any time
 
 ![](dox/mulle-sde-overview.png)
-
 
 
 Executable      | Description
@@ -52,7 +48,6 @@ minimized interference.
 > [mulle-sde-cmake-c](//github.com/mulle-sde/mulle-sde-cmake)
 
 
-
 Enable bash completion:
 
 ```
@@ -69,6 +64,12 @@ Enter the environment:
 
 ```
 $ mulle-sde hello
+```
+
+Optionally look at the project files:
+
+```
+$ mulle-sde find
 ```
 
 Build it:
@@ -144,7 +145,6 @@ mulle-sde environment list
 mulle-sde environment set FOO "my foo value"
 ```
 
-
 ## mulle-sde extension
 
 *Extensions* add support for build systems, language runtimes and other tools
@@ -195,10 +195,20 @@ choice of *extensions*:
 mulle-sde extension upgrade
 ```
 
-
-
 See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
 information about adding and writing extensions.
+
+
+## mulle-sde find
+
+List project files and their types.
+
+```
+mulle-sde find
+```
+
+See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
+information on this command.
 
 
 ## mulle-sde library
@@ -236,6 +246,19 @@ Environment       | Default        | Description
 The monitor is a complex beast and has its own
 [project page](https://github.com/mulle-sde/mulle-monitor) and
 [Wiki](https://github.com/mulle-sde/mulle-monitor/wiki).
+
+
+## mulle-sde patternfile
+
+Manage the *patternfiles* that are used by `mulle-sde find` to classify the
+files inside your project:
+
+```
+mulle-sde patternfile list
+```
+
+See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
+information on this command.
 
 
 ## mulle-sde tool
