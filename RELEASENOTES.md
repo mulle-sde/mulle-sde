@@ -1,3 +1,7 @@
+### 0.15.11
+
+* even more dox improvements
+
 ### 0.15.10
 
 * improve README.md

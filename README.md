@@ -4,9 +4,9 @@
 
 **mulle-sde** is a command-line based software development environment. The
 idea is to organize your project with the filesystem, and then let
-**mulle-sde** reflect the changed filesystem back to the "Makefile".
-An important aspect of a **mulle-sde** project is, that your project
-is can still be built without **mulle-sde** installed.
+mulle-sde reflect the changed filesystem back to the "Makefile".
+An important aspect of a mulle-sde project is, that your project
+is can still be built without mulle-sde installed.
 
 **mulle-sde** has little to no benefit for an existing project that has no
 dependencies and that you are loathe to reorganize to fit the mulle-sde
@@ -15,8 +15,9 @@ workflow.
 
 **mulle-sde**
 
+* creates a virtual environment with [mulle-env](//github.com/mulle-sde/mulle-env)
 * provides a form of package management with [mulle-sourcetree](//github.com/mulle-sde/mulle-sourcetree)
-* build your project and its dependencies with [mulle-craft](//github.com/mulle-sde/mulle-craft)
+* builds your project and its dependencies with [mulle-craft](//github.com/mulle-sde/mulle-craft)
 * monitors filesystem changes via [mulle-monitor](//github.com/mulle-sde/mulle-monitor) and updates your project files
 * is language and buildtool agnostic. projects are configured using *extensions*, that provide language and buildtool bindings
 * projects are upgradable to newer *extension* versions at any time
@@ -37,12 +38,12 @@ Executable      | Description
 
 ## mulle-sde init
 
-Create a **mulle-sde** project.
+Create a mulle-sde project.
 
-As the various tools that comprise **mulle-sde** are configured with
+As the various tools that comprise mulle-sde are configured with
 environment variables, `mulle-sde init` will create  a virtual environment
-using **mulle-env**, so that various projects can coexist on a filesystem with
-minimized interference.
+using [mulle-env](//github.com/mulle-sde/mulle-env), so that various projects
+can coexist on a filesystem with minimized interference.
 
 > For the followinge example you need to install the following extension:
 > [mulle-sde-cmake-c](//github.com/mulle-sde/mulle-sde-cmake)
@@ -201,6 +202,8 @@ information about adding and writing extensions.
 
 ## mulle-sde find
 
+![](dox/mulle-sde-find.png)
+
 List project files and their types.
 
 ```
@@ -250,6 +253,8 @@ The monitor is a complex beast and has its own
 
 ## mulle-sde patternfile
 
+![](dox/mulle-sde-patternfile.png)
+
 Manage the *patternfiles* that are used by `mulle-sde find` to classify the
 files inside your project:
 
@@ -280,7 +285,7 @@ mulle-sde tool add nroff
 ## mulle-sde update
 
 An *update* reflects changes made in the filesystem back into the buildsystem
-"Makefiles". **mulle-sde** executes the task returned by the *callbacks*
+"Makefiles". mulle-sde executes the task returned by the *callbacks*
 `source` and `sourcetree`. The actual work is done by *tasks* of the chosen
 *extensions*.
 

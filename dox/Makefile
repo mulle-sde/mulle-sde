@@ -5,7 +5,9 @@ mulle-sde-craft.png \
 mulle-sde-dependency.png \
 mulle-sde-environment.png \
 mulle-sde-extension.png \
+mulle-sde-find.png \
 mulle-sde-library.png \
+mulle-sde-patternfile.png \
 mulle-sde-monitor.png \
 mulle-sde-overview.png \
 mulle-sde-subproject.png \
