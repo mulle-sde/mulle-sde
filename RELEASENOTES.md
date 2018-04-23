@@ -1,3 +1,7 @@
+### 0.15.9
+
+* fix upgrade and reinit
+
 ### 0.15.8
 
 * improve extension handling again, use new mulle-craft

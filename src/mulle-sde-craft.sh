@@ -115,16 +115,15 @@ sde_craft_main()
       local buildorderfile
       local sourcetreefile
       local statefile
+      local cachedir
 
       #
       # our buildorder is specific to a host
       #
-      if [ -z "${MULLE_HOSTNAME}" ]
-      then
-         MULLE_HOSTNAME="`hostname -s`"
-      fi
+      [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
 
-      buildorderfile="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache/buildorder"
+      cachedir="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache"
+      buildorderfile="${cachedir}/buildorder"
       statefile="${DEPENDENCY_DIR}/.state"
       sourcetreefile=".mulle-sourcetree/etc/config"
 
@@ -135,7 +134,7 @@ sde_craft_main()
       then
          log_verbose "Create buildorder file"
 
-         exekutor mkdir "${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache" 2> /dev/null
+         exekutor mkdir -p "${cachedir}" 2> /dev/null
          redirect_exekutor "${buildorderfile}" \
             "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} buildorder \
                  --marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} || exit 1

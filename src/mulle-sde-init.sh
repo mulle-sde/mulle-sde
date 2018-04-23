@@ -1416,6 +1416,7 @@ __sde_init_add()
    if ! install_extra_extensions "${OPTION_EXTRAS}" \
                                  "${PROJECT_TYPE}" \
                                  "${OPTION_MARKS}" \
+                                 "" \
                                  "${MULLE_FLAG_MAGNUM_FORCE}"
    then
       return 1
@@ -1452,6 +1453,14 @@ __get_installed_extensions()
    log_entry "__get_installed_extensions" "$@"
 
    local extensions
+
+   if [ -d "${MULLE_SDE_DIR}/share.old" ]
+   then
+      log_info "Last upgrade failed. Restoring the last configuration."
+      rmdir_safer "${MULLE_SDE_DIR}/share"
+      exekutor mv "${MULLE_SDE_DIR}/share.old" "${MULLE_SDE_DIR}/share"
+      remove_file_if_present "${MULLE_SDE_DIR}/.init"
+   fi
 
    extensions="`recall_installed_extensions`"
    if [ -z "${extensions}" ]
@@ -1669,7 +1678,7 @@ sde_init_main()
          ;;
 
          --existing)
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project,no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
          ;;
 
          --extension-file)
@@ -1682,13 +1691,13 @@ sde_init_main()
          --reinit)
             OPTION_REINIT="YES"
             OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project,no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
          ;;
 
          --upgrade)
             OPTION_UPGRADE="YES"
             OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project,no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
             OPTION_INIT_ENV="NO"
          ;;
 

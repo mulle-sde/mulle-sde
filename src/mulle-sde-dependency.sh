@@ -138,9 +138,13 @@ sde_dependency_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency list
+   ${MULLE_USAGE_NAME} dependency list [options]
 
    List dependencies of this project.
+
+Options:
+   --command : list dependencies as commands
+
 EOF
   exit 1
 }
@@ -236,6 +240,8 @@ sde_dependency_list_main()
    formatstring="%a;%m;%i={aliases,,-------}"
    marks="${DEPENDENCY_MARKS}"
 
+   local OPTION_OUTPUT_COMMAND="NO"
+
    while :
    do
       case "$1" in
@@ -252,6 +258,10 @@ sde_dependency_list_main()
             shift
 
             marks="`comma_concat "${marks}" "$1"`"
+         ;;
+
+         --command)
+            OPTION_OUTPUT_COMMAND="YES"
          ;;
 
          --)
@@ -272,14 +282,27 @@ sde_dependency_list_main()
       shift
    done
 
-   log_fluff "Just pass through to mulle-sourcetree"
-
-   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-         --format "${formatstring}" \
-         --marks "${marks}" \
-         --no-output-marks "${DEPENDENCY_MARKS}" \
-          "$@"
+   if [ "${OPTION_OUTPUT_COMMAND}" = "YES" ]
+   then
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+            --format "%m|'%u'\\n" \
+            --output-eval \
+            --no-output-column \
+            --no-output-header \
+            --marks "${marks}" \
+            --no-output-marks "${DEPENDENCY_MARKS}" \
+             "$@" | sed -e 's/\([^|][^|]*\)|/--marks \1 |/' \
+                        -e 's/|\(.*\)/\1/' \
+                  | sed -e 's/^/mulle-sde dependency add /'
+   else
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+            --format "${formatstring}" \
+            --marks "${marks}" \
+            --no-output-marks "${DEPENDENCY_MARKS}" \
+            "$@"
+   fi
 }
 
 

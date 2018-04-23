@@ -52,7 +52,7 @@ resulting "value added" URL, for modification possibilities `mulle-sourcetree li
 
 ## Add patternfiles if so desired
 
-If you're not happy witht he way `mulle-sde find` associates the files with
+If you're not happy with he way `mulle-sde find` associates the files with
 their type/category add a few more patternfiles.
 
 Example:
@@ -80,3 +80,39 @@ src/Exception/**/*.[cm]
 src/String/**/*.[cm]
 src/Value/**/*.[cm]
 ' | mulle-sde patternfile add -p 40 -c mulle-objc-core-sources source -
+
+
+## Set `MULLE_SDE_FETCH_PATH` to symlink depedency projects
+
+Typically you would like to find your subprojects locally, so setup the search
+path accordingly. Here is an example:
+
+
+```
+mulle-sde environment set MULLE_FETCH_SEARCH_PATH "/home/nat/srcO/mulle-c:/home/nat/srcO/mulle-objc:/home/nat/srcO/mulle-foundation:${PWD}/.."
+```
+
+
+## Clean some old cruft
+
+Clean old stuff from the `mulle-bootstrap` era:
+
+```
+rm .CC
+rm -rf .bootstrap.*
+```
+
+Modernize some stuff:
+
+```
+git mv tests test
+git rm -rf templates
+```
+
+## Create a Sublime Text project
+
+
+```
+mulle-sde extension add mulle-sde/sublime-text
+```
+
