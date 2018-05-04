@@ -32,7 +32,7 @@
 MULLE_SDE_SUBPROJECT_SH="included"
 
 
-SUBPROJECT_MARKS="no-update,no-delete,no-share"
+SUBPROJECT_MARKS="dependency,no-update,no-delete,no-share"
 
 
 sde_subproject_usage()
@@ -42,14 +42,18 @@ Usage:
    ${MULLE_USAGE_NAME} subproject [options] [command]
 
    A subproject is another mulle-sde project of yours, that serves
-   as a dependency here. Subprojects are subdirectories.
+   as a dependency here. Subprojects are subdirectories. A subproject is
+   otherwise indistinguishable from a dependency.
+
+   The subproject feature is ** EXPERIMENTAL ** and in constant flux.
 
 Options:
    -h            : show this usage
 
 Commands:
-   add <name>    : add a subproject
-   remove <name> : remove a subproject
+   add           : add a subproject
+   remove        : remove a subproject
+   move          : change buildorder of subproject
    list          : list subprojects (default)
          (use <command> -h for more help about commands)
 EOF
@@ -68,6 +72,23 @@ Usage:
 
    Example:
       ${MULLE_USAGE_NAME} subproject add subproject/mylib
+EOF
+  exit 1
+}
+
+
+
+sde_subproject_move_usage()
+{
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} subproject move <name> <up|down|top|bottom>
+
+   Change the buildorde for this subproject. Top builds first. Bottom builds
+   last. The name of the subproject is its relative file path.
+
+   Example:
+      ${MULLE_USAGE_NAME} subproject move subproject/mylib down
 EOF
   exit 1
 }
@@ -190,13 +211,13 @@ sde_subproject_get_main()
 }
 
 
+
 ###
 ### parameters and environment variables
 ###
 sde_subproject_main()
 {
    log_entry "sde_subproject_main" "$@"
-
 
    #
    # handle options
@@ -224,14 +245,24 @@ sde_subproject_main()
       add)
          log_fluff "Just pass through to mulle-sourcetree"
 
-         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} add "$@"
+         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} add \
+            --marks "${SUBPROJECT_MARKS}" "$@"
+      ;;
+
+      definition)
+         sde_subproject_definition_main "$@"
       ;;
 
       get)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
          sde_subproject_get_main "$@"
-         return $?
+      ;;
+
+      move)
+         log_fluff "Just pass through to mulle-sourcetree"
+
+         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} move "$@"
       ;;
 
       remove)
@@ -240,11 +271,18 @@ sde_subproject_main()
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
       ;;
 
+      init)
+         # shellcheck source=src/mulle-sde-init.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+
+         MULLE_FLAG_MAGNUM_FORCE="YES" \
+            eval_exekutor sde_init_main --project-source-dir="." "$@"
+      ;;
+
       set)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
          sde_subproject_set_main "$@"
-         return $?
       ;;
 
       #
@@ -255,8 +293,9 @@ sde_subproject_main()
          log_fluff "Just pass through to mulle-sourcetree"
 
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} list \
-            --marks "dependency,no-delete" \
-             "$@"
+            --marks "${SUBPROJECT_MARKS}" \
+            --no-output-marks "${SUBPROJECT_MARKS}" \
+            "$@"
       ;;
 
       *)

@@ -86,7 +86,9 @@ sde_clean_monitor_main()
 {
    log_entry "sde_clean_monitor_main" "$@"
 
-   rexekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} clean
+   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      rexekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} clean
 }
 
 

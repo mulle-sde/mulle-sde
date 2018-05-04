@@ -59,6 +59,11 @@ then
    . "$(mulle-sourcetree libexec-dir)/mulle-sourcetree-bash-completion.sh"
 fi
 
+if [ "`type -t "_mulle_make_complete"`" != "function" ]
+then
+   . "$(mulle-make libexec-dir)/mulle-make-bash-completion.sh"
+fi
+
 
 _mulle_sde_init_complete()
 {
@@ -148,6 +153,7 @@ _mulle_sde_library_complete()
    esac
 }
 
+
 _mulle_sde_dependency_complete()
 {
    local cur=${COMP_WORDS[COMP_CWORD]}
@@ -155,24 +161,90 @@ _mulle_sde_dependency_complete()
 
    local list
 
-   case "${prev}" in
-      get|remove|set)
-         list="`mulle-sde dependency list -- --format "%a\\n" --no-output-header`"
-         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+   local i
+   local state
+   local subcmd
+   local subsubcmd
+
+   state="start"
+   for i in "${COMP_WORDS[@]}"
+   do
+      case "${state}" in
+         start)
+            case "${i}" in
+               dependency)
+                  state="cmd"
+               ;;
+            esac
+         ;;
+
+         cmd)
+            case "${i}" in
+               add|definition|get|list|mark|move|remove|set|unmark)
+                  subcmd="${i}"
+                  state="subcmd"
+               ;;
+            esac
+         ;;
+
+         subcmd)
+            if [ "${subcmd}" = "definition" ]
+            then
+               case "${i}" in
+                  get|list|set)
+                     subsubcmd="${i}"
+                     state="subsubcmd"
+                  ;;
+               esac
+            fi
+         ;;
+      esac
+   done
+
+   local list
+
+   # state can't be start here
+   case "${state}" in
+      cmd)
+         COMPREPLY=( $( compgen -W "add definition get list mark move remove set unmark" -- $cur ) )
          return
       ;;
 
-      list)
+      subcmd)
+         if [ "${subcmd}" = "definition" ]
+         then
+            case "${cur}" in
+               -*)
+                  COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
+                  return
+               ;;
+            esac
+
+            if [ "${prev}" == "--platform" ]
+            then
+               COMPREPLY=( $( compgen -W "freebsd darwin linux mingw" -- $cur ) )
+               return
+            fi
+
+            COMPREPLY=( $( compgen -W "get list set" -- $cur ) )
+            return
+         fi
       ;;
 
-      add)
-      ;;
-
-
-      *)
-         COMPREPLY=( $( compgen -W "add get list remove set" -- $cur ) )
+      subsubcmd)
+         case "${cur}" in
+            -*)
+               COMPREPLY=( $( compgen -W "--additive" -- $cur ) )
+               return
+            ;;
+         esac
       ;;
    esac
+
+
+   list="`mulle-sde dependency list -- --format "%a\\n" --no-output-header`"
+   COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+   return
 }
 
 
@@ -193,11 +265,23 @@ _mulle_sde_extension_complete()
          COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
       ;;
 
+      usage)
+         list="`mulle-sde -s extension list`"
+         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+      ;;
+
+      pimp)
+         list="`mulle-sde -s extension list oneshot`"
+         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+      ;;
+
       *)
          COMPREPLY=( $( compgen -W "add list upgrade" -- $cur ) )
       ;;
    esac
 }
+
+
 
 
 _mulle_sde_complete()
@@ -206,6 +290,7 @@ _mulle_sde_complete()
    local prev=${COMP_WORDS[COMP_CWORD-1]}
 
    local commands="\
+buildorder
 callback
 craft
 dependency

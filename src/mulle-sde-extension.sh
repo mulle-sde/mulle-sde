@@ -46,9 +46,12 @@ Usage:
    mulle-sde init.
 
 Commands:
-   add       : add an extra extension to your project
-   list      : list available and installed extensions
-   upgrade   : upgrade project extensions to the latest version
+   add        : add an extra extension to your project
+   list       : list available and installed extensions
+   pimp       : pimp up your your project with a one shot extension
+   searchpath : show locations where extensions are searched
+   upgrade    : upgrade project extensions to the latest version
+   usage      : show usage information for an extension
 EOF
    exit 1
 }
@@ -75,6 +78,7 @@ Types:
    extra     : list available extra extensions
    installed : list extensions installed in your project
    meta      : list available meta extensions
+   oneshot   : list available oneshot extensions
    runtime   : list available runtime extensions
 EOF
    exit 1
@@ -89,9 +93,31 @@ sde_extension_add_usage()
 Usage:
    ${MULLE_USAGE_NAME} extension add <extension>
 
-   Add an extension to your project. This extension must be of type "extra".
+   Add an "extra" extension to your project.
    To reconfigure your project with another runtime or buildtool, use
    \`${MULLE_USAGE_NAME} init\` to setup anew.
+EOF
+   exit 1
+}
+
+
+sde_extension_pimp_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension pimp [options] <extension>
+
+   Install a "oneshot" extension in your project. A oneshot extensions runs
+   "once" and is not upgradable. You can run oneshot extensions as often as
+   you want. Use the -f flag to clobber existing files, like so:
+
+      mulle-sde -f extension pimp --oneshot-name Foo mulle-sde/buildinfo
+
+Options:
+   --oneshot-name <string> : pass a string to the extension
+
 EOF
    exit 1
 }
@@ -573,6 +599,7 @@ sde_extension_list_main()
    local buildtool_extension
    local meta_extension
    local extra_extension
+   local oneshot_extension
    local vendor
 
    local all_vendors
@@ -608,6 +635,13 @@ sde_extension_list_main()
       esac
 
       case "${cmd}" in
+         all|default|oneshot)
+            tmp="`collect_extension "${vendor}" oneshot `" || return 1
+            oneshot_extension="`add_line "${oneshot_extension}" "${tmp}" `"  || return 1
+         ;;
+      esac
+
+      case "${cmd}" in
          all|runtime)
             tmp="`collect_extension "${vendor}" runtime `"  || return 1
             runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
@@ -627,6 +661,7 @@ sde_extension_list_main()
    emit_extension "${runtime_extension}" "runtime" "[-r <extension>]"
    emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]"
    emit_extension "${extra_extension}" "extra" "[-e <extension>]*"
+   emit_extension "${oneshot_extension}" "oneshot" "[-o <extension>]*"
 
   :
 }
@@ -820,7 +855,6 @@ __emit_extension_usage()
 
    usagetext="`collect_file_info "${extensiondir}" "usage"`"
 
-
    if [ "${OPTION_USAGE_ONLY}" != "YES" ]
    then
       if [ ! -z "${usagetext}" ]
@@ -864,7 +898,7 @@ __emit_extension_usage()
    local text
 
    text="`collect_extension_projecttypes "${extensiondir}"`"
-   text="${text:-none}"
+   text="${text:-all}"
 
    echo "Types:"
    sed 's/^/   /' <<< "${text}"
@@ -1084,6 +1118,31 @@ sde_extension_usage_main()
 }
 
 
+hack_option_and_single_quote_everything()
+{
+   log_entry "hack_option_and_single_quote_everything" "$@"
+
+   local option="$1"; shift
+
+   local i
+   local last
+   local first="YES"
+
+   for i in "$@"
+   do
+      if [ "${first}" = "NO" ]
+      then
+         echo "'${last}'"
+      fi
+      last="$i"
+      first="NO"
+   done
+
+   echo "${option}"
+   echo "'${last}'"
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1113,8 +1172,12 @@ sde_extension_main()
       shift
    done
 
+   [ $# -eq 0 ] && sde_extension_usage
+
    local cmd="$1"
-   [ $# -ne 0 ] && shift
+   shift
+
+   local OPTION_DEFINES
 
    case "$1" in
       -h|--help|help)
@@ -1128,12 +1191,25 @@ sde_extension_main()
    esac
 
    case "${cmd:-list}" in
-      add)
+      add|pimp)
+         [ $# -eq 0 ] && sde_extension_${cmd}_usage
+
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
+         local option
+         local args
+
+         option="--extra"
+         if [ "${cmd}" = "pimp" ]
+         then
+            option="--oneshot"
+         fi
+
+         args="`hack_option_and_single_quote_everything "${option}" "$@" | tr '\012' ' '`"
+
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-            sde_init_main --no-blurb --no-env --add --extra "$@"
+            eval sde_init_main --no-blurb --no-env --add "${args}"
       ;;
 
       list)

@@ -281,10 +281,12 @@ _sourcetree_set_userinfo_field()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
    fi
 
+   local list
+
    if [ "${append}" = "YES" ]
    then
-      aliases="`assoc_array_get "${userinfo}" "${field}" `"
-      value="`commalist_add "${aliases}" "${value}" `"
+      list="`assoc_array_get "${userinfo}" "${field}" `"
+      value="`commalist_add "${list}" "${value}" `"
    fi
 
    userinfo="`assoc_array_set "${userinfo}" "${field}" "${value}" `"

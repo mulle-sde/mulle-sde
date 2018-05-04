@@ -43,9 +43,10 @@ sde_init_usage()
    COMMON_OPTIONS="\
    -D <key>=<val> : specify an environment variable
    -d <dir>       : directory to populate (working directory)
-   -e <extra>     : specify extra extensions. Multiple -e <extra> are possible
+   -e <extra>     : specify extra extensions. Multiple uses are possible
    -m <meta>      : specify meta extensions
    -n <name>      : project name
+   -o <oneshot>   : specify oneshot extensions. Multiple uses are possible
    --existing     : skips project and demo files"
 
    HIDDEN_OPTIONS="\
@@ -218,7 +219,7 @@ _copy_extension_template_files()
 
    if [ ! -d "${projectdir}" ]
    then
-      log_debug "No project files to copy, as \"${projectdir}\" is not there ($PWD)"
+      log_debug "\"${projectdir}\" is not there ($PWD)"
       return
    fi
 
@@ -564,7 +565,7 @@ add_to_environment()
    environment="`tr '\n' ' ' <<< "${environment}"`"
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
       eval_exekutor "'${MULLE_ENV}'" -s "${MULLE_ENV_FLAGS}" environment \
-                           --aux mset "${environment}" || exit 1
+                           --share mset "${environment}" || exit 1
 }
 
 
@@ -594,7 +595,8 @@ add_to_tools()
       then
          log_verbose "Adding \"${line}\" to tool"
          MULLE_VIRTUAL_ROOT="`pwd -P`" \
-            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} tool ${scope} add "${line}" || exit 1
+            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} tool --share ${scope} \
+                                                       add "${line}" || exit 1
       fi
    done
    IFS="${DEFAULT_IFS}"
@@ -751,7 +753,7 @@ install_version()
 
    exekutor cp ${flags} "${extensiondir}/version" \
                         "${MULLE_SDE_DIR}/share/version/${vendor}/${extname}"
-   return 0
+   return 0 # why ?
 }
 
 
@@ -804,7 +806,10 @@ install_extension()
       log_fluff "Extension \"${vendor}/${extname}\" is already installed"
       return
    fi
-   _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"`"
+   if [ "${exttype}" != "oneshot" ]
+   then
+      _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"`"
+   fi
 
    local extensiondir
 
@@ -848,7 +853,7 @@ vendor \"${vendor}\""
          fi
       ;;
 
-      meta|extra|buildtool)
+      meta|extra|oneshot|buildtool)
       ;;
 
       *)
@@ -898,8 +903,11 @@ vendor \"${vendor}\""
 
    log_fluff "Installing ${exttype} extension \"${vendor}/${extname}\" for real now :P"
 
-   # install version unconditionally first
-   install_version "${vendor}" "${extname}" "${extensiondir}"
+   # install version first
+   if [ "${exttype}" != "oneshot" ]
+   then
+      install_version "${vendor}" "${extname}" "${extensiondir}"
+   fi
 
    # meta only inherits stuff and doesn't add (except version)
    if [ "${exttype}" = "meta" ]
@@ -1060,9 +1068,11 @@ fix_permissions()
 }
 
 
-install_extra_extensions()
+_install_simple_extension()
 {
-   log_entry "install_extra_extensions" "$@"
+   log_entry "_install_simple_extension" "$@"
+
+   local exttype="$1"; shift
 
    local extras="$1"
    local projecttype="$2"
@@ -1070,7 +1080,6 @@ install_extra_extensions()
    local onlyfilename="$4"
    local force="$5"
 
-   #
    # optionally install "extra" extensions
    # f.e. a "git" extension could auto-init the project and create
    # a .gitignore file
@@ -1080,7 +1089,6 @@ install_extra_extensions()
    local extra
    local extra_vendor
    local extra_name
-   local option
 
    IFS="
 "; set -o noglob
@@ -1099,7 +1107,7 @@ install_extra_extensions()
          ;;
 
          *)
-            fail  "Extra extension \"${extra}\" must be fully qualifier <vendor>/<extension>"
+            fail "Extension \"${extra}\" must be fully qualified <vendor>/<extension>"
          ;;
       esac
 
@@ -1107,7 +1115,7 @@ install_extra_extensions()
       [ -z "${extra_vendor}" ] && fail "Missing extension vendor \"${extra}\""
 
       install_extension "${projecttype}" \
-                        "extra" \
+                        "${exttype}" \
                         "${extra_vendor}" \
                         "${extra_name}" \
                         "${marks}" \
@@ -1115,6 +1123,22 @@ install_extra_extensions()
                         "${force}" || return 1
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
+}
+
+
+install_extra_extensions()
+{
+   log_entry "install_extra_extensions" "$@"
+
+   _install_simple_extension "extra" "$@"
+}
+
+
+install_oneshot_extensions()
+{
+   log_entry "install_oneshot_extensions" "$@"
+
+   _install_simple_extension "oneshot" "$@"
 }
 
 
@@ -1234,7 +1258,6 @@ install_project()
       esac
    fi
 
-   local PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT      # for objc
    local LANGUAGE_SET
@@ -1256,6 +1279,23 @@ install_project()
    local _INSTALLED_EXTENSIONS
 
    _MOTD=""
+
+   #
+   # put these first, so extensions can draw on these in their definitions
+   #
+   log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
+
+   log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_TYPE "${projecttype}" || internal_fail "failed env set"
+
+   log_verbose "Environment: PROJECT_SOURCE_DIR=\"${OPTION_PROJECT_SOURCE_DIR}\""
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+      set PROJECT_SOURCE_DIR "${OPTION_PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
+
+
 
    #
    # buildtool is the most likely to fail, due to a mistyped
@@ -1289,6 +1329,12 @@ install_project()
                             "${onlyfilename}" \
                             "${force}" || exit 1
 
+   install_oneshot_extensions "${OPTION_ONESHOTS}" \
+                              "${projecttype}" \
+                              "${marks}" \
+                              "${onlyfilename}" \
+                              "${force}" || exit 1
+
    if [ ! -z "${onlyfilename}" ]
    then
       return
@@ -1300,7 +1346,7 @@ install_project()
    # create files later after init
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || \
             internal_fail "failed env set"
 
@@ -1310,25 +1356,17 @@ install_project()
    #
    memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
 
-   log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
-      set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
-
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
-
-   log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --aux \
-      set PROJECT_TYPE "${projecttype}" || internal_fail "failed env set"
 
    fix_permissions
 
@@ -1373,7 +1411,7 @@ changes into your subshell"
 
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
       eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
-                           --aux mset "${defines}" || exit 1
+                           --share mset "${defines}" || exit 1
 }
 
 
@@ -1397,9 +1435,9 @@ __sde_init_add()
       fail "Only 'extra' extensions can be added"
    fi
 
-   if [ -z "${OPTION_EXTRAS}" ]
+   if [ -z "${OPTION_EXTRAS}" -a -z "${OPTION_ONESHOTS}" ]
    then
-      fail "You must specify an extra extensions to be added"
+      fail "You must specify an extra or oneshot extension to be added"
    fi
 
    add_environment_variables "${OPTION_DEFINES}"
@@ -1423,6 +1461,12 @@ __sde_init_add()
    fi
 
    memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
+
+   install_oneshot_extensions "${OPTION_ONESHOTS}" \
+                              "${PROJECT_TYPE}" \
+                              "${OPTION_MARKS}" \
+                              "" \
+                              "${MULLE_FLAG_MAGNUM_FORCE}"
 }
 
 
@@ -1457,9 +1501,9 @@ __get_installed_extensions()
    if [ -d "${MULLE_SDE_DIR}/share.old" ]
    then
       log_info "Last upgrade failed. Restoring the last configuration."
-      rmdir_safer "${MULLE_SDE_DIR}/share"
-      exekutor mv "${MULLE_SDE_DIR}/share.old" "${MULLE_SDE_DIR}/share"
-      remove_file_if_present "${MULLE_SDE_DIR}/.init"
+      rmdir_safer "${MULLE_SDE_DIR}/share" &&
+      exekutor mv "${MULLE_SDE_DIR}/share.old" "${MULLE_SDE_DIR}/share" &&
+      rmdir_safer "${MULLE_SDE_DIR}/share.old"
    fi
 
    extensions="`recall_installed_extensions`"
@@ -1510,6 +1554,10 @@ __get_installed_extensions()
             OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "${extension%;*}" `"
             log_debug "Reinit extra extension: ${extension%;*}"
          ;;
+
+         *\;*)
+            log_warning "Garbled memorized extension \"${extension}\""
+         ;;
       esac
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1552,6 +1600,7 @@ sde_init_main()
 
    local OPTION_NAME
    local OPTION_EXTRAS
+   local OPTION_ONESHOTS
    local OPTION_COMMON="sde"
    local OPTION_META=""
    local OPTION_RUNTIME=""
@@ -1569,6 +1618,7 @@ sde_init_main()
    local OPTION_REINIT
    local OPTION_EXTENSION_FILE=".mulle-sde/share/extension"
    local OPTION_PROJECT_FILE
+   local OPTION_PROJECT_SOURCE_DIR="src"
 
    local line
 
@@ -1621,6 +1671,21 @@ sde_init_main()
             OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "$1" `"
          ;;
 
+         --oneshot-name)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            ONESHOT_NAME="$1"
+            export ONESHOT_NAME
+         ;;
+
+         -o|--oneshot)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_ONESHOTS="`add_line "${OPTION_ONESHOTS}" "$1" `"
+         ;;
+
          -i|--init-flags)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
@@ -1654,6 +1719,13 @@ sde_init_main()
             shift
 
             OPTION_NAME="$1"
+         ;;
+
+         --project-source-dir)
+            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            shift
+
+            OPTION_PROJECT_SOURCE_DIR="$1"
          ;;
 
          -r|--runtime)
@@ -1712,7 +1784,6 @@ sde_init_main()
          --no-*)
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "${1:2}"`"
          ;;
-
 
          --allow-*)
             OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${1:8}"`"
@@ -1777,8 +1848,12 @@ sde_init_main()
          fail "Could not retrieve previous extension information"
       fi
 
-      OPTION_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                      ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
+      if [ -z "${OPTION_NAME}" ]
+      then
+         OPTION_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                         ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
+      fi
+
       # once useful to repair lost files
       if [ -z "${PROJECT_TYPE}" ]
       then
@@ -1786,7 +1861,10 @@ sde_init_main()
                         ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
       fi
       [ -z "${PROJECT_TYPE}" ] && \
-         fail "Could not find required PROJECT_TYPE in environment"
+         fail "Could not find required PROJECT_TYPE in environment. \
+If you reinited the environment. Try:
+   ${C_RESET}${C_BOLD}mulle-sde environment --share set PROJECT_TYPE library"
+
    else
       [ $# -eq 0 ] && sde_init_usage "missing project type"
       [ $# -eq 1 ] || sde_init_usage "extranous arguments \"$*\""
@@ -1811,7 +1889,8 @@ Some files may be missing and the project may not be craftable."
    #
    # An upgrade is an "inplace" refresh of the extensions
    #
-   if [ "${OPTION_UPGRADE}" != "YES" -a -d "${MULLE_SDE_DIR}" ]
+   if [ "${OPTION_REINIT}" != "YES" -a "${OPTION_UPGRADE}" != "YES" -a \
+        -d "${MULLE_SDE_DIR}" ]
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" -a -f "${MULLE_SDE_DIR}/.init" ]
       then
@@ -1839,7 +1918,6 @@ Use \`mulle-sde upgrade\` for maintainance"
       exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} ${flags} \
                                  --style "${OPTION_ENV_STYLE}" \
                                  init --no-blurb
-
       case $? in
          0)
          ;;
@@ -1879,11 +1957,11 @@ Use \`mulle-sde upgrade\` for maintainance"
 
    # run in subshell so it doesn't really exit
    if ! (
-         install_project "${PROJECT_TYPE}" \
-                         "${OPTION_MARKS}" \
-                         "${OPTION_PROJECT_FILE}" \
-                         "${MULLE_FLAG_MAGNUM_FORCE}"
-      )
+           install_project "${PROJECT_TYPE}" \
+                           "${OPTION_MARKS}" \
+                           "${OPTION_PROJECT_FILE}" \
+                           "${MULLE_FLAG_MAGNUM_FORCE}"
+        )
    then
       if [ "${OPTION_UPGRADE}" = "YES" ]
       then
@@ -1900,6 +1978,7 @@ Use \`mulle-sde upgrade\` for maintainance"
       exit 1
    fi
 
+   rmdir_safer "${MULLE_SDE_DIR}/share.old"
    remove_file_if_present "${MULLE_SDE_DIR}/.init"
 
    if [ "${OPTION_BLURB}" = "YES" ]

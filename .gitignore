@@ -11,3 +11,5 @@ mulle-project/publisher-info.sh
 _Headers.cmake
 _Sources.cmake
 mulle-sde.graffle/
+dox/*Wishlist.txt
+

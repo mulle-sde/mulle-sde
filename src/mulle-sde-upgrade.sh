@@ -92,6 +92,5 @@ sde_upgrade_main()
    # shellcheck source=src/mulle-sde-init.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   MULLE_FLAG_MAGNUM_FORCE="YES" \
-      eval_exekutor sde_init_main --upgrade "$@"
+   eval_exekutor sde_init_main --upgrade "$@"
 }

@@ -1,3 +1,7 @@
+### 0.15.12
+
+* started work on dependency definition subcommand
+
 ### 0.15.11
 
 * even more dox improvements

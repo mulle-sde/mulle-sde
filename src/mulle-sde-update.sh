@@ -42,7 +42,9 @@ _callback_run()
 
    local rval
 
-   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} callback run "${callback}"
+   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} callback run "${callback}"
 }
 
 
@@ -56,7 +58,9 @@ _task_run()
 
    local rval
 
-   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task run "${task}"
+   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task run "${task}"
 }
 
 
@@ -66,7 +70,9 @@ _task_status()
 
    local task="$1"
 
-   exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task status "${task}"
+   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task status "${task}"
 }
 
 

@@ -32,7 +32,7 @@
 MULLE_SDE_DEPENDENCY_SH="included"
 
 
-DEPENDENCY_MARKS="dependency"  # basically bullshit :)
+DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
 
 
 sde_dependency_usage()
@@ -44,14 +44,20 @@ Usage:
    ${MULLE_USAGE_NAME} dependency [command]
 
    A dependency is a third party package, that is fetched via an URL.
-   I will be built along with your project.
+   I will be built along with your project. Dependencies are managed with
+   mulle-sourcetree. The build definitions for a dependency are managed with
+   mulle-make.
 
 Commands:
-   add    : add a dependency
-   get    : retrieve dependency settings
-   list   : list dependencies (default)
-   remove : remove a dependency
-   set    : change dependency settings
+   add        : add a dependency to the sourcetree
+   definition : change build options for the dependency
+   get        : retrieve dependency sourcetree settings
+   list       : list dependencies (default)
+   mark       : add marks to a dependency
+   move       : reorder dependencies
+   remove     : remove a dependency
+   set        : change dependency settings
+   unmark     : remove marks from a dependency
          (use <command> -h for more help about commands)
 EOF
    exit 1
@@ -84,6 +90,43 @@ Options:
    --if-missing    : if a node with the same address is present, do nothing
    --plain         : do not enhance URLs with environment variables
       (see: mulle-sourcetree -v add -h for more information about options)
+EOF
+  exit 1
+}
+
+sde_dependency_definition_usage()
+{
+   [ "$#" -ne 0 ] &&  log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency definition [option] <url> <command>
+
+   Manage a dependencys build settings. These will be stored in a folder
+   inside "buildinfo" at the top of your project. mulle-sde uses a "oneshot"
+   extension mulle-sde/buildinfo to create that subfolder.
+
+   The values in this "buildinfo" folder are manipulated using mulle-make
+   (see `mulle-make definition help` for more info).
+
+   Eventually the "buildinfo" contents are used by `mulle-craft` to populate
+   the `dependency/share/mulle-craft` folder and override any `.mulle-make`
+   folders. That's all fairly complicated, but it's necessary to have proper
+   setting inheritance across multiple projects.
+
+   Example:
+      mulle-sde dependency definition --global set -+ subproject/nng \
+                  CPPFLAGS "-DNNG_ENABLE_TLS=ON"
+
+Commands:
+   get               : retrieve a build setting for dependency with url
+   list              : list builds settings
+   set               : set a build setting
+
+Options:
+   --global          : use global settings instead of current platform settings
+   --platform <name> : specify settings for a specific platform
+
 EOF
   exit 1
 }
@@ -143,8 +186,8 @@ Usage:
    List dependencies of this project.
 
 Options:
-   --command : list dependencies as commands
-
+   --command : list dependencies as mulle-sourcetree commands
+   --url     : show URL
 EOF
   exit 1
 }
@@ -153,7 +196,6 @@ EOF
 #
 #
 #
-
 sde_dependency_set_main()
 {
    log_entry "sde_dependency_set_main" "$@"
@@ -193,8 +235,15 @@ sde_dependency_set_main()
       os-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
-                                     "${LIBRARY_MARKS}" \
+                                     "${DEPENDENCY_MARKS}" \
                                      "${OPTION_APPEND}"
+      ;;
+
+      aliases|include)
+         _sourcetree_set_userinfo_field "${address}" \
+                                        "${field}" \
+                                        "${value}" \
+                                        "${OPTION_APPEND}"
       ;;
 
       *)
@@ -250,7 +299,11 @@ sde_dependency_list_main()
          ;;
 
          --name-only)
-            formatstring="%a\\n"
+            formatstring="%a"
+         ;;
+
+         --url)
+            formatstring="${formatstring};%u"
          ;;
 
          --marks)
@@ -260,7 +313,7 @@ sde_dependency_list_main()
             marks="`comma_concat "${marks}" "$1"`"
          ;;
 
-         --command)
+         --output-cmd|--output-command|--command)
             OPTION_OUTPUT_COMMAND="YES"
          ;;
 
@@ -284,21 +337,18 @@ sde_dependency_list_main()
 
    if [ "${OPTION_OUTPUT_COMMAND}" = "YES" ]
    then
-      MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-            --format "%m|'%u'\\n" \
-            --output-eval \
-            --no-output-column \
-            --no-output-header \
-            --marks "${marks}" \
-            --no-output-marks "${DEPENDENCY_MARKS}" \
-             "$@" | sed -e 's/\([^|][^|]*\)|/--marks \1 |/' \
-                        -e 's/|\(.*\)/\1/' \
-                  | sed -e 's/^/mulle-sde dependency add /'
+      exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+         --output-eval \
+         --output-cmd \
+         --no-output-column \
+         --no-output-header \
+         --marks "${marks}" \
+         --no-output-marks "${DEPENDENCY_MARKS}" \
+         "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
          exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-            --format "${formatstring}" \
+            --format "${formatstring}\\n" \
             --marks "${marks}" \
             --no-output-marks "${DEPENDENCY_MARKS}" \
             "$@"
@@ -352,7 +402,12 @@ _sde_enhance_url()
 
    case "${nodetype}" in
       git)
-         _branch="\${${upcaseid}_BRANCH:-${branch}}"
+         if [ ! -z "${branch}" ]
+         then
+            _branch="\${${upcaseid}_BRANCH:-${branch}}"
+         else
+            _branch="\${${upcaseid}_BRANCH}"
+         fi
       ;;
 
       tar|zip)
@@ -514,6 +569,124 @@ sde_dependency_add_main()
                                              add "${options}" "'${url}'"
 }
 
+sde_add_buildinfo_subproject_if_needed()
+{
+   log_entry "sde_add_buildinfo_subproject_if_needed" "$@"
+
+   local subprojectdir="$1"
+   local name="$2"
+
+   if [ ! -d "${subprojectdir}" ]
+   then
+     # shellcheck source=src/mulle-sde-common.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+
+      sde_extension_main pimp --oneshot-name "${name}" mulle-sde/buildinfo || exit 1
+   fi
+
+   [ -d "${subprojectdir}" ] || \
+      internal_fail "did not produce \"${subprojectdir}\""
+
+   if exekutor "${MULLE_SOURCETREE}" add --if-missing \
+         --marks "no-update,no-delete,no-share,no-header,no-link" \
+         --nodetype "local" \
+         "${subprojectdir}"
+   then
+      exekutor "${MULLE_SOURCETREE}" move "${subprojectdir}" top
+   fi
+}
+
+
+sde_dependency_definition_main()
+{
+   log_entry "sde_dependency_definition_main" "$@"
+
+   local extension
+
+   extension=".${MULLE_UNAME}"
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_definition_usage
+         ;;
+
+         --global)
+            extension=""
+         ;;
+
+         --platform)
+            [ "$#" -eq 1 ] && sde_dependency_definition_usage "missing argument to \"$1\""
+            shift
+
+            extension=".$1"
+         ;;
+
+         -*)
+            sde_dependency_definition_usage "unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] && sde_dependency_definition_usage "missing address"
+
+   local url="$1"; shift
+
+   [ $# -eq 0 ] && sde_dependency_definition_usage "missing subcommand"
+
+   local subcmd="$1"; shift
+
+   local folder
+   local address
+
+   address="`exekutor "${MULLE_SOURCETREE}" get --url-addressing "${url}"`"
+   if [ -z "${address}" ]
+   then
+      address="${url}"
+   fi
+
+   [ -z "${address}" ] && fail "Invalid url or address"
+
+   local subprojectdir
+   local name
+
+   name="`fast_basename "${address}"`"
+   subprojectdir="buildinfo/${name}"
+
+   case "${subcmd}" in
+      set)
+         sde_add_buildinfo_subproject_if_needed "${subprojectdir}" "${name}"
+      ;;
+
+      get|list)
+      ;;
+
+      *)
+        sde_dependency_definition_usage "Unknown subcommand \"${subcmd}\""
+      ;;
+   esac
+
+   local folder
+
+   folder="${subprojectdir}/mulle-make${extension}"
+
+   if [ -z "${MULLE_MAKE}" ]
+   then
+      MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
+      [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
+   fi
+
+   exekutor "${MULLE_MAKE}" ${MULLE_MAKE_FLAGS} \
+      definition --info-dir "${folder}" "${subcmd}" "$@"
+}
+
 
 ###
 ### parameters and environment variables
@@ -564,6 +737,14 @@ sde_dependency_main()
          return $?
       ;;
 
+      definition)
+         # shellcheck source=src/mulle-sde-common.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+
+         sde_dependency_definition_main "$@"
+         return $?
+      ;;
+
       get)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
@@ -572,9 +753,13 @@ sde_dependency_main()
          return $?
       ;;
 
-      remove)
+      list)
+         sde_dependency_list_main "$@"
+      ;;
+
+      mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} remove "$@"
+            exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} ${cmd} "$@"
       ;;
 
       set)
@@ -583,10 +768,6 @@ sde_dependency_main()
 
          sde_dependency_set_main "$@"
          return $?
-      ;;
-
-      list)
-         sde_dependency_list_main "$@"
       ;;
 
       "")

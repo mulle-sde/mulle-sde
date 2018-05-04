@@ -16,23 +16,11 @@ set( SCRIPTS
 mulle-sde
 )
 
-set( LIBRARY_SCRIPTS
-src/mulle-sde-bash-completion.sh
-src/mulle-sde-clean.sh
-src/mulle-sde-common.sh
-src/mulle-sde-craft.sh
-src/mulle-sde-dependency.sh
-src/mulle-sde-extension.sh
-src/mulle-sde-init.sh
-src/mulle-sde-library.sh
-src/mulle-sde-monitor.sh
-src/mulle-sde-plugin.sh
-src/mulle-sde-projectname.sh
-src/mulle-sde-subproject.sh
-src/mulle-sde-template.sh
-src/mulle-sde-update.sh
-src/mulle-sde-upgrade.sh
+
+file( GLOB LIBRARY_SCRIPTS
+   "src/*.sh"
 )
+
 
 INSTALL( FILES ${SCRIPTS}
 PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ

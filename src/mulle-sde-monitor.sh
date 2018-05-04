@@ -52,6 +52,10 @@ sde_monitor_main()
    fi
    set_projectname_environment "read"
 
+   #
+   # environment can specify a different set of patternfiles to match against
+   #
+   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
 }

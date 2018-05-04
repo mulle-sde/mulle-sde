@@ -209,6 +209,11 @@ emit_author_date_seds()
    cmdline="`concat "${cmdline}" "-e 's/${o}USER${c}/${escaped_u}/g'"`"
    cmdline="`concat "${cmdline}" "-e 's/${o}YEAR${c}/${escaped_y}/g'"`"
 
+   local escaped
+
+   escaped="` escaped_sed_pattern "${ONESHOT_NAME}" `"
+   cmdline="`concat "${cmdline}" "-e 's/${o}ONESHOT_NAME${c}/${escaped}/g'"`"
+
    echo "${cmdline}"
 }
 
@@ -239,8 +244,16 @@ template_filename_replacement_command()
              rexekutor "${MULLE_ENV}" -s \
                            ${MULLE_ENV_FLAGS} environment \
                                  get --output-sed VENDOR_NAME`" || exit 1
-
    cmdline="`concat "${cmdline}" "${seds}"`"
+
+   #
+   # get ONESHOT_NAME from environment for file replacement. Name is used by
+   # oneshot extensions...it's a shabby hack
+   #
+   local escaped
+
+   escaped="` escaped_sed_pattern "${ONESHOT_NAME:-ONESHOT_NAME}" `"
+   cmdline="`concat "${cmdline}" "-e 's/ONESHOT_NAME/${escaped}/g'"`"
 
    log_debug "${cmdline}"
 
@@ -300,9 +313,9 @@ copy_and_expand_template()
    local filename_sed="$3"
    local template_sed="$4"
 
-   if [ -e "${dst}" -a "${FLAG_FORCE}" != "YES" ]
+   if [ "${FLAG_FORCE}" = "NO" -a -e "${dstfile}" ]
    then
-      log_fluff "\"${dst}\" already exists, so skipping it"
+      log_fluff "\"${dstfile}\" already exists, so skipping it"
       return
    fi
 
