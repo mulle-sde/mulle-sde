@@ -35,14 +35,21 @@ Executable      | Description
 
 ## Install
 
+It's preferable to install mulle-sde via
+[mulle-sde-developer](https://github.com/mulle-sde/mulle-sde-developer),
+as this will get you the core extensions as well.
+
+
 ### Script
 
-There is an install-all script, that installs the pre-requisites and mulle-sde
-itself into `/usr`. Suitable for environments without packages:
+There is an `install-all` script, that installs the pre-requisites and mulle-sde
+itself into `/usr`. Suitable for environments without supported package
+managers:
 
 ```
-curl -L -O 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/install-all' \
- && chmod 755 install-all && sudo ./install /usr
+curl -L -O 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/install-all' && \
+chmod 755 install-all && \
+sudo ./install /usr
 ```
 
 
@@ -66,6 +73,8 @@ Install latest version into `/usr` with sudo:
 curl -L 'https://github.com/mulle-sde/mulle-sde/archive/latest.tar.gz' \
  | tar xfz - && cd 'mulle-sde-latest' && sudo ./install /usr
 ```
+
+
 
 ### Packages
 
