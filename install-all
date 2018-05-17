@@ -1,0 +1,51 @@
+#! /bin/sh
+#
+# (c) 2018, coded by Nat!, Mulle KybernetiK
+#
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+
+
+PREFIX="${1:-/usr/local}"
+SUDO="${2:-sudo}"
+
+if [ "${SUDO}" = "no" ]
+then
+   SUDO=""
+fi
+
+
+SDE_PROJECTS="
+mulle-craft
+mulle-dispense
+mulle-env
+mulle-fetch
+mulle-make
+mulle-match
+mulle-monitor
+mulle-sde
+mulle-sde-developer
+mulle-sourcetree
+"
+
+main()
+{
+   (
+      curl -L 'https://github.com/mulle-nat/mulle-bashfunctions/archive/latest.tar.gz' \
+         | tar xfz - && cd 'mulle-bashfunctions-latest' && ${SUDO} ./install ${PREFIX}
+   ) || exit 1
+
+   for project in ${SDE_PROJECTS}
+   do
+      if [ ! -z "${project}" ]
+      then
+	 echo "Installing \"${project}\"" >&2
+         (
+            curl -L "https://github.com/mulle-sde/${project}/archive/latest.tar.gz" \
+		    | tar xfz - && cd "${project}-latest" && ( ${SUDO} ./install ${PREFIX} || ${SUDO} ./install.sh ${PREFIX} )
+         ) || exit 1
+      fi
+   done
+}
+
+main "$@"
+

@@ -77,11 +77,13 @@ emit_projectname_seds()
    # verify minimal set
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
    [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
+   [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "PROJECT_SOURCE_DIR is empty"
 
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
    escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
    escaped_pdi="` escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}" `"
+   escaped_psd="` escaped_sed_pattern "${PROJECT_SOURCE_DIR}" `"
 
    local cmdline
 
@@ -89,6 +91,7 @@ emit_projectname_seds()
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_IDENTIFIER${c}/${escaped_pi}/g'"`"
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${escaped_pdi}/g'"`"
    cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${escaped_pui}/g'"`"
+   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_SOURCE_DIR${c}/${escaped_psd}/g'"`"
 
    echo "${cmdline}"
 }
@@ -361,7 +364,7 @@ default_template_setup()
    log_entry "default_template_setup" "$@"
 
    local templatedir="$1"
-   local onlyfile="$5"
+   local onlyfile="$6"
 
    if [ ! -d "${templatedir}" ]
    then
@@ -435,6 +438,7 @@ _template_main()
    local PROJECT_EXTENSIONS
    local PROJECT_UPCASE_IDENTIFIER
    local PROJECT_DOWNCASE_IDENTIFIER
+   local PROJECT_SOURCE_DIR
    local OPTION_FILE
 
    local template_callback
@@ -498,6 +502,13 @@ _template_main()
             PROJECT_LANGUAGE="$1"
          ;;
 
+         --source-dir|--project-source-dir)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            shift
+
+            PROJECT_SOURCE_DIR="$1"
+         ;;
+
          --extensions|--project-extensions)
             [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
@@ -557,6 +568,7 @@ _template_main()
 
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-none}"
    PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
+   PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
    if [ -z "${PROJECT_EXTENSIONS}" ]
    then
       PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_EXTENSIONS}"`"
@@ -566,6 +578,7 @@ _template_main()
    log_debug "PROJECT_DIALECT=${PROJECT_DIALECT}"
    log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
    log_debug "PROJECT_EXTENSIONS=${PROJECT_EXTENSIONS}"
+   log_debug "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
 
    if [ -z "${TEMPLATE_DIR}" ]
    then
@@ -584,6 +597,7 @@ _template_main()
                                 "${PROJECT_NAME}" \
                                 "${PROJECT_LANGUAGE}" \
                                 "${PROJECT_EXTENSIONS}" \
+                                "${PROJECT_SOURCE_DIR}" \
                                 "${OPTION_FILE}"
       ;;
    esac

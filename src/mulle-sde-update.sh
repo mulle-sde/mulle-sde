@@ -44,7 +44,9 @@ _callback_run()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} callback run "${callback}"
+   MULLE_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} \
+                     callback run "${callback}"
 }
 
 
@@ -60,7 +62,9 @@ _task_run()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task run "${task}"
+   MULLE_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} \
+                  task run "${task}"
 }
 
 
@@ -72,7 +76,8 @@ _task_status()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} task status "${task}"
+      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} \
+                   task status "${task}"
 }
 
 

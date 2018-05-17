@@ -41,26 +41,27 @@ sde_init_usage()
    INIT_USAGE_NAME="${INIT_USAGE_NAME:-${MULLE_USAGE_NAME} init}"
 
    COMMON_OPTIONS="\
-   -D <key>=<val> : specify an environment variable
-   -d <dir>       : directory to populate (working directory)
-   -e <extra>     : specify extra extensions. Multiple uses are possible
-   -m <meta>      : specify meta extensions
-   -n <name>      : project name
-   -o <oneshot>   : specify oneshot extensions. Multiple uses are possible
-   --existing     : skips project and demo files"
+   --existing         : skip demo file installation.
+   -d <dir>           : directory to populate (working directory)
+   -D <key>=<val>     : specify an environment variable
+   -e <extra>         : specify extra extensions. Multiple uses are possible
+   -m <meta>          : specify meta extensions
+   -n <name>          : project name
+   -o <oneshot>       : specify oneshot extensions. Multiple uses are possible"
 
    HIDDEN_OPTIONS="\
-   -b <buildtool> : specify the buildtool extension to use
-   --no-<name>    : turn off specific pieces of initialization (see source code)
-   --allow-<name> : reenable specific pieces of initialization (see source code)
-   -r <runtime>   : specify runtime extension to use
-   -v <vendor>    : extension vendor to use (mulle-sde)"
+   --allow-<name>     : reenable specific pieces of initialization (see source code)
+   --no-<name>        : turn off specific pieces of initialization (see source code)
+   -b <buildtool>     : specify the buildtool extension to use
+   -r <runtime>       : specify runtime extension to use
+   -v <vendor>        : extension vendor to use (mulle-sde)
+   --source-dir <dir> : specify source directory location (src)"   
 
    cat <<EOF >&2
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   See with \`mulle-sde extension list\`  what extensions are available on your
+   Use \`mulle-sde extension list\` to see, which extensions are available on your
    system. Pick a meta extension to install. Check what project types are
    present for your chosen extension with \`mulle-sde extension usage\`.
 
@@ -72,7 +73,8 @@ Usage:
 
       cd my-project ; mulle-sde init --existing -m mulle-sde/c-cmake executable
 
-   Use \`mulle-sde extension add\` to add extra extensions.
+   You can use \`mulle-sde extension add\` to add extra and oneshot extensions.
+   at a later date.
 
 Options:
 EOF
@@ -240,7 +242,8 @@ _copy_extension_template_files()
               --name '${PROJECT_NAME}' \
               --language '${PROJECT_LANGUAGE}' \
               --dialect '${PROJECT_DIALECT}' \
-              --extensions '${PROJECT_EXTENSIONS}'"
+              --extensions '${PROJECT_EXTENSIONS}' \
+              --source-dir '${PROJECT_SOURCE_DIR}'"
 
    if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
    then
@@ -1190,14 +1193,17 @@ memorize_installed_extensions()
 }
 
 
-install_project()
+install_extensions()
 {
-   log_entry "install_project" "$@"
+   log_entry "install_extensions" "$@"
 
-   local projecttype="$1"
-   local marks="$2"
-   local onlyfilename="$3"
-   local force="$4"
+   local marks="$1"
+   local onlyfilename="$2"
+   local force="$3"
+
+   [ -z "${PROJECT_TYPE}" ] && internal_fail "missing PROJECT_NAME"
+   [ -z "${PROJECT_NAME}" ] && internal_fail "missing PROJECT_NAME"
+   [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "missing PROJECT_SOURCE_DIR"
 
    local runtime_vendor
    local buildtool_vendor
@@ -1207,6 +1213,8 @@ install_project()
 
    local option
    local tmp
+
+   local _INSTALLED_EXTENSIONS
 
    if [ ! -z "${OPTION_META}" ]
    then
@@ -1256,10 +1264,75 @@ install_project()
             buildtool_name="${OPTION_BUILDTOOL}"
          ;;
       esac
-   fi
+   fi 
+   
+   #
+   # buildtool is the most likely to fail, due to a mistyped
+   # projectdir, if that happens, we have done the least pollution yet
+   #
+   install_extension "${PROJECT_TYPE}" \
+                     "meta" \
+                     "${meta_vendor}" \
+                     "${meta_name}" \
+                     "${marks}" \
+                     "${onlyfilename}" \
+                     "${force}" &&
+   install_extension "${PROJECT_TYPE}" \
+                     "runtime" \
+                     "${runtime_vendor}" \
+                     "${runtime_name}" \
+                     "${marks}" \
+                     "${onlyfilename}" \
+                     "${force}" &&
+   install_extension "${PROJECT_TYPE}" \
+                     "buildtool" \
+                     "${buildtool_vendor}" \
+                     "${buildtool_name}" \
+                     "${marks}" \
+                     "${onlyfilename}" \
+                     "${force}" || exit 1
+
+   install_extra_extensions "${OPTION_EXTRAS}" \
+                            "${PROJECT_TYPE}" \
+                            "${marks}" \
+                            "${onlyfilename}" \
+                            "${force}" || exit 1
+
+   install_oneshot_extensions "${OPTION_ONESHOTS}" \
+                              "${PROJECT_TYPE}" \
+                              "${marks}" \
+                              "${onlyfilename}" \
+                              "${force}" || exit 1
+
+   fix_permissions
+
+   #
+   # remember type and installed extensions
+   # also remember version and given project name, which we may need to
+   # create files later after init
+   #
+   log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+      set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || \
+            internal_fail "failed env set"
+
+   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
+}
+
+
+install_project()
+{
+   log_entry "install_project" "$@"
+
+   local projecttype="$1"
+   local marks="$2"
+   local onlyfilename="$3"
+   local force="$4"
 
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT      # for objc
+   local PROJECT_SOURCE_DIR
+   local PROJECT_TYPE
    local LANGUAGE_SET
 
    LANGUAGE_SET="NO"
@@ -1274,11 +1347,8 @@ install_project()
    # extension
    #
    PROJECT_LANGUAGE="${OPTION_LANGUAGE:-none}"
-
-   local _MOTD
-   local _INSTALLED_EXTENSIONS
-
-   _MOTD=""
+   PROJECT_SOURCE_DIR="${OPTION_PROJECT_SOURCE_DIR:-src}"
+   PROJECT_TYPE="${projecttype}"
 
    #
    # put these first, so extensions can draw on these in their definitions
@@ -1287,53 +1357,20 @@ install_project()
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
 
-   log_verbose "Environment: PROJECT_TYPE=\"${projecttype}\""
+   log_verbose "Environment: PROJECT_TYPE=\"${PROJECT_TYPE}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
-      set PROJECT_TYPE "${projecttype}" || internal_fail "failed env set"
+      set PROJECT_TYPE "${PROJECT_TYPE}" || internal_fail "failed env set"
 
-   log_verbose "Environment: PROJECT_SOURCE_DIR=\"${OPTION_PROJECT_SOURCE_DIR}\""
+   log_verbose "Environment: PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
-      set PROJECT_SOURCE_DIR "${OPTION_PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
+      set PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
+
+   local _MOTD
+   
+   _MOTD=""
 
 
-
-   #
-   # buildtool is the most likely to fail, due to a mistyped
-   # projectdir, if that happens, we have done the least pollution yet
-   #
-   install_extension "${projecttype}" \
-                     "meta" \
-                     "${meta_vendor}" \
-                     "${meta_name}" \
-                     "${marks}" \
-                     "${onlyfilename}" \
-                     "${force}" &&
-   install_extension "${projecttype}" \
-                     "runtime" \
-                     "${runtime_vendor}" \
-                     "${runtime_name}" \
-                     "${marks}" \
-                     "${onlyfilename}" \
-                     "${force}" &&
-   install_extension "${projecttype}" \
-                     "buildtool" \
-                     "${buildtool_vendor}" \
-                     "${buildtool_name}" \
-                     "${marks}" \
-                     "${onlyfilename}" \
-                     "${force}" || exit 1
-
-   install_extra_extensions "${OPTION_EXTRAS}" \
-                            "${projecttype}" \
-                            "${marks}" \
-                            "${onlyfilename}" \
-                            "${force}" || exit 1
-
-   install_oneshot_extensions "${OPTION_ONESHOTS}" \
-                              "${projecttype}" \
-                              "${marks}" \
-                              "${onlyfilename}" \
-                              "${force}" || exit 1
+   install_extensions "$2" "$3" "$4"
 
    if [ ! -z "${onlyfilename}" ]
    then
@@ -1341,21 +1378,9 @@ install_project()
    fi
 
    #
-   # remember type and installed extensions
-   # also remember version and given project name, which we may need to
-   # create files later after init
-   #
-   log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
-      set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || \
-            internal_fail "failed env set"
-
-   #
    # setup the initial environment-global.sh (if missing) with some
    # values that the user may want to edit
    #
-   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
-
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
@@ -1368,7 +1393,6 @@ install_project()
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
       set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
 
-   fix_permissions
 
    case "${marks}" in
       no-motd|*,no-motd,*|*,no-motd)
@@ -1422,6 +1446,7 @@ __sde_init_add()
    [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
 
    [ -z "${PROJECT_TYPE}" ] && fail "PROJECT_TYPE is not defined"
+   [ -z "${PROJECT_SOURCE_DIR}" ] && fail "PROJECT_SOURCE_DIR is not defined"
 
    if [ ! -d "${MULLE_SDE_DIR}" ]
    then
@@ -1542,11 +1567,11 @@ __get_installed_extensions()
             fi
          ;;
 
-         *\;buildtool)
+         *\;runtime)
             if [ -z "${OPTION_META}" -a -z "${OPTION_RUNTIME}" ]
             then
                OPTION_RUNTIME="${extension%;*}"
-               log_debug "Reinit runtime extension: ${OPTION_META}"
+               log_debug "Reinit runtime extension: ${OPTION_RUNTIME}"
             fi
          ;;
 
@@ -1618,7 +1643,7 @@ sde_init_main()
    local OPTION_REINIT
    local OPTION_EXTENSION_FILE=".mulle-sde/share/extension"
    local OPTION_PROJECT_FILE
-   local OPTION_PROJECT_SOURCE_DIR="src"
+   local OPTION_PROJECT_SOURCE_DIR
 
    local line
 
@@ -1721,7 +1746,7 @@ sde_init_main()
             OPTION_NAME="$1"
          ;;
 
-         --project-source-dir)
+         --source-dir|--project-source-dir)
             [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
             shift
 
@@ -1954,16 +1979,13 @@ Use \`mulle-sde upgrade\` for maintainance"
    fi
 
    # rmdir_safer ".mulle-env"
-
-   # run in subshell so it doesn't really exit
-   if ! (
-           install_project "${PROJECT_TYPE}" \
-                           "${OPTION_MARKS}" \
+   if [ "${OPTION_UPGRADE}" = "YES" ]
+   then
+      if ! 
+        install_extensions "${OPTION_MARKS}" \
                            "${OPTION_PROJECT_FILE}" \
                            "${MULLE_FLAG_MAGNUM_FORCE}"
-        )
-   then
-      if [ "${OPTION_UPGRADE}" = "YES" ]
+      )
       then
          if [ -d "${MULLE_SDE_DIR}/share.old" ]
          then
@@ -1975,7 +1997,11 @@ Use \`mulle-sde upgrade\` for maintainance"
             fail "Things went really bad, can't restore old configuration"
          fi
       fi
-      exit 1
+   else
+      install_project "${PROJECT_TYPE}" \
+                      "${OPTION_MARKS}" \
+                      "${OPTION_PROJECT_FILE}" \
+                      "${MULLE_FLAG_MAGNUM_FORCE}"
    fi
 
    rmdir_safer "${MULLE_SDE_DIR}/share.old"

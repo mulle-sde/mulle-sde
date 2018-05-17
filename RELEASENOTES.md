@@ -1,3 +1,7 @@
+### 0.15.13
+
+* add install-all, rename install.sh to install
+
 ### 0.15.12
 
 * started work on dependency definition subcommand

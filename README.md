@@ -34,6 +34,34 @@ Executable      | Description
 > are only extensions for C and cmake available.
 
 
+## Install
+
+Install the pre-requisites:
+
+* [mulle-bashfunctions](https://github.com/mulle-nat/mulle-bashfunctions)
+* [mulle-craft](https://github.com/mulle-sde/mulle-craft)
+* [mulle-env](https://github.com/mulle-sde/mulle-env)
+* [mulle-fetch](https://github.com/mulle-sde/mulle-fetch)
+* [mulle-dispense](https://github.com/mulle-sde/mulle-dispense)
+* [mulle-make](https://github.com/mulle-sde/mulle-make)
+* [mulle-match](https://github.com/mulle-sde/mulle-match)
+* [mulle-sourcetree](https://github.com/mulle-sde/mulle-sourcetree)
+
+
+Install into `/usr` with sudo:
+
+```
+curl -L 'https://github.com/mulle-sde/mulle-sde/archive/latest.tar.gz' \
+ | tar xfz - && cd 'mulle-sde-latest' && sudo ./install /usr
+```
+
+### Packages
+
+OS          | Command
+------------|------------------------------------
+macos       | `brew install mulle-kybernetik/software/mulle-sde`
+
+
 # Commands
 
 ## mulle-sde init

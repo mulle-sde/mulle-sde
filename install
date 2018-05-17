@@ -189,13 +189,6 @@ main()
    do
       install -v -m "${mode}" "${i}" "${libexec}" || exit 1
    done
-
-   EXTENSION_DIR="${share}/extensions"
-   for i in src/extensions/*
-   do
-      mkdir -p "${EXTENSION_DIR}" 2> /dev/null
-      cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
-   done
 }
 
 main "$@"
