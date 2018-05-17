@@ -24,7 +24,6 @@ workflow.
 
 ![](dox/mulle-sde-overview.png)
 
-
 Executable      | Description
 ----------------|--------------------------------
 `mulle-sde`     | Create projects, add and remove dependencies, monitor filesystem and rebuild and test on demand

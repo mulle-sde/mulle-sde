@@ -1,3 +1,8 @@
+### 0.15.14
+
+* add install-all, rename install.sh to install
+* add install-all, rename install.sh to install
+
 ### 0.15.13
 
 * add install-all, rename install.sh to install
