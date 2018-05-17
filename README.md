@@ -38,10 +38,10 @@ Executable      | Description
 ### Script
 
 There is an install-all script, that installs the pre-requisites and mulle-sde
-itself. Suitable for environments without packages:
+itself into `/usr`. Suitable for environments without packages:
 
 ```
-curl -L 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/install-all' \
+curl -L -O 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/install-all' \
  && chmod 755 install-all && sudo ./install /usr
 ```
 
