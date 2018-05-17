@@ -35,6 +35,19 @@ Executable      | Description
 
 ## Install
 
+### Script
+
+There is an install-all script, that installs the pre-requisites and mulle-sde
+itself. Suitable for environments without packages:
+
+```
+curl -L 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/install-all' \
+ && chmod 755 install-all && sudo ./install /usr
+```
+
+
+### Manually
+
 Install the pre-requisites:
 
 * [mulle-bashfunctions](https://github.com/mulle-nat/mulle-bashfunctions)
@@ -47,7 +60,7 @@ Install the pre-requisites:
 * [mulle-sourcetree](https://github.com/mulle-sde/mulle-sourcetree)
 
 
-Install into `/usr` with sudo:
+Install latest version into `/usr` with sudo:
 
 ```
 curl -L 'https://github.com/mulle-sde/mulle-sde/archive/latest.tar.gz' \

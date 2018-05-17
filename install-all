@@ -14,36 +14,61 @@ then
 fi
 
 
+MULLE_NAT_PROJECTS="
+mulle-bashfunctions;${MULLE_BASHFUNCTIONS_VERSION}"
+
 SDE_PROJECTS="
-mulle-craft
-mulle-dispense
-mulle-env
-mulle-fetch
-mulle-make
-mulle-match
-mulle-monitor
-mulle-sde
-mulle-sde-developer
-mulle-sourcetree
+mulle-craft;${MULLE_CRAFT_VERSION}
+mulle-dispense;${MULLE_DISPENSE_VERSION}
+mulle-env;${MULLE_ENV_VERSION}
+mulle-fetch;${MULLE_FETCH_VERSION}
+mulle-make;${MULLE_MAKE_VERSION}
+mulle-match;${MULLE_MATCH_VERSION}
+mulle-monitor;${MULLE_MONITOR_VERSION}
+mulle-sde;${MULLE_SDE_VERSION}
+mulle-sde-developer;${MULLE_SDE_DEVELOPER_VERSION}
+mulle-sourcetree;${MULLE_SOURCETREE_VERSION}
 "
+
+install_project()
+{
+   local vendor="$1"
+   local project="$2"
+
+   if [ ! -z "${project}" ]
+   then
+      (
+         local name
+         local version
+
+         name="${project%%;*}"   # first part
+         version="${project#*;}" # remaining part
+         version="${version:-latest}"
+
+         echo "Install ${version} version of \"${name}\"" 2>&1
+
+         curl -L "https://github.com/${vendor}/${name}/archive/${version}.tar.gz" \
+            | tar xfz - && cd "${name}-${version}" && \
+               ( ${SUDO} ./install "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+      ) || exit 1
+   fi
+}
+
 
 main()
 {
-   (
-      curl -L 'https://github.com/mulle-nat/mulle-bashfunctions/archive/latest.tar.gz' \
-         | tar xfz - && cd 'mulle-bashfunctions-latest' && ${SUDO} ./install ${PREFIX}
-   ) || exit 1
+   local project
+
+   mkdir -p "${PREFIX}" || exit 1
+
+   for project in ${MULLE_NAT_PROJECTS}
+   do
+      install_project "mulle-nat" "${project}"
+   done
 
    for project in ${SDE_PROJECTS}
    do
-      if [ ! -z "${project}" ]
-      then
-	 echo "Installing \"${project}\"" >&2
-         (
-            curl -L "https://github.com/mulle-sde/${project}/archive/latest.tar.gz" \
-		    | tar xfz - && cd "${project}-latest" && ( ${SUDO} ./install ${PREFIX} || ${SUDO} ./install.sh ${PREFIX} )
-         ) || exit 1
-      fi
+      install_project "mulle-sde" "${project}"
    done
 }
 

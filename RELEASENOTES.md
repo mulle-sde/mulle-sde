@@ -1,3 +1,7 @@
+### 0.15.15
+
+* improve install-all
+
 ### 0.15.14
 
 * add install-all, rename install.sh to install
