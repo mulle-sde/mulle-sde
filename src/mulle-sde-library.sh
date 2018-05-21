@@ -372,7 +372,7 @@ sde_library_list_main()
       --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
       --nodetypes "none" \
       --marks "${marks}" \
-      --no-output-marks "${LIBRARY_MARKS}" \
+      --output-no-marks "${LIBRARY_MARKS}" \
        "$@"
 }
 
@@ -400,7 +400,6 @@ sde_library_remove_main()
       shift
    done
 
-   log_fluff "Just pass through to mulle-sourcetree"
    export MULLE_EXECUTABLE_NAME
 
    MULLE_USAGE_NAME="${MULLE_EXECUTABLE_NAME}" \

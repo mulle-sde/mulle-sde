@@ -55,7 +55,7 @@ sde_init_usage()
    -b <buildtool>     : specify the buildtool extension to use
    -r <runtime>       : specify runtime extension to use
    -v <vendor>        : extension vendor to use (mulle-sde)
-   --source-dir <dir> : specify source directory location (src)"   
+   --source-dir <dir> : specify source directory location (src)"
 
    cat <<EOF >&2
 Usage:
@@ -1203,7 +1203,9 @@ install_extensions()
 
    [ -z "${PROJECT_TYPE}" ] && internal_fail "missing PROJECT_NAME"
    [ -z "${PROJECT_NAME}" ] && internal_fail "missing PROJECT_NAME"
-   [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "missing PROJECT_SOURCE_DIR"
+
+   # set to src as default for older projects
+   PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
 
    local runtime_vendor
    local buildtool_vendor
@@ -1264,8 +1266,8 @@ install_extensions()
             buildtool_name="${OPTION_BUILDTOOL}"
          ;;
       esac
-   fi 
-   
+   fi
+
    #
    # buildtool is the most likely to fail, due to a mistyped
    # projectdir, if that happens, we have done the least pollution yet
@@ -1354,19 +1356,19 @@ install_project()
    # put these first, so extensions can draw on these in their definitions
    #
    log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_TYPE=\"${PROJECT_TYPE}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_TYPE "${PROJECT_TYPE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
 
    local _MOTD
-   
+
    _MOTD=""
 
 
@@ -1382,15 +1384,15 @@ install_project()
    # values that the user may want to edit
    #
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
 
 
@@ -1866,7 +1868,7 @@ sde_init_main()
 
    if [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ]
    then
-      [ ! -d "${MULLE_SDE_DIR}" ] && fail "This is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
+      [ ! -d "${MULLE_SDE_DIR}" ] && fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
 
       if ! __get_installed_extensions
       then
@@ -1888,7 +1890,7 @@ sde_init_main()
       [ -z "${PROJECT_TYPE}" ] && \
          fail "Could not find required PROJECT_TYPE in environment. \
 If you reinited the environment. Try:
-   ${C_RESET}${C_BOLD}mulle-sde environment --share set PROJECT_TYPE library"
+   ${C_RESET}${C_BOLD}mulle-sde environment --project set PROJECT_TYPE library"
 
    else
       [ $# -eq 0 ] && sde_init_usage "missing project type"
@@ -1981,11 +1983,9 @@ Use \`mulle-sde upgrade\` for maintainance"
    # rmdir_safer ".mulle-env"
    if [ "${OPTION_UPGRADE}" = "YES" ]
    then
-      if ! 
-        install_extensions "${OPTION_MARKS}" \
-                           "${OPTION_PROJECT_FILE}" \
-                           "${MULLE_FLAG_MAGNUM_FORCE}"
-      )
+      if ! install_extensions "${OPTION_MARKS}" \
+                              "${OPTION_PROJECT_FILE}" \
+                              "${MULLE_FLAG_MAGNUM_FORCE}"
       then
          if [ -d "${MULLE_SDE_DIR}/share.old" ]
          then

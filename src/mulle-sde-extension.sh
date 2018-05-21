@@ -48,6 +48,7 @@ Usage:
 Commands:
    add        : add an extra extension to your project
    list       : list available and installed extensions
+   meta       : print the installed meta extension
    pimp       : pimp up your your project with a one shot extension
    searchpath : show locations where extensions are searched
    upgrade    : upgrade project extensions to the latest version
@@ -728,7 +729,7 @@ a mulle-sde project"
    (
       IFS="
 "
-      for filename in `find "${MULLE_SDE_DIR}/share/version" -type f -print`
+      for filename in `rexekutor find "${MULLE_SDE_DIR}/share/version" -type f -print`
       do
          IFS="${DEFAULT_IFS}"
 
@@ -1214,6 +1215,18 @@ sde_extension_main()
 
       list)
          sde_extension_list_main "$@"
+      ;;
+
+      meta|installed-meta)
+         local meta
+
+         meta="`egrep ';meta$' "${MULLE_SDE_DIR}/share/extension" | head -1 | cut -d';' -f 1`"
+         if [ -z "${meta}" ]
+         then
+            log_warning "Could not figure out installed meta extension"
+            return 1
+         fi
+         echo "${meta}"
       ;;
 
       searchpath)

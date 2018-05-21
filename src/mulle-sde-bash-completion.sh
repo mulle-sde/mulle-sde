@@ -248,6 +248,108 @@ _mulle_sde_dependency_complete()
 }
 
 
+
+_mulle_sde_subproject_complete()
+{
+   local cur=${COMP_WORDS[COMP_CWORD]}
+   local prev=${COMP_WORDS[COMP_CWORD-1]}
+
+   local list
+
+   local i
+   local state
+   local subcmd
+   local subsubcmd
+
+   state="start"
+   for i in "${COMP_WORDS[@]}"
+   do
+      case "${state}" in
+         start)
+            case "${i}" in
+               subproject)
+                  state="cmd"
+               ;;
+            esac
+         ;;
+
+         cmd)
+            case "${i}" in
+               add|definition|get|list|init|mark|move|remove|set|unmark|update)
+                  subcmd="${i}"
+                  state="subcmd"
+               ;;
+            esac
+         ;;
+
+         subcmd)
+            case "${subcmd}" in
+               "definition")
+                  case "${i}" in
+                     get|list|set)
+                        subsubcmd="${i}"
+                        state="subsubcmd"
+                     ;;
+                  esac
+               ;;
+            esac
+         ;;
+      esac
+   done
+
+   local list
+
+   # state can't be start here
+   case "${state}" in
+      cmd)
+         COMPREPLY=( $( compgen -W "add definition get init list mark move remove set unmark update" -- $cur ) )
+         return
+      ;;
+
+      subcmd)
+         case "${subcmd}" in
+            definition)
+               case "${cur}" in
+                  -*)
+                     COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
+                     return
+                  ;;
+               esac
+
+               if [ "${prev}" == "--platform" ]
+               then
+                  COMPREPLY=( $( compgen -W "freebsd darwin linux mingw" -- $cur ) )
+                  return
+               fi
+
+               COMPREPLY=( $( compgen -W "get list set" -- $cur ) )
+               return
+            ;;
+
+            init)
+               COMPREPLY=( $( compgen -d -- "$cur" ) )
+               return 0
+            ;;
+         esac
+      ;;
+
+      subsubcmd)
+         case "${cur}" in
+            -*)
+               COMPREPLY=( $( compgen -W "--additive" -- $cur ) )
+               return
+            ;;
+         esac
+      ;;
+   esac
+
+
+   list="`mulle-sde subproject list -- --format "%a\\n" --no-output-header`"
+   COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+   return
+}
+
+
 _mulle_sde_extension_complete()
 {
    local cur=${COMP_WORDS[COMP_CWORD]}
@@ -276,12 +378,10 @@ _mulle_sde_extension_complete()
       ;;
 
       *)
-         COMPREPLY=( $( compgen -W "add list upgrade" -- $cur ) )
+         COMPREPLY=( $( compgen -W "add list meta pimp upgrade usage" -- $cur ) )
       ;;
    esac
 }
-
-
 
 
 _mulle_sde_complete()
@@ -426,6 +526,11 @@ update"
 
       mark|unmark)
          _mulle_sourcetree_complete "$@"
+         return 0
+      ;;
+
+      subproject)
+         _mulle_sde_subproject_complete "$@"
          return 0
       ;;
 

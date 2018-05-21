@@ -337,20 +337,21 @@ sde_dependency_list_main()
 
    if [ "${OPTION_OUTPUT_COMMAND}" = "YES" ]
    then
-      exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
-         --output-eval \
-         --output-cmd \
-         --no-output-column \
-         --no-output-header \
-         --marks "${marks}" \
-         --no-output-marks "${DEPENDENCY_MARKS}" \
-         "$@"
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
+         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+            --marks "${marks}" \
+            --output-eval \
+            --output-cmd \
+            --output-no-column \
+            --output-no-header \
+            --output-no-marks "${DEPENDENCY_MARKS}" \
+            "$@"
    else
-      MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
             --format "${formatstring}\\n" \
             --marks "${marks}" \
-            --no-output-marks "${DEPENDENCY_MARKS}" \
+            --output-no-marks "${DEPENDENCY_MARKS}" \
             "$@"
    fi
 }

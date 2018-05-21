@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.15.17
+MULLE_EXECUTABLE_VERSION=0.16.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -73,7 +73,7 @@ print_commands()
 
       HIDDEN_COMMANDS="\
    clean          : clean various parts of the project
-   craft          : build the project using mulle-craft
+   craft          : build the project and dependencies using mulle-craft
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
    clean          : clean various parts of the project
@@ -118,6 +118,10 @@ print_flags()
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      echo "   --style <val>  : see \`mulle-env help\` for style description"
+   fi
 
    options_technical_flags_usage "${delimiter}"
 }

@@ -32,10 +32,38 @@
 MULLE_SDE_CRAFT_SH="included"
 
 
+sde_craft_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} craft [options] [command] ...
+
+   Build the dependency folder and the project.
+
+   The dependency folder is built with he \`mulle-sde buildorder\` file.
+
+   This is a frontend to mulle-craft <project|buildorder>. See
+   \`mulle-craft help\` for all the options available.
+
+
+Options:
+   -h         : show this usage
+
+Commands:
+   all        : build dependency folder first then the project (default)
+   dependency : build dependency folder only
+   project    : build the project only
+
+EOF
+   exit 1
+}
+
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style
-# Wan't something special ? Use mulle-craft directly
 #
 sde_craft_main()
 {
@@ -46,10 +74,14 @@ sde_craft_main()
    cmd="${MULLE_SDE_CRAFT_STYLE:-all}"
 
    case "$1" in
+      -h|--help|help)
+         sde_craft_usage
+      ;;
+
       ""|-*)
       ;;
 
-      *)
+      all|dependency|project)
          cmd="$1"
          shift
       ;;
@@ -59,8 +91,9 @@ sde_craft_main()
    # Make a quick estimate if this is a virgin checkout scenario
    # If yes, then lets update once (why ?, noob support ?)
    #
-   if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" != "YES" ] && [ ! -d "${DEPENDENCY_DIR}" ]
+   if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" != "NO" ] && [ ! -d "${DEPENDENCY_DIR}" ]
    then
+      log_fluff "\"dependency\" does not exist, so run update once"
       MULLE_SDE_UPDATE_BEFORE_CRAFT="YES"
    fi
 
@@ -76,7 +109,7 @@ sde_craft_main()
 
       log_verbose "Run update if needed"
 
-      sde_update_if_needed_main
+      sde_update_main --if-needed source
    fi
 
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
@@ -85,10 +118,6 @@ sde_craft_main()
    fi
 
    set_projectname_environment "read"
-
-   local cmdline
-
-   cmdline="'${MULLE_CRAFT}' ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS}"
 
    #
    # Check if we need to update. If we do, we do.
@@ -110,9 +139,13 @@ sde_craft_main()
                      "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
    fi
 
+   local cmdline
+   local buildorderfile
+
+   cmdline="'${MULLE_CRAFT}' ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS}"
+
    if [ ${dbrval} -ne 1 ]
    then
-      local buildorderfile
       local sourcetreefile
       local statefile
       local cachedir
@@ -139,21 +172,34 @@ sde_craft_main()
             "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} buildorder \
                  --marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} || exit 1
       fi
-
-      cmdline="${cmdline} --buildorder-file '${buildorderfile}'"
    fi
 
    cmdline="${cmdline} --motd"
-   cmdline="${cmdline} ${cmd}"
+
+   local arguments
 
    while [ $# -ne 0  ]
    do
-      cmdline="${cmdline} '$1'"
+      arguments="${arguments} '$1'"
       shift
    done
 
    log_verbose "Craft \"${cmd}\" project \"${PROJECT_NAME}\""
 
-   MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-      eval_exekutor "${cmdline}"
+   if [ "${cmd}" != "project" ]
+   then
+      if [ ! -z "${buildorderfile}" ]
+      then
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
+            eval_exekutor "${cmdline}" buildorder \
+                                       --buildorder-file '${buildorderfile}' \
+                                       "${arguments}" || return 1
+      fi
+   fi
+
+   if [ "${cmd}" != "dependency" ]
+   then
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
+         eval_exekutor "${cmdline}" project "${arguments}"
+   fi
 }

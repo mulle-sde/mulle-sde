@@ -34,13 +34,15 @@ MULLE_SDE_UPGRADE_SH="included"
 
 sde_upgrade_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
    SHOWN_COMMANDS="\
    project    : upgrade project template content  (rarely useful)
 "
 
     cat <<EOF >&2
 Usage:
-   ${UPGRADE_USAGE_NAME:-${MULLE_USAGE_NAME} upgrade [project]
+   ${UPGRADE_USAGE_NAME:-${MULLE_USAGE_NAME}} upgrade [project]
 
    Upgrade to a newer mulle-sde version. The default is to upgrade the non
    project files only. Upgrading project files is usally also not recommended,

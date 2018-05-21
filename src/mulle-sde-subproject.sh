@@ -37,6 +37,8 @@ SUBPROJECT_MARKS="dependency,no-update,no-delete,no-share"
 
 sde_subproject_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_USAGE_NAME} subproject [options] [command]
@@ -63,6 +65,8 @@ EOF
 
 sde_subproject_add_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_USAGE_NAME} subproject add <name>
@@ -80,6 +84,8 @@ EOF
 
 sde_subproject_move_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_USAGE_NAME} subproject move <name> <up|down|top|bottom>
@@ -96,6 +102,8 @@ EOF
 
 sde_subproject_set_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_USAGE_NAME} subproject set [options] <name> <key> <value>
@@ -103,14 +111,14 @@ Usage:
    Modify a subproject settings, which is referenced by its name.
 
    Examples:
-      ${MULLE_USAGE_NAME} subproject set subproject/mylib \
-                                                   os-excludes darwin
+      ${MULLE_USAGE_NAME} subproject set src/mylib os-excludes darwin
 
 Options:
    --append    : append value instead of set
 
 Keys:
    os-excludes : names of OSes to exclude, separated by comma
+   aliases     : alternative names
 EOF
   exit 1
 }
@@ -118,6 +126,8 @@ EOF
 
 sde_subproject_get_usage()
 {
+   [ "$#" -ne 0 ] && log_error "$1"
+
     cat <<EOF >&2
 Usage:
    ${MULLE_USAGE_NAME} subproject get <name> <key>
@@ -132,6 +142,30 @@ Keys:
 EOF
   exit 1
 }
+
+
+sde_subproject_init_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} subproject init <name> ...
+
+   Intitialize a subproject for mulle-sde and add it to the list of
+   subprojects. The remainder of the arguments is passed to
+   \`mulle-sde init\`.
+
+   If no arguments are given, the subproject inherits the extensions and
+   style from the main project.
+
+   Examples:
+      ${MULLE_USAGE_NAME} subproject init src/Base
+
+EOF
+  exit 1
+}
+
 
 
 sde_subproject_set_main()
@@ -178,6 +212,13 @@ sde_subproject_set_main()
                                      "${OPTION_APPEND}"
       ;;
 
+      aliases|include)
+         _sourcetree_set_userinfo_field "${address}" \
+                                        "${field}" \
+                                        "${value}" \
+                                        "${OPTION_APPEND}"
+      ;;
+
       *)
          log_error "unknown field name \"${field}\""
          sde_subproject_set_usage
@@ -211,6 +252,151 @@ sde_subproject_get_main()
 }
 
 
+emit_ignore_patternfile()
+{
+   local subprojects="$1"
+
+   local subproject
+
+   set -o noglob;  IFS="
+"
+   for subproject in ${subprojects}
+   do
+      echo "${subproject}/"
+   done
+   set +o noglob; IFS="${DEFAULT_IFS}"
+}
+
+
+update_ignore_patternfile()
+{
+   log_entry "sde_subproject_main" "$@"
+
+   local subprojects
+   local contents
+
+   subprojects="`sde_subproject_main list --format '%a\n' --no-output-header`"
+   contents="`emit_ignore_patternfile "${subprojects}"`"
+
+   local sharefile
+   local etcfile
+
+   sharefile="${MULLE_SDE_DIR}/share/ignore.d/30-subproject--none"
+   etcfile="${MULLE_SDE_ETC_DIR}/ignore.d/30-subproject--none"
+
+   if [ -e "${sharefile}" ]
+   then
+      oldcontents="`cat "${sharefile}"`"
+      if [ "${oldcontents}" = "${contents}" ]
+      then
+         return
+      fi
+      exekutor chmod ug+w "${sharefile}"
+   fi
+
+   redirect_exekutor "${sharefile}" echo "${contents}"
+   exekutor chmod ug-w "${sharefile}"
+
+   local etcfile
+
+   #
+   # Overwrite etc, user should NOT dick with this file
+   #
+   if [ ! -e "${etcfile}" ]
+   then
+      return
+   fi
+
+   oldetccontents="`cat "${etcfile}"`"
+   if [ "${oldetccontents}" != "${oldcontents}" ]
+   then
+      fail "User edits in \"${etcfile}\" are not allowed"
+   fi
+
+   redirect_exekutor "${etcfile}" echo "${contents}"
+}
+
+
+sde_subproject_init_main()
+{
+   log_entry "sde_subproject_init_main" "$@"
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_subproject_init_usage
+         ;;
+
+         -*)
+            sde_subproject_init_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local directory
+
+   [ $# -eq 0 ] && sde_subproject_init_usage
+
+   directory="$1"; shift
+
+   if [ -d "${directory}/.mulle-sde" ]
+   then
+      fail "\"${directory}\" is already present and initialized"
+   fi
+
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+   fi
+
+   mkdir_if_missing "${directory}"
+
+   if [ $# -ne 0 ]
+   then
+      args="$@"
+   else
+      args="--style `mulle-env style`"
+
+      if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
+      then
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
+      fi
+
+      meta="`sde_extension_main installed-meta`"
+      if [ -z "${meta}" ]
+      then
+         fail "Unknown installed meta extension. Specify it yourself"
+         exit 1
+      fi
+
+      args="${args} -m ${meta} library"
+   fi
+
+   (
+      cd "${directory}"
+
+      # shellcheck source=src/mulle-sde-init.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+
+      MULLE_VIRTUAL_ROOT="" \
+      MULLE_FLAG_MAGNUM_FORCE="YES" \
+         eval_exekutor sde_init_main --no-motd --project-source-dir "." "${args}"
+   ) || exit 1
+
+   sde_subproject_main "add" "${directory}"
+}
+
 
 ###
 ### parameters and environment variables
@@ -243,10 +429,9 @@ sde_subproject_main()
 
    case "${cmd:-list}" in
       add)
-         log_fluff "Just pass through to mulle-sourcetree"
-
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} add \
             --marks "${SUBPROJECT_MARKS}" "$@"
+         update_ignore_patternfile "$@"
       ;;
 
       definition)
@@ -259,24 +444,33 @@ sde_subproject_main()
          sde_subproject_get_main "$@"
       ;;
 
-      move)
-         log_fluff "Just pass through to mulle-sourcetree"
+      enter)
+         mulle-env subenv "$1"
+      ;;
 
+      init)
+         sde_subproject_init_main "$@"
+      ;;
+
+      mark|unmark)
+         local flags
+
+         case "$2" in
+            no-os-*|only-os-*)
+               flags="-e"
+            ;;
+         esac
+
+         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${cmd} ${flags} "$@"
+      ;;
+
+      move)
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} move "$@"
       ;;
 
       remove)
-         log_fluff "Just pass through to mulle-sourcetree"
-
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
-      ;;
-
-      init)
-         # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
-
-         MULLE_FLAG_MAGNUM_FORCE="YES" \
-            eval_exekutor sde_init_main --project-source-dir="." "$@"
+         update_ignore_patternfile "$@"
       ;;
 
       set)
@@ -290,12 +484,15 @@ sde_subproject_main()
       # for now stay layme
       #
       list)
-         log_fluff "Just pass through to mulle-sourcetree"
-
          exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${SUBPROJECT_MARKS}" \
-            --no-output-marks "${SUBPROJECT_MARKS}" \
+            --output-no-url \
+            --output-no-marks "${SUBPROJECT_MARKS}" \
             "$@"
+      ;;
+
+      update)
+         update_ignore_patternfile "$@"
       ;;
 
       *)

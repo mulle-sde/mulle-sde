@@ -1,3 +1,8 @@
+## 0.16.0
+
+* subproject support added. Fix various extension problems
+
+
 ### 0.15.17
 
 * and even nicers

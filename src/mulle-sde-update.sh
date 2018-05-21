@@ -32,6 +32,37 @@
 MULLE_SDE_UPDATE_SH="included"
 
 
+sde_update_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} update [options] ...
+
+   Update runs the default list of MULLE_SDE_UPDATE_CALLBACKS defined by the
+   environment, unless task names have been given. See
+   `mulle-monitor callback` and `mulle-monitor task` for more information.
+
+   Typical callbacks for mulle-sde are:
+
+      source     : update makefiles
+      sourcetree : update dependencies, subprojects and libraries
+
+Options:
+   --if-needed   : check before update if it seems unneccessary
+   --craft       : craft after update
+   --no-craft    : do not craft after update
+
+Environment:
+   MULLE_SDE_UPDATE_CALLBACKS   : default callbacks used for update
+   MULLE_SDE_CRAFT_AFTER_UPDATE : run \`mulle-sde craft\' after update [YES/NO]
+EOF
+   exit 1
+}
+
+
+
 _callback_run()
 {
    log_entry "_callback_run"
@@ -113,32 +144,16 @@ _sde_update_main()
 {
    log_entry "_sde_update_main"
 
-   local runner="$1" ; shift
+   local runner="$1"
 
-   local status
-
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
    set_projectname_environment "read"
-
-   local callbacks
-
-   # default by preference
-   callbacks="${MULLE_SDE_UPDATE_CALLBACKS}"
-   if [ -z "${callbacks}" ]
-   then
-      log_verbose "MULLE_SDE_UPDATE_CALLBACKS is not defined, doing nothing."
-      return
-   fi
 
    local task
    local name
 
    # call backs are actually comma separated
    set -o noglob; IFS=":"
-   for name in ${callbacks}
+   for name in ${MULLE_SDE_UPDATE_CALLBACKS}
    do
       set +o noglob; IFS="${DEFAULT_IFS}"
 
@@ -165,17 +180,117 @@ _sde_update_main()
 }
 
 
+
+sde_update_worker()
+{
+   log_entry "sde_update_worker"
+
+   local filename="$1"
+
+   log_fluff "The defined update callbacks are \"${MULLE_SDE_UPDATE_CALLBACKS}\""
+
+   _sde_update_main "${filename}"
+
+   #
+   # update source of mulle-sde subprojects only
+   #
+
+   case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+      *:source:*)
+      ;;
+
+      *)
+         return
+      ;;
+   esac
+
+   local subprojects
+   local subproject
+
+   subprojects="`sde_subproject_main list --format '%a\n' --no-output-header`"
+   if [ -z "${subproject}" ]
+   then
+      log_fluff "No subprojects, so done"
+      return
+   fi
+
+   set -o noglob;  IFS="
+"
+   for subproject in ${subprojects}
+   do
+      set +o noglob; IFS="${DEFAULT_IFS}"
+
+      if [ -d "${subproject}/.mulle-sde" ]
+      then
+         log_verbose "Updating subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
+         exekutor mulle-env -c "mulle-sde ${MULLE_TECHNICAL_FLAGS} update --if-needed --no-craft source" subenv "${subproject}"
+      else
+         log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
+      fi
+   done
+   set +o noglob; IFS="${DEFAULT_IFS}"
+}
+
+
 sde_update_main()
 {
    log_entry "sde_update_main"
 
-   _sde_update_main "_task_run" "$@"
-}
+   log_entry "sde_extension_main" "$@"
 
+   local runner
 
-sde_update_if_needed_main()
-{
-   log_entry "sde_update_if_needed_main"
+   runner="_task_run"
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_update_usage
+         ;;
 
-   _sde_update_main "_task_run_if_needed" "$@"
+         --if-needed)
+            runner="_task_run_if_needed"
+         ;;
+
+         --craft)
+            MULLE_SDE_CRAFT_AFTER_UPDATE="YES"
+            export MULLE_SDE_CRAFT_AFTER_UPDATE
+         ;;
+
+         --no-craft)
+            MULLE_SDE_CRAFT_AFTER_UPDATE="NO"
+            export MULLE_SDE_CRAFT_AFTER_UPDATE
+         ;;
+
+         -*)
+            sde_update_usage "unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
+   fi
+
+   if [ $# -ne 0 ]
+   then
+      MULLE_SDE_UPDATE_CALLBACKS="`tr ' ' ':' <<< "$*"`"
+      export MULLE_SDE_UPDATE_CALLBACKS
+   fi
+
+   sde_update_worker "${runner}"
 }
