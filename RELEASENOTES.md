@@ -1,3 +1,7 @@
+### 0.16.2
+
+* fix installer-all
+
 ### 0.16.1
 
 * rename install to installer, because of name conflict
