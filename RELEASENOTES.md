@@ -1,3 +1,7 @@
+### 0.16.1
+
+* rename install to installer, because of name conflict
+
 ## 0.16.0
 
 * subproject support added. Fix various extension problems

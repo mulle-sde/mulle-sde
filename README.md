@@ -42,14 +42,14 @@ as this will get you the core extensions as well.
 
 ### Script
 
-There is an `install-all` script, that installs the pre-requisites and mulle-sde
+There is an `installer-all` script, that installs the pre-requisites and mulle-sde
 itself into `/usr`. Suitable for environments without supported package
 managers:
 
 ```
-curl -L -O 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/install-all' && \
-chmod 755 install-all && \
-sudo ./install /usr
+curl -L -O 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/installer-all' && \
+chmod 755 installer-all && \
+sudo ./installer-all /usr
 ```
 
 
