@@ -187,7 +187,7 @@ sde_update_worker()
 
    local filename="$1"
 
-   log_fluff "The defined update callbacks are \"${MULLE_SDE_UPDATE_CALLBACKS}\""
+   log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
 
    _sde_update_main "${filename}"
 

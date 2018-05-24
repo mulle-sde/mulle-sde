@@ -45,6 +45,7 @@ Usage:
 Domains:
    all          : clean all domains
    addiction    : remove project addictions
+   cache        : remove miscellaneous cache files (default)
    dependency   : remove project dependencies
    patternfile  : remove patternfile caches
    project      : clean project build directory (default)
@@ -54,10 +55,12 @@ EOF
 }
 
 
+
 sde_clean_addiction_main()
 {
    log_entry "sde_clean_addiction_main" "$@"
 
+   log_verbose "Cleaning \"addiction\" directory"
    rmdir_safer "${ADDICTION_DIR}"
 }
 
@@ -66,6 +69,7 @@ sde_clean_dependency_main()
 {
    log_entry "sde_clean_dependency_main" "$@"
 
+   log_verbose "Cleaning \"dependency\" directory"
    rmdir_safer "${DEPENDENCY_DIR}"
 }
 
@@ -96,7 +100,16 @@ sde_clean_project_main()
 {
    log_entry "sde_clean_project_main" "$@"
 
-   rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean
+   rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean project
+}
+
+
+sde_clean_cache_main()
+{
+   log_entry "sde_clean_cache_main" "$@"
+
+   log_verbose "Cleaning sde cache"
+   rmdir_safer ".mulle-sde/var/${MULLE_HOSTNAME}/cache"
 }
 
 
@@ -113,9 +126,10 @@ sde_clean_all_main()
    log_entry "sde_clean_all_main" "$@"
 
    sde_clean_addiction_main &&
+   sde_clean_cache_main &&
    sde_clean_dependency_main &&
    sde_clean_monitor_main &&
-   sde_clean_patternfile_main &&
+#   sde_clean_patternfile_main && # superflous
    sde_clean_project_main &&
    sde_clean_sourcetree_main
 }
@@ -159,15 +173,28 @@ sde_clean_main()
 
    if [ $# -eq 0 ]
    then
-      sde_clean_patternfile_main &&
+      sde_clean_cache_main &&
       sde_clean_monitor_main &&
-      sde_clean_project_main &&
+      sde_clean_project_main 
       return $?
    fi
 
+   local domain
+
    while [ "$#" -ne 0 ]
    do
-      functionname="sde_clean_$1_main"
+      domain="$1"
+      case "${domain}" in
+         build)
+            domain="project"
+         ;;
+
+         buildorder)
+            domain="dependency"
+         ;;
+      esac
+
+      functionname="sde_clean_${domain}_main"
       if [ "`type -t "${functionname}"`" = "function" ]
       then
          "${functionname}"

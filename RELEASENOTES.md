@@ -1,3 +1,7 @@
+### 0.16.3
+
+* improved cleaning, improved reinit
+
 ### 0.16.2
 
 * fix installer-all

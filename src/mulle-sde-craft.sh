@@ -70,6 +70,7 @@ sde_craft_main()
    log_entry "sde_craft_main" "$@"
 
    local cmd
+   local updateflags
 
    cmd="${MULLE_SDE_CRAFT_STYLE:-all}"
 
@@ -87,14 +88,20 @@ sde_craft_main()
       ;;
    esac
 
+   updateflags="--if-needed"
    #
    # Make a quick estimate if this is a virgin checkout scenario
    # If yes, then lets update once (why ?, noob support ?)
    #
    if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" != "NO" ] && [ ! -d "${DEPENDENCY_DIR}" ]
    then
-      log_fluff "\"dependency\" does not exist, so run update once"
-      MULLE_SDE_UPDATE_BEFORE_CRAFT="YES"
+      # for mulle-c11, which has only a .mulle-env but no .mulle-sde
+      if [ -d "${MULLE_SDE_DIR}" ]
+      then
+         log_fluff "Directory \"dependency\" does not exist, so run update once"
+         MULLE_SDE_UPDATE_BEFORE_CRAFT="YES"
+         updateflags="" # "force" update
+      fi
    fi
 
    #
@@ -107,9 +114,7 @@ sde_craft_main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
       fi
 
-      log_verbose "Run update if needed"
-
-      sde_update_main --if-needed source
+      sde_update_main ${updateflags} source
    fi
 
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
@@ -137,6 +142,13 @@ sde_craft_main()
 
       eval_exekutor "'${MULLE_SOURCETREE}'" \
                      "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
+
+      if [ -z "${MULLE_SDE_UPDATE_SH}" ]
+      then
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
+      fi
+
+      sde_update_main ${updateflags} sourcetree
    fi
 
    local cmdline
@@ -165,12 +177,25 @@ sde_craft_main()
       #
       if [ "${sourcetreefile}" -nt "${buildorderfile}" ]
       then
-         log_verbose "Create buildorder file"
+         if [ -z "${MULLE_PATH_SH}" ]
+         then
+            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+         fi
+         if [ -z "${MULLE_FILE_SH}" ]
+         then
+            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
+         fi
 
-         exekutor mkdir -p "${cachedir}" 2> /dev/null
-         redirect_exekutor "${buildorderfile}" \
+         log_verbose "Create buildorder file (${buildorderfile})"
+
+         mkdir_if_missing "${cachedir}"
+         if ! redirect_exekutor "${buildorderfile}" \
             "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} buildorder \
-                 --marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} || exit 1
+                 --output-marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} 
+         then
+            remove_file_if_present "${buildorderfile}"
+            exit 1
+         fi 
       fi
    fi
 
@@ -192,7 +217,7 @@ sde_craft_main()
       then
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
             eval_exekutor "${cmdline}" buildorder \
-                                       --buildorder-file '${buildorderfile}' \
+                                       --buildorder-file "'${buildorderfile}'" \
                                        "${arguments}" || return 1
       fi
    fi

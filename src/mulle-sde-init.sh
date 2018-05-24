@@ -1527,7 +1527,7 @@ __get_installed_extensions()
 
    if [ -d "${MULLE_SDE_DIR}/share.old" ]
    then
-      log_info "Last upgrade failed. Restoring the last configuration."
+      log_warning "Last upgrade failed. Restoring the last configuration."
       rmdir_safer "${MULLE_SDE_DIR}/share" &&
       exekutor mv "${MULLE_SDE_DIR}/share.old" "${MULLE_SDE_DIR}/share" &&
       rmdir_safer "${MULLE_SDE_DIR}/share.old"
@@ -1617,6 +1617,54 @@ remove_from_marks()
    echo "${newmarks}"
 }
 
+
+read_project_environment()
+{
+   if [ -z "${PROJECT_TYPE}" ]
+   then
+      PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
+   fi
+
+   [ -z "${PROJECT_TYPE}" ] && \
+     fail "Could not find required PROJECT_TYPE in environment. \
+If you reinited the environment. Try:
+   ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_TYPE library"
+
+
+   if [ -z "${PROJECT_NAME}" ]
+   then
+      PROJECT_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
+   fi
+   if [ -z "${PROJECT_SOURCE_DIR}" ]
+   then
+      PROJECT_SOURCE_DIR="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment get PROJECT_SOURCE_DIR`"
+   fi
+   if [ -z "${PROJECT_LANGUAGE}" ]
+   then
+      PROJECT_LANGUAGE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment get PROJECT_LANGUAGE`"
+   fi
+
+   [ -z "${PROJECT_LANGUAGE}" ] && \
+     fail "Could not find required PROJECT_LANGUAGE in environment. \
+If you reinited the environment. Try:
+   ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_LANGUAGE library"
+
+   if [ -z "${PROJECT_DIALECT}" ]
+   then
+      PROJECT_DIALECT="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment get PROJECT_DIALECT`"
+   fi
+
+   if [ -z "${PROJECT_EXTENSIONS}" ]
+   then
+      PROJECT_EXTENSIONS="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment get PROJECT_EXTENSIONS`"
+   fi   
+}
 
 ###
 ### parameters and environment variables
@@ -1790,7 +1838,7 @@ sde_init_main()
          --reinit)
             OPTION_REINIT="YES"
             OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project" "no-demo"`"
          ;;
 
          --upgrade)
@@ -1882,16 +1930,7 @@ sde_init_main()
       fi
 
       # once useful to repair lost files
-      if [ -z "${PROJECT_TYPE}" ]
-      then
-         PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
-      fi
-      [ -z "${PROJECT_TYPE}" ] && \
-         fail "Could not find required PROJECT_TYPE in environment. \
-If you reinited the environment. Try:
-   ${C_RESET}${C_BOLD}mulle-sde environment --project set PROJECT_TYPE library"
-
+      read_project_environment
    else
       [ $# -eq 0 ] && sde_init_usage "missing project type"
       [ $# -eq 1 ] || sde_init_usage "extranous arguments \"$*\""

@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.16.2
+MULLE_EXECUTABLE_VERSION=0.16.3
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -525,7 +525,13 @@ main()
       reinit)
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
          then
-            fail "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
+            log_error "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
+#
+# reinit -f clobbers! so demo and project are off by default
+#
+            log_info "  Additionally specify option --allow-project if you want to reinit project files"
+            log_info "  Additionally specify option --allow-demo if you want to reinit demo files"
+            exit 1
          fi
 
          # shellcheck source=src/mulle-sde-init.sh
