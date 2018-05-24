@@ -209,10 +209,10 @@ _copy_extension_template_files()
    log_entry "_copy_extension_template_files" "$@"
 
    local extensiondir="$1"; shift
-   local projecttype="$1"; shift
    local subdirectory="$1"; shift
-   local onlyfilename="$1"; shift
+   local projecttype="$1"; shift
    local force="$1"; shift
+   local onlyfilename="$1"; shift
    local file_seds="$1"; shift
 
    local projectdir
@@ -760,6 +760,38 @@ install_version()
 }
 
 
+_copy_extension_template_directory()
+{
+   log_entry "_copy_extension_template_directory" "$@"
+
+   local extensiondir="$1"; shift
+   local subdirectory="$1"; shift
+   local projecttype="$1"; shift
+   local force="$1"; shift
+
+
+   local first="${projecttype}"
+   local second="all"
+
+   if [ "${force}" = "YES" ]
+   then
+      first="all"
+      second="${projecttype}"
+   fi
+
+   _copy_extension_template_files "${extensiondir}" \
+                                  "${subdirectory}" \
+                                  "${first}" \
+                                  "${force}" \
+                                  "$@"
+
+   _copy_extension_template_files "${extensiondir}" \
+                                  "${subdirectory}" \
+                                  "${second}" \
+                                  "${force}" \
+                                  "$@"
+}
+
 #
 # With "marks" you control what should be installed:
 #
@@ -945,12 +977,12 @@ vendor \"${vendor}\""
                                         "no-demo" \
                                         "no-demo/${vendor}/${extname}"
    then
-      _copy_extension_template_files "${extensiondir}" \
-                                     "${projecttype}" \
-                                     "demo" \
-                                     "${onlyfilename}" \
-                                     "${force}" \
-                                     "$@"
+      _copy_extension_template_directory "${extensiondir}" \
+                                         "demo" \
+                                         "${projecttype}" \
+                                         "${force}" \
+                                         "${onlyfilename}" \
+                                         "$@"
    fi
 
    # let project clobber demo
@@ -958,19 +990,12 @@ vendor \"${vendor}\""
                                         "no-project" \
                                         "no-project/${vendor}/${extname}"
    then
-      _copy_extension_template_files "${extensiondir}" \
-                                     "all" \
-                                     "project" \
-                                     "${onlyfilename}" \
-                                     "${force}" \
-                                     "$@"
-
-      _copy_extension_template_files "${extensiondir}" \
-                                     "${projecttype}" \
-                                     "project" \
-                                     "${onlyfilename}" \
-                                     "${force}" \
-                                     "$@"
+      _copy_extension_template_directory "${extensiondir}" \
+                                         "project" \
+                                         "${projecttype}" \
+                                         "${force}" \
+                                         "${onlyfilename}" \
+                                         "$@"
 
       # install these only along with project
       install_sourcetree_files "${extensiondir}" \
@@ -988,19 +1013,12 @@ vendor \"${vendor}\""
                                         "no-clobber" \
                                         "no-clobber/${vendor}/${extname}"
    then
-      _copy_extension_template_files "${extensiondir}" \
-                                     "all" \
-                                     "clobber" \
-                                     "${onlyfilename}" \
-                                     "YES" \
-                                     "$@"
-
-      _copy_extension_template_files "${extensiondir}" \
-                                     "${projecttype}" \
-                                     "clobber" \
-                                     "${onlyfilename}" \
-                                     "YES" \
-                                     "$@"
+      _copy_extension_template_directory "${extensiondir}" \
+                                         "clobber" \
+                                         "${projecttype}" \
+                                         "YES" \
+                                         "${onlyfilename}" \
+                                         "$@"
    fi
 
    #
@@ -1602,17 +1620,17 @@ remove_from_marks()
    local i
    local newmarks=""
 
-   IFS=","
+   IFS=","; set -o noglob
    for i in ${marks}
    do
-      IFS="${DEFAULT_IFS}"
+      IFS="${DEFAULT_IFS}"; set +o noglob
 
       if [ "${mark}" != "${i}" ]
       then
          newmarks="`comma_concat "${newmarks}" "${i}"`"
       fi
    done
-   IFS="${DEFAULT_IFS}"
+   IFS="${DEFAULT_IFS}"; set +o noglob
 
    echo "${newmarks}"
 }
@@ -1626,6 +1644,13 @@ read_project_environment()
                      ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
    fi
 
+   # backwards compatibility
+   if [ -z "${PROJECT_TYPE}" ]
+   then
+      PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} environment --scope aux get PROJECT_TYPE`"
+   fi
+
    [ -z "${PROJECT_TYPE}" ] && \
      fail "Could not find required PROJECT_TYPE in environment. \
 If you reinited the environment. Try:
@@ -1637,34 +1662,8 @@ If you reinited the environment. Try:
       PROJECT_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
    fi
-   if [ -z "${PROJECT_SOURCE_DIR}" ]
-   then
-      PROJECT_SOURCE_DIR="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_SOURCE_DIR`"
-   fi
-   if [ -z "${PROJECT_LANGUAGE}" ]
-   then
-      PROJECT_LANGUAGE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_LANGUAGE`"
-   fi
-
-   [ -z "${PROJECT_LANGUAGE}" ] && \
-     fail "Could not find required PROJECT_LANGUAGE in environment. \
-If you reinited the environment. Try:
-   ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_LANGUAGE library"
-
-   if [ -z "${PROJECT_DIALECT}" ]
-   then
-      PROJECT_DIALECT="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_DIALECT`"
-   fi
-
-   if [ -z "${PROJECT_EXTENSIONS}" ]
-   then
-      PROJECT_EXTENSIONS="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_EXTENSIONS`"
-   fi   
 }
+
 
 ###
 ### parameters and environment variables
@@ -1838,7 +1837,8 @@ sde_init_main()
          --reinit)
             OPTION_REINIT="YES"
             OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project" "no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
          ;;
 
          --upgrade)
@@ -1880,6 +1880,11 @@ sde_init_main()
    then
       [ -z "${MULLE_VIRTUAL_ROOT}" ] || fail "You can not run init inside an environment shell"
    fi
+
+   if [ "${OPTION_UPGRADE}" = "YES" ]
+   then
+      [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "An extension upgrade must run inside an environment shell"
+   fi      
 
    [ "${OPTION_REINIT}" = "YES" -a "${OPTION_UPGRADE}" = "YES" ] && \
       fail "--reinit and --upgrade exclude each other"
@@ -1958,14 +1963,17 @@ Some files may be missing and the project may not be craftable."
    if [ "${OPTION_REINIT}" != "YES" -a "${OPTION_UPGRADE}" != "YES" -a \
         -d "${MULLE_SDE_DIR}" ]
    then
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" -a -f "${MULLE_SDE_DIR}/.init" ]
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
       then
-         fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
+         if [ -f "${MULLE_SDE_DIR}/.init" ]
+         then
+            fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
 It looks like an init gone bad."
-      fi
+         fi
 
-      fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
+         fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
 Use \`mulle-sde upgrade\` for maintainance"
+      fi
    fi
 
    #

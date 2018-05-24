@@ -104,25 +104,10 @@ sde_craft_main()
       fi
    fi
 
-   #
-   # create required CMakeLists.txt and stuff (if required)
-   #
    if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" = "YES" ] # usually from environment
    then
-      if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-      fi
-
-      sde_update_main ${updateflags} source
+      tasks="source"
    fi
-
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
-
-   set_projectname_environment "read"
 
    #
    # Check if we need to update. If we do, we do.
@@ -142,13 +127,28 @@ sde_craft_main()
 
       eval_exekutor "'${MULLE_SOURCETREE}'" \
                      "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
+   fi
 
+   if [ ${dbrval} -ne 0 ]
+   then
+      tasks="${tasks} sourcetree"
+   fi
+
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+
+   set_projectname_environment "read"
+
+   if [ ! -z "${tasks}" ]
+   then
       if [ -z "${MULLE_SDE_UPDATE_SH}" ]
       then
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
       fi
 
-      sde_update_main ${updateflags} sourcetree
+      sde_update_main ${updateflags} ${tasks}
    fi
 
    local cmdline

@@ -70,7 +70,7 @@ sde_clean_dependency_main()
    log_entry "sde_clean_dependency_main" "$@"
 
    log_verbose "Cleaning \"dependency\" directory"
-   rmdir_safer "${DEPENDENCY_DIR}"
+   rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean dependency
 }
 
 

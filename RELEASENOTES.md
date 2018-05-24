@@ -1,3 +1,11 @@
+## 0.17.0
+
+* fixed reinit to work with older projects
+* clean dependency now does what I expect it to do
+* now most commands can be run without entering a subshell
+* a problem with the order of template files writes has been corrected
+
+
 ### 0.16.3
 
 * improved cleaning, improved reinit

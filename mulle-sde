@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.16.3
+MULLE_EXECUTABLE_VERSION=0.17.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -277,23 +277,22 @@ main()
 
          -e)
             FLAG_OUTSIDE_ENV="YES"
-            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
          ;;
 
          -f|--force)
             MULLE_FLAG_MAGNUM_FORCE="YES"
-            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
+            MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
          ;;
 
          --git-terminal-prompt)
             [ $# -eq 1 ] && fail "missing argument to \"$1\""
-            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
+            MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
             shift
 
             GIT_TERMINAL_PROMPT="$1"
             export GIT_TERMINAL_PROMPT
 
-            MULLE_CRAFT_FLAGS="`concat "${MULLE_CRAFT_FLAGS}" "$1" `"
+            MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
          ;;
 
          --style)
@@ -326,19 +325,69 @@ main()
       shift
    done
 
-   options_setup_trace "${MULLE_TRACE}"
-
-   local cmd
-
-   cmd="$1"
-   [ $# -ne 0 ] && shift
+   MULLE_ENV="${MULLE_ENV:-`command -v mulle-env`}"
+   [ -z "${MULLE_ENV}" ] && fail "mulle-env not in PATH"
 
    if [ "${FLAG_OUTSIDE_ENV}" = "YES" ]
    then
       MULLE_VIRTUAL_ROOT="`pwd -P`"
       [ "${MULLE_VIRTUAL_ROOT}" = "/" ] && fail "MULLE_VIRTUAL_ROOT can't be /"
       export MULLE_VIRTUAL_ROOT
+   else
+      #
+      # a "convenient" ? shortcut to do projects w/o having to enter
+      # a subshell. Starts a subshell every time though....
+      #
+      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         local cmd="$1"
+
+         # commands where we want to start a subshell
+
+         case "${cmd}" in
+            buildorder|callback|clean|craft|dependency|environment|fetch|find|\
+library|mark|match|monitor|patternfile|subproject|task|template|tool|unmark|\
+update)
+               cd "`determine_project_dir`" || exit 1
+
+               local cmdline
+
+               cmdline="mulle-sde"
+               cmdline="${cmdline} ${MULLE_TECHNICAL_FLAGS}"
+               cmdline="${cmdline} ${MULLE_FWD_FLAGS}"
+
+               while [ $# -ne 0 ]
+               do
+                  cmdline="${cmdline} '$1'"
+                  shift
+               done
+
+               log_fluff "Run command in subshell: \"${cmdline}\""
+               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -c "${cmdline}"
+            ;;
+
+            "")
+               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} 
+            ;;
+
+            *)
+               if [ $# -eq 1 ] && [ -d "$1" ]
+               then
+                  exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "$@"
+               fi
+
+               usage "${MULLE_TRACE}"
+            ;;
+         esac
+      fi
    fi
+   
+   options_setup_trace "${MULLE_TRACE}"
+
+   local cmd
+
+   cmd="$1"
+   [ $# -ne 0 ] && shift
 
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
    MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
@@ -349,9 +398,6 @@ main()
 
    MULLE_MONITOR="${MULLE_MONITOR:-`command -v mulle-monitor`}"
    [ -z "${MULLE_MONITOR}" ] && fail "mulle-monitor not in PATH"
-
-   MULLE_ENV="${MULLE_ENV:-`command -v mulle-env`}"
-   [ -z "${MULLE_ENV}" ] && fail "mulle-env not in PATH"
 
    MULLE_CRAFT="${MULLE_CRAFT:-`command -v mulle-craft`}"
    [ -z "${MULLE_CRAFT}" ] && fail "mulle-craft not in PATH"
@@ -395,25 +441,6 @@ main()
       # forward stuff to mulle-craft verbatim
       #
       craft)
-         #
-         # a "convenient" ? short cut to build a project w/o having to enter
-         # a subshell
-         #
-         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-         then
-            cd "`determine_project_dir`" || exit 1
-
-            local cmdline
-
-            cmdline="mulle-sde craft"
-            while [ $# -ne 0 ]
-            do
-               cmdline="${cmdline} '$1'"
-               shift
-            done
-            exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -c "${cmdline}"
-         fi
-
          cd_virtual_root "${cmd}"
 
          # shellcheck source=src/mulle-sde-craft.sh
@@ -461,6 +488,10 @@ main()
             exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_MATCH_FLAGS} "find" \
                           --format "%t/%c: %f\\n" "$@"
+      ;;
+
+      ""|help)
+         usage "${MULLE_TRACE}"
       ;;
 
       init)
@@ -517,7 +548,6 @@ main()
          sde_monitor_main "$@"
       ;;
 
-
       project-dir)
          determine_project_dir
       ;;
@@ -546,7 +576,7 @@ main()
                         ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
-      subproject|minion)
+      subproject)
          cd_virtual_root "${cmd}" "NO"
 
          # shellcheck source=src/mulle-sde-subproject.sh
@@ -591,34 +621,8 @@ main()
       ;;
 
       *)
-         #
-         # If we are inside of the environment it's a mistyped command.
-         #
-         local mistyped
-
-         mistyped="NO"
-         if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
-         then
-            mistyped="YES"
-         else
-            if [ ! -z "${cmd}" -a ! -d "${cmd}" ]
-            then
-               fail "\"${cmd}\" does not exist"
-            fi
-         fi
-
-         # more than a parameter is also a mistype
-         if [ "${mistyped}" = "YES" -o "$#" -ne 0 ]
-         then
-            if [ ! -z "${cmd}" ]
-            then
-               log_error "unknown command \"${cmd}\""
-            fi
-            usage "${MULLE_TRACE}"
-         fi
-
-         # interactive shell, dont set usage
-         exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+         log_error "Unknown command \"${cmd}\""
+         usage "${MULLE_TRACE}"
       ;;
    esac
 }

@@ -31,10 +31,49 @@
 #
 MULLE_SDE_MONITOR_SH="included"
 
+sde_monitor_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} monitor 
+
+   Run the mulle-monitor on the current project.
+
+Options:
+   -h     : show this usage
+EOF
+   exit 1
+}
+
 
 sde_monitor_main()
 {
    log_entry "sde_monitor_main" "$@"
+
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_monitor_usage
+         ;;
+
+         -*)
+            sde_monitor_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
 
    if [ -z "${MULLE_SDE_NO_UPDATE}" ]
    then
