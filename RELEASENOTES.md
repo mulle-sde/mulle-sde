@@ -1,3 +1,7 @@
+### 0.17.1
+
+* fix lost commands
+
 ## 0.17.0
 
 * fixed reinit to work with older projects

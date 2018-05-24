@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.17.0
+MULLE_EXECUTABLE_VERSION=0.17.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -366,6 +366,10 @@ update)
                exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -c "${cmdline}"
             ;;
 
+            bash-completion|extension|init|init-and-enter|reinit|uname|version\
+libexec-dir|library-path|project-dir)
+            ;;
+
             "")
                exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} 
             ;;
@@ -490,7 +494,7 @@ update)
                           --format "%t/%c: %f\\n" "$@"
       ;;
 
-      ""|help)
+      "")
          usage "${MULLE_TRACE}"
       ;;
 
