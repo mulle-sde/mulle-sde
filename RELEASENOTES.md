@@ -1,3 +1,7 @@
+### 0.17.2
+
+* fix homebrew install ruby script
+
 ### 0.17.1
 
 * fix lost commands

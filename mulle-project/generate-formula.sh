@@ -1,14 +1,4 @@
 #
-# For documentation and help see:
-#    https://github.com/mulle-nat/mulle-homebrew
-#
-#
-
-#######
-# If you are using mulle-build, you don't hafta change anything
-#######
-
-#
 # Generate your `def install` `test do` lines here. echo them to stdout.
 #
 generate_brew_formula_build()
@@ -19,9 +9,7 @@ generate_brew_formula_build()
 
    cat <<EOF
 def install
-  system "./install.sh", "#{prefix}"
+  system "./installer", "#{prefix}"
 end
 EOF
 }
-
-
