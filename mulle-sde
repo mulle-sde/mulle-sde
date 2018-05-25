@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.17.7
+MULLE_EXECUTABLE_VERSION=0.18.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -40,13 +40,6 @@ MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 # This is the main user interface to mulle-sde
 # sorta like git
 #
-
-trap_fail()
-{
-   exit 1
-}
-
-
 print_commands()
 {
    local show_all="${1:-NO}"
@@ -238,8 +231,11 @@ cd_virtual_root()
    then
       fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
    fi
-   exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
 
+   if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+   fi
 }
 
 
@@ -346,9 +342,10 @@ main()
          # commands where we want to start a subshell
 
          case "${cmd}" in
-            buildorder|callback|clean|craft|definition|dependency|environment|\
-fetch|find|library|mark|match|monitor|patternfile|subproject|task|template|\
-tool|unmark|update)
+            buildinfo|buildorder|callback|clean|craft|definition|dependency|\
+environment|fetch|find|library|mark|match|monitor|patternfile|subproject|task|\
+template|tool|unmark|update)
+
                cd "`determine_project_dir`" || exit 1
 
                local cmdline
@@ -425,6 +422,16 @@ libexec-dir|library-path|project-dir)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
       ;;
 
+      buildinfo)
+         cd_virtual_root "${cmd}"
+
+         # shellcheck source=src/mulle-sde-buildinfo.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-buildinfo.sh"
+
+         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+         sde_buildinfo_main "$@"
+      ;;
+
       buildorder)
          cd_virtual_root "${cmd}"
 
@@ -463,7 +470,7 @@ libexec-dir|library-path|project-dir)
          sde_craft_main "$@"
       ;;
 
-      definition)
+      buildinfo|definition)
          cd_virtual_root "${cmd}" "NO"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -704,7 +711,6 @@ _init()
    #  set -e # more pain then gain in the end
    #  set -u # doesn't work with my style
 
-   trap trap_fail INT
    set -o pipefail
    shopt -s extglob
 }

@@ -161,8 +161,7 @@ sde_clean_main()
          ;;
 
          -*)
-            fail "unknown option \"$1\""
-            sde_clean_usage
+            sde_clean_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -210,7 +209,7 @@ sde_clean_main()
       then
          "${functionname}"
       else
-         fail "unknown clean domain \"$1\""
+         sde_clean_usage "Unknown clean domain \"$1\""
       fi
       shift
    done

@@ -1,3 +1,8 @@
+## 0.18.0
+
+* add buildinfo command (incomplete)
+
+
 ### 0.17.7
 
 * use -C option of mulle-env to pass commandline
