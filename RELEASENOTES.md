@@ -1,3 +1,7 @@
+### 0.17.6
+
+* fix useless quoting for mulle-env
+
 ### 0.17.5
 
 * add definition command
