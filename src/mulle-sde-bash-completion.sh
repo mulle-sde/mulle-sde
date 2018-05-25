@@ -394,6 +394,7 @@ buildorder
 callback
 craft
 dependency
+definition
 environment
 extension
 find
@@ -491,6 +492,11 @@ update"
 
       craft)
          _mulle_sde_craft_complete "$@"
+         return 0
+      ;;
+
+      definition)
+         _mulle_sde_make_complete "$@"
          return 0
       ;;
 

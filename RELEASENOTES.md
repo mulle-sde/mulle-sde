@@ -1,3 +1,7 @@
+### 0.17.5
+
+* add definition command
+
 ### 0.17.4
 
 * fix dependencies

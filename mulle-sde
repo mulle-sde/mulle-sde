@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.17.4
+MULLE_EXECUTABLE_VERSION=0.17.5
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -92,6 +92,7 @@ print_commands()
    clean          : clean various parts of the project
    craft          : build the project using mulle-craft
    dependency     : manage third party components (like GitHub projects)
+   definition     : change build options like CFLAGS for the project
    environment    : manage environment variables (project settings)
    extension      : show available language and buildtool extensions
    init           : create a new project
@@ -345,9 +346,9 @@ main()
          # commands where we want to start a subshell
 
          case "${cmd}" in
-            buildorder|callback|clean|craft|dependency|environment|fetch|find|\
-library|mark|match|monitor|patternfile|subproject|task|template|tool|unmark|\
-update)
+            buildorder|callback|clean|craft|definition|dependency|environment|\
+fetch|find|library|mark|match|monitor|patternfile|subproject|task|template|\
+tool|unmark|update)
                cd "`determine_project_dir`" || exit 1
 
                local cmdline
@@ -371,7 +372,7 @@ libexec-dir|library-path|project-dir)
             ;;
 
             "")
-               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} 
+               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS}
             ;;
 
             *)
@@ -385,7 +386,7 @@ libexec-dir|library-path|project-dir)
          esac
       fi
    fi
-   
+
    options_setup_trace "${MULLE_TRACE}"
 
    local cmd
@@ -408,6 +409,9 @@ libexec-dir|library-path|project-dir)
 
    MULLE_MATCH="${MULLE_MATCH:-`command -v mulle-match`}"
    [ -z "${MULLE_MATCH}" ] && fail "mulle-match not in PATH"
+
+   MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
+   [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
 
    case "${cmd}" in
       bash-completion)
@@ -450,6 +454,14 @@ libexec-dir|library-path|project-dir)
          # shellcheck source=src/mulle-sde-craft.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
          sde_craft_main "$@"
+      ;;
+
+      definition)
+         cd_virtual_root "${cmd}" "NO"
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_MAKE_FLAGS} "${cmd}" "$@"
       ;;
 
       dependency)
