@@ -1,3 +1,8 @@
+##
+## THESE SETTINGS ARE IGNORED WHEN USING mulle-project.
+## SEE mulle-project/formula-info.sh
+##
+
 #
 # CPack and project specific stuff
 #
@@ -22,7 +27,7 @@ set( CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/mulle-nat/${PROJECT_NAME}
 #
 # mulle-test is optional
 #
-set( CPACK_DEBIAN_PACKAGE_DEPENDS "mulle-env, mulle-sourcetree, mulle-craft")
+set( CPACK_DEBIAN_PACKAGE_DEPENDS "mulle-env, mulle-monitor, mulle-craft, mulle-sourcetree")
 
 # stuff needed for RPM
 
