@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.17.6
+MULLE_EXECUTABLE_VERSION=0.17.7
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -352,19 +352,27 @@ tool|unmark|update)
                cd "`determine_project_dir`" || exit 1
 
                local cmdline
+               local flag
 
-               cmdline="mulle-sde"
-               cmdline="${cmdline} ${MULLE_TECHNICAL_FLAGS}"
-               cmdline="${cmdline} ${MULLE_FWD_FLAGS}"
+               shopt -s nullglob # keep it
+
+               cmdline="$0"
+
+               for flag in ${MULLE_TECHNICAL_FLAGS} ${MULLE_FWD_FLAGS}
+               do
+               cmdline="${cmdline}
+${flag}"
+               done
 
                while [ $# -ne 0 ]
                do
-                  cmdline="${cmdline} $1"
+                  cmdline="${cmdline}
+$1"
                   shift
                done
 
-               log_fluff "Run command in subshell: \"${cmdline}\""
-               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -c "${cmdline}"
+               log_fluff "Run command with mulle-env: -C \"${cmdline}\""
+               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
             ;;
 
             bash-completion|extension|init|init-and-enter|reinit|uname|version\
@@ -396,7 +404,6 @@ libexec-dir|library-path|project-dir)
 
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
    MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
-   MULLE_EXECUTABLE_OPTIONS="$@"
 
    MULLE_SOURCETREE="${MULLE_SOURCETREE:-`command -v mulle-sourcetree`}"
    [ -z "${MULLE_SOURCETREE}" ] && fail "mulle-sourcetree not in PATH"

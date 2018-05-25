@@ -1878,13 +1878,15 @@ sde_init_main()
 
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
-      [ -z "${MULLE_VIRTUAL_ROOT}" ] || fail "You can not run init inside an environment shell"
+      [ -z "${MULLE_VIRTUAL_ROOT}" ] || \
+         fail "You can not run init inside an environment shell"
    fi
 
    if [ "${OPTION_UPGRADE}" = "YES" ]
    then
-      [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "An extension upgrade must run inside an environment shell"
-   fi      
+      [ -z "${MULLE_VIRTUAL_ROOT}" ] && \
+         fail "An extension upgrade must run inside an environment shell"
+   fi
 
    [ "${OPTION_REINIT}" = "YES" -a "${OPTION_UPGRADE}" = "YES" ] && \
       fail "--reinit and --upgrade exclude each other"

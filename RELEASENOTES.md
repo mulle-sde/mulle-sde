@@ -1,3 +1,7 @@
+### 0.17.7
+
+* use -C option of mulle-env to pass commandline
+
 ### 0.17.6
 
 * fix useless quoting for mulle-env

@@ -44,6 +44,7 @@ Usage:
 
 Domains:
    all          : clean all domains
+   build        : clean build directory
    addiction    : remove project addictions
    cache        : remove miscellaneous cache files (default)
    dependency   : remove project dependencies
@@ -62,6 +63,15 @@ sde_clean_addiction_main()
 
    log_verbose "Cleaning \"addiction\" directory"
    rmdir_safer "${ADDICTION_DIR}"
+}
+
+
+sde_clean_build_main()
+{
+   log_entry "sde_clean_build_main" "$@"
+
+   log_verbose "Cleaning \"addiction\" directory"
+   rmdir_safer "${BUILD_DIR}"
 }
 
 
@@ -131,6 +141,7 @@ sde_clean_all_main()
    sde_clean_monitor_main &&
 #   sde_clean_patternfile_main && # superflous
    sde_clean_project_main &&
+   sde_clean_build_main &&
    sde_clean_sourcetree_main
 }
 
@@ -175,7 +186,7 @@ sde_clean_main()
    then
       sde_clean_cache_main &&
       sde_clean_monitor_main &&
-      sde_clean_project_main 
+      sde_clean_project_main
       return $?
    fi
 
