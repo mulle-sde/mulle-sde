@@ -20,8 +20,10 @@ LANGUAGE="bash"             # c,cpp, objc, bash ...
 DEPENDENCIES='${TOOLS_TAP}mulle-bashfunctions
 ${TOOLS_TAP}mulle-env
 ${TOOLS_TAP}mulle-craft
+${TOOLS_TAP}mulle-monitor
+${TOOLS_TAP}mulle-sourcetree
 '
 
-DEBIAN_DEPENDENCIES="mulle-bashfunctions, mulle-env, mulle-craft"
+DEBIAN_DEPENDENCIES="mulle-bashfunctions, mulle-env, mulle-craft, mulle-monitor, mulle-sourcetree"
 
 

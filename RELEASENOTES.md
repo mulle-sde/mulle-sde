@@ -1,3 +1,7 @@
+### 0.17.4
+
+* fix dependencies
+
 ### 0.17.3
 
 * fix package dependencies more
