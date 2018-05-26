@@ -1,3 +1,7 @@
+### 0.18.1
+
+* improve buildinfo a bit more
+
 ## 0.18.0
 
 * add buildinfo command (incomplete)

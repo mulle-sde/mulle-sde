@@ -154,6 +154,26 @@ _mulle_sde_library_complete()
 }
 
 
+_mulle_sde_buildinfo_complete()
+{
+   local cur=${COMP_WORDS[COMP_CWORD]}
+   local prev=${COMP_WORDS[COMP_CWORD-1]}
+
+   local list
+
+   case "${prev}" in
+      get|set|list)
+         _mulle_make_complete
+         return
+      ;;
+
+      *)
+         COMPREPLY=( $( compgen -W "get set list search" -- $cur ) )
+      ;;
+   esac
+}
+
+
 _mulle_sde_dependency_complete()
 {
    local cur=${COMP_WORDS[COMP_CWORD]}
@@ -390,6 +410,7 @@ _mulle_sde_complete()
    local prev=${COMP_WORDS[COMP_CWORD-1]}
 
    local commands="\
+buildinfo
 buildorder
 callback
 craft
@@ -492,6 +513,11 @@ update"
 
       craft)
          _mulle_sde_craft_complete "$@"
+         return 0
+      ;;
+
+      buildinfo)
+         _mulle_sde_buildinfo_complete "$@"
          return 0
       ;;
 

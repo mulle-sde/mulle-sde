@@ -40,17 +40,28 @@ sde_buildinfo_usage()
 Usage:
    ${MULLE_USAGE_NAME} buildinfo [options] [command]
 
-   Manipulate buildinfo settings for the project and the dependencies.
-   See \`mulle-make definition\` for more help...
+   Manipulate buildinfo settings for a project. To change buildinfo settings
+   for a dependency use \`mulle-sde dependency buildinfo\`. This command is
+   not fully coded yet!
+
+   A commonly manipulated buildinfo setting is \"CFLAGS\". By default build
+   settings are set os-specific.
+
+   See \`mulle-make definition\` for more help about the commands "get", "set"
+   and "list"
+
+   Example:
+      mulle-sde buildinfo set CFLAGS '--no-remorse'
 
 Options:
-
+   --info-dir <dir> : specify info directory to manipulate explicitly
+   --global         : use os specific scope
 
 Commands:
-   get    :
-   set    :
-   list   :
-   search :
+   get    : get value of a setting
+   set    : change a setting
+   list   : list current settings
+   search : locate buildinfo
 
 EOF
    exit 1
@@ -62,22 +73,25 @@ sde_buildinfo_main()
    log_entry "sde_buildinfo_main" "$@"
 
    local OPTION_INFO_DIR=".mulle-make"
+   local OPTION_GLOBAL="DEFAULT"
 
    local argument
+   local flags
+   local searchflags
 
    while [ $# -ne 0 ]
    do
-      case "${argument}" in
+      case "$1" in
          -h*|--help|help)
             sde_buildinfo_usage
          ;;
 
          --allow-unknown-option)
-            OPTION_ALLOW_UNKNOWN_OPTION="YES"
+            flags="`concat "${flags}" "$1"`"
          ;;
 
          --no-allow-unknown-option)
-            OPTION_ALLOW_UNKNOWN_OPTION="NO"
+            flags="`concat "${flags}" "$1"`"
          ;;
 
          #
@@ -88,6 +102,10 @@ sde_buildinfo_main()
             shift
 
             OPTION_INFO_DIR="$1"
+         ;;
+
+         --global)
+            searchflags="`concat "${searchflags}" "--global"`"
          ;;
 
          -*)
@@ -106,16 +124,25 @@ sde_buildinfo_main()
 
    local cmd="$1"; shift
 
+   case "${flags}" in
+      *--global*)
+      ;;
+
+      *)
+         OPTION_INFO_DIR="${OPTION_INFO_DIR}.${MULLE_UNAME}"
+      ;;
+   esac
+
    case "${cmd}" in
       search)
          MULLE_USAGE_NAME="mulle-sde" \
-            "${MULLE_CRAFT}" search "$@"
+            "${MULLE_CRAFT}" search ${searchflags} "$@"
       ;;
 
-      list|get|set)
+      list|get|set|keys)
          MULLE_USAGE_NAME="mulle-sde" \
          MULLE_USAGE_COMMAND="buildinfo" \
-            "${MULLE_MAKE}" -i "${OPTION_INFO_DIR}" --allow-unknown-option "${cmd}" "$@"
+            "${MULLE_MAKE}" -i "${OPTION_INFO_DIR}" ${flags} "definition" "$@"
       ;;
 
       "")
@@ -127,5 +154,3 @@ sde_buildinfo_main()
       ;;
    esac
 }
-
-
