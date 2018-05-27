@@ -94,9 +94,9 @@ EOF
   exit 1
 }
 
-sde_dependency_definition_usage()
+sde_dependency_buildinfo_usage()
 {
-   [ "$#" -ne 0 ] &&  log_error "$1"
+   [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
@@ -107,15 +107,15 @@ Usage:
    extension mulle-sde/buildinfo to create that subfolder.
 
    The values in this "buildinfo" folder are manipulated using mulle-make
-   (see `mulle-make definition help` for more info).
+   (see \`mulle-make definition help\` for more info).
 
-   Eventually the "buildinfo" contents are used by `mulle-craft` to populate
-   the `dependency/share/mulle-craft` folder and override any `.mulle-make`
+   Eventually the "buildinfo" contents are used by \`mulle-craft\` to populate
+   the \`dependency/share/mulle-craft\` folder and override any \`.mulle-make\`
    folders. That's all fairly complicated, but it's necessary to have proper
    setting inheritance across multiple projects.
 
    Example:
-      mulle-sde dependency definition --global set -+ subproject/nng \
+      mulle-sde dependency buildinfo --global set -+ subproject/nng \
                   CPPFLAGS "-DNNG_ENABLE_TLS=ON"
 
 Commands:
@@ -598,9 +598,9 @@ sde_add_buildinfo_subproject_if_needed()
 }
 
 
-sde_dependency_definition_main()
+sde_dependency_buildinfo_main()
 {
-   log_entry "sde_dependency_definition_main" "$@"
+   log_entry "sde_dependency_buildinfo_main" "$@"
 
    local extension
 
@@ -610,7 +610,7 @@ sde_dependency_definition_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_definition_usage
+            sde_dependency_buildinfo_usage
          ;;
 
          --global)
@@ -618,14 +618,14 @@ sde_dependency_definition_main()
          ;;
 
          --platform)
-            [ "$#" -eq 1 ] && sde_dependency_definition_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_buildinfo_usage "missing argument to \"$1\""
             shift
 
             extension=".$1"
          ;;
 
          -*)
-            sde_dependency_definition_usage "unknown option \"$1\""
+            sde_dependency_buildinfo_usage "unknown option \"$1\""
          ;;
 
          *)
@@ -636,11 +636,11 @@ sde_dependency_definition_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_definition_usage "missing address"
+   [ $# -eq 0 ] && sde_dependency_buildinfo_usage "Missing address"
 
    local url="$1"; shift
 
-   [ $# -eq 0 ] && sde_dependency_definition_usage "missing subcommand"
+   [ $# -eq 0 ] && sde_dependency_buildinfo_usage "Missing subcommand after dependency \"$url\""
 
    local subcmd="$1"; shift
 
@@ -670,7 +670,7 @@ sde_dependency_definition_main()
       ;;
 
       *)
-        sde_dependency_definition_usage "Unknown subcommand \"${subcmd}\""
+        sde_dependency_buildinfo_usage "Unknown subcommand \"${subcmd}\""
       ;;
    esac
 
@@ -742,7 +742,7 @@ sde_dependency_main()
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         sde_dependency_definition_main "$@"
+         sde_dependency_buildinfo_main "$@"
          return $?
       ;;
 

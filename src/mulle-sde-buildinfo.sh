@@ -40,6 +40,9 @@ sde_buildinfo_usage()
 Usage:
    ${MULLE_USAGE_NAME} buildinfo [options] [command]
 
+   ** BUILDINFO ON A PROJECT (NOT A DEPENDENCY) ARE POSSIBLY A MISFEATURE
+      AND IT MIGHT BE REMOVED **
+
    Manipulate buildinfo settings for a project. To change buildinfo settings
    for a dependency use \`mulle-sde dependency buildinfo\`. This command is
    not fully coded yet!

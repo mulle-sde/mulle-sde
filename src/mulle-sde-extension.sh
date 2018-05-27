@@ -153,17 +153,13 @@ EOF
 # /usr/local/share/mulle_sde/extensions/<vendor>
 # /usr/share/mulle_sde/extensions/<vendor>
 #
+
 extension_get_search_path()
 {
    log_entry "extension_get_search_path" "$@"
 
-   local vendor="$1" # can be empty
-
-   local extensionsdir
-   local homeextensionsdir
-
    local i
-   local searchpath
+   local s
 
    #
    # allow environment to add more extensions, mostly useful for development
@@ -173,47 +169,27 @@ extension_get_search_path()
    IFS=":"; set -o noglob
    for i in ${MULLE_SDE_EXTENSION_PATH}
    do
-      if [ ! -z "${vendor}" ]
-      then
-         i="${i}/${vendor}"
-      fi
       s="${s}:${i}"
    done
-
    IFS="${DEFAULT_IFS}"; set +o noglob
 
-   case "${vendor}" in
-      "")
-         extensionsdir="${MULLE_SDE_LIBEXEC_DIR}/extensions"
-         s="$s:${extensionsdir}"
-      ;;
+   local homeextensionsdir
 
-      mulle-sde)
-         extensionsdir="${MULLE_SDE_LIBEXEC_DIR}/extensions/${vendor}"
-         s="$s:${extensionsdir}"
+   case "${MULLE_UNAME}" in
+      darwin)
+         # or what ?
+         homeextensionsdir="${HOME}/Library/Preferences"
       ;;
 
       *)
-         case "${MULLE_UNAME}" in
-            darwin)
-               # or what ?
-               homeextensionsdir="${HOME}/Library/Preferences"
-            ;;
-
-            *)
-               homeextensionsdir="${HOME}/.config"
-            ;;
-         esac
-
-         homeextensionsdir="${homeextensionsdir}/mulle-sde/extensions/${vendor}"
-
-         s="$s:${homeextensionsdir}"
-
-         extensionsdir="share/mulle-sde/extensions/${vendor}"
-         s="$s:/usr/local/${extensionsdir}"
-         s="$s:/usr/${extensionsdir}"
+         homeextensionsdir="${HOME}/.config"
       ;;
    esac
+   homeextensionsdir="${homeextensionsdir}/mulle-sde/extensions/${vendor}"
+   s="$s:${homeextensionsdir}"
+
+   s="$s:/usr/local/share/mulle-sde/extensions"
+   s="$s:/usr/share/mulle-sde/extensions"
 
    case "$s" in
       :*)
@@ -221,41 +197,95 @@ extension_get_search_path()
       ;;
    esac
 
-   log_debug "Extension search path for vendor \"${vendor}\": \"$s\""
+   log_debug "Extension search path: \"$s\""
 
    echo "$s"
 }
 
 
-_extension_get_vendors()
+extension_get_vendor_path()
 {
-   log_entry "_extension_get_vendors" "$@"
+   log_entry "extension_get_vendor_path" "$@"
 
-   local path
+   local vendor="$1" # can not be empty
+
+   [ -z "${vendor}" ] && fail "Empty vendor name"
+
+   local searchpath
+   local s
    local i
 
-   path="`extension_get_search_path ""`"
+   searchpath="`extension_get_search_path`"
 
-   set -o noglob ; IFS=":"
-   for i in ${path}
+   IFS=":"; set -o noglob
+   for i in ${searchpath}
    do
-      IFS="${DEFAULT_IFS}"; set +o noglob
-
-      if [ -d "$i" ]
+      if [ -d "${i}/${vendor}" ]
       then
-         ( cd "$i" ; find . -mindepth 1 -maxdepth 1 -type d -print )
+         echo "${i}/${vendor}"
+         return
+      fi
+   done
+
+   return 1
+}
+
+
+_extension_list_vendors()
+{
+   log_entry "_extension_list_vendors" "$@"
+
+   local searchpath
+   local s
+   local i
+
+   searchpath="`extension_get_search_path`"
+
+   IFS=":"; set -o noglob
+   for i in ${searchpath}
+   do
+      if [ -d "${i}" ]
+      then
+         find "${i}" -mindepth 1 -maxdepth 1 -type d -print
       fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
-extension_get_vendors()
+extension_list_vendors()
 {
-   log_entry "extension_get_vendors" "$@"
+   log_entry "extension_list_vendors" "$@"
 
-   _extension_get_vendors | LC_ALL=C sed s'|^\./||' | sort -u
+   _extension_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | sort -u
 }
+
+
+
+_extension_list_vendor_extensions()
+{
+   log_entry "_extension_list_vendor_extensions" "$@"
+
+   local vendor="$1"
+
+   local searchpath
+
+   searchpath="`extension_get_vendor_path "${vendor}"`"
+   if [ -z "${searchpath}" ]
+   then
+      return 1
+   fi
+   find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -print
+}
+
+
+extension_list_vendor_extensions()
+{
+   log_entry "extension_list_vendor_extensions" "$@"
+
+   _extension_list_vendor_extensions "$@" | LC_ALL=C sed -e s'|.*/||' | sort -u
+}
+
 
 
 collect_extension_dirs()
@@ -270,42 +300,34 @@ collect_extension_dirs()
    local extensiondir
    local foundtype
 
-   searchpath="`extension_get_search_path "${vendor}" `"
-
-   IFS=":"; set -o noglob
-   for directory in ${searchpath}
-   do
-      if [ -z "${directory}" ] || ! [ -d "${directory}" ]
-      then
-         continue
-      fi
+   directory="`extension_get_vendor_path "${vendor}" `"
+   if [ -z "${directory}" ]
+   then
+      return 1
+   fi
 
 #     log_debug "$directory: ${directory}"
-      IFS="
-"
-      for extensiondir in `find "${directory}" -mindepth 1 -maxdepth 1 -type d -print`
-      do
-         IFS="${DEFAULT_IFS}"
+   IFS="
+" ; set -o noglob
+   for extensiondir in `find "${directory}" -mindepth 1 -maxdepth 1 -type d -print`
+   do
+      IFS="${DEFAULT_IFS}"
 
-#         log_debug "$extensiondir: ${extensiondir}"
+      if [ ! -z "${extensiontype}" ]
+      then
+         foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
+         log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
 
-         if [ ! -z "${extensiontype}" ]
+         if [ "${foundtype}" != "${extensiontype}" ]
          then
-
-            foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
-            log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
-
-            if [ "${foundtype}" != "${extensiontype}" ]
-            then
-               log_debug "But we are looking for \"${extensiontype}\""
-               continue
-            fi
+            log_debug "But we are looking for \"${extensiontype}\""
+            continue
          fi
-         rexekutor echo "${extensiondir}"
-      done
-      IFS=":"; set -o noglob
+      fi
+      rexekutor echo "${extensiondir}"
    done
-   IFS="${DEFAULT_IFS}"
+
+   IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
@@ -327,34 +349,17 @@ Use / separator"
       ;;
    esac
 
-   local searchpath
-
-   searchpath="`extension_get_search_path "${vendor}" `"
-
    local directory
 
-   IFS=":"; set -o noglob
-   for directory in ${searchpath}
-   do
-      IFS="${DEFAULT_IFS}"; set +o noglob
+   directory="`extension_get_vendor_path "${vendor}" `"
+   if [ -z "${directory}" -o ! -d "${directory}/${name}" ]
+   then
+      log_fluff "Extension \"${directory}/${name}\" is not there"
+      return 1
+   fi
 
-      if [ -z "${directory}" ] || ! [ -d "${directory}" ]
-      then
-         continue
-      fi
-
-      if [ -d "${directory}/${name}" ]
-      then
-         log_fluff "Found extension \"${directory}/${name}\""
-         echo "${directory}/${name}"
-         return 0
-      else
-         log_fluff "Extension \"${directory}/${name}\" is not there"
-      fi
-   done
-
-   IFS="${DEFAULT_IFS}"; set +o noglob
-   return 1
+   log_fluff "Found extension \"${directory}/${name}\""
+   echo "${directory}/${name}"
 }
 
 
@@ -414,6 +419,8 @@ collect_extension_inherits()
 {
    log_entry "collect_extension_inherits" "$@"
 
+   local extensiondir="$1"
+
    local text
 
    text="`LC_ALL=C egrep -s -v '^#' "${extensiondir}/inherit"`"
@@ -433,46 +440,6 @@ collect_extension_inherits()
 
       echo "${dependency}"
    done <<< "${text}"
-}
-
-
-collect_inherit_extensiondirs()
-{
-   log_entry "collect_inherit_extensiondirs" "$@"
-
-   local inherits="$1"
-
-   local dependency
-   local vendor
-   local extension
-
-   set -o noglob ; IFS="
-"
-   for dependency in ${inherits}
-   do
-      set +o noglob ; IFS="${DEFAULT_IFS}"
-
-      case "${dependency}" in
-         "")
-            continue
-         ;;
-
-         */*)
-            vendor="${dependency%%/*}"
-            extension="${dependency##*/}"
-         ;;
-
-         *)
-            fail "Inherit \"${dependency}\" must be fully qualified <vendor>/<extension>"
-         ;;
-      esac
-
-      if ! find_extension "${vendor}" "${extension}"
-      then
-         log_warning "Inheriting unknown extension \"${vendor}/${extension}\""
-      fi
-   done
-   set +o noglob ; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -512,7 +479,6 @@ extension_get_version()
 }
 
 
-
 emit_extension()
 {
    local result="$1"
@@ -521,7 +487,6 @@ emit_extension()
 
    if [ -z "${result}" ]
    then
-      log_fluff "No ${extensiontype} extensions found"
       return
    fi
 
@@ -605,7 +570,15 @@ sde_extension_list_main()
 
    local all_vendors
 
-   all_vendors="`extension_get_vendors`"
+   all_vendors="`extension_list_vendors`"
+
+   case "${cmd}" in
+      vendor|vendors)
+         log_info "Available vendors"
+         echo "${all_vendors}"
+         return
+      ;;
+   esac
 
    log_verbose "Available vendors:"
    log_verbose "`sort -u <<< "${all_vendors}"`"
@@ -1220,7 +1193,13 @@ sde_extension_main()
       meta|installed-meta)
          local meta
 
-         meta="`egrep ';meta$' "${MULLE_SDE_DIR}/share/extension" | head -1 | cut -d';' -f 1`"
+         [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "Command must be run from inside subshell"
+
+         if [ -f "${MULLE_SDE_DIR}/share/extension" ]
+         then
+            meta="`egrep ';meta$' "${MULLE_SDE_DIR}/share/extension" | head -1 | cut -d';' -f 1`"
+         fi
+
          if [ -z "${meta}" ]
          then
             log_warning "Could not figure out installed meta extension"
@@ -1230,7 +1209,15 @@ sde_extension_main()
       ;;
 
       searchpath)
+         log_info "Extension searchpath"
+
          extension_get_search_path
+      ;;
+
+      vendorpath)
+         log_info "Extension vendor path"
+
+         extension_get_vendor_path "$@"
       ;;
 
       upgrade)

@@ -1,3 +1,7 @@
+### 0.18.2
+
+* rename definition to buildinfo, fix extension searchpath
+
 ### 0.18.1
 
 * improve buildinfo a bit more

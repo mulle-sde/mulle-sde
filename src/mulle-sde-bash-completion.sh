@@ -200,7 +200,7 @@ _mulle_sde_dependency_complete()
 
          cmd)
             case "${i}" in
-               add|definition|get|list|mark|move|remove|set|unmark)
+               add|buildinfo|get|list|mark|move|remove|set|unmark)
                   subcmd="${i}"
                   state="subcmd"
                ;;
@@ -208,7 +208,7 @@ _mulle_sde_dependency_complete()
          ;;
 
          subcmd)
-            if [ "${subcmd}" = "definition" ]
+            if [ "${subcmd}" = "buildinfo" ]
             then
                case "${i}" in
                   get|list|set)
@@ -226,12 +226,12 @@ _mulle_sde_dependency_complete()
    # state can't be start here
    case "${state}" in
       cmd)
-         COMPREPLY=( $( compgen -W "add definition get list mark move remove set unmark" -- $cur ) )
+         COMPREPLY=( $( compgen -W "add buildinfo get list mark move remove set unmark" -- $cur ) )
          return
       ;;
 
       subcmd)
-         if [ "${subcmd}" = "definition" ]
+         if [ "${subcmd}" = "buildinfo" ]
          then
             case "${cur}" in
                -*)
@@ -295,7 +295,7 @@ _mulle_sde_subproject_complete()
 
          cmd)
             case "${i}" in
-               add|definition|get|list|init|mark|move|remove|set|unmark|update)
+               add|buildinfo|get|list|init|mark|move|remove|set|unmark|update)
                   subcmd="${i}"
                   state="subcmd"
                ;;
@@ -304,7 +304,7 @@ _mulle_sde_subproject_complete()
 
          subcmd)
             case "${subcmd}" in
-               "definition")
+               "buildinfo")
                   case "${i}" in
                      get|list|set)
                         subsubcmd="${i}"
@@ -322,13 +322,13 @@ _mulle_sde_subproject_complete()
    # state can't be start here
    case "${state}" in
       cmd)
-         COMPREPLY=( $( compgen -W "add definition get init list mark move remove set unmark update" -- $cur ) )
+         COMPREPLY=( $( compgen -W "add buildinfo get init list mark move remove set unmark update" -- $cur ) )
          return
       ;;
 
       subcmd)
          case "${subcmd}" in
-            definition)
+            buildinfo)
                case "${cur}" in
                   -*)
                      COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
@@ -415,7 +415,6 @@ buildorder
 callback
 craft
 dependency
-definition
 environment
 extension
 find
@@ -518,11 +517,6 @@ update"
 
       buildinfo)
          _mulle_sde_buildinfo_complete "$@"
-         return 0
-      ;;
-
-      definition)
-         _mulle_sde_make_complete "$@"
          return 0
       ;;
 
