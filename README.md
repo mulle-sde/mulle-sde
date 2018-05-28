@@ -19,10 +19,6 @@ Executable      | Description
 `mulle-sde`     | Create projects, add and remove dependencies, monitor filesystem and rebuild and test on demand
 
 
-> **mulle-sde** strives to be buildtool and language agnostic. Currently there
-> are only extensions for C and cmake available.
-
-
 ## Install
 
 See [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer) how

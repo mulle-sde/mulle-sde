@@ -1,3 +1,7 @@
+### 0.18.7
+
+* remove some old text from README
+
 ### 0.18.6
 
 * simplify README
