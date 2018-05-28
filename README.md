@@ -6,21 +6,11 @@
 idea is to organize your project with the filesystem, and then let
 mulle-sde reflect the changed filesystem back to the "Makefile".
 An important aspect of a mulle-sde project is, that your project
-is can still be built without mulle-sde installed.
+can still be built without mulle-sde being installed.
 
-**mulle-sde** has little to no benefit for an existing project that has no
-dependencies and that you are loathe to reorganize to fit the mulle-sde
-workflow.
+See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for
+a more indepth introduction on what **mulle-sde** is.
 
-
-**mulle-sde**
-
-* creates a virtual environment with [mulle-env](//github.com/mulle-sde/mulle-env)
-* provides a form of package management with [mulle-sourcetree](//github.com/mulle-sde/mulle-sourcetree)
-* builds your project and its dependencies with [mulle-craft](//github.com/mulle-sde/mulle-craft)
-* monitors filesystem changes via [mulle-monitor](//github.com/mulle-sde/mulle-monitor) and updates your project files
-* is language and buildtool agnostic. projects are configured using *extensions*, that provide language and buildtool bindings
-* projects are upgradable to newer *extension* versions at any time
 
 ![](dox/mulle-sde-overview.png)
 
@@ -34,7 +24,7 @@ Executable      | Description
 
 
 ## Install
- 
+
 See [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer) how
 to install mulle-sde.
 

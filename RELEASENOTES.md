@@ -1,3 +1,7 @@
+### 0.18.6
+
+* simplify README
+
 ### 0.18.5
 
 * use -RLa for homebrew
