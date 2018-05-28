@@ -17,11 +17,11 @@ LANGUAGE="bash"             # c,cpp, objc, bash ...
 # DEPENDENCIES and BUILD_DEPENDENCIES will be evaled later!
 # So keep them single quoted.
 #
-DEPENDENCIES='${TOOLS_TAP}mulle-bashfunctions
-${TOOLS_TAP}mulle-env
-${TOOLS_TAP}mulle-craft
-${TOOLS_TAP}mulle-monitor
-${TOOLS_TAP}mulle-sourcetree
+DEPENDENCIES='${MULLE_NAT_TAP}mulle-bashfunctions
+${MULLE_SDE_TAP}mulle-env
+${MULLE_SDE_TAP}mulle-craft
+${MULLE_SDE_TAP}mulle-monitor
+${MULLE_SDE_TAP}mulle-sourcetree
 '
 
 DEBIAN_DEPENDENCIES="mulle-bashfunctions, mulle-env, mulle-craft, mulle-monitor, mulle-sourcetree"

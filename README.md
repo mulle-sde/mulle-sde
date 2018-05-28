@@ -35,52 +35,8 @@ Executable      | Description
 
 ## Install
 
-It's preferable to install mulle-sde via
-[mulle-sde-developer](https://github.com/mulle-sde/mulle-sde-developer),
-as this will get you the core extensions as well.
-
-
-### Script
-
-There is an `installer-all` script, that installs the pre-requisites and mulle-sde
-itself into `/usr`. Suitable for environments without supported package
-managers:
-
-```
-curl -L -O 'https://raw.githubusercontent.com/mulle-sde/mulle-sde/release/installer-all' && \
-chmod 755 installer-all && \
-sudo ./installer-all /usr
-```
-
-
-### Manually
-
-Install the pre-requisites:
-
-* [mulle-bashfunctions](https://github.com/mulle-nat/mulle-bashfunctions)
-* [mulle-craft](https://github.com/mulle-sde/mulle-craft)
-* [mulle-env](https://github.com/mulle-sde/mulle-env)
-* [mulle-fetch](https://github.com/mulle-sde/mulle-fetch)
-* [mulle-dispense](https://github.com/mulle-sde/mulle-dispense)
-* [mulle-make](https://github.com/mulle-sde/mulle-make)
-* [mulle-match](https://github.com/mulle-sde/mulle-match)
-* [mulle-sourcetree](https://github.com/mulle-sde/mulle-sourcetree)
-
-
-Install latest version into `/usr` with sudo:
-
-```
-curl -L 'https://github.com/mulle-sde/mulle-sde/archive/latest.tar.gz' \
- | tar xfz - && cd 'mulle-sde-latest' && sudo ./install /usr
-```
-
-
-
-### Packages
-
-OS          | Command
-------------|------------------------------------
-macos       | `brew install mulle-kybernetik/software/mulle-sde`
+See [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer) how
+to install mulle-sde.
 
 
 # Commands

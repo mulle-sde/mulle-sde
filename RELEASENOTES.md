@@ -1,3 +1,7 @@
+### 0.18.3
+
+* simplify README
+
 ### 0.18.2
 
 * rename definition to buildinfo, fix extension searchpath
