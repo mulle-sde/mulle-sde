@@ -131,7 +131,8 @@ _copy_extension_dir()
       find "${MULLE_SDE_DIR}/${name}" -type f -exec chmod ug+w {} \;
    fi
 
-   exekutor cp -Ra ${flags} "${directory}" "${MULLE_SDE_DIR}/" &&
+   # need L flag since homebrew creates relative links
+   exekutor cp -RLa ${flags} "${directory}" "${MULLE_SDE_DIR}/" &&
    if [ "${writeprotect}" = "YES" ]
    then
       #
@@ -174,7 +175,8 @@ _copy_env_extension_dir()
       find ".mulle-env/share" -type f -exec chmod ug+w {} \;
    fi
 
-   exekutor cp -Ra ${flags} "${directory}/share" ".mulle-env/" &&
+   # need L flag since homebrew creates relative links
+   exekutor cp -RLa ${flags} "${directory}/share" ".mulle-env/" &&
 
    find ".mulle-env/share" -type f -exec chmod ugo-w {} \;
 }

@@ -1,3 +1,7 @@
+### 0.18.5
+
+* use -RLa for homebrew
+
 ### 0.18.4
 
 * remove file from git
