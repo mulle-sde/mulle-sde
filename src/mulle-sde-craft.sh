@@ -148,7 +148,7 @@ sde_craft_main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
       fi
 
-      sde_update_main ${updateflags} ${tasks}
+      sde_update_main ${updateflags} ${tasks} || exit 1
    fi
 
    local cmdline

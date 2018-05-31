@@ -257,7 +257,7 @@ extension_list_vendors()
 {
    log_entry "extension_list_vendors" "$@"
 
-   _extension_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | sort -u
+   _extension_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | LC_ALL=C sort -u
 }
 
 
@@ -283,7 +283,7 @@ extension_list_vendor_extensions()
 {
    log_entry "extension_list_vendor_extensions" "$@"
 
-   _extension_list_vendor_extensions "$@" | LC_ALL=C sed -e s'|.*/||' | sort -u
+   _extension_list_vendor_extensions "$@" | LC_ALL=C sed -e s'|.*/||' | LC_ALL=C sort -u
 }
 
 
@@ -581,7 +581,7 @@ sde_extension_list_main()
    esac
 
    log_verbose "Available vendors:"
-   log_verbose "`sort -u <<< "${all_vendors}"`"
+   log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}"`"
 
    set -o noglob ; IFS="
 "
@@ -719,7 +719,7 @@ a mulle-sde project"
          fi
       done
       IFS="${DEFAULT_IFS}"
-   ) | sort
+   ) | LC_ALL=C sort
 }
 
 
@@ -1085,7 +1085,7 @@ sde_extension_usage_main()
 
    if [ "${OPTION_LIST_TYPES}" = "YES" ]
    then
-      emit_extension_usage "${extension}" | sort -u
+      emit_extension_usage "${extension}" | LC_ALL=C sort -u
    else
       emit_extension_usage "${extension}"
    fi

@@ -1,3 +1,7 @@
+### 0.18.8
+
+* use `LC_ALL=C` for sorting, fix some bugs
+
 ### 0.18.7
 
 * remove some old text from README

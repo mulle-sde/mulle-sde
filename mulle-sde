@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.18.7
+MULLE_EXECUTABLE_VERSION=0.18.8
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -95,11 +95,11 @@ print_commands()
    update         : update project makefiles"
    fi
 
-   echo "${SHOWN_COMMANDS}" | sort
+   echo "${SHOWN_COMMANDS}" | LC_ALL=C sort
 
    if [ "${show_all}" != "NO" ]
    then
-      echo "${HIDDEN_COMMANDS}" | sort
+      echo "${HIDDEN_COMMANDS}" | LC_ALL=C sort
    fi
 }
 
@@ -151,7 +151,7 @@ EOF
    cat <<EOF
 Flags:
 EOF
-   print_flags  | sort
+   print_flags  | LC_ALL=C sort
 
 
    cat <<EOF
@@ -159,7 +159,7 @@ EOF
 Commands:
 EOF
 
-   print_commands "${verbose}" | sort
+   print_commands "${verbose}" | LC_ALL=C sort
 
    if [ "${verbose}" = "NO" ]
    then

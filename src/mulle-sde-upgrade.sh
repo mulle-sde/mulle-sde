@@ -60,7 +60,7 @@ EOF
       then
          echo "${HIDDEN_COMMANDS}"
       fi
-   ) | sed '/^$/d' | sort >&2
+   ) | sed '/^$/d' | LC_ALL=C sort >&2
 
    cat <<EOF >&2
          (use -v for more commands)

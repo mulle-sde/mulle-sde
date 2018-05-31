@@ -223,7 +223,8 @@ sde_update_worker()
       if [ -d "${subproject}/.mulle-sde" ]
       then
          log_verbose "Updating subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
-         exekutor mulle-env -c "mulle-sde ${MULLE_TECHNICAL_FLAGS} update --if-needed --no-craft source" subenv "${subproject}"
+         exekutor mulle-env -c "mulle-sde ${MULLE_TECHNICAL_FLAGS} update --if-needed --no-craft source" \
+                     subenv "${subproject}" || exit 1
       else
          log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
       fi

@@ -84,7 +84,7 @@ EOF
       then
          echo "${HIDDEN_OPTIONS}"
       fi
-   ) | sort
+   ) | LC_ALL=C sort
 
    echo "      (\`${MULLE_USAGE_NAME} -v init help\` for more options)"
    exit 1
@@ -642,16 +642,19 @@ run_init()
       ;;
    esac
 
+   local auxflags
+
    if [ "${force}" = "YES" ]
    then
-      force="-f"
-   else
-      force=""
+      auxflags="-f"
    fi
 
    log_warning "Running init script \"${executable}\""
-   eval_exekutor "${executable}" "${INIT_FLAGS}" "${flags}" \
-                                                 "${force}" \
+
+   eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
+                 OPTION_REINIT="${OPTION_REINIT}"
+                     "${executable}" "${INIT_FLAGS}" "${flags}" \
+                                                 "${auxflags}" \
                                                  --marks "'${marks}'" \
                                                  "${projecttype}" ||
       fail "init script \"${executable}\" failed"
@@ -1847,6 +1850,7 @@ sde_init_main()
             OPTION_UPGRADE="YES"
             OPTION_BLURB="NO"
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-sourcetree"`"
             OPTION_INIT_ENV="NO"
          ;;
 
