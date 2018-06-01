@@ -173,10 +173,11 @@ _sde_update_main()
    #
    # this is set by mulle-sde monitor
    #
-   if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" = "YES" ]
+   if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" != "YES" ]
    then
-      "${runner}" "craft"
+      return
    fi
+   "${runner}" "craft"
 }
 
 
@@ -189,7 +190,7 @@ sde_update_worker()
 
    log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
 
-   _sde_update_main "${filename}"
+   _sde_update_main "${filename}" || exit 1
 
    #
    # update source of mulle-sde subprojects only

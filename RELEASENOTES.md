@@ -1,3 +1,8 @@
+## 0.19.0
+
+* inheritmarks added, so that an extension can turn off parts of another extension
+
+
 ### 0.18.8
 
 * use `LC_ALL=C` for sorting, fix some bugs

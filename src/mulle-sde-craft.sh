@@ -225,6 +225,6 @@ sde_craft_main()
    if [ "${cmd}" != "dependency" ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-         eval_exekutor "${cmdline}" project "${arguments}"
+         eval_exekutor "${cmdline}" project "${arguments}" || return 1
    fi
 }

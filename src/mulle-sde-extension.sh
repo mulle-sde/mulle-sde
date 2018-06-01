@@ -225,6 +225,7 @@ extension_get_vendor_path()
          echo "${i}/${vendor}"
          return
       fi
+      log_debug "Vendor \"${vendor}\" not found in \"${i}\""
    done
 
    return 1
@@ -352,9 +353,15 @@ Use / separator"
    local directory
 
    directory="`extension_get_vendor_path "${vendor}" `"
-   if [ -z "${directory}" -o ! -d "${directory}/${name}" ]
+   if [ -z "${directory}" ] 
    then
-      log_fluff "Extension \"${directory}/${name}\" is not there"
+      log_fluff "Extension vendor \"${vendor}\" is unknown."
+      return 1
+   fi
+
+   if [ ! -d "${directory}/${name}" ]
+   then
+      log_fluff "Extension \"${directory}/${name}\" is not there."
       return 1
    fi
 

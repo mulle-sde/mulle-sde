@@ -280,7 +280,7 @@ install_inheritfile()
 
    local text
 
-   text="`LC_ALL=C egrep -s -v '^#' "${inheritfilename}"`"
+   text="`LC_ALL=C egrep -v '^#' "${inheritfilename}"`"
 
    log_debug "text: $text"
 
@@ -484,7 +484,7 @@ add_to_libraries()
 
    IFS="
 "
-   for line in `egrep -s -v -e '^#' "${filename}"`
+   for line in `egrep -v '^#' "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
 
@@ -521,7 +521,7 @@ add_to_dependencies()
 
    IFS="
 "
-   for line in `egrep -s -v -e '^#' "${filename}"`
+   for line in `egrep -v '^#' "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
 
@@ -592,7 +592,7 @@ add_to_tools()
 
    IFS="
 "
-   for line in `egrep -s -v -e '^#' "${filename}"`
+   for line in `egrep -v '^#' "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
 
@@ -874,7 +874,7 @@ vendor \"${vendor}\""
          #
          if [ "${LANGUAGE_SET}" != "YES" ] && [ -f "${extensiondir}/language" ]
          then
-            tmp="`egrep -v -e '^#' "${extensiondir}/language"`"
+            tmp="`egrep -v '^#' "${extensiondir}/language"`"
             IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
             [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
@@ -929,10 +929,45 @@ vendor \"${vendor}\""
    then
       if [ -f "${extensiondir}/inherit" ]
       then
+
+         #
+         # inheritmarks are a way to tune the inherited marks. WHAT DOES THAT MEAN ?
+         # That means an extension that has a dependency file, can have a
+         # inheritmarks file with no-sourcetree and all inherited extensions will have
+         # dependency turned off! The marks are always added!
+         #
+         local inheritmarks
+         local line
+         local filename
+
+         filename="${extensiondir}/inheritmarks"
+         inheritmarks="${marks}"
+         if ! is_disabled_by_marks "${marks}" "${filename}" \
+                                              "no-inheritmarks" \
+                                              "no-inheritmarks/${vendor}/${extname}"
+         then
+            if [ -f "${filename}" ]
+            then
+               IFS="
+"
+               for line in `egrep -v '^#' "${filename}"`
+               do
+                  IFS="${DEFAULT_IFS}"
+                  if [ ! -z "${line}" ]
+                  then
+                     inheritmarks="`comma_concat "${inheritmarks}" "${line}"`"
+                  fi
+               done
+               IFS="${DEFAULT_IFS}"
+            else
+               log_fluff "No inheritmarks file \"${filename}\" found"
+            fi
+         fi
+
          install_inheritfile "${extensiondir}/inherit" \
                              "${projecttype}" \
                              "${exttype}" \
-                             "${marks}" \
+                             "${inheritmarks}" \
                              "${onlyfilename}" \
                              "${force}" \
                              "$@"  || exit 1
