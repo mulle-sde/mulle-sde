@@ -144,17 +144,41 @@ _copy_extension_dir()
 }
 
 
+_check_file()
+{
+   local filename="$1"
+
+   if [ ! -f "${filename}" ]
+   then
+      log_debug "\"${filename}\" does not exist"
+      return 1
+   fi
+   log_fluff "File \"${filename}\" found"
+   return 0
+}
+
+
+_check_dir()
+{
+   local dirname="$1"
+
+   if [ ! -d "${dirname}" ]
+   then
+      log_debug "\"${dirname}\" does not exist ($PWD)"
+      return 1
+   fi
+   log_fluff "Directory \"${dirname}\" found"
+   return 0
+}
+
+
 _copy_env_extension_dir()
 {
    log_entry "_copy_env_extension_dir" "$@"
 
    local directory="$1"
 
-   if [ ! -d "${directory}/share" ]
-   then
-      log_debug "Nothing to copy as \"${directory}/share\" is not there"
-      return
-   fi
+   _check_dir "${directory}/share" || return 0
 
    local flags
 
@@ -189,11 +213,7 @@ _append_to_motd()
 
    local extensiondir="$1"
 
-   if [ ! -f "${extensiondir}/motd" ]
-   then
-      log_debug "Nothing to append to MOTD as \"${extensiondir}/motd\" is not there ($PWD)"
-      return
-   fi
+   _check_file "${extensiondir}/motd" || return 0
 
    local text
 
@@ -203,6 +223,55 @@ _append_to_motd()
       log_fluff "Append \"${extensiondir}/motd\" to motd"
       _MOTD="`add_line "${_MOTD}" "${text}" `"
    fi
+}
+
+
+_template_file_arguments()
+{
+   log_entry "_template_file_arguments" "$@"
+
+   local projectdir="$1"
+   local force="$2"
+   local onlyfilename="$3"
+
+   #
+   # copy and expand stuff from project folder. Be extra careful not to
+   # clobber project files, except if -f is given
+   #
+   _arguments="--embedded \
+              --template-dir '${projectdir}' \
+              --name '${PROJECT_NAME}' \
+              --language '${PROJECT_LANGUAGE}' \
+              --dialect '${PROJECT_DIALECT}' \
+              --extensions '${PROJECT_EXTENSIONS}' \
+              --source-dir '${PROJECT_SOURCE_DIR}'"
+
+   if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
+   then
+      _arguments="${_arguments} -f"
+   fi
+
+   if [ ! -z "${onlyfilename}" ]
+   then
+      _arguments="${_arguments} --file '${onlyfilename}'"
+   fi
+   _arguments="${_arguments} ${OPTION_USERDEFINES}"
+}
+
+
+_copy_template_file()
+{
+   log_entry "_copy_template_file" "$@"
+
+   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
+   fi
+
+   # put in own shell to avoid side effects
+   (
+      eval _template_main "${_arguments}"
+   ) || fail "template generation failed"
 }
 
 
@@ -221,49 +290,32 @@ _copy_extension_template_files()
 
    projectdir="${extensiondir}/${subdirectory}/${projecttype}"
 
-   if [ ! -d "${projectdir}" ]
-   then
-      log_debug "\"${projectdir}\" is not there ($PWD)"
-      return
-   fi
+   _check_dir "${projectdir}" || return 0
 
    #
    # copy and expand stuff from project folder. Be extra careful not to
    # clobber project files, except if -f is given
    #
-   if [ -z "${MULLE_SDE_INITSUPPORT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
-   fi
-
-   local flags
-   local arguments
-
-   arguments="--embedded \
-              --template-dir '${projectdir}' \
-              --name '${PROJECT_NAME}' \
-              --language '${PROJECT_LANGUAGE}' \
-              --dialect '${PROJECT_DIALECT}' \
-              --extensions '${PROJECT_EXTENSIONS}' \
-              --source-dir '${PROJECT_SOURCE_DIR}'"
-
-   if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
-   then
-      arguments="${arguments} -f"
-   fi
-
-   if [ ! -z "${onlyfilename}" ]
-   then
-      arguments="${arguments} --file '${onlyfilename}'"
-   fi
-   arguments="${arguments} ${OPTION_USERDEFINES}"
-
    log_fluff "Copying \"${projectdir}\" with template expansion"
 
-   # put in own shell to avoid side effects
-   (
-      eval _template_main "${arguments}"
-   ) || fail "template generation failed"
+   local _arguments
+
+   _template_file_arguments "${projectdir}" "${force}" "${onlyfilename}"
+
+   #
+   # If force is set, we copy in the "incoming" order and overwrite whatever
+   # is there.
+   # If force is not set, the destination will not be overwritten so the
+   # first file wins. In this case we reverse the order
+   #
+   if [ "${force}" = "YES" ]
+   then
+      TEMPLATE_FILES="${TEMPLATE_FILES}
+${_arguments}"
+   else
+      TEMPLATE_FILES="${_arguments}
+${TEMPLATE_FILES}"
+   fi
 }
 
 
@@ -350,14 +402,14 @@ install_inheritfile()
          ;;
       esac
 
-      install_extension "${projecttype}" \
-                        "${exttype}" \
-                        "${vendor}" \
-                        "${extname}" \
-                        "${marks}" \
-                        "${onlyfilename}" \
-                        "${force}" \
-                        "$@" || return 1
+      _install_extension "${projecttype}" \
+                         "${exttype}" \
+                         "${vendor}" \
+                         "${extname}" \
+                         "${marks}" \
+                         "${onlyfilename}" \
+                         "${force}" \
+                         "$@" || return 1
       IFS="
 "
     done <<< "${text}"
@@ -472,7 +524,7 @@ add_to_libraries()
 
    local filename="$1"
 
-   [ ! -f "${filename}" ] && log_fluff "\"${filename}\" does not exist" && return
+   _check_file "${filename}" || return 0
 
    if [ -z "${MULLE_SDE_LIBRARY_SH}" ]
    then
@@ -509,13 +561,13 @@ add_to_dependencies()
 
    local filename="$1"
 
+   _check_file "${filename}" || return 0
+
    if [ -z "${MULLE_SDE_DEPENDENCY_SH}" ]
    then
       # shellcheck source=src/mulle-sde-dependency.sh
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
    fi
-
-   [ ! -f "${filename}" ] && log_fluff "\"${filename}\" does not exist" && return
 
    local line
 
@@ -549,9 +601,9 @@ add_to_environment()
    local environment
    local text
 
-   [ ! -f "${filename}" ] && return
+   _check_file "${filename}" || return 0
 
-   log_debug "environment: `cat "${filename}"`"
+   log_debug "Environment: `cat "${filename}"`"
 
    # add an empty linefeed for read
    text="`cat "${filename}"`"
@@ -581,11 +633,11 @@ add_to_tools()
    local filename="$1"
    local scope="$2"
 
-   if [ -f "${filename}.${MULLE_UNAME}" ]
+   if _check_file "${filename}.${MULLE_UNAME}"
    then
       filename="${filename}.${MULLE_UNAME}"
    else
-      [ ! -f "${filename}" ] && log_fluff "\"${filename}\" does not exist" && return
+      _check_file "${filename}" || return 0
    fi
 
    local line
@@ -621,13 +673,11 @@ run_init()
 
    if [ ! -x "${extensiondir}/init" ]
    then
-      if [ -f "${extensiondir}/init" ]
+      if _check_file "${extensiondir}/init"
       then
          fail "\"${extensiondir}/init\" must have execute permissions"
-      else
-         log_fluff "No init executable \"${extensiondir}/init\" found"
-         return
       fi
+      return
    fi
 
    local flags
@@ -819,9 +869,9 @@ _copy_extension_template_directory()
 # e.g.   no-project/mulle-sde/cmake
 #
 #
-install_extension()
+_install_extension()
 {
-   log_entry "install_extension" "$@"
+   log_entry "_install_extension" "$@"
 
    local projecttype="$1"; shift
    local exttype="$1"; shift
@@ -860,7 +910,7 @@ vendor \"${vendor}\""
       return 1
    fi
 
-   if [ ! -f "${extensiondir}/version" ]
+   if ! _check_file "${extensiondir}/version"
    then
       fail "Extension \"${vendor}/${extname}\" is unversioned."
    fi
@@ -872,24 +922,25 @@ vendor \"${vendor}\""
          #
          # do this only once for the first runtime extension
          #
-         if [ "${LANGUAGE_SET}" != "YES" ] && [ -f "${extensiondir}/language" ]
+         if [ "${LANGUAGE_SET}" != "YES" ]
          then
-            tmp="`egrep -v '^#' "${extensiondir}/language"`"
-            IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
-
-            [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
-            PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
-            if [ -z "${PROJECT_EXTENSIONS}" ]
+            if _check_file "${extensiondir}/language"
             then
-               PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
-            fi
+               tmp="`egrep -v '^#' "${extensiondir}/language"`"
+               IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
-            log_fluff "Project language set to \"${PROJECT_DIALECT}\""
-            log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
-            log_fluff "Dialect extensions set to \"${PROJECT_EXTENSIONS}\""
-            LANGUAGE_SET="YES"
-         else
-            log_fluff "No language file \"${extensiondir}/language\" found"
+               [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
+               PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
+               if [ -z "${PROJECT_EXTENSIONS}" ]
+               then
+                  PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
+               fi
+
+               log_fluff "Project language set to \"${PROJECT_DIALECT}\""
+               log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
+               log_fluff "Dialect extensions set to \"${PROJECT_EXTENSIONS}\""
+               LANGUAGE_SET="YES"
+           fi
          fi
       ;;
 
@@ -927,9 +978,8 @@ vendor \"${vendor}\""
                                         "no-inherit" \
                                         "no-inherit/${vendor}/${extname}"
    then
-      if [ -f "${extensiondir}/inherit" ]
+      if _check_file "${extensiondir}/inherit"
       then
-
          #
          # inheritmarks are a way to tune the inherited marks. WHAT DOES THAT MEAN ?
          # That means an extension that has a dependency file, can have a
@@ -946,7 +996,7 @@ vendor \"${vendor}\""
                                               "no-inheritmarks" \
                                               "no-inheritmarks/${vendor}/${extname}"
          then
-            if [ -f "${filename}" ]
+            if _check_file "${filename}"
             then
                IFS="
 "
@@ -959,8 +1009,6 @@ vendor \"${vendor}\""
                   fi
                done
                IFS="${DEFAULT_IFS}"
-            else
-               log_fluff "No inheritmarks file \"${filename}\" found"
             fi
          fi
 
@@ -970,9 +1018,7 @@ vendor \"${vendor}\""
                              "${inheritmarks}" \
                              "${onlyfilename}" \
                              "${force}" \
-                             "$@"  || exit 1
-      else
-         log_fluff "No inherit file \"${extensiondir}/inherit\" found"
+                             "$@" || exit 1
       fi
    fi
 
@@ -1008,7 +1054,14 @@ vendor \"${vendor}\""
    fi
 
    #
-   # project directory
+   # Project directory:
+   #
+   #  Ideally we do not want to overwrite existing user files
+   #  But we want to overwrite files installed by inherited extensions.
+   #
+   #  We use the --existing flag, to let the user control it. By
+   #  default we overwrite, when initing for project.
+   #
    #  no-demo
    #  no-project
    #  no-clobber
@@ -1025,6 +1078,14 @@ vendor \"${vendor}\""
                                          "$@"
    fi
 
+   local projectforce
+
+   projectforce="YES"
+   if [ "${OPTION_EXISTING}" = "YES" ]
+   then
+      projectforce="NO"
+   fi
+
    # let project clobber demo
    if ! is_disabled_by_marks "${marks}" "${extensiondir}/project" \
                                         "no-project" \
@@ -1033,7 +1094,7 @@ vendor \"${vendor}\""
       _copy_extension_template_directory "${extensiondir}" \
                                          "project" \
                                          "${projecttype}" \
-                                         "${force}" \
+                                         "${projectforce}" \
                                          "${onlyfilename}" \
                                          "$@"
 
@@ -1091,6 +1152,38 @@ vendor \"${vendor}\""
    fi
 
 }
+
+
+install_extension()
+{
+   log_entry "install_extension" "$@"
+
+   TEMPLATE_FILES=""
+
+   _install_extension "$@"
+
+   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
+   fi
+
+   log_verbose "Installing template files"
+   (
+      IFS="
+" ;  shopt -s nullglob
+
+      for arguments in ${TEMPLATE_FILES}
+      do
+         IFS="${DEFAULT_IFS}"; shopt -u nullglob
+
+         if [ ! -z "${arguments}" ]
+         then
+            eval _template_main "${arguments}"
+         fi
+      done
+   )
+}
+
 
 
 install_motd()
@@ -1215,7 +1308,7 @@ recall_installed_extensions()
    # also read old format
    # use mulle-env so we can get at it from the outside
    #
-   if [ -f "${OPTION_EXTENSION_FILE}" ]
+   if _check_file "${OPTION_EXTENSION_FILE}"
    then
       exekutor egrep -v '^#' < "${OPTION_EXTENSION_FILE}"
       return $?
@@ -1733,6 +1826,7 @@ sde_init_main()
    local OPTION_EXTENSION_FILE=".mulle-sde/share/extension"
    local OPTION_PROJECT_FILE
    local OPTION_PROJECT_SOURCE_DIR
+   local OPTION_EXISTING
 
    local line
 
@@ -1865,6 +1959,7 @@ sde_init_main()
 
          --existing)
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
+            OPTION_EXISTING="YES"
          ;;
 
          --extension-file)
@@ -2008,7 +2103,7 @@ Some files may be missing and the project may not be craftable."
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
       then
-         if [ -f "${MULLE_SDE_DIR}/.init" ]
+         if _check_file "${MULLE_SDE_DIR}/.init"
          then
             fail "There is already a ${MULLE_SDE_DIR} folder in \"$PWD\". \
 It looks like an init gone bad."

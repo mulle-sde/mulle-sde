@@ -1,3 +1,8 @@
+## 0.20.0
+
+* redo the way templates are written to match my expectations (deja vu)
+
+
 ## 0.19.0
 
 * inheritmarks added, so that an extension can turn off parts of another extension
