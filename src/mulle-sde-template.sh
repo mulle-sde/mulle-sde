@@ -87,11 +87,11 @@ emit_projectname_seds()
 
    local cmdline
 
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_NAME${c}/${escaped_pn}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_IDENTIFIER${c}/${escaped_pi}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${escaped_pdi}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${escaped_pui}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_SOURCE_DIR${c}/${escaped_psd}/g'"`"
+   cmdline="-e 's/${o}PROJECT_NAME${c}/${escaped_pn}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_IDENTIFIER${c}/${escaped_pi}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${escaped_pdi}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${escaped_pui}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_SOURCE_DIR${c}/${escaped_psd}/g'"
 
    echo "${cmdline}"
 }
@@ -122,9 +122,9 @@ emit_projectlanguage_seds()
 
    local cmdline
 
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_LANGUAGE${c}/${escaped_pl}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_LANGUAGE${c}/${escaped_pul}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_LANGUAGE${c}/${escaped_pdl}/g'"`"
+   cmdline="-e 's/${o}PROJECT_LANGUAGE${c}/${escaped_pl}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_LANGUAGE${c}/${escaped_pul}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_LANGUAGE${c}/${escaped_pdl}/g'"
 
    echo "${cmdline}"
 }
@@ -155,9 +155,9 @@ emit_projectdialect_seds()
 
    local cmdline
 
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DIALECT${c}/${escaped_pl}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_UPCASE_DIALECT${c}/${escaped_pul}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${escaped_pdl}/g'"`"
+   cmdline="-e 's/${o}PROJECT_DIALECT${c}/${escaped_pl}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_DIALECT${c}/${escaped_pul}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${escaped_pdl}/g'"
 
    #
    # support only first of PROJECT_EXTENSIONS as "primary"
@@ -168,7 +168,7 @@ emit_projectdialect_seds()
    extensions="${PROJECT_EXTENSIONS:-${project_downcase_dialect}}"
    escaped_de="` escaped_sed_pattern "${extensions%%:*}" `"
 
-   cmdline="`concat "${cmdline}" "-e 's/${o}PROJECT_EXTENSION${c}/${escaped_de}/g'"`"
+   cmdline="${cmdline} -e 's/${o}PROJECT_EXTENSION${c}/${escaped_de}/g'"
 
    echo "${cmdline}"
 }
@@ -205,17 +205,17 @@ emit_author_date_seds()
 
    local cmdline
 
-   cmdline="`concat "${cmdline}" "-e 's/${o}AUTHOR${c}/${escaped_a}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}DATE${c}/${escaped_d}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}ORGANIZATION${c}/${escaped_o}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}TIME${c}/${escaped_t}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}USER${c}/${escaped_u}/g'"`"
-   cmdline="`concat "${cmdline}" "-e 's/${o}YEAR${c}/${escaped_y}/g'"`"
+   cmdline="-e 's/${o}AUTHOR${c}/${escaped_a}/g'"
+   cmdline="${cmdline} -e 's/${o}DATE${c}/${escaped_d}/g'"
+   cmdline="${cmdline} -e 's/${o}ORGANIZATION${c}/${escaped_o}/g'"
+   cmdline="${cmdline} -e 's/${o}TIME${c}/${escaped_t}/g'"
+   cmdline="${cmdline} -e 's/${o}USER${c}/${escaped_u}/g'"
+   cmdline="${cmdline} -e 's/${o}YEAR${c}/${escaped_y}/g'"
 
    local escaped
 
    escaped="` escaped_sed_pattern "${ONESHOT_NAME}" `"
-   cmdline="`concat "${cmdline}" "-e 's/${o}ONESHOT_NAME${c}/${escaped}/g'"`"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_NAME${c}/${escaped}/g'"
 
    echo "${cmdline}"
 }
@@ -232,13 +232,13 @@ template_filename_replacement_command()
    local seds
 
    seds="`emit_projectname_seds`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    seds="`emit_projectlanguage_seds`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    seds="`emit_projectdialect_seds`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    #
    # get VENDOR_NAME for file replacement
@@ -247,7 +247,7 @@ template_filename_replacement_command()
              rexekutor "${MULLE_ENV}" -s \
                            ${MULLE_ENV_FLAGS} environment \
                                  get --output-sed VENDOR_NAME`" || exit 1
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    #
    # get ONESHOT_NAME from environment for file replacement. Name is used by
@@ -256,7 +256,7 @@ template_filename_replacement_command()
    local escaped
 
    escaped="` escaped_sed_pattern "${ONESHOT_NAME:-ONESHOT_NAME}" `"
-   cmdline="`concat "${cmdline}" "-e 's/ONESHOT_NAME/${escaped}/g'"`"
+   cmdline="${cmdline} -e 's/ONESHOT_NAME/${escaped}/g'"
 
    log_debug "${cmdline}"
 
@@ -275,16 +275,16 @@ template_contents_replacement_command()
    local seds
 
    seds="`emit_projectname_seds "<|" "|>"`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    seds="`emit_projectlanguage_seds "<|" "|>"`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    seds="`emit_projectdialect_seds "<|" "|>"`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    seds="`emit_author_date_seds "<|" "|>"`"
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    #
    # get current environment (as maybe already set by an extensions)
@@ -299,7 +299,7 @@ template_contents_replacement_command()
    log_debug "seds from environment: ${seds}"
    seds="`tr '\n' ' ' <<< "${seds}"`"
 
-   cmdline="`concat "${cmdline}" "${seds}"`"
+   cmdline="${cmdline} ${seds}"
 
    log_debug "${cmdline}"
 
@@ -318,7 +318,7 @@ copy_and_expand_template()
 
    if [ "${FLAG_FORCE}" = "NO" -a -e "${dstfile}" ]
    then
-      log_fluff "\"${dstfile}\" already exists, so skipping it"
+      log_fluff "\"${templatedir}\" !! \"${dstfile}\" (exists)"
       return
    fi
 
@@ -339,7 +339,12 @@ copy_and_expand_template()
 
    if [ "${expanded_dstfile}" != "${dstfile}" ]
    then
-      log_fluff "Expanded \"${dstfile}\" to \"${expanded_dstfile}\""
+      log_debug "Expanded \"${dstfile}\" to \"${expanded_dstfile}\""
+      if [ "${FLAG_FORCE}" = "NO" -a -e "${expanded_dstfile}" ]
+      then
+         log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
+         return
+      fi
    fi
 
    mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
@@ -348,7 +353,7 @@ copy_and_expand_template()
       exekutor chmod ug+w "${expanded_dstfile}"
    fi
 
-   log_debug "Writing expanded file \"${expanded_dstfile}\""
+   log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\""
 
    redirect_exekutor "${expanded_dstfile}" echo "${text}"
 
@@ -365,6 +370,11 @@ default_template_setup()
 
    local templatedir="$1"
    local onlyfile="$6"
+   local filename_sed="$7"
+   local template_sed="$8"
+
+   [ ! -z "${filename_sed}" ] || internal_fail "filename_sed can't be empty"
+   [ ! -z "${template_sed}" ] || internal_fail "template_sed can't be empty"
 
    if [ ! -d "${templatedir}" ]
    then
@@ -372,8 +382,7 @@ default_template_setup()
       return 0
    fi
 
-   local template_sed
-   local filename_sed
+   log_verbose "Installing template directory \"${templatedir}\""
 
    local filename
 
@@ -394,12 +403,6 @@ default_template_setup()
 
       if [ -z "${onlyfile}" -o "${filename}" = "./${onlyfile}" ]
       then
-         if [ -z "${filename_sed}" ]
-         then
-            filename_sed="`template_filename_replacement_command`"
-            template_sed="`template_contents_replacement_command`"
-         fi
-
          copy_and_expand_template "${templatedir}" \
                                   "${filename}" \
                                   "${filename_sed}" \
@@ -428,6 +431,12 @@ _template_main()
          OPTION_EMBEDDED="YES"
          shift
       ;;
+
+      *)
+         # don't keep them around
+         FILENAME_SED=""
+         CONTENTS_SED=""
+      ;;
    esac
 
    local FLAG_FORCE="NO"
@@ -440,6 +449,7 @@ _template_main()
    local PROJECT_DOWNCASE_IDENTIFIER
    local PROJECT_SOURCE_DIR
    local OPTION_FILE
+
 
    local template_callback
 
@@ -462,19 +472,18 @@ _template_main()
             template_usage
          ;;
 
+         --callback)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            shift
+            template_callback="$1"
+         ;;
+
          -d|--directory)
             [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
             shift
 
             mkdir_if_missing "$1" || return 1
             exekutor cd "$1"
-         ;;
-
-         -n|--name|--project-name)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
-            shift
-
-            PROJECT_NAME="$1"
          ;;
 
          -f|--force)
@@ -486,6 +495,42 @@ _template_main()
             shift
 
             OPTION_FILE="$1"
+         ;;
+
+         --contents-sed)
+            shift
+            [ $# -eq 0 ] && template_usage
+
+            CONTENTS_SED="$1"
+         ;;
+
+         --filename-sed)
+            shift
+            [ $# -eq 0 ] && template_usage
+
+            FILENAME_SED="$1"
+         ;;
+
+         --template-dir)
+            shift
+            [ $# -eq 0 ] && template_usage
+
+            TEMPLATE_DIR="$1"
+         ;;
+
+         --version)
+            echo "${VERSION}"
+            exit 0
+         ;;
+
+         #
+         # PROJECT options
+         #
+         -n|--name|--project-name)
+            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            shift
+
+            PROJECT_NAME="$1"
          ;;
 
          --dialect|--project-dialect)
@@ -516,24 +561,6 @@ _template_main()
             PROJECT_EXTENSIONS="$1"
          ;;
 
-         --callback)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
-            shift
-            template_callback="$1"
-         ;;
-
-         --template-dir)
-            shift
-            [ $# -eq 0 ] && template_usage
-
-            TEMPLATE_DIR="$1"
-         ;;
-
-         --version)
-            echo "${VERSION}"
-            exit 0
-         ;;
-
          -*)
             log_error "unknown options \"$1\""
             template_usage
@@ -556,8 +583,6 @@ _template_main()
    then
       options_setup_trace "${MULLE_TRACE}"
    fi
-
-   [ $# -ne 0 ] && log_error "superflous parameter \"$*\"" && template_usage
 
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
    then
@@ -586,19 +611,42 @@ _template_main()
       TEMPLATE_DIR="`absolutepath "${TEMPLATE_DIR}" `"
    fi
 
-   case "${cmd}" in
+   case "${1:-write}" in
       version)
          echo "${VERSION}"
          exit 0
       ;;
 
-      *)
+      csed)
+         template_contents_replacement_command
+      ;;
+
+      fsed)
+         template_filename_replacement_command
+      ;;
+
+      write)
+         if [ -z "${FILENAME_SED}" ]
+         then
+            FILENAME_SED="`template_filename_replacement_command`"
+         fi
+         if [ -z "${CONTENTS_SED}" ]
+         then
+            CONTENTS_SED="`template_contents_replacement_command`"
+         fi
+
          "${template_callback}" "${TEMPLATE_DIR}" \
                                 "${PROJECT_NAME}" \
                                 "${PROJECT_LANGUAGE}" \
                                 "${PROJECT_EXTENSIONS}" \
                                 "${PROJECT_SOURCE_DIR}" \
-                                "${OPTION_FILE}"
+                                "${OPTION_FILE}" \
+                                "${FILENAME_SED}" \
+                                "${CONTENTS_SED}"
+      ;;
+
+      *)
+         log_error "unknown command $1" && template_usage
       ;;
    esac
 }

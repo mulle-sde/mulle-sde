@@ -61,17 +61,18 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   Use \`mulle-sde extension list\` to see, which extensions are available on your
-   system. Pick a meta extension to install. Check what project types are
+   Use \`mulle-sde extension list\` to see, which extensions are available on
+   your system. Pick a meta extension to install. Check what project types are
    present for your chosen extension with \`mulle-sde extension usage\`.
 
    Now you can create a mulle-sde project of your chosen type:
 
-      mulle-sde init -d ./my-project -m mulle-sde/c-cmake executable
+      mulle-sde init -d ./my-project -m mulle-sde/c-developer executable
 
    To use an existing project with mulle-sde:
 
-      cd my-project ; mulle-sde init --existing -m mulle-sde/c-cmake executable
+      cd my-project
+      mulle-sde init --existing -m mulle-sde/c-developer executable
 
    You can use \`mulle-sde extension add\` to add extra and oneshot extensions.
    at a later date.
@@ -239,12 +240,13 @@ _template_file_arguments()
    # clobber project files, except if -f is given
    #
    _arguments="--embedded \
-              --template-dir '${projectdir}' \
-              --name '${PROJECT_NAME}' \
-              --language '${PROJECT_LANGUAGE}' \
-              --dialect '${PROJECT_DIALECT}' \
-              --extensions '${PROJECT_EXTENSIONS}' \
-              --source-dir '${PROJECT_SOURCE_DIR}'"
+               --template-dir '${projectdir}' \
+\
+               --name '${PROJECT_NAME}' \
+               --language '${PROJECT_LANGUAGE}' \
+               --dialect '${PROJECT_DIALECT}' \
+               --extensions '${PROJECT_EXTENSIONS}' \
+               --source-dir '${PROJECT_SOURCE_DIR}'"
 
    if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
    then
@@ -255,6 +257,7 @@ _template_file_arguments()
    then
       _arguments="${_arguments} --file '${onlyfilename}'"
    fi
+
    _arguments="${_arguments} ${OPTION_USERDEFINES}"
 }
 
@@ -310,11 +313,11 @@ _copy_extension_template_files()
    #
    if [ "${force}" = "YES" ]
    then
-      TEMPLATE_FILES="${TEMPLATE_FILES}
+      TEMPLATE_DIRECTORIES="${TEMPLATE_DIRECTORIES}
 ${_arguments}"
    else
-      TEMPLATE_FILES="${_arguments}
-${TEMPLATE_FILES}"
+      TEMPLATE_DIRECTORIES="${_arguments}
+${TEMPLATE_DIRECTORIES}"
    fi
 }
 
@@ -524,8 +527,6 @@ add_to_libraries()
 
    local filename="$1"
 
-   _check_file "${filename}" || return 0
-
    if [ -z "${MULLE_SDE_LIBRARY_SH}" ]
    then
       # shellcheck source=src/mulle-sde-library.sh
@@ -560,8 +561,6 @@ add_to_dependencies()
    log_entry "add_to_dependencies" "$@"
 
    local filename="$1"
-
-   _check_file "${filename}" || return 0
 
    if [ -z "${MULLE_SDE_DEPENDENCY_SH}" ]
    then
@@ -736,6 +735,34 @@ is_disabled_by_marks()
 }
 
 
+is_directory_disabled_by_marks()
+{
+   local marks="$1"
+   local directory="$2"
+
+   if ! _check_dir "${directory}"
+   then
+      return 0 # disabled
+   fi
+
+   is_disabled_by_marks "$@"
+}
+
+
+is_file_disabled_by_marks()
+{
+   local marks="$1"
+   local filename="$2"
+
+   if ! _check_file "${filename}"
+   then
+      return 0 # disabled
+   fi
+
+   is_disabled_by_marks "$@"
+}
+
+
 install_sourcetree_files()
 {
    log_entry "install_sourcetree_files" "$@"
@@ -745,15 +772,21 @@ install_sourcetree_files()
    local extname="$3"
    local marks="$4"
 
-   if is_disabled_by_marks "${marks}" "${extensiondir}/dependency|library" \
-                                      "no-sourcetree" \
-                                      "no-sourcetree-${vendor}-${extname}"
+   if ! is_file_disabled_by_marks "${marks}" \
+                                  "${extensiondir}/dependency" \
+                                  "no-sourcetree" \
+                                  "no-sourcetree-${vendor}-${extname}"
    then
-      return
+      add_to_dependencies "${extensiondir}/dependency"
    fi
 
-   add_to_dependencies "${extensiondir}/dependency"
-   add_to_libraries "${extensiondir}/library"
+   if ! is_file_disabled_by_marks "${marks}" \
+                                  "${extensiondir}/library" \
+                                  "no-sourcetree" \
+                                  "no-sourcetree-${vendor}-${extname}"
+   then
+      add_to_libraries "${extensiondir}/library"
+   fi
 }
 
 
@@ -825,14 +858,11 @@ _copy_extension_template_directory()
    local force="$1"; shift
 
 
-   local first="${projecttype}"
-   local second="all"
+   local first
+   local second
 
-   if [ "${force}" = "YES" ]
-   then
-      first="all"
-      second="${projecttype}"
-   fi
+   first="all"
+   second="${projecttype}"
 
    _copy_extension_template_files "${extensiondir}" \
                                   "${subdirectory}" \
@@ -959,70 +989,72 @@ vendor \"${vendor}\""
       return
    fi
 
+   local verb
+
+   verb="Installing"
+   if [ "${OPTION_UPGRADE}" = "YES" ]
+   then
+      verb="Upgrading"
+   fi
+
    if [ -z "${onlyfilename}" ]
    then
-      local verb
-
-      verb="Installing"
-      if [ "${OPTION_UPGRADE}" = "YES" ]
-      then
-         verb="Upgrading"
-      fi
-      log_info "${verb} ${exttype} extension \"${vendor}/${extname}\""
+      log_verbose "${verb} dependencies for ${exttype} extension \"${vendor}/${extname}\""
    fi
 
    #
    # file is called inherit, so .gitignoring dependencies doesn't kill it
    #
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/inherit" \
-                                        "no-inherit" \
-                                        "no-inherit/${vendor}/${extname}"
+   if ! is_file_disabled_by_marks "${marks}" \
+                                  "${extensiondir}/inherit" \
+                                  "no-inherit" \
+                                  "no-inherit/${vendor}/${extname}"
    then
-      if _check_file "${extensiondir}/inherit"
+      #
+      # inheritmarks are a way to tune the inherited marks. WHAT DOES THAT MEAN ?
+      # That means an extension that has a dependency file, can have a
+      # inheritmarks file with no-sourcetree and all inherited extensions will have
+      # dependency turned off! The marks are always added!
+      #
+      local inheritmarks
+      local line
+      local filename
+
+      filename="${extensiondir}/inheritmarks"
+      inheritmarks="${marks}"
+      if ! is_disabled_by_marks "${marks}" "${filename}" \
+                                           "no-inheritmarks" \
+                                           "no-inheritmarks/${vendor}/${extname}"
       then
-         #
-         # inheritmarks are a way to tune the inherited marks. WHAT DOES THAT MEAN ?
-         # That means an extension that has a dependency file, can have a
-         # inheritmarks file with no-sourcetree and all inherited extensions will have
-         # dependency turned off! The marks are always added!
-         #
-         local inheritmarks
-         local line
-         local filename
-
-         filename="${extensiondir}/inheritmarks"
-         inheritmarks="${marks}"
-         if ! is_disabled_by_marks "${marks}" "${filename}" \
-                                              "no-inheritmarks" \
-                                              "no-inheritmarks/${vendor}/${extname}"
+         if _check_file "${filename}"
          then
-            if _check_file "${filename}"
-            then
-               IFS="
+            IFS="
 "
-               for line in `egrep -v '^#' "${filename}"`
-               do
-                  IFS="${DEFAULT_IFS}"
-                  if [ ! -z "${line}" ]
-                  then
-                     inheritmarks="`comma_concat "${inheritmarks}" "${line}"`"
-                  fi
-               done
+            for line in `egrep -v '^#' "${filename}"`
+            do
                IFS="${DEFAULT_IFS}"
-            fi
+               if [ ! -z "${line}" ]
+               then
+                  inheritmarks="`comma_concat "${inheritmarks}" "${line}"`"
+               fi
+            done
+            IFS="${DEFAULT_IFS}"
          fi
-
-         install_inheritfile "${extensiondir}/inherit" \
-                             "${projecttype}" \
-                             "${exttype}" \
-                             "${inheritmarks}" \
-                             "${onlyfilename}" \
-                             "${force}" \
-                             "$@" || exit 1
       fi
+
+      install_inheritfile "${extensiondir}/inherit" \
+                          "${projecttype}" \
+                          "${exttype}" \
+                          "${inheritmarks}" \
+                          "${onlyfilename}" \
+                          "${force}" \
+                          "$@" || exit 1
    fi
 
-   log_fluff "Installing ${exttype} extension \"${vendor}/${extname}\" for real now :P"
+   if [ -z "${onlyfilename}" ]
+   then
+      log_info "${verb} ${exttype} extension \"${vendor}/${extname}\""
+   fi
 
    # install version first
    if [ "${exttype}" != "oneshot" ]
@@ -1056,19 +1088,14 @@ vendor \"${vendor}\""
    #
    # Project directory:
    #
-   #  Ideally we do not want to overwrite existing user files
-   #  But we want to overwrite files installed by inherited extensions.
-   #
-   #  We use the --existing flag, to let the user control it. By
-   #  default we overwrite, when initing for project.
-   #
    #  no-demo
    #  no-project
    #  no-clobber
    #
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/demo" \
-                                        "no-demo" \
-                                        "no-demo/${vendor}/${extname}"
+   if ! is_directory_disabled_by_marks "${marks}" \
+                                       "${extensiondir}/demo" \
+                                       "no-demo" \
+                                       "no-demo/${vendor}/${extname}"
    then
       _copy_extension_template_directory "${extensiondir}" \
                                          "demo" \
@@ -1078,41 +1105,38 @@ vendor \"${vendor}\""
                                          "$@"
    fi
 
-   local projectforce
-
-   projectforce="YES"
-   if [ "${OPTION_EXISTING}" = "YES" ]
-   then
-      projectforce="NO"
-   fi
-
-   # let project clobber demo
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/project" \
-                                        "no-project" \
-                                        "no-project/${vendor}/${extname}"
+   if ! is_directory_disabled_by_marks "${marks}" \
+                                       "${extensiondir}/project" \
+                                       "no-project" \
+                                       "no-project/${vendor}/${extname}"
    then
       _copy_extension_template_directory "${extensiondir}" \
                                          "project" \
                                          "${projecttype}" \
-                                         "${projectforce}" \
+                                         "${force}" \
                                          "${onlyfilename}" \
                                          "$@"
 
-      # install these only along with project
-      install_sourcetree_files "${extensiondir}" \
-                               "${vendor}" \
-                               "${extname}" \
-                               "${marks}"
    fi
+
+   #
+   # used to install this only with project, but it was too surprising
+   # turn it off with no-sourcetree
+   #
+   install_sourcetree_files "${extensiondir}" \
+                            "${vendor}" \
+                            "${extname}" \
+                            "${marks}"
 
    #
    # the clobber folder is like project but may always overwrite
    # this is used for refreshing cmake/share and such, where the user should
    # not edit
    #
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/clobber" \
-                                        "no-clobber" \
-                                        "no-clobber/${vendor}/${extname}"
+   if ! is_directory_disabled_by_marks "${marks}" \
+                                       "${extensiondir}/clobber" \
+                                       "no-clobber" \
+                                       "no-clobber/${vendor}/${extname}"
    then
       _copy_extension_template_directory "${extensiondir}" \
                                          "clobber" \
@@ -1130,18 +1154,20 @@ vendor \"${vendor}\""
    #  no-init
    #  no-sourcetree
    #
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/share" \
-                                        "no-share" \
-                                        "no-share/${vendor}/${extname}"
+   if ! is_directory_disabled_by_marks "${marks}" \
+                                       "${extensiondir}/share" \
+                                       "no-share" \
+                                       "no-share/${vendor}/${extname}"
    then
       _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
          fail "Could not copy \"${extensiondir}/share\""
    fi
 
 
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/init" \
-                                        "no-init" \
-                                        "no-init/${vendor}/${extname}"
+   if ! is_file_disabled_by_marks "${marks}" \
+                                  "${extensiondir}/init" \
+                                  "no-init" \
+                                  "no-init/${vendor}/${extname}"
    then
       run_init "${extensiondir}/init" "${projecttype}" \
                                       "${exttype}" \
@@ -1158,7 +1184,7 @@ install_extension()
 {
    log_entry "install_extension" "$@"
 
-   TEMPLATE_FILES=""
+   local TEMPLATE_DIRECTORIES
 
    _install_extension "$@"
 
@@ -1167,12 +1193,22 @@ install_extension()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
    fi
 
-   log_verbose "Installing template files"
+   [ -z "${TEMPLATE_DIRECTORIES}" ] && return
+
+   log_info "Installing project files for \"$3/$4\""
+
+   #
+   # using the --embedded option, the template generator keeps state in
+   # CONTENTS_SED and FILENAME_SED, since that is expensive to recalculate
+   #
    (
+      local CONTENTS_SED
+      local FILENAME_SED
+
       IFS="
 " ;  shopt -s nullglob
 
-      for arguments in ${TEMPLATE_FILES}
+      for arguments in ${TEMPLATE_DIRECTORIES}
       do
          IFS="${DEFAULT_IFS}"; shopt -u nullglob
 
@@ -1972,8 +2008,9 @@ sde_init_main()
          --reinit)
             OPTION_REINIT="YES"
             OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project"`"
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project"`"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-sourcetree"`"
          ;;
 
          --upgrade)

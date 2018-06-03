@@ -1,3 +1,7 @@
+### 0.20.1
+
+* fix various bugs recently introduced
+
 ## 0.20.0
 
 * redo the way templates are written to match my expectations (deja vu)
