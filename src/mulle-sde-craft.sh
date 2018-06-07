@@ -116,7 +116,7 @@ sde_craft_main()
    #
    local dbrval
 
-   "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} -s dbstatus
+   "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} -s dbstatus
    dbrval="$?"
 
    if [ ${dbrval} -eq 2 ]
@@ -190,12 +190,12 @@ sde_craft_main()
 
          mkdir_if_missing "${cachedir}"
          if ! redirect_exekutor "${buildorderfile}" \
-            "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} buildorder \
-                 --output-marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} 
+            "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} buildorder \
+                 --output-marks ${MULLE_CRAFT_BUILDORDER_OPTIONS}
          then
             remove_file_if_present "${buildorderfile}"
             exit 1
-         fi 
+         fi
       fi
    fi
 

@@ -76,7 +76,7 @@ _callback_run()
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} \
+      exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                      callback run "${callback}"
 }
 
@@ -94,7 +94,7 @@ _task_run()
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} \
+      exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                   task run "${task}"
 }
 
@@ -107,7 +107,7 @@ _task_status()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} \
+      exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                    task status "${task}"
 }
 
@@ -205,32 +205,12 @@ sde_update_worker()
       ;;
    esac
 
-   local subprojects
-   local subproject
-
-   subprojects="`sde_subproject_main list --format '%a\n' --no-output-header`"
-   if [ -z "${subproject}" ]
+   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
-      log_fluff "No subprojects, so done"
-      return
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
    fi
 
-   set -o noglob;  IFS="
-"
-   for subproject in ${subprojects}
-   do
-      set +o noglob; IFS="${DEFAULT_IFS}"
-
-      if [ -d "${subproject}/.mulle-sde" ]
-      then
-         log_verbose "Updating subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
-         exekutor mulle-env -c "mulle-sde ${MULLE_TECHNICAL_FLAGS} update --if-needed --no-craft source" \
-                     subenv "${subproject}" || exit 1
-      else
-         log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
-      fi
-   done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   sde_subproject_map "Updating" "NO" "mulle-sde ${MULLE_TECHNICAL_FLAGS} update --if-needed --no-craft source"
 }
 
 
@@ -282,10 +262,6 @@ sde_update_main()
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
    fi
 
    if [ $# -ne 0 ]

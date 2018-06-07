@@ -398,6 +398,54 @@ sde_subproject_init_main()
 }
 
 
+sde_subproject_map()
+{
+   local verb="${1:-Updating}" ; shift
+   local lenient="${1:-NO}" ; shift
+
+   local subprojects
+
+   subprojects="`sde_subproject_main list --format '%a\n' --no-output-header`"
+   if [ -z "${subprojects}" ]
+   then
+      log_verbose "No subprojects, so done"
+      return
+   fi
+
+   local subproject
+   local command
+   local rval
+
+   command="$*"
+
+   set -o noglob;  IFS="
+"
+   for subproject in ${subprojects}
+   do
+      set +o noglob; IFS="${DEFAULT_IFS}"
+
+      if [ -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle-sde" ]
+      then
+         log_info "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
+         exekutor mulle-env -c "$*" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
+         rval=$?
+         if [ ${rval} -ne 0 ]
+         then
+            if [ "${lenient}" = "NO" ]
+            then
+               return ${rval}
+            fi
+            log_fluff "Ignoring rval $rval coz we're lenient"
+         fi
+      else
+         log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
+      fi
+   done
+   set +o noglob; IFS="${DEFAULT_IFS}"
+}
+
+
+
 ###
 ### parameters and environment variables
 ###
@@ -429,7 +477,7 @@ sde_subproject_main()
 
    case "${cmd:-list}" in
       add)
-         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} add \
+         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} add \
             --marks "${SUBPROJECT_MARKS}" "$@"
          update_ignore_patternfile "$@"
       ;;
@@ -461,16 +509,20 @@ sde_subproject_main()
             ;;
          esac
 
-         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${cmd} ${flags} "$@"
+         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} ${cmd} ${flags} "$@"
       ;;
 
       move)
-         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} move "$@"
+         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} move "$@"
       ;;
 
       remove)
-         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} remove "$@"
+         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} remove "$@"
          update_ignore_patternfile "$@"
+      ;;
+
+      map)
+         sde_subproject_map "$@"
       ;;
 
       set)
@@ -484,7 +536,7 @@ sde_subproject_main()
       # for now stay layme
       #
       list)
-         exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} list \
+         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${SUBPROJECT_MARKS}" \
             --output-no-url \
             --output-no-marks "${SUBPROJECT_MARKS}" \

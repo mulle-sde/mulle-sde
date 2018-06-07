@@ -338,7 +338,7 @@ sde_dependency_list_main()
    if [ "${OPTION_OUTPUT_COMMAND}" = "YES" ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+         exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${marks}" \
             --output-eval \
             --output-cmd \
@@ -348,7 +348,7 @@ sde_dependency_list_main()
             "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} list \
+         exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
             --format "${formatstring}\\n" \
             --marks "${marks}" \
             --output-no-marks "${DEPENDENCY_MARKS}" \
@@ -380,13 +380,13 @@ _sde_enhance_url()
 
    if [ -z "${nodetype}" ]
    then
-      nodetype="`${MULLE_SOURCETREE} typeguess "${url}"`" || exit 1
+      nodetype="`${MULLE_SOURCETREE} -V typeguess "${url}"`" || exit 1
       [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
    fi
 
    if [ -z "${address}" ]
    then
-      address="`${MULLE_SOURCETREE} nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
+      address="`${MULLE_SOURCETREE} -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
    fi
 
    #
@@ -494,7 +494,7 @@ sde_dependency_add_main()
             branch="$1"
          ;;
 
-         --nodetype)
+        --nodetype|--scm)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
             shift
 
@@ -535,17 +535,27 @@ sde_dependency_add_main()
    done
 
    local url="$1"
-   [ -z "${url}" ] && sde_dependency_add_usage "missing url"
+   [ -z "${url}" ] && sde_dependency_add_usage "Missing url"
    shift
+
+   [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
 
    if [ "${OPTION_ENHANCE}" = "YES" ]
    then
-      _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}"
+      case "${nodetype}" in
+         local|symlink|file)
+            # no embellishment here
+         ;;
 
-      url="${_url}"
-      branch="${_branch}"
-      nodetype="${_nodetype}"
-      address="${_address}"
+         *)
+            _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}"
+
+            url="${_url}"
+            branch="${_branch}"
+            nodetype="${_nodetype}"
+            address="${_address}"
+         ;;
+      esac
    fi
 
    if [ ! -z "${nodetype}" ]
@@ -566,8 +576,10 @@ sde_dependency_add_main()
    fi
 
    log_verbose "Dependency: ${url}"
-   eval_exekutor "${MULLE_SOURCETREE}" "${MULLE_SOURCETREE_FLAGS}" \
-                                             add "${options}" "'${url}'"
+   eval_exekutor "${MULLE_SOURCETREE}" -V \
+                     "${MULLE_TECHNICAL_FLAGS}"\
+                     "${MULLE_SOURCETREE_FLAGS}" \
+                        add "${options}" "'${url}'"
 }
 
 sde_add_buildinfo_subproject_if_needed()
@@ -588,12 +600,12 @@ sde_add_buildinfo_subproject_if_needed()
    [ -d "${subprojectdir}" ] || \
       internal_fail "did not produce \"${subprojectdir}\""
 
-   if exekutor "${MULLE_SOURCETREE}" add --if-missing \
+   if exekutor "${MULLE_SOURCETREE}" -V add --if-missing \
          --marks "no-update,no-delete,no-share,no-header,no-link" \
          --nodetype "local" \
          "${subprojectdir}"
    then
-      exekutor "${MULLE_SOURCETREE}" move "${subprojectdir}" top
+      exekutor "${MULLE_SOURCETREE}" -V move "${subprojectdir}" top
    fi
 }
 
@@ -647,7 +659,7 @@ sde_dependency_buildinfo_main()
    local folder
    local address
 
-   address="`exekutor "${MULLE_SOURCETREE}" get --url-addressing "${url}"`"
+   address="`exekutor "${MULLE_SOURCETREE}" -V get --url-addressing "${url}"`"
    if [ -z "${address}" ]
    then
       address="${url}"
@@ -760,7 +772,7 @@ sde_dependency_main()
 
       mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" -s ${MULLE_SOURCETREE_FLAGS} ${cmd} "$@"
+            exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} ${cmd} "$@"
       ;;
 
       set)

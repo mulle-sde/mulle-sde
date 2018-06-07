@@ -1205,15 +1205,15 @@ install_extension()
       local CONTENTS_SED
       local FILENAME_SED
 
-      IFS="
-" ;  shopt -s nullglob
-
+      set -o noglob ; IFS="
+"
       for arguments in ${TEMPLATE_DIRECTORIES}
       do
          IFS="${DEFAULT_IFS}"; shopt -u nullglob
 
          if [ ! -z "${arguments}" ]
          then
+            set +o noglob
             eval _template_main "${arguments}"
          fi
       done
@@ -1388,11 +1388,11 @@ install_extensions()
    local onlyfilename="$2"
    local force="$3"
 
-   [ -z "${PROJECT_TYPE}" ] && internal_fail "missing PROJECT_NAME"
+   [ -z "${PROJECT_TYPE}" ] && internal_fail "missing PROJECT_TYPE"
    [ -z "${PROJECT_NAME}" ] && internal_fail "missing PROJECT_NAME"
+   [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "missing PROJECT_SOURCE_DIR"
 
    # set to src as default for older projects
-   PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
 
    local runtime_vendor
    local buildtool_vendor
@@ -1513,11 +1513,14 @@ install_project()
 {
    log_entry "install_project" "$@"
 
-   local projecttype="$1"
-   local marks="$2"
-   local onlyfilename="$3"
-   local force="$4"
+   local projectname="$1"
+   local projecttype="$2"
+   local projectsourcedir="$3"
+   local marks="$4"
+   local onlyfilename="$5"
+   local force="$6"
 
+   local PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT      # for objc
    local PROJECT_SOURCE_DIR
@@ -1525,7 +1528,7 @@ install_project()
    local LANGUAGE_SET
 
    LANGUAGE_SET="NO"
-   PROJECT_NAME="${OPTION_NAME}"
+   PROJECT_NAME="${projectname}"
    if [ -z "${PROJECT_NAME}" ]
    then
       PROJECT_NAME="`fast_basename "${PWD}"`"
@@ -1535,8 +1538,7 @@ install_project()
    # the project language is actually determined by the runtime
    # extension
    #
-   PROJECT_LANGUAGE="${OPTION_LANGUAGE:-none}"
-   PROJECT_SOURCE_DIR="${OPTION_PROJECT_SOURCE_DIR:-src}"
+   PROJECT_SOURCE_DIR="${projectsourcedir:-src}"
    PROJECT_TYPE="${projecttype}"
 
    #
@@ -1559,7 +1561,9 @@ install_project()
    _MOTD=""
 
 
-   install_extensions "$2" "$3" "$4"
+   log_info "Installing project extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
+
+   install_extensions "${marks}" "${onlyfilename}" "${force}"
 
    if [ ! -z "${onlyfilename}" ]
    then
@@ -1805,19 +1809,28 @@ remove_from_marks()
 }
 
 
+#
+# call this before__get_installed_extensions
+#
 read_project_environment()
 {
-   if [ -z "${PROJECT_TYPE}" ]
+   if [ -f ".mulle-env/share/environment-project.sh" ]
    then
-      PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_TYPE`"
+      log_verbose "Reading project settings"
+      . ".mulle-env/share/environment-project.sh"
    fi
 
-   # backwards compatibility
    if [ -z "${PROJECT_TYPE}" ]
    then
-      PROJECT_TYPE="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment --scope aux get PROJECT_TYPE`"
+      if [ -f ".mulle-env/share.old/environment-project.sh" ]
+      then
+         log_warning "Reading OLD project settings from \".mulle-env/share.old/environment-project.sh\""
+         . ".mulle-env/share/environment-project.sh"
+      else
+         log_error "No valid project settings found. \
+If you reinited the environment. Try:
+   ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_TYPE library"
+      fi
    fi
 
    [ -z "${PROJECT_TYPE}" ] && \
@@ -1825,11 +1838,14 @@ read_project_environment()
 If you reinited the environment. Try:
    ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_TYPE library"
 
-
-   if [ -z "${PROJECT_NAME}" ]
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
    then
-      PROJECT_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
+      log_trace2 "PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
+      log_trace2 "PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
+      log_trace2 "PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
+      log_trace2 "PROJECT_NAME=\"${PROJECT_NAME}\""
+      log_trace2 "PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+      log_trace2 "PROJECT_TYPE=\"${PROJECT_TYPE}\""
    fi
 }
 
@@ -1863,6 +1879,7 @@ sde_init_main()
    local OPTION_PROJECT_FILE
    local OPTION_PROJECT_SOURCE_DIR
    local OPTION_EXISTING
+   local OPTION_UPGRADE_SUBPROJECTS
 
    local line
 
@@ -2066,12 +2083,12 @@ sde_init_main()
 
    if [ -z "${MULLE_PATH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || exit 1
    fi
 
    if [ -z "${MULLE_FILE}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || exit 1
    fi
 
    if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
@@ -2088,7 +2105,7 @@ sde_init_main()
    if [ "${OPTION_ADD}" = "YES" ]
    then
       [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ] && \
-      fail "--add and --reinit/--upgrade exclude each other"
+         fail "--add and --reinit/--upgrade exclude each other"
 
       __sde_init_add "$@"
       return $?
@@ -2098,29 +2115,22 @@ sde_init_main()
    then
       [ ! -d "${MULLE_SDE_DIR}" ] && fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
 
+      read_project_environment
+
       if ! __get_installed_extensions
       then
          fail "Could not retrieve previous extension information"
       fi
-
-      if [ -z "${OPTION_NAME}" ]
-      then
-         OPTION_NAME="`exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
-                         ${MULLE_ENV_FLAGS} environment get PROJECT_NAME`"
-      fi
-
-      # once useful to repair lost files
-      read_project_environment
    else
-      [ $# -eq 0 ] && sde_init_usage "missing project type"
-      [ $# -eq 1 ] || sde_init_usage "extranous arguments \"$*\""
+      [ $# -eq 0 ] && sde_init_usage "Missing project type"
+      [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
 
       PROJECT_TYPE="$1"
    fi
 
    case "${PROJECT_TYPE}" in
       "")
-         fail "project type is \"\""
+         fail "Project type is empty"
       ;;
 
       empty|library|executable|extension)
@@ -2220,7 +2230,9 @@ Use \`mulle-sde upgrade\` for maintainance"
          fi
       fi
    else
-      install_project "${PROJECT_TYPE}" \
+      install_project "${OPTION_NAME:-${PROJECT_NAME}}" \
+                      "${PROJECT_TYPE}" \
+                      "${OPTION_PROJECT_SOURCE_DIR:-${PROJECT_SOURCE_DIR}}" \
                       "${OPTION_MARKS}" \
                       "${OPTION_PROJECT_FILE}" \
                       "${MULLE_FLAG_MAGNUM_FORCE}"

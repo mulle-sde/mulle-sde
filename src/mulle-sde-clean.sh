@@ -127,7 +127,7 @@ sde_clean_sourcetree_main()
 {
    log_entry "sde_clean_sourcetree_main" "$@"
 
-   rexekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} reset
+   rexekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} reset
 }
 
 

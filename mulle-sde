@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.20.1
+MULLE_EXECUTABLE_VERSION=0.21.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -351,7 +351,7 @@ template|tool|unmark|update)
                local cmdline
                local flag
 
-               shopt -s nullglob # keep it
+               set -o noglob # keep it
 
                cmdline="$0"
 
@@ -436,7 +436,7 @@ libexec-dir|library-path|project-dir)
          cd_virtual_root "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_SOURCETREE_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -557,7 +557,7 @@ libexec-dir|library-path|project-dir)
          cd_virtual_root "${cmd}" "NO"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_SOURCETREE_FLAGS} "${cmd}" "$@"
       ;;
 

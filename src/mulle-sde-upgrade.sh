@@ -95,4 +95,11 @@ sde_upgrade_main()
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    eval_exekutor sde_init_main --upgrade "$@"
+
+   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
+   fi
+
+   sde_subproject_map "Upgrading" "NO" "mulle-sde extension upgrade"
 }

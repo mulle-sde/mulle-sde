@@ -1,3 +1,10 @@
+## 0.21.0
+
+* use new mulle-sourcetree -V flag to good effect
+* improved subproject functionality (but still not complete)
+* improved identifier de-camel-case added (incompatible PROJECT identifiers will be produced)
+
+
 ### 0.20.1
 
 * fix various bugs recently introduced

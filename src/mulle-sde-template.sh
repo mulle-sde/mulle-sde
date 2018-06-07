@@ -599,11 +599,15 @@ _template_main()
       PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_EXTENSIONS}"`"
    fi
 
-   log_debug "PROJECT_NAME=${PROJECT_NAME}"
-   log_debug "PROJECT_DIALECT=${PROJECT_DIALECT}"
-   log_debug "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
-   log_debug "PROJECT_EXTENSIONS=${PROJECT_EXTENSIONS}"
-   log_debug "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+   then
+      log_trace2 "PROJECT_DIALECT=${PROJECT_DIALECT}"
+      log_trace2 "PROJECT_EXTENSIONS=${PROJECT_EXTENSIONS}"
+      log_trace2 "PROJECT_IDENTIFIER=${PROJECT_IDENTIFIER}"
+      log_trace2 "PROJECT_LANGUAGE=${PROJECT_LANGUAGE}"
+      log_trace2 "PROJECT_NAME=${PROJECT_NAME}"
+      log_trace2 "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+   fi
 
    if [ -z "${TEMPLATE_DIR}" ]
    then

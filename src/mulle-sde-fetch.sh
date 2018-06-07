@@ -105,7 +105,7 @@ sde_fetch_main()
 
    [ "$#" -eq 0 ] || sde_fetch_usage "superflous arguments \"$*\""
 
-   if ! exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
+   if ! exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
    then
       do_update_sourcetree "$@"
    fi
