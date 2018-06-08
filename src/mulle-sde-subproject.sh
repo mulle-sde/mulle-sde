@@ -34,6 +34,9 @@ MULLE_SDE_SUBPROJECT_SH="included"
 
 SUBPROJECT_MARKS="dependency,no-update,no-delete,no-share"
 
+SUBPROJECT_LIST_MARKS="dependency"
+SUBPROJECT_LIST_NODETYPES="local"
+
 
 sde_subproject_usage()
 {
@@ -398,14 +401,25 @@ sde_subproject_init_main()
 }
 
 
+sde_subproject_get_names()
+{
+   log_entry "sde_subproject_get_names" "$@"
+
+   sde_subproject_main list --format '%a\n' --no-output-header
+}
+
+
+
 sde_subproject_map()
 {
+   log_entry "sde_subproject_map" "$@"
+
    local verb="${1:-Updating}" ; shift
    local lenient="${1:-NO}" ; shift
 
    local subprojects
 
-   subprojects="`sde_subproject_main list --format '%a\n' --no-output-header`"
+   subprojects="`sde_subproject_get_names`"
    if [ -z "${subprojects}" ]
    then
       log_verbose "No subprojects, so done"
@@ -427,7 +441,7 @@ sde_subproject_map()
       if [ -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle-sde" ]
       then
          log_info "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
-         exekutor mulle-env -c "$*" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
+         exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
          rval=$?
          if [ ${rval} -ne 0 ]
          then
@@ -453,14 +467,23 @@ sde_subproject_main()
 {
    log_entry "sde_subproject_main" "$@"
 
+   local SUBPROJECT
+
    #
    # handle options
    #
    while :
    do
       case "$1" in
+         -s|--subproject)
+            [ $# -eq 1 ] && sde_subproject_usage "Missing argument to \"$1\""
+            shift
+
+            SUBPROJECT="$1"
+         ;;
+
          -*)
-            sde_subproject_usage
+            sde_subproject_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -475,6 +498,7 @@ sde_subproject_main()
 
    [ $# -ne 0 ] && shift
 
+
    case "${cmd:-list}" in
       add)
          exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} add \
@@ -486,6 +510,37 @@ sde_subproject_main()
          sde_subproject_definition_main "$@"
       ;;
 
+      dependency|environment|library|update)
+         local subproject
+
+         [ -z "${SUBPROJECT}" ] && "Command \"${cmd}\" requires -s <subproject> option"
+
+         set -x
+         local cmdline
+         local arg
+
+         cmdline="mulle-sde"
+
+         for arg in ${MULLE_TECHNICAL_FLAGS}
+         do
+            cmdline="${cmdline}
+${arg}"
+         done
+
+         cmdline="${cmdline}
+${cmd}"
+
+         while [ $# -ne 0 ]
+         do
+            cmdline="${cmdline}
+$1"
+            shift
+         done
+
+         log_fluff "Run command with mulle-env: -C \"${cmdline}\""
+         exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}" subenv "${SUBPROJECT}"
+      ;;
+
       get)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
@@ -493,7 +548,7 @@ sde_subproject_main()
       ;;
 
       enter)
-         mulle-env subenv "$1"
+         "${MULLE_ENV}" ${MULLE_ENV_FLAGS} subenv "$1"
       ;;
 
       init)
@@ -537,7 +592,8 @@ sde_subproject_main()
       #
       list)
          exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} list \
-            --marks "${SUBPROJECT_MARKS}" \
+            --marks "${SUBPROJECT_LIST_MARKS}" \
+            --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
             --output-no-url \
             --output-no-marks "${SUBPROJECT_MARKS}" \
             "$@"

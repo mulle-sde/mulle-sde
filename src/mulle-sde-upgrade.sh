@@ -45,8 +45,9 @@ Usage:
    ${UPGRADE_USAGE_NAME:-${MULLE_USAGE_NAME}} upgrade [project]
 
    Upgrade to a newer mulle-sde version. The default is to upgrade the non
-   project files only. Upgrading project files is usally also not recommended,
-   as you could lose changes.
+   project files only. Upgrading project files is usually not a good idea,
+   as you could lose changes. Only environment variables in the "share" scope
+   will be affected by an extension upgrade.
 
 Options:
    --no-init   : do not run init again

@@ -1899,7 +1899,7 @@ sde_init_main()
          ;;
 
          -D)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             line="`mset_quoted_env_line "$1"`"
@@ -1911,14 +1911,14 @@ sde_init_main()
          ;;
 
          -b|--buildtool)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_BUILDTOOL="$1"
          ;;
 
          -d|--directory)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             exekutor mkdir -p "$1" 2> /dev/null
@@ -1926,14 +1926,14 @@ sde_init_main()
          ;;
 
          -e|--extra)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "$1" `"
          ;;
 
          --oneshot-name)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             ONESHOT_NAME="$1"
@@ -1941,21 +1941,21 @@ sde_init_main()
          ;;
 
          -o|--oneshot)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_ONESHOTS="`add_line "${OPTION_ONESHOTS}" "$1" `"
          ;;
 
          -i|--init-flags)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_INIT_FLAGS="$1"
          ;;
 
          -m|--meta)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_META="$1"
@@ -1963,7 +1963,7 @@ sde_init_main()
 
          # little hack
          --upgrade-project-file)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_PROJECT_FILE="$1"
@@ -1976,35 +1976,35 @@ sde_init_main()
 
 
          -n|--name|--project-name)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_NAME="$1"
          ;;
 
          --source-dir|--project-source-dir)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_PROJECT_SOURCE_DIR="$1"
          ;;
 
          -r|--runtime)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_RUNTIME="$1"
          ;;
 
          -s|--style)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_ENV_STYLE="$1"
          ;;
 
          -v|--vendor)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_VENDOR="$1"
@@ -2016,7 +2016,7 @@ sde_init_main()
          ;;
 
          --extension-file)
-            [ $# -eq 1 ] && sde_init_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_EXTENSION_FILE="$1"
@@ -2028,6 +2028,7 @@ sde_init_main()
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project"`"
             OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-sourcetree"`"
+            OPTION_INIT_ENV="NO"
          ;;
 
          --upgrade)
@@ -2121,6 +2122,9 @@ sde_init_main()
       then
          fail "Could not retrieve previous extension information"
       fi
+
+      rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} \
+                     environment upgrade || exit 1
    else
       [ $# -eq 0 ] && sde_init_usage "Missing project type"
       [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""

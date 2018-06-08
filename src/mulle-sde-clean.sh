@@ -43,14 +43,16 @@ Usage:
    Cleans various parts of the sde system. You can specify multiple domains.
 
 Domains:
-   all          : clean all domains
-   build        : clean build directory
-   addiction    : remove project addictions
-   cache        : remove miscellaneous cache files (default)
-   dependency   : remove project dependencies
-   patternfile  : remove patternfile caches
-   project      : clean project build directory (default)
-   sourcetree   : remove sourcetree databases
+   all               : clean all domains
+   build             : clean build directory
+   addiction         : remove project addictions
+   cache             : remove miscellaneous cache files (default)
+   dependency        : remove project dependency builds
+   fetch             : remove fetched dependencies
+   patternfile       : remove patternfile caches
+   project           : clean project build directory (default)
+   sourcetree        : remove sourcetree databases
+   subproject        : clean subprojects (default)
 EOF
    exit 1
 }
@@ -84,6 +86,16 @@ sde_clean_dependency_main()
 }
 
 
+
+sde_clean_fetch_main()
+{
+   log_entry "sde_clean_fetch_main" "$@"
+
+   log_verbose "Removing fetched dependencies"
+   rexekutor "${MULLE_SOURCETREE}" ${MULLE_TECHNICAL_FLAGS} clean
+}
+
+
 #
 # use rexekutor to show call, put pass -n flag via technical flags so
 # nothing gets actually deleted with -n
@@ -114,6 +126,34 @@ sde_clean_project_main()
 }
 
 
+sde_clean_subproject_main()
+{
+   log_entry "sde_clean_subproject_main" "$@"
+
+   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
+   fi
+
+   local subprojects
+   local subproject
+
+   subprojects="`sde_subproject_get_names`"
+   if [ -z "${subprojects}" ]
+   then
+      log_verbose "No subprojects, so done"
+      return
+   fi
+
+   set -o noglob;  IFS="
+"
+   for subproject in ${subprojects}
+   do
+      rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean "${subproject}"
+   done
+}
+
+
 sde_clean_cache_main()
 {
    log_entry "sde_clean_cache_main" "$@"
@@ -127,7 +167,7 @@ sde_clean_sourcetree_main()
 {
    log_entry "sde_clean_sourcetree_main" "$@"
 
-   rexekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} reset
+   exekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} reset
 }
 
 
@@ -185,6 +225,7 @@ sde_clean_main()
    then
       sde_clean_cache_main &&
       sde_clean_monitor_main &&
+      sde_clean_subproject_main &&
       sde_clean_project_main
       return $?
    fi

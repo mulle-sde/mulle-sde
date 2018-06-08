@@ -39,6 +39,9 @@ MULLE_SDE_LIBRARY_SH="included"
 #
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 
+LIBRARY_LIST_MARKS="no-dependency"
+LIBRARY_LIST_NODETYPES="none"
+
 #
 # This puts some additional stuff into userinfo of the sourcetree
 # which is then queryable
@@ -132,21 +135,6 @@ Keys:
 EOF
   exit 1
 }
-
-
-sde_library_remove_usage()
-{
-   [ "$#" -ne 0 ] && log_error "$1"
-
-    cat <<EOF >&2
-Usage:
-   ${MULLE_USAGE_NAME} library remove <name>
-
-   Remove a library by its name from the project.
-EOF
-  exit 1
-}
-
 
 
 sde_library_list_usage()
@@ -342,7 +330,7 @@ sde_library_list_main()
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && usage "Missing argument to \"$1\""
             shift
 
             marks="`comma_concat "${marks}" "$1"`"
@@ -370,40 +358,10 @@ sde_library_list_main()
 
    exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
       --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
-      --nodetypes "none" \
-      --marks "${marks}" \
+      --marks "${LIBRARY_LIST_MARKS}" \
+      --nodetypes "${LIBRARY_LIST_NODETYPES}" \
       --output-no-marks "${LIBRARY_MARKS}" \
        "$@"
-}
-
-
-sde_library_remove_main()
-{
-   log_entry "sde_library_remove_main" "$@"
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde_library_remove_usage
-         ;;
-
-         -*)
-            sde_library_list_usage "unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   export MULLE_EXECUTABLE_NAME
-
-   MULLE_USAGE_NAME="${MULLE_EXECUTABLE_NAME}" \
-      exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} remove "$@"
 }
 
 
@@ -444,8 +402,14 @@ sde_library_main()
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
    case "${cmd:-list}" in
-      add|get|list|remove|set)
+      add|get|list|set)
          sde_library_${cmd}_main "$@"
+      ;;
+
+
+      mark|move|remove|unmark)
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+         exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} ${cmd} "$@"
       ;;
 
       "")

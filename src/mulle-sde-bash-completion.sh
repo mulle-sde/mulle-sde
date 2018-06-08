@@ -154,7 +154,7 @@ _mulle_sde_library_complete()
 }
 
 
-_mulle_sde_buildinfo_complete()
+_mulle_sde_library_complete()
 {
    local cur=${COMP_WORDS[COMP_CWORD]}
    local prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -162,16 +162,24 @@ _mulle_sde_buildinfo_complete()
    local list
 
    case "${prev}" in
-      get|set|list)
-         _mulle_make_complete
+      get|remove|set)
+         list="`mulle-sde library list -- --format "%a\\n" --no-output-header`"
+         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
          return
       ;;
 
+      list)
+      ;;
+
+      add)
+      ;;
+
       *)
-         COMPREPLY=( $( compgen -W "get set list search" -- $cur ) )
+         COMPREPLY=( $( compgen -W "add get list remove set" -- $cur ) )
       ;;
    esac
 }
+
 
 
 _mulle_sde_dependency_complete()
@@ -295,7 +303,7 @@ _mulle_sde_subproject_complete()
 
          cmd)
             case "${i}" in
-               add|buildinfo|get|list|init|mark|move|remove|set|unmark|update)
+               add|buildinfo|enter|get|list|init|mark|move|remove|set|unmark|update)
                   subcmd="${i}"
                   state="subcmd"
                ;;
@@ -322,7 +330,23 @@ _mulle_sde_subproject_complete()
    # state can't be start here
    case "${state}" in
       cmd)
-         COMPREPLY=( $( compgen -W "add buildinfo get init list mark move remove set unmark update" -- $cur ) )
+         case "${cur}" in
+            -*)
+               COMPREPLY=( $( compgen -W "--subproject" -- $cur ) )
+               return;
+            ;;
+         esac
+
+         case "${prev}" in
+            -s|--subproject*)
+               list="`mulle-sde subproject list --format "%a\\n" --no-output-header`"
+               COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+               return;
+            ;;
+         esac
+
+         COMPREPLY=( $( compgen -W "add buildinfo dependency enter get init \
+libary list mark move remove set unmark update" -- $cur ) )
          return
       ;;
 
@@ -364,7 +388,7 @@ _mulle_sde_subproject_complete()
    esac
 
 
-   list="`mulle-sde subproject list -- --format "%a\\n" --no-output-header`"
+   list="`mulle-sde subproject list --format "%a\\n" --no-output-header`"
    COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
    return
 }

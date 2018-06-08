@@ -29,10 +29,10 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+[ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.21.0
+MULLE_EXECUTABLE_VERSION=0.22.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -194,7 +194,7 @@ determine_project_dir()
    do
       if [ -d "${current}/.mulle-sde" ]
       then
-         exekutor echo "${current}"
+         rexekutor echo "${current}"
          return
       fi
 
@@ -282,7 +282,7 @@ main()
          ;;
 
          --git-terminal-prompt)
-            [ $# -eq 1 ] && fail "missing argument to \"$1\""
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
             MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
             shift
 
@@ -293,7 +293,7 @@ main()
          ;;
 
          --style)
-            [ $# -eq 1 ] && fail "missing argument to \"$1\""
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
             MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1" `"
             shift
 
@@ -357,7 +357,7 @@ template|tool|unmark|update)
 
                for flag in ${MULLE_TECHNICAL_FLAGS} ${MULLE_FWD_FLAGS}
                do
-               cmdline="${cmdline}
+                  cmdline="${cmdline}
 ${flag}"
                done
 
@@ -369,7 +369,7 @@ $1"
                done
 
                log_fluff "Run command with mulle-env: -C \"${cmdline}\""
-               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
+               rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
             ;;
 
             bash-completion|extension|init|init-and-enter|reinit|uname|version\
@@ -383,7 +383,7 @@ libexec-dir|library-path|project-dir)
             *)
                if [ $# -eq 1 ] && [ -d "$1" ]
                then
-                  exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "$@"
+                  rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "$@"
                fi
 
                usage "${MULLE_TRACE}"
@@ -417,6 +417,19 @@ libexec-dir|library-path|project-dir)
    MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
    [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
 
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+   then
+      log_trace2 "MULLE_CRAFT=\"${MULLE_CRAFT}\""
+      log_trace2 "MULLE_ENV=\"${MULLE_ENV}\""
+      log_trace2 "MULLE_MAKE=\"${MULLE_MAKE}\""
+      log_trace2 "MULLE_MATCH=\"${MULLE_MATCH}\""
+      log_trace2 "MULLE_MONITOR=\"${MULLE_MONITOR}\""
+      log_trace2 "MULLE_SDE_DIR=\"${MULLE_SDE_DIR}\""
+      log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
+      log_trace2 "MULLE_SOURCETREE=\"${MULLE_SOURCETREE}\""
+      log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+   fi
+
    case "${cmd}" in
       bash-completion)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
@@ -428,7 +441,6 @@ libexec-dir|library-path|project-dir)
          # shellcheck source=src/mulle-sde-buildinfo.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-buildinfo.sh"
 
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
          sde_buildinfo_main "$@"
       ;;
 
@@ -455,7 +467,6 @@ libexec-dir|library-path|project-dir)
          # shellcheck source=src/mulle-sde-clean.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
 
-         exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
          sde_clean_main "$@"
       ;;
 
@@ -582,6 +593,11 @@ libexec-dir|library-path|project-dir)
          determine_project_dir
       ;;
 
+      #
+      # reinit is used to change the project variables and then reinstall
+      # project files with --allow-project to get proper identifiers in
+      # your files
+      #
       reinit)
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
          then
@@ -642,11 +658,11 @@ libexec-dir|library-path|project-dir)
       ;;
 
       uname)
-         exekutor echo "${MULLE_UNAME}"
+         rexekutor echo "${MULLE_UNAME}"
       ;;
 
       version)
-         exekutor echo "${MULLE_EXECUTABLE_VERSION}"
+         rexekutor echo "${MULLE_EXECUTABLE_VERSION}"
          return 0
       ;;
 

@@ -473,13 +473,13 @@ _template_main()
          ;;
 
          --callback)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
             template_callback="$1"
          ;;
 
          -d|--directory)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             mkdir_if_missing "$1" || return 1
@@ -491,7 +491,7 @@ _template_main()
          ;;
 
          --file)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             OPTION_FILE="$1"
@@ -527,35 +527,35 @@ _template_main()
          # PROJECT options
          #
          -n|--name|--project-name)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             PROJECT_NAME="$1"
          ;;
 
          --dialect|--project-dialect)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             PROJECT_DIALECT="$1"
          ;;
 
          -l|--language|--project-language)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             PROJECT_LANGUAGE="$1"
          ;;
 
          --source-dir|--project-source-dir)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             PROJECT_SOURCE_DIR="$1"
          ;;
 
          --extensions|--project-extensions)
-            [ $# -eq 1 ] && template_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
             PROJECT_EXTENSIONS="$1"

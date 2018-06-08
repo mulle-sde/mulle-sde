@@ -1,3 +1,9 @@
+## 0.22.0
+
+* subprojects can now be manipulated from the main shell and subenv isn't needed (as much)
+* reinit can not be run from the subshell. it does mulle-env environment upgrade now
+
+
 ## 0.21.0
 
 * use new mulle-sourcetree -V flag to good effect

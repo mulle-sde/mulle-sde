@@ -33,6 +33,8 @@ MULLE_SDE_DEPENDENCY_SH="included"
 
 
 DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
+DEPENDENCY_LIST_MARKS="dependency"
+DEPENDENCY_LIST_NODETYPES="no-none,no-local,ALL"
 
 
 sde_dependency_usage()
@@ -307,7 +309,7 @@ sde_dependency_list_main()
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_dependency_list_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_list_usage "Missing argument to \"$1\""
             shift
 
             marks="`comma_concat "${marks}" "$1"`"
@@ -339,7 +341,8 @@ sde_dependency_list_main()
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
-            --marks "${marks}" \
+            --marks "${DEPENDENCY_LIST_MARKS}" \
+            --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
             --output-eval \
             --output-cmd \
             --output-no-column \
@@ -350,7 +353,8 @@ sde_dependency_list_main()
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
             --format "${formatstring}\\n" \
-            --marks "${marks}" \
+            --marks "${DEPENDENCY_LIST_MARKS}" \
+            --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
             --output-no-marks "${DEPENDENCY_MARKS}" \
             "$@"
    fi
@@ -488,28 +492,28 @@ sde_dependency_add_main()
          ;;
 
          --branch)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
             branch="$1"
          ;;
 
         --nodetype|--scm)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
             nodetype="$1"
          ;;
 
          --address)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
             address="$1"
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
             marks="`comma_concat "${marks}" "$1"`"
@@ -520,7 +524,7 @@ sde_dependency_add_main()
          ;;
 
          --*)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
 
             options="`concat "${options}" "$1 '$2'"`"
             shift
@@ -630,7 +634,7 @@ sde_dependency_buildinfo_main()
          ;;
 
          --platform)
-            [ "$#" -eq 1 ] && sde_dependency_buildinfo_usage "missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_buildinfo_usage "Missing argument to \"$1\""
             shift
 
             extension=".$1"

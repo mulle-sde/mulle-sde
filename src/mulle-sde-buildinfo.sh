@@ -101,7 +101,7 @@ sde_buildinfo_main()
          # with shortcuts
          #
          -i|--info-dir)
-            [ $# -eq 1 ] && sde_buildinfo_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_buildinfo_usage "Missing argument to \"$1\""
             shift
 
             OPTION_INFO_DIR="$1"

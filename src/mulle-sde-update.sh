@@ -151,6 +151,8 @@ _sde_update_main()
    local task
    local name
 
+   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
+
    # call backs are actually comma separated
    set -o noglob; IFS=":"
    for name in ${MULLE_SDE_UPDATE_CALLBACKS}
@@ -186,31 +188,36 @@ sde_update_worker()
 {
    log_entry "sde_update_worker"
 
-   local filename="$1"
+   local runner="$1"
 
    log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
 
-   _sde_update_main "${filename}" || exit 1
+   _sde_update_main "${runner}" || exit 1
 
    #
    # update source of mulle-sde subprojects only
    #
-
-   case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
-      *:source:*)
-      ;;
-
-      *)
-         return
-      ;;
-   esac
+#   case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+#      *:source:*)
+#      ;;
+#
+#      *)
+#         return
+#      ;;
+#   esac
 
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
    fi
 
-   sde_subproject_map "Updating" "NO" "mulle-sde ${MULLE_TECHNICAL_FLAGS} update --if-needed --no-craft source"
+   local flags
+
+   if [ "${runner}" = "_task_run_if_needed" ]
+   then
+      flags="--if-needed"
+   fi
+   sde_subproject_map "Updating" "NO" "mulle-sde ${MULLE_TECHNICAL_FLAGS} update ${flags} --no-craft"
 }
 
 

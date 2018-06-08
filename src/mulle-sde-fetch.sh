@@ -56,15 +56,12 @@ EOF
 }
 
 
-#
-# This should be done by mulle-sde instead. See (MEMO) for more thoughts.
-#
 do_update_sourcetree()
 {
    log_entry "do_update_sourcetree" "$@"
 
    eval_exekutor "'${MULLE_SOURCETREE}'" \
-                     "${MULLE_SOURCETREE_FLAGS}" "${OPTION_MODE}" \
+                     "${MULLE_SOURCETREE_FLAGS}" ${MULLE_TECHNICAL_FLAGS} "${OPTION_MODE}" \
                      "update" "$@" || exit 1
 }
 
@@ -105,8 +102,12 @@ sde_fetch_main()
 
    [ "$#" -eq 0 ] || sde_fetch_usage "superflous arguments \"$*\""
 
-   if ! exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = YES ] || \
+         ! exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
    then
       do_update_sourcetree "$@"
+      return $?
+   else
+      log_verbose "Nothing to do"
    fi
 }

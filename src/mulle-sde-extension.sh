@@ -353,7 +353,7 @@ Use / separator"
    local directory
 
    directory="`extension_get_vendor_path "${vendor}" `"
-   if [ -z "${directory}" ] 
+   if [ -z "${directory}" ]
    then
       log_fluff "Extension vendor \"${vendor}\" is unknown."
       return 1
@@ -1047,7 +1047,7 @@ sde_extension_usage_main()
          ;;
 
          -l|--list)
-            [ $# -eq 1 ] && sde_extension_usage_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_extension_usage_usage "Missing argument to \"$1\""
             shift
 
             OPTION_LIST="$1"
@@ -1058,7 +1058,7 @@ sde_extension_usage_main()
          ;;
 
          -v|--vendor)
-            [ $# -eq 1 ] && sde_extension_usage_usage "missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_extension_usage_usage "Missing argument to \"$1\""
             shift
 
             OPTION_VENDOR="$1"
