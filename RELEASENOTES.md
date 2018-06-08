@@ -1,3 +1,7 @@
+### 0.22.1
+
+* add some more subproject subcommands: find,match,patternfile
+
 ## 0.22.0
 
 * subprojects can now be manipulated from the main shell and subenv isn't needed (as much)

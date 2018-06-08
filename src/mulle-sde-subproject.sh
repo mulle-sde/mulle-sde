@@ -440,7 +440,7 @@ sde_subproject_map()
 
       if [ -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle-sde" ]
       then
-         log_info "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
+         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
          exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
          rval=$?
          if [ ${rval} -ne 0 ]
@@ -510,12 +510,11 @@ sde_subproject_main()
          sde_subproject_definition_main "$@"
       ;;
 
-      dependency|environment|library|update)
+      dependency|environment|find|match|patternfile|library|update)
          local subproject
 
          [ -z "${SUBPROJECT}" ] && "Command \"${cmd}\" requires -s <subproject> option"
 
-         set -x
          local cmdline
          local arg
 
