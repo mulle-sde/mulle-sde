@@ -313,7 +313,7 @@ sourcetree_append_userinfo_field()
 
 sourcetree_get_userinfo_field()
 {
-   log_entry "sourcetree_append_userinfo_field" "$@"
+   log_entry "sourcetree_get_userinfo_field" "$@"
 
    local address="$1"
    local field="$2"
@@ -330,6 +330,7 @@ sourcetree_get_userinfo_field()
 
    userinfo="`exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
             get "${address}" "userinfo" `"
+
    if [ $? -ne 0 ]
    then
       return 1

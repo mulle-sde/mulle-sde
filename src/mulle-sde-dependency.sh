@@ -151,6 +151,8 @@ Options:
    --append    : append value instead of set
 
 Keys:
+   aliases     : alternate names of dependency, separated by comma
+   include     : alternative include filename instead of <name>.h
    os-excludes : names of OSes to exclude, separated by comma
 EOF
   exit 1
@@ -171,6 +173,8 @@ Usage:
       ${MULLE_USAGE_NAME} dependency get pthreads aliases
 
 Keys:
+   aliases     : alternate names of dependency, separated by comma
+   include     : alternative include filename instead of <name>.h
    os-excludes : names of OSes to exclude, separated by comma
 EOF
   exit 1
@@ -249,8 +253,7 @@ sde_dependency_set_main()
       ;;
 
       *)
-         log_error "unknown field name \"${field}\""
-         sde_dependency_set_usage
+         fail "Unknown field name \"${field}\""
       ;;
    esac
 }
@@ -264,7 +267,7 @@ sde_dependency_get_main()
    [ -z "${url}" ]&& sde_dependency_get_usage "missing url"
    shift
 
-   local field="$1"
+   local field="$1";
    [ -z "${field}" ] && sde_dependency_get_usage "missing field"
    shift
 
@@ -273,9 +276,8 @@ sde_dependency_get_main()
          sourcetree_get_os_excludes "${url}"
       ;;
 
-      *)
-         log_error "unknown field name \"${field}\""
-         sde_dependency_get_usage
+      aliases|include)
+         sourcetree_get_userinfo_field "${url}" "${field}"
       ;;
    esac
 }
@@ -754,6 +756,20 @@ sde_dependency_main()
          return $?
       ;;
 
+      commands)
+         echo "\
+add
+definition
+get
+list
+map
+mark
+move
+remove
+set
+unmark"
+      ;;
+
       definition)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
@@ -768,6 +784,15 @@ sde_dependency_main()
 
          sde_dependency_get_main "$@"
          return $?
+      ;;
+
+
+      keys)
+         echo "\
+aliases
+include
+os-excludes"
+         return 0
       ;;
 
       list)

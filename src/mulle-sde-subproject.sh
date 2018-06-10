@@ -48,18 +48,20 @@ Usage:
 
    A subproject is another mulle-sde project of yours, that serves
    as a dependency here. Subprojects are subdirectories. A subproject is
-   otherwise indistinguishable from a dependency.
+   otherwise the same as a dependency but it can not be build on
+   its own.
 
    The subproject feature is ** EXPERIMENTAL ** and in constant flux.
 
 Options:
-   -h            : show this usage
+   -h              : show this usage
+   -s <subproject> : choose subproject to run command in
 
 Commands:
-   add           : add a subproject
-   remove        : remove a subproject
-   move          : change buildorder of subproject
-   list          : list subprojects (default)
+   add             : add a subproject
+   remove          : remove a subproject
+   move            : change buildorder of subproject
+   list            : list subprojects (default)
          (use <command> -h for more help about commands)
 EOF
    exit 1
@@ -409,7 +411,6 @@ sde_subproject_get_names()
 }
 
 
-
 sde_subproject_map()
 {
    log_entry "sde_subproject_map" "$@"
@@ -506,6 +507,48 @@ sde_subproject_main()
          update_ignore_patternfile "$@"
       ;;
 
+      commands)
+         echo "\
+add
+definition
+enter
+get
+init
+list
+map
+mark
+move
+remove
+set
+unmark
+update-patternfile\
+"
+      ;;
+
+      subcommands)
+         echo "\
+dependency
+environment
+find
+match
+patternfile
+library
+update"
+      ;;
+
+      infcommands)
+         case "$1" in
+            "buildinfo")
+               echo "\
+get
+set
+list"
+               return 0
+            ;;
+         esac
+         return 1
+      ;;
+
       definition)
          sde_subproject_definition_main "$@"
       ;;
@@ -590,7 +633,7 @@ $1"
       # for now stay layme
       #
       list)
-         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} list \
+         rexekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${SUBPROJECT_LIST_MARKS}" \
             --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
             --output-no-url \
@@ -598,7 +641,7 @@ $1"
             "$@"
       ;;
 
-      update)
+      update-patternfile)
          update_ignore_patternfile "$@"
       ;;
 

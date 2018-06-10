@@ -109,7 +109,7 @@ Options:
 
 Keys:
    aliases     : alternate names of library, separated by comma
-   include     : alternative include filename instead of <name>/<name>.h
+   include     : alternative include filename instead of <name>.h
    os-excludes : names of OSes to exclude, separated by comma
 EOF
   exit 1
@@ -131,6 +131,7 @@ Usage:
 
 Keys:
    aliases     : alternate names of library, separated by comma
+   include     : alternative include filename instead of <name>.h
    os-excludes : names of OSes to exclude, separated by comma
 EOF
   exit 1

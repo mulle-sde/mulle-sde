@@ -32,81 +32,22 @@
 MULLE_SDE_PROJECTNAME_SH="included"
 
 
-#
-# This is a camel case to underscore converter that keeps single capitalized
-# letters together with the previous word.
-#
-# Ex. MulleObjCBaseFoundation -> Mulle_ObjC_Base_Foundation
-#     FBTroll -> FBTroll      # lucky, but pretty good IMO
-#     FBTrollFB -> FBTrollF_B # unlucky, but i don't care
-#
-_tweaked_de_camel_case()
-{
-   local s="$1"
-
-   local output
-
-   local c
-   local d
-   local e
-
-   while [ ! -z "${s}" ]
-   do
-      c="${s:0:1}"
-      s="${s:1}"
-      d="${s:0:1}"
-      e="${s:1:1}"
-
-      case "${d}" in
-         [A-Z])
-            case "${c}" in
-               [a-z])
-                  case "${e}" in
-                     [^A-Z])
-                        output="${output}${c}_"
-                        continue
-                     ;;
-
-                     "")
-                        output="${output}${c}${d}"
-                        s="${s:1}"
-                        continue
-                     ;;
-
-                     *)
-                        output="${output}${c}${d}_"
-                        s="${s:1}"
-                        continue
-                     ;;
-                  esac
-               ;;
-            esac
-         ;;
-      esac
-
-      output="${output}${c}"
-
-   done
-
-   echo "${output}"
-}
-
-
-tweaked_de_camel_case()
-{
-   # need this for [A-B] to be case sensitive, dont'ask
-   # https://stackoverflow.com/questions/10695029/why-isnt-the-case-statement-case-sensitive-when-nocasematch-is-off
-   LC_ALL=C _tweaked_de_camel_case "$@"
-}
-
-
 set_projectname_environment()
 {
    log_entry "set_projectname_environment" "$@"
 
-   local mode="$1"
+   if [ ! -z "${PROJECT_UPCASE_IDENTIFIER}" ]
+   then
+      return
+   fi
 
-   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME cant be empty"
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty"
+
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
+   fi
 
    PROJECT_IDENTIFIER="`tweaked_de_camel_case "${PROJECT_NAME}"`"
    PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_IDENTIFIER}" | tr -c 'a-zA-Z0-9' '_'`"

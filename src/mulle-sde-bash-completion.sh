@@ -127,6 +127,7 @@ _mulle_sde_init_complete()
 }
 
 
+
 _mulle_sde_library_complete()
 {
    local cur=${COMP_WORDS[COMP_CWORD]}
@@ -136,7 +137,7 @@ _mulle_sde_library_complete()
 
    case "${prev}" in
       get|remove|set)
-         list="`mulle-sde library list -- --format "%a\\n" --no-output-header`"
+         list="`mulle-sde $* library list -- --format "%a\\n" --no-output-header`"
          COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
          return
       ;;
@@ -148,38 +149,10 @@ _mulle_sde_library_complete()
       ;;
 
       *)
-         COMPREPLY=( $( compgen -W "add get list remove set" -- $cur ) )
+         COMPREPLY=( $( compgen -W "add get list mark move remove unmark set" -- $cur ) )
       ;;
    esac
 }
-
-
-_mulle_sde_library_complete()
-{
-   local cur=${COMP_WORDS[COMP_CWORD]}
-   local prev=${COMP_WORDS[COMP_CWORD-1]}
-
-   local list
-
-   case "${prev}" in
-      get|remove|set)
-         list="`mulle-sde library list -- --format "%a\\n" --no-output-header`"
-         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
-         return
-      ;;
-
-      list)
-      ;;
-
-      add)
-      ;;
-
-      *)
-         COMPREPLY=( $( compgen -W "add get list remove set" -- $cur ) )
-      ;;
-   esac
-}
-
 
 
 _mulle_sde_dependency_complete()
@@ -234,125 +207,13 @@ _mulle_sde_dependency_complete()
    # state can't be start here
    case "${state}" in
       cmd)
-         COMPREPLY=( $( compgen -W "add buildinfo get list mark move remove set unmark" -- $cur ) )
-         return
-      ;;
-
-      subcmd)
-         if [ "${subcmd}" = "buildinfo" ]
-         then
-            case "${cur}" in
-               -*)
-                  COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
-                  return
-               ;;
-            esac
-
-            if [ "${prev}" == "--platform" ]
-            then
-               COMPREPLY=( $( compgen -W "freebsd darwin linux mingw" -- $cur ) )
-               return
-            fi
-
-            COMPREPLY=( $( compgen -W "get list set" -- $cur ) )
-            return
-         fi
-      ;;
-
-      subsubcmd)
-         case "${cur}" in
-            -*)
-               COMPREPLY=( $( compgen -W "--additive" -- $cur ) )
-               return
-            ;;
-         esac
-      ;;
-   esac
-
-
-   list="`mulle-sde dependency list -- --format "%a\\n" --no-output-header`"
-   COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
-   return
-}
-
-
-
-_mulle_sde_subproject_complete()
-{
-   local cur=${COMP_WORDS[COMP_CWORD]}
-   local prev=${COMP_WORDS[COMP_CWORD-1]}
-
-   local list
-
-   local i
-   local state
-   local subcmd
-   local subsubcmd
-
-   state="start"
-   for i in "${COMP_WORDS[@]}"
-   do
-      case "${state}" in
-         start)
-            case "${i}" in
-               subproject)
-                  state="cmd"
-               ;;
-            esac
-         ;;
-
-         cmd)
-            case "${i}" in
-               add|buildinfo|enter|get|list|init|mark|move|remove|set|unmark|update)
-                  subcmd="${i}"
-                  state="subcmd"
-               ;;
-            esac
-         ;;
-
-         subcmd)
-            case "${subcmd}" in
-               "buildinfo")
-                  case "${i}" in
-                     get|list|set)
-                        subsubcmd="${i}"
-                        state="subsubcmd"
-                     ;;
-                  esac
-               ;;
-            esac
-         ;;
-      esac
-   done
-
-   local list
-
-   # state can't be start here
-   case "${state}" in
-      cmd)
-         case "${cur}" in
-            -*)
-               COMPREPLY=( $( compgen -W "--subproject" -- $cur ) )
-               return;
-            ;;
-         esac
-
-         case "${prev}" in
-            -s|--subproject*)
-               list="`mulle-sde subproject list --format "%a\\n" --no-output-header`"
-               COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
-               return;
-            ;;
-         esac
-
-         COMPREPLY=( $( compgen -W "add buildinfo dependency enter get init \
-libary list mark move remove set unmark update" -- $cur ) )
+         COMPREPLY=( $( compgen -W "`mulle-sde dependency commands`" -- $cur ) )
          return
       ;;
 
       subcmd)
          case "${subcmd}" in
-            buildinfo)
+            "buildinfo")
                case "${cur}" in
                   -*)
                      COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
@@ -370,9 +231,15 @@ libary list mark move remove set unmark update" -- $cur ) )
                return
             ;;
 
-            init)
-               COMPREPLY=( $( compgen -d -- "$cur" ) )
-               return 0
+            "get"|"set")
+               local prevprev=${COMP_WORDS[COMP_CWORD-2]}
+
+               if [ "${prevprev}" = "${subcmd}" ]
+               then
+                  list="`mulle-sde $* dependency keys`"
+                  COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+                  return
+               fi
             ;;
          esac
       ;;
@@ -388,11 +255,187 @@ libary list mark move remove set unmark update" -- $cur ) )
    esac
 
 
-   list="`mulle-sde subproject list --format "%a\\n" --no-output-header`"
+   list="`mulle-sde $* dependency list -- --format "%a\\n" --no-output-header`"
    COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
    return
 }
 
+
+_mulle_sde_subproject_complete()
+{
+   local cur=${COMP_WORDS[COMP_CWORD]}
+   local prev=${COMP_WORDS[COMP_CWORD-1]}
+
+   local list
+
+   local i
+   local state
+   local subcmd
+   local subsubcmd
+   local hackage
+
+   local commands
+   local subcommands
+   local infcommands
+   local list
+
+   commands="`mulle-sde subproject commands`"
+
+   subcommands="`mulle-sde subproject subcommands`"
+   list="`mulle-sde subproject list --format "%a\\n" --no-output-header`"
+
+   hackage="subproject --subproject"
+
+   state=""
+   for i in "${COMP_WORDS[@]}"
+   do
+      if [ -z "${i}" ]
+      then
+         continue
+      fi
+
+      case "${state}" in
+         "")
+            if [ "${i}" = "subproject" ]
+            then
+               state="expecting_cmd"
+            fi
+         ;;
+
+         "expecting_cmd")
+            case "$i" in
+               -s|--subproject)
+                  state="expecting_name"
+                  continue
+               ;;
+            esac
+
+            if [ ! -z "${commands}" ] && fgrep -q -x -s -e "${i}" <<< "${commands}"
+            then
+               cmd="${i}"
+               state="cmd_found"
+            fi
+         ;;
+
+         "expecting_name")
+            if [ ! -z "${list}" ] && fgrep -q -x -s -e "${i}" <<< "${list}"
+            then
+               hackage="${hackage} ${i}"
+               state="expecting_subcmd"
+            fi
+         ;;
+
+         "expecting_subcmd")
+            if [ ! -z "${subcommands}" ] && fgrep -q -x -s -e "${i}" <<< "${subcommands}"
+            then
+               subcmd="${i}"
+               state="subcmd_found"
+            fi
+         ;;
+
+         "cmd_found")
+            infcommands="`mulle-sde subproject infcommands "${subcmd}" `"
+            if [ ! -z "${infcommands}" ] && fgrep -q -x -s -e "${i}" <<< "${infcommands}"
+            then
+               infcmd="${i}"
+               state="infcmd_found"
+            fi
+         ;;
+      esac
+   done
+
+   # echo "${state} s:\"${subcmd}\" ss:\"${subcmd}\": c=${cur} p=${prev}" >&2
+   # state can't be start here
+   case "${state}" in
+      state)
+         echo "failed"
+      ;;
+
+      "expecting_cmd")
+         case "${cur}" in
+            -*)
+               COMPREPLY=( $( compgen -W "--subproject" -- $cur ) )
+               return;
+            ;;
+         esac
+
+         COMPREPLY=( $( compgen -W "--subproject `echo ${commands}`" -- $cur ) )
+         return
+      ;;
+
+      "expecting_name")
+         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+         return;
+      ;;
+
+      "expecting_subcmd")
+         COMPREPLY=( $( compgen -W "`echo ${subcommands}`" -- $cur ) )
+         return
+      ;;
+
+      "cmd_found")
+         case "${cmd}" in
+            buildinfo)
+               case "${cur}" in
+                  -*)
+                     COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
+                     return
+                  ;;
+               esac
+
+               if [ "${prev}" == "--platform" ]
+               then
+                  COMPREPLY=( $( compgen -W "freebsd darwin linux mingw" -- $cur ) )
+                  return
+               fi
+
+               COMPREPLY=( $( compgen -W "`echo "${infcommands}"`" -- $cur ) )
+               return
+            ;;
+
+            init)
+               COMPREPLY=( $( compgen -d -- "$cur" ) )
+               return 0
+            ;;
+
+            enter)
+               COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+               return;
+            ;;
+         esac
+      ;;
+
+      "subcmd_found")
+         case "${subcmd}" in
+            dependency)
+               _mulle_sde_dependency_complete $hackage
+               return 0
+            ;;
+
+            library)
+               _mulle_sde_library_complete $hackage
+               return 0
+            ;;
+         esac
+         return 0
+      ;;
+   esac
+}
+
+_mulle_sde_clean_complete()
+{
+   local cur=${COMP_WORDS[COMP_CWORD]}
+   local prev=${COMP_WORDS[COMP_CWORD-1]}
+
+   local list
+
+   case "${prev}" in
+      clean)
+         list="`mulle-sde -s clean domains`"
+         COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
+      ;;
+   esac
+}
 
 _mulle_sde_extension_complete()
 {
@@ -433,26 +476,7 @@ _mulle_sde_complete()
    local cur=${COMP_WORDS[COMP_CWORD]}
    local prev=${COMP_WORDS[COMP_CWORD-1]}
 
-   local commands="\
-buildinfo
-buildorder
-callback
-craft
-dependency
-environment
-extension
-find
-init
-library
-mark
-match
-monitor
-patternfile
-subproject
-task
-test
-unmark
-update"
+   local commands="`mulle-sde commands`"
 
    local state="executable"
 
@@ -462,9 +486,17 @@ update"
    local argument
 
    local i
+   local before
 
+   before=""
    for i in "${COMP_WORDS[@]}"
    do
+      if [ -z "${i}" ]
+      then
+         before="$i"
+         continue
+      fi
+
       case "${state}" in
          executable)
             executable="$i"
@@ -472,8 +504,16 @@ update"
          ;;
 
          flags)
+            case "${before}" in
+               --style|--git-terminal-prompt)
+                  before="$i"
+                  continue
+               ;;
+            esac
+
             case "$i" in
                -*)
+                  before="$i"
                   continue
                ;;
             esac
@@ -486,10 +526,12 @@ update"
             case "$i" in
                -[a-z]d|--*dir|-[a-z]f|--*file)
                   state="options-arg"
+                  before="$i"
                   continue
                ;;
 
                -*)
+                  before="$i"
                   continue
                ;;
             esac
@@ -506,10 +548,12 @@ update"
             case "$i" in
                -[a-z]d|--*dir|-[a-z]f|--*file)
                   state="suboptions-arg"
+                  before="$i"
                   continue
                ;;
 
                -*)
+                  before="$i"
                   continue
                ;;
             esac
@@ -522,60 +566,82 @@ update"
             state="suboptions"
          ;;
       esac
+      before="$i"
    done
 
 #  echo "cmd     : ${cmd}" >&2
 #  echo "subcmd  : ${subcmd}" >&2
 #  echo "argument: ${argument}" >&2
 
+   case "${state}" in
+      "flags")
+         case "${prev}" in
+            --style)
+               if [ "`type -t "_mulle_env_style_complete"`" = "function" ]
+               then
+                  _mulle_env_style_complete "mulle"
+               else
+                   COMPREPLY=( $( compgen -W "mulle/restrict" -- $cur ) )
+               fi
+               return 0
+            ;;
+         esac
+      ;;
+   esac
+
    case "$cmd" in
       callback)
-         _mulle_monitor_complete "$@"
+         _mulle_monitor_complete
+         return 0
+      ;;
+
+      clean)
+         _mulle_sde_clean_complete
          return 0
       ;;
 
       craft)
-         _mulle_sde_craft_complete "$@"
+         _mulle_sde_craft_complete
          return 0
       ;;
 
       buildinfo)
-         _mulle_sde_buildinfo_complete "$@"
+         _mulle_sde_buildinfo_complete
          return 0
       ;;
 
       dependency)
-         _mulle_sde_dependency_complete "$@"
+         _mulle_sde_dependency_complete
          return 0
       ;;
 
       environment)
-         _mulle_env_complete "$@"
+         _mulle_env_complete
          return 0
       ;;
 
       extension)
-         _mulle_sde_extension_complete "$@"
+         _mulle_sde_extension_complete
          return 0
       ;;
 
       init)
-         _mulle_sde_init_complete "$@"
+         _mulle_sde_init_complete
          return 0
       ;;
 
       library)
-         _mulle_sde_library_complete "$@"
+         _mulle_sde_library_complete
          return 0
       ;;
 
       match|patternfile)
-         _mulle_match_complete "$@"
+         _mulle_match_complete
          return 0
       ;;
 
       mark|unmark)
-         _mulle_sourcetree_complete "$@"
+         _mulle_sourcetree_complete
          return 0
       ;;
 
@@ -596,6 +662,10 @@ update"
    esac
 
    case "$cur" in
+      -*)
+         COMPREPLY=( $( compgen -W "`mulle-sde --list-flags`" -- $cur ) )
+      ;;
+
       *)
          COMPREPLY=( $( compgen -W "${commands}" -- $cur ) )
          return 0

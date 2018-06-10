@@ -1,3 +1,10 @@
+## 0.23.0
+
+* redid the clean command
+* redid the craft command
+* subprojects are now properly rebuilt everytime, but dependencies aren't
+
+
 ### 0.22.1
 
 * add some more subproject subcommands: find,match,patternfile

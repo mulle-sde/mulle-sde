@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.22.1
+MULLE_EXECUTABLE_VERSION=0.23.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -61,6 +61,7 @@ print_commands()
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       SHOWN_COMMANDS="\
+   bash-completion: get bash completion with \`. \$(mulle-sde bash-completion)\`
    extension      : show available language and buildtool extensions
    init           : create a new project"
 
@@ -87,11 +88,8 @@ print_commands()
    dependency     : manage third party components (like GitHub projects)
    definition     : change build options like CFLAGS for the project
    environment    : manage environment variables (project settings)
-   extension      : show available language and buildtool extensions
-   init           : create a new project
    library        : manage second party (OS) libraries (like pthread)
    monitor        : monitor project files, run update and build
-   subproject     : manage local subprojects
    update         : update project makefiles"
    fi
 
@@ -141,9 +139,11 @@ EOF
 EOF
    else
       cat <<EOF
-   To start development run \`mulle-sde monitor\` in this shell and edit your
-   source files in 'src' in another shell. Or periodically run
-   \`mulle-sde update\` followed by \`mulle-sde craft\` to build.
+   To start development edit source files in '${PROJECT_SOURCE_DIR}'. When you
+   add or delete a source file run \`mulle-sde update\`. Use \`mulle-sde craft\`
+   to build your project.
+   Add binary libraries with \`mulle-sde library\` and source code libraries
+   with \`mulle-sde dependency\`.
 
 EOF
    fi
@@ -272,7 +272,7 @@ main()
             usage "${MULLE_TRACE}"
          ;;
 
-         -e)
+         -e|--environment-override)
             FLAG_OUTSIDE_ENV="YES"
          ;;
 
@@ -309,6 +309,20 @@ main()
             MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --no-search`"
          ;;
 
+         --list-flags)
+            (
+               echo "\
+--environment-override
+--force
+--git-terminal-prompt
+--no-search
+--style
+--version"
+               options_technical_flags --list-technical-flags
+            ) | sort
+            exit 0
+         ;;
+
          -*)
             log_error "Unknown option \"$1\""
             usage "${MULLE_TRACE}"
@@ -343,8 +357,8 @@ main()
 
          case "${cmd}" in
             buildinfo|buildorder|callback|clean|craft|definition|dependency|\
-environment|fetch|find|library|mark|match|monitor|patternfile|subproject|task|\
-template|tool|unmark|update)
+environment|fetch|find|library|mark|match|monitor|patternfile|subproject|style|\
+task|template|tool|unmark|update)
 
                cd "`determine_project_dir`" || exit 1
 
@@ -372,7 +386,7 @@ $1"
                rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
             ;;
 
-            bash-completion|extension|init|init-and-enter|reinit|uname|version\
+            bash-completion|commands|extension|init|init-and-enter|reinit|uname|version\
 libexec-dir|library-path|project-dir)
             ;;
 
@@ -468,6 +482,44 @@ libexec-dir|library-path|project-dir)
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
 
          sde_clean_main "$@"
+      ;;
+
+      commands)
+         echo "\
+bash-completion
+buildinfo
+buildorder
+callback
+clean
+commands
+craft
+definition
+dependency
+environment
+extension
+fetch
+find
+init
+init-and-enter
+libexec-dir
+library
+library-path
+mark
+match
+monitor
+patternfile
+project-dir
+reinit
+subproject
+style
+task
+template
+tool
+uname
+unmark
+update
+version"
+         exit 0
       ;;
 
       #

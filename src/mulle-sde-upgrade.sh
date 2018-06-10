@@ -50,8 +50,8 @@ Usage:
    will be affected by an extension upgrade.
 
 Options:
-   --no-init   : do not run init again
-
+   --no-init     : do not run init again
+   --no-recurse  : do not upgrade subprojects
 Commands:
 EOF
 
@@ -77,11 +77,17 @@ sde_upgrade_main()
 {
    log_entry "sde_upgrade_main" "$@"
 
+   local OPTION_RECURSE="YES"
+
    while :
    do
       case "$1" in
          -h*|--help|help)
             sde_upgrade_usage
+         ;;
+
+         --no-recurse)
+            OPTION_RECURSE="NO"
          ;;
 
          *)
@@ -95,7 +101,14 @@ sde_upgrade_main()
    # shellcheck source=src/mulle-sde-init.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   eval_exekutor sde_init_main --upgrade "$@"
+   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
+
+   eval_exekutor sde_init_main --upgrade "$@" || return 1
+
+   if [ "${OPTION_RECURSE}" = "NO" ]
+   then
+      return 0
+   fi
 
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then

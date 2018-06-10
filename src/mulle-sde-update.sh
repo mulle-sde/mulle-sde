@@ -46,13 +46,14 @@ Usage:
 
    Typical callbacks for mulle-sde are:
 
-      source     : update makefiles
-      sourcetree : update dependencies, subprojects and libraries
-
+      source     : reflect changes in \"${PROJECT_SOURCE_DIR}\" into makefiles
+      sourcetree : reflect library and dependency changes into makefiles and
+                   header files
 Options:
-   --if-needed   : check before update if it seems unneccessary
+   --if-needed   : check before update, if it seems unneccessary
    --craft       : craft after update
    --no-craft    : do not craft after update
+   --no-recurse  : do not recurse into subprojects
 
 Environment:
    MULLE_SDE_UPDATE_CALLBACKS   : default callbacks used for update
@@ -71,8 +72,6 @@ _callback_run()
 
    [ -z "${callback}" ] && internal_fail "callback is empty"
 
-   local rval
-
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
@@ -89,8 +88,6 @@ _task_run()
 
    [ -z "${task}" ] && internal_fail "task is empty"
 
-   local rval
-
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
@@ -103,15 +100,15 @@ _task_status()
 {
    log_entry "_task_status"
 
-   local task="$1"
-
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                    task status "${task}"
 }
 
-
+#
+# TODO: shouldn't the monitor be able to do this better ?
+#
 _task_run_if_needed()
 {
    log_entry "_task_run_if_needed"
@@ -146,12 +143,15 @@ _sde_update_main()
 
    local runner="$1"
 
-   set_projectname_environment "read"
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+
+   set_projectname_environment
 
    local task
    local name
-
-   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
 
    # call backs are actually comma separated
    set -o noglob; IFS=":"
@@ -164,13 +164,17 @@ _sde_update_main()
          continue
       fi
 
-      task="`_callback_run "${name}"`"
-      if [ ! -z "${task}" ]
-      then
-         "${runner}" "${task}"
-      fi
+      (
+         task="`_callback_run "${name}"`"
+         if [ ! -z "${task}" ]
+         then
+            "${runner}" "${task}"
+         fi
+      ) &
    done
    set +o noglob; IFS="${DEFAULT_IFS}"
+
+   wait
 
    #
    # this is set by mulle-sde monitor
@@ -183,16 +187,21 @@ _sde_update_main()
 }
 
 
-
 sde_update_worker()
 {
    log_entry "sde_update_worker"
 
    local runner="$1"
+   local recurse="$2"
 
    log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
 
    _sde_update_main "${runner}" || exit 1
+
+   if [ "${recurse}" = "NO" ]
+   then
+      return 0
+   fi
 
    #
    # update source of mulle-sde subprojects only
@@ -223,9 +232,9 @@ sde_update_worker()
 
 sde_update_main()
 {
-   log_entry "sde_update_main"
+   log_entry "sde_update_main" "$@"
 
-   log_entry "sde_extension_main" "$@"
+   local OPTION_RECURSE="YES"
 
    local runner
 
@@ -254,6 +263,10 @@ sde_update_main()
             export MULLE_SDE_CRAFT_AFTER_UPDATE
          ;;
 
+         --no-recurse)
+            OPTION_RECURSE="NO"
+         ;;
+
          -*)
             sde_update_usage "unknown option \"$1\""
          ;;
@@ -266,10 +279,6 @@ sde_update_main()
       shift
    done
 
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
 
    if [ $# -ne 0 ]
    then
@@ -277,5 +286,5 @@ sde_update_main()
       export MULLE_SDE_UPDATE_CALLBACKS
    fi
 
-   sde_update_worker "${runner}"
+   sde_update_worker "${runner}" "${OPTION_RECURSE}"
 }

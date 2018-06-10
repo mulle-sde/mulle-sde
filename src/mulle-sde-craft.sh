@@ -61,79 +61,211 @@ EOF
 }
 
 
+append_mark_no_memo_to_subproject()
+{
+   if [ "${MULLE_NODETYPE}" != "local" -o "${MULLE_DATASOURCE}" != "/" ]
+   then
+      return
+   fi
+
+   case ",${MULLE_MARKS}," in
+      *",no-dependency,"*)
+         return
+      ;;
+   esac
+
+   MULLE_MARKS="`comma_concat "${MULLE_MARKS}" "no-memo" `"
+}
+
+
+#
+# This should be another task so that it can run in parallel to the other
+# updates
+#
+create_buildorder_file()
+{
+   log_entry "create_buildorder_file" "$@"
+
+   local buildorderfilename="$1"
+   local cachedir="$2"
+
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
+   fi
+
+   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} buildorder"
+
+   local buildorderfile
+
+   buildorderfile="${cachedir}/${buildorderfilename}"
+
+   mkdir_if_missing "${cachedir}"
+   if ! redirect_exekutor "${buildorderfile}" \
+      "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} \
+         buildorder \
+            --output-marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} \
+            --callback "`declare -f append_mark_no_memo_to_subproject`"
+   then
+      remove_file_if_present "${buildorderfile}"
+      exit 1
+   fi
+}
+
+
+create_buildorder_file_if_needed()
+{
+   log_entry "create_buildorder_file_if_needed" "$@"
+
+   local buildorderfilename="$1"
+   local cachedir="$2"
+
+   local sourcetreefile
+   local buildorderfile
+   #
+   # our buildorder is specific to a host
+   #
+   [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
+
+   sourcetreefile="${MULLE_VIRTUAL_ROOT}/.mulle-sourcetree/etc/config"
+   buildorderfile="${cachedir}/${buildorderfilename}"
+
+   #
+   # produce a buildorderfile, if absent or old
+   #
+   if [ "${sourcetreefile}" -nt "${buildorderfile}" ]
+   then
+      create_buildorder_file "${buildorderfilename}" "${cachedir}"
+   fi
+}
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
-# user selected style
+# user selected style.
 #
 sde_craft_main()
 {
    log_entry "sde_craft_main" "$@"
 
    local cmd
-   local updateflags
+   local OPTION_UPDATE="YES"
+   local OPTION_MOTD="YES"
 
    cmd="${MULLE_SDE_CRAFT_STYLE:-all}"
 
-   case "$1" in
-      -h|--help|help)
-         sde_craft_usage
-      ;;
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_craft_usage
+         ;;
 
-      ""|-*)
-      ;;
+         -q|--quick|no-update)
+            OPTION_UPDATE="NO"
+         ;;
 
-      all|dependency|project)
-         cmd="$1"
-         shift
-      ;;
-   esac
+         --no-motd)
+            OPTION_MOTD="NO"
+         ;;
 
-   updateflags="--if-needed"
+         all|dependency|project)
+            cmd="$1"
+            break
+         ;;
+
+         ""|*)
+            break
+         ;;
+      esac
+      shift
+   done
+
    #
-   # Make a quick estimate if this is a virgin checkout scenario
-   # If yes, then lets update once (why ?, noob support ?)
+   # our buildorder is specific to a host
    #
-   if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" != "NO" ] && [ ! -d "${DEPENDENCY_DIR}" ]
+   [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
+
+   if [ "${OPTION_UPDATE}" = "YES" ]
    then
-      # for mulle-c11, which has only a .mulle-env but no .mulle-sde
-      if [ -d "${MULLE_SDE_DIR}" ]
+      local updateflags
+      local tasks
+
+      updateflags="--if-needed"
+      tasks="source"
+
+      #
+      # Make a quick estimate if this is a virgin checkout scenario, by checking
+      # the buildorder file exisz
+      # If yes, then lets update once. If there is no buildorder file, let's
+      # do it
+      #
+      if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" = "YES" ]
       then
-         log_fluff "Directory \"dependency\" does not exist, so run update once"
-         MULLE_SDE_UPDATE_BEFORE_CRAFT="YES"
+         log_debug "MULLE_SDE_UPDATE_BEFORE_CRAFT forces update"
          updateflags="" # "force" update
       fi
+
+      #
+      # Check if we need to update the sourcetree.
+      # This could fetch dependencies if required.
+      # A 1 here means we have no sourcetree.
+      #
+      local dbrval
+
+      "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} -s dbstatus
+      dbrval="$?"
+      log_debug "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
+
+      if [ ${dbrval} -eq 2 ]
+      then
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
+
+         log_verbose "Run sourcetree update"
+
+         eval_exekutor "'${MULLE_SOURCETREE}'" \
+                        "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
+      fi
+
+      # run task sourcetree, if present (0) or was dirty (2)
+      if [ ${dbrval} -ne 1 ]
+      then
+         tasks="${tasks} sourcetree"
+      fi
+
+      if [ "${OPTION_UPDATE}" = "YES" ]
+      then
+         if [ -z "${MULLE_SDE_UPDATE_SH}" ]
+         then
+            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
+         fi
+
+         sde_update_main ${updateflags} ${tasks} || exit 1
+      fi
+
+      #
+      # Possibly build a new buildorder file for sourcetree changes
+      #
+      local cachedir
+      local buildorderfile
+
+      cachedir="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache"
+      buildorderfilename="buildorder"
+      case ${dbrval} in
+         0)
+            create_buildorder_file_if_needed "${buildorderfilename}" "${cachedir}"
+         ;;
+
+         2)
+            create_buildorder_file "${buildorderfilename}" "${cachedir}"
+         ;;
+      esac
    fi
 
-   if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" = "YES" ] # usually from environment
-   then
-      tasks="source"
-   fi
-
-   #
-   # Check if we need to update. If we do, we do.
-   # This will fetch dependencies if required. An error here means we have
-   # no sourcetree
-   #
-   local dbrval
-
-   "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} -s dbstatus
-   dbrval="$?"
-
-   if [ ${dbrval} -eq 2 ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
-
-      log_verbose "Run sourcetree update"
-
-      eval_exekutor "'${MULLE_SOURCETREE}'" \
-                     "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
-   fi
-
-   if [ ${dbrval} -ne 0 ]
-   then
-      tasks="${tasks} sourcetree"
-   fi
-
+   # get a bit of environment happening for actual crafting
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
@@ -141,65 +273,13 @@ sde_craft_main()
 
    set_projectname_environment "read"
 
-   if [ ! -z "${tasks}" ]
-   then
-      if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-      fi
-
-      sde_update_main ${updateflags} ${tasks} || exit 1
-   fi
-
    local cmdline
-   local buildorderfile
 
    cmdline="'${MULLE_CRAFT}' ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS}"
-
-   if [ ${dbrval} -ne 1 ]
+   if [ "${OPTION_MOTD}" = "YES" ]
    then
-      local sourcetreefile
-      local statefile
-      local cachedir
-
-      #
-      # our buildorder is specific to a host
-      #
-      [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
-
-      cachedir="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache"
-      buildorderfile="${cachedir}/buildorder"
-      statefile="${DEPENDENCY_DIR}/.state"
-      sourcetreefile=".mulle-sourcetree/etc/config"
-
-      #
-      # produce a buildorderfile, if absent or old
-      #
-      if [ "${sourcetreefile}" -nt "${buildorderfile}" ]
-      then
-         if [ -z "${MULLE_PATH_SH}" ]
-         then
-            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
-         fi
-         if [ -z "${MULLE_FILE_SH}" ]
-         then
-            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
-         fi
-
-         log_verbose "Create buildorder file (${buildorderfile})"
-
-         mkdir_if_missing "${cachedir}"
-         if ! redirect_exekutor "${buildorderfile}" \
-            "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} buildorder \
-                 --output-marks ${MULLE_CRAFT_BUILDORDER_OPTIONS}
-         then
-            remove_file_if_present "${buildorderfile}"
-            exit 1
-         fi
-      fi
+      cmdline="${cmdline} '--motd'"
    fi
-
-   cmdline="${cmdline} --motd"
 
    local arguments
 
