@@ -1,3 +1,7 @@
+### 0.23.1
+
+* fix craft bug forgetting to build dependencies
+
 ## 0.23.0
 
 * redid the clean command

@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.23.0
+MULLE_EXECUTABLE_VERSION=0.23.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -213,6 +213,35 @@ determine_project_dir()
 }
 
 
+run_command_in_subshell()
+{
+   cd "`determine_project_dir`" || exit 1
+
+   local cmdline
+   local flag
+
+   set -o noglob # keep it
+
+   cmdline="$0"
+
+   for flag in ${MULLE_TECHNICAL_FLAGS} ${MULLE_FWD_FLAGS}
+   do
+      cmdline="${cmdline}
+${flag}"
+   done
+
+   while [ $# -ne 0 ]
+   do
+      cmdline="${cmdline}
+$1"
+      shift
+   done
+
+   log_fluff "Run command with mulle-env: -C \"${cmdline}\""
+   rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
+}
+
+
 cd_virtual_root()
 {
    local cmd="$1"
@@ -359,31 +388,7 @@ main()
             buildinfo|buildorder|callback|clean|craft|definition|dependency|\
 environment|fetch|find|library|mark|match|monitor|patternfile|subproject|style|\
 task|template|tool|unmark|update)
-
-               cd "`determine_project_dir`" || exit 1
-
-               local cmdline
-               local flag
-
-               set -o noglob # keep it
-
-               cmdline="$0"
-
-               for flag in ${MULLE_TECHNICAL_FLAGS} ${MULLE_FWD_FLAGS}
-               do
-                  cmdline="${cmdline}
-${flag}"
-               done
-
-               while [ $# -ne 0 ]
-               do
-                  cmdline="${cmdline}
-$1"
-                  shift
-               done
-
-               log_fluff "Run command with mulle-env: -C \"${cmdline}\""
-               rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
+               run_command_in_subshell "$@"
             ;;
 
             bash-completion|commands|extension|init|init-and-enter|reinit|uname|version\

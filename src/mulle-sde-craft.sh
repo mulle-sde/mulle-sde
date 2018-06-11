@@ -86,7 +86,7 @@ create_buildorder_file()
 {
    log_entry "create_buildorder_file" "$@"
 
-   local buildorderfilename="$1"
+   local buildorderfile="$1"
    local cachedir="$2"
 
    if [ -z "${MULLE_PATH_SH}" ]
@@ -99,10 +99,6 @@ create_buildorder_file()
    fi
 
    log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} buildorder"
-
-   local buildorderfile
-
-   buildorderfile="${cachedir}/${buildorderfilename}"
 
    mkdir_if_missing "${cachedir}"
    if ! redirect_exekutor "${buildorderfile}" \
@@ -121,7 +117,7 @@ create_buildorder_file_if_needed()
 {
    log_entry "create_buildorder_file_if_needed" "$@"
 
-   local buildorderfilename="$1"
+   local buildorderfile="$1"
    local cachedir="$2"
 
    local sourcetreefile
@@ -132,14 +128,15 @@ create_buildorder_file_if_needed()
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
 
    sourcetreefile="${MULLE_VIRTUAL_ROOT}/.mulle-sourcetree/etc/config"
-   buildorderfile="${cachedir}/${buildorderfilename}"
 
    #
    # produce a buildorderfile, if absent or old
    #
    if [ "${sourcetreefile}" -nt "${buildorderfile}" ]
    then
-      create_buildorder_file "${buildorderfilename}" "${cachedir}"
+      create_buildorder_file "${buildorderfile}" "${cachedir}"
+   else
+      log_fluff "Buildorder file \"${buildorderfile}\" is up-to-date"
    fi
 }
 
@@ -184,10 +181,19 @@ sde_craft_main()
       shift
    done
 
+
    #
    # our buildorder is specific to a host
    #
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
+
+   local buildorderfile
+   local cachedir
+   local buildorderfilename
+
+   cachedir="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache"
+   buildorderfilename="buildorder"  # might make this flexible
+   buildorderfile="${cachedir}/${buildorderfilename}"
 
    if [ "${OPTION_UPDATE}" = "YES" ]
    then
@@ -249,18 +255,13 @@ sde_craft_main()
       #
       # Possibly build a new buildorder file for sourcetree changes
       #
-      local cachedir
-      local buildorderfile
-
-      cachedir="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache"
-      buildorderfilename="buildorder"
       case ${dbrval} in
          0)
-            create_buildorder_file_if_needed "${buildorderfilename}" "${cachedir}"
+            create_buildorder_file_if_needed "${buildorderfile}" "${cachedir}"
          ;;
 
          2)
-            create_buildorder_file "${buildorderfilename}" "${cachedir}"
+            create_buildorder_file "${buildorderfile}" "${cachedir}"
          ;;
       esac
    fi
