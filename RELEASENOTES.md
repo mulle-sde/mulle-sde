@@ -1,3 +1,7 @@
+### 0.23.2
+
+* improved usage info, removed definition command, improved buildinfo command
+
 ### 0.23.1
 
 * fix craft bug forgetting to build dependencies

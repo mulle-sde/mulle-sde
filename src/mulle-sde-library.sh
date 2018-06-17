@@ -167,7 +167,7 @@ sde_library_add_main()
          ;;
 
          -*)
-            log_error "unknown option \"$1\""
+            log_error "Unknown option \"$1\""
             sde_library_add_usage
          ;;
 
@@ -220,7 +220,7 @@ sde_library_set_main()
          ;;
 
          -*)
-            sde_library_set_usage "unknown option \"$1\""
+            sde_library_set_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -278,7 +278,7 @@ sde_library_get_main()
          ;;
 
          -*)
-            sde_library_get_usage "unknown option \"$1\""
+            sde_library_get_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -344,7 +344,7 @@ sde_library_list_main()
          ;;
 
          -*)
-            sde_library_list_usage "unknown option \"$1\""
+            sde_library_list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -384,7 +384,7 @@ sde_library_main()
          ;;
 
          -*)
-            sde_library_usage "unknown option \"$1\""
+            sde_library_usage "Unknown option \"$1\""
          ;;
 
          *)

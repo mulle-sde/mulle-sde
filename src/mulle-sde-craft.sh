@@ -174,7 +174,7 @@ sde_craft_main()
             break
          ;;
 
-         ""|*)
+         *)
             break
          ;;
       esac

@@ -268,7 +268,7 @@ sde_update_main()
          ;;
 
          -*)
-            sde_update_usage "unknown option \"$1\""
+            sde_update_usage "Unknown option \"$1\""
          ;;
 
          *)

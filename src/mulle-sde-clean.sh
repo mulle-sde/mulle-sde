@@ -49,7 +49,7 @@ Domains:
    all         : cleans everything
    cache       : clean some caches, will force an update on next craft
    default     : clean project and subprojects (default)
-   project     : clean project build directory
+   project     : clean project, keeps dependencies
    rebuild     : like default plus removes the dependency folder
    subproject  : clean subprojects
    tidy        : cleans everything and removes fetched dependencies
@@ -80,10 +80,18 @@ sde_clean_output_main()
 
 sde_clean_builddir_main()
 {
-   log_entry "sde_clean_build_main" "$@"
+   log_entry "sde_clean_builddir_main" "$@"
 
-   log_verbose "Cleaning \"addiction\" directory"
+   log_verbose "Cleaning \"build\" directory"
    rmdir_safer "${BUILD_DIR}"
+}
+
+sde_clean_dependencydir_main()
+{
+   log_entry "sde_clean_dependencydir_main" "$@"
+
+   log_verbose "Cleaning \"dependency\" directory"
+   rmdir_safer "${DEPENDENCY_DIR}"
 }
 
 
@@ -265,6 +273,10 @@ tidy"
          domains="project subproject"
       ;;
 
+      'dependency')
+         domains="builddir dependencydir"
+      ;;
+
       'rebuild')
          domains="builddir"
       ;;
@@ -274,7 +286,9 @@ tidy"
       ;;
 
       *)
-         domains="$1"
+         rexekutor "${MULLE_CRAFT}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_CRAFT_FLAGS} clean "$@"
       ;;
    esac
 

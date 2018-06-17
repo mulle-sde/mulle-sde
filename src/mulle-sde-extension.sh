@@ -541,7 +541,7 @@ sde_extension_list_main()
          ;;
 
          -*)
-            sde_extension_list_usage "unknown option \"$1\""
+            sde_extension_list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1073,7 +1073,7 @@ sde_extension_usage_main()
          ;;
 
          -*)
-            sde_extension_usage_usage "unknown option \"$1\""
+            sde_extension_usage_usage "Unknown option \"$1\""
             ;;
 
          *)
@@ -1142,7 +1142,7 @@ sde_extension_main()
          ;;
 
          -*)
-            sde_extension_usage "unknown option \"$1\""
+            sde_extension_usage "Unknown option \"$1\""
          ;;
 
          *)

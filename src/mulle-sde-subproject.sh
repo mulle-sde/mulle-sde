@@ -187,7 +187,7 @@ sde_subproject_set_main()
          ;;
 
          -*)
-            log_error "unknown option \"$1\""
+            log_error "Unknown option \"$1\""
             sde_subproject_set_usage
          ;;
 
@@ -510,7 +510,7 @@ sde_subproject_main()
       commands)
          echo "\
 add
-definition
+buildinfo
 enter
 get
 init
@@ -521,8 +521,7 @@ move
 remove
 set
 unmark
-update-patternfile\
-"
+update-patternfile"
       ;;
 
       subcommands)
@@ -549,11 +548,7 @@ list"
          return 1
       ;;
 
-      definition)
-         sde_subproject_definition_main "$@"
-      ;;
-
-      dependency|environment|find|match|patternfile|library|update)
+      buildinfo|dependency|environment|find|match|patternfile|library|update)
          local subproject
 
          [ -z "${SUBPROJECT}" ] && "Command \"${cmd}\" requires -s <subproject> option"

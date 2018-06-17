@@ -1534,6 +1534,20 @@ install_project()
       PROJECT_NAME="`fast_basename "${PWD}"`"
    fi
 
+   # check that PROJECT_NAME looks usable as an identifier
+   case "${PROJECT_NAME}" in
+      *\ *)
+         fail "Project name  \"${PROJECT_NAME}\" contains spaces"
+      ;;
+
+      [a-zA-Z_]*)
+      ;;
+
+      *)
+         fail "Project name \"${PROJECT_NAME}\" must start with a letter or underscore"
+      ;;
+   esac
+
    #
    # the project language is actually determined by the runtime
    # extension
@@ -2056,7 +2070,7 @@ sde_init_main()
          ;;
 
          -*)
-            sde_init_usage "unknown option \"$1\""
+            sde_init_usage "Unknown option \"$1\""
          ;;
 
          *)

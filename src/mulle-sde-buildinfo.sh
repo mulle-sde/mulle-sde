@@ -115,7 +115,7 @@ sde_buildinfo_main()
             sde_buildinfo_usage "Unknown definition option ${argument}"
          ;;
 
-         ""|*)
+         *)
             break
          ;;
       esac

@@ -605,11 +605,6 @@ _mulle_sde_complete()
          return 0
       ;;
 
-      buildinfo)
-         _mulle_sde_buildinfo_complete
-         return 0
-      ;;
-
       dependency)
          _mulle_sde_dependency_complete
          return 0
