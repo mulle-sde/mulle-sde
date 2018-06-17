@@ -292,20 +292,35 @@ sde_craft_main()
 
    log_verbose "Craft \"${cmd}\" project \"${PROJECT_NAME}\""
 
-   if [ "${cmd}" != "project" ]
-   then
-      if [ ! -z "${buildorderfile}" ]
-      then
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-            eval_exekutor "${cmdline}" buildorder \
-                                       --buildorder-file "'${buildorderfile}'" \
-                                       "${arguments}" || return 1
-      fi
-   fi
+   case "${cmd}" in
+      'all')
+         if [ -f "${buildorderfile}" ]
+         then
+            MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
+               eval_exekutor "${cmdline}" buildorder \
+                                          --buildorder-file "'${buildorderfile}'" \
+                                          "${arguments}" || return 1
+         else
+            log_fluff "No buildorderfile so skipping buildorder craft step"
+         fi
+      ;;
 
-   if [ "${cmd}" != "dependency" ]
-   then
-      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-         eval_exekutor "${cmdline}" project "${arguments}" || return 1
-   fi
+      'buildorder'|'dependency')
+         if [ -f "${buildorderfile}" ]
+         then
+            MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
+               eval_exekutor "${cmdline}" buildorder \
+                                          --buildorder-file "'${buildorderfile}'" \
+                                          "${arguments}" || return 1
+         else
+            log_info "There are no dependencies or libraries to build"
+         fi
+      ;;
+   esac
+
+   case "${cmd}" in
+      'project'|'all')
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
+            eval_exekutor "${cmdline}" project "${arguments}" || return 1
+   esac
 }

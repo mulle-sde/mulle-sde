@@ -1,3 +1,7 @@
+### 0.23.3
+
+* dont be so harsh if buildorderfile doesnt exist
+
 ### 0.23.2
 
 * improved usage info, removed definition command, improved buildinfo command
