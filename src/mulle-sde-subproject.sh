@@ -58,7 +58,8 @@ Options:
    -s <subproject> : choose subproject to run command in
 
 Commands:
-   add             : add a subproject
+   add             : add an existing subproject
+   init            : create a subproject
    remove          : remove a subproject
    move            : change buildorder of subproject
    list            : list subprojects (default)
@@ -333,6 +334,11 @@ sde_subproject_init_main()
             sde_subproject_init_usage
          ;;
 
+         --)
+            shift
+            break
+         ;;
+
          -*)
             sde_subproject_init_usage "Unknown option \"$1\""
          ;;
@@ -356,6 +362,27 @@ sde_subproject_init_main()
       fail "\"${directory}\" is already present and initialized"
    fi
 
+   local args
+
+   if [ $# -eq 0 ]
+   then
+      if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
+      then
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
+      fi
+
+      local meta
+
+      meta="`sde_extension_main installed-meta`"
+      if [ -z "${meta}" ]
+      then
+         fail "Unknown installed meta extension. Specify it yourself"
+         exit 1
+      fi
+
+      args="--style `mulle-env style` -m '${meta}' library"
+   fi
+
    if [ -z "${MULLE_PATH_SH}" ]
    then
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
@@ -366,28 +393,6 @@ sde_subproject_init_main()
    fi
 
    mkdir_if_missing "${directory}"
-
-   if [ $# -ne 0 ]
-   then
-      args="$@"
-   else
-      args="--style `mulle-env style`"
-
-      if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
-      fi
-
-      meta="`sde_extension_main installed-meta`"
-      if [ -z "${meta}" ]
-      then
-         fail "Unknown installed meta extension. Specify it yourself"
-         exit 1
-      fi
-
-      args="${args} -m ${meta} library"
-   fi
-
    (
       cd "${directory}"
 
@@ -396,7 +401,8 @@ sde_subproject_init_main()
 
       MULLE_VIRTUAL_ROOT="" \
       MULLE_FLAG_MAGNUM_FORCE="YES" \
-         eval_exekutor sde_init_main --no-motd --project-source-dir "." "${args}"
+      PROJECT_NAME="" \
+         eval_exekutor sde_init_main --no-motd --no-blurb --project-source-dir "." "$@" "${args}"
    ) || exit 1
 
    sde_subproject_main "add" "${directory}"
@@ -500,7 +506,7 @@ sde_subproject_main()
    [ $# -ne 0 ] && shift
 
 
-   case "${cmd:-list}" in
+   case "${cmd}" in
       add)
          exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} add \
             --marks "${SUBPROJECT_MARKS}" "$@"
@@ -551,7 +557,7 @@ list"
       buildinfo|dependency|environment|find|match|patternfile|library|update)
          local subproject
 
-         [ -z "${SUBPROJECT}" ] && "Command \"${cmd}\" requires -s <subproject> option"
+         [ -z "${SUBPROJECT}" ] && fail "Command \"${cmd}\" requires -s <subproject> option"
 
          local cmdline
          local arg
@@ -640,8 +646,12 @@ $1"
          update_ignore_patternfile "$@"
       ;;
 
-      *)
+      "")
          sde_subproject_usage
+      ;;
+
+      *)
+         sde_subproject_usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

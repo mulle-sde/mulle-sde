@@ -450,10 +450,6 @@ _sde_enhance_url()
    local nodetype="$3"
    local address="$4"
 
-   _url=""
-   _branch=""
-   _address=""
-   _nodetype=""
 
    if [ -z "${nodetype}" ]
    then
@@ -464,7 +460,16 @@ _sde_enhance_url()
    if [ -z "${address}" ]
    then
       address="`${MULLE_SOURCETREE} -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
+      if [ -z "${address}" ]
+      then
+         fail "Specify --address with this kind of URL"
+      fi
    fi
+
+   _url=""
+   _branch=""
+   _address=""
+   _nodetype=""
 
    #
    # create a convenient URL that can be substituted with env
@@ -996,7 +1001,7 @@ sde_dependency_main()
 
    [ $# -ne 0 ] && shift
 
-   case "${cmd:-list}" in
+   case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
@@ -1066,8 +1071,7 @@ os-excludes"
       ;;
 
       *)
-         log_error "Unknown command \"${cmd}\""
-         sde_dependency_usage
+         sde_dependency_usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

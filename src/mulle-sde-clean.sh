@@ -47,6 +47,7 @@ Usage:
 
 Domains:
    all         : cleans everything
+   buildorder  : like rebuild, but also wipes the cached buildorder
    cache       : clean some caches, will force an update on next craft
    default     : clean project and subprojects (default)
    project     : clean project, keeps dependencies
@@ -143,7 +144,7 @@ sde_clean_subproject_main()
 
 
 #
-# this destroy the buildorder
+# this will destroy the buildorder
 #
 sde_clean_cache_main()
 {
@@ -265,8 +266,12 @@ tidy"
          domains="output var"
       ;;
 
-      'tidy')
-         domains="output sourcetree var db monitor patternfile"
+      'buildorder')
+         domains="cache builddir dependencydir"
+      ;;
+
+      'cache')
+         domains="cache db monitor patternfile"
       ;;
 
       'default')
@@ -281,8 +286,8 @@ tidy"
          domains="builddir"
       ;;
 
-      'cache')
-         domains="cache db monitor patternfile"
+      'tidy')
+         domains="output sourcetree var db monitor patternfile"
       ;;
 
       *)

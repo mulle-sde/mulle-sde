@@ -47,7 +47,7 @@ Options:
    --recurse|flat|share : specify mode to update sourcetree with
 
 Environment:
-   MULLE_FETCH_CACHE_DIR   : local cache of archives
+   MULLE_FETCH_ARCHIVE_DIR   : local cache of archives
    MULLE_FETCH_MIRROR_DIR  : local mirror of git repositories
    MULLE_FETCH_SEARCH_PATH : specify local directories to search, : separated
 

@@ -1,0 +1,96 @@
+#! /usr/bin/env bash
+
+[ "${TRACE}" = "YES" ] && set -x
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################"
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################"
+
+   exekutor ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+}
+
+
+_setup_test()
+{
+   (
+      exekutor cd "$1" || exit 1
+      exekutor mkdir repos || exit 1
+
+      (
+         exekutor cd repos    || exit 1
+
+         run_mulle_sde init -m mulle-sde/c-developer -d a library || exit 1
+         run_mulle_sde init -m mulle-sde/c-developer -d c library || exit 1
+
+         (
+            exekutor cd a || exit 1
+            run_mulle_sde subproject init b || exit 1
+            run_mulle_sde subproject --subproject b dependency add --nodetype git c || exit 1
+            run_mulle_sde update || exit 1
+         ) || exit 1
+
+         (
+            exekutor cd c || exit 1
+            run_mulle_sde update || exit 1
+         ) || exit 1
+
+      ) || exit 1
+
+      (
+         run_mulle_sde init -m mulle-sde/c-developer -d project executable || exit 1
+         cd project || exit 1
+
+         run_mulle_sde environment set MULLE_FETCH_SEARCH_PATH "${PWD}/../repos"
+         run_mulle_sde dependency add --nodetype git a
+      ) || exit 1
+
+   ) || exit 1
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@"
+
+   local directory
+   local dstdir
+   local repo
+
+   directory="`make_tmp_directory`" || exit 1
+
+   _setup_test "${directory}"
+
+   (
+      cd "${directory}/project"  || exit 1
+      run_mulle_sde -vvv -ld fetch  || exit 1
+      run_mulle_sde -v craft -V  || exit 1
+   ) || exit 1
+
+   log_verbose "----- #1 PASSED -----"
+
+   log_info "----- ALL PASSED -----"
+
+   # rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+
+init "$@"
+main "$@"
+

@@ -1,3 +1,7 @@
+### 0.23.4
+
+* rename tests to test, fix some bugs, add new clean target buildorder
+
 ### 0.23.3
 
 * dont be so harsh if buildorderfile doesnt exist

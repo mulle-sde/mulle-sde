@@ -1057,7 +1057,7 @@ vendor \"${vendor}\""
    fi
 
    # install version first
-   if [ "${exttype}" != "oneshot" ]
+   if [ "${exttype}" != "oneshot" -a -z "${onlyfilename}" ]
    then
       install_version "${vendor}" "${extname}" "${extensiondir}"
    fi
@@ -1144,6 +1144,11 @@ vendor \"${vendor}\""
                                          "YES" \
                                          "${onlyfilename}" \
                                          "$@"
+   fi
+
+   if [ ! -z "${onlyfilename}" ]
+   then
+      return
    fi
 
    #
@@ -2262,6 +2267,6 @@ Use \`mulle-sde upgrade\` for maintainance"
    if [ "${OPTION_BLURB}" = "YES" ]
    then
       log_info "Enter the environment:
-   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD}\"${C_INFO}"
+   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
    fi
 }

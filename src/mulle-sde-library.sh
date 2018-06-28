@@ -402,7 +402,7 @@ sde_library_main()
    # shellcheck source=src/mulle-sde-common.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-   case "${cmd:-list}" in
+   case "${cmd}" in
       add|get|list|set)
          sde_library_${cmd}_main "$@"
       ;;
@@ -418,8 +418,7 @@ sde_library_main()
       ;;
 
       *)
-         log_error "Unknown command \"${cmd}\""
-         sde_library_usage
+         sde_library_usage "Unknown command \"${cmd}\""
       ;;
    esac
 }
