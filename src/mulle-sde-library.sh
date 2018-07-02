@@ -359,7 +359,7 @@ sde_library_list_main()
 
    exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
       --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
-      --marks "${LIBRARY_LIST_MARKS}" \
+      --marks "${marks}" \
       --nodetypes "${LIBRARY_LIST_NODETYPES}" \
       --output-no-marks "${LIBRARY_MARKS}" \
        "$@"

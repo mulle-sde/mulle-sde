@@ -115,5 +115,13 @@ sde_upgrade_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
    fi
 
-   sde_subproject_map "Upgrading" "NO" "mulle-sde extension upgrade"
+   local flags
+
+   flags="${MULLE_SDE_FLAGS} ${MULLE_TECHNICAL_FLAGS}"
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+   then
+      flags="${flags} -f"
+   fi
+
+   sde_subproject_map "Upgrading" "NO" "mulle-sde ${flags} extension upgrade"
 }

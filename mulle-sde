@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.23.4
+MULLE_EXECUTABLE_VERSION=0.24.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -68,6 +68,7 @@ print_commands()
    environment    : manage environment variables (project settings)
    find           : find files that match patternfiles
    library        : manage second party (OS) libraries (like pthread)
+   log            : show craft results
    update         : update project makefiles and sources"
 
       HIDDEN_COMMANDS="\
@@ -377,7 +378,7 @@ main()
 
          case "${cmd}" in
             buildinfo|buildorder|callback|clean|craft|dependency|\
-environment|fetch|find|library|match|monitor|patternfile|subproject|style|\
+environment|fetch|find|library|log|match|monitor|patternfile|subproject|style|\
 task|template|tool|update)
                run_command_in_subshell "$@"
             ;;
@@ -499,7 +500,7 @@ init-and-enter
 libexec-dir
 library
 library-path
-mark
+log
 match
 monitor
 patternfile
@@ -511,7 +512,6 @@ task
 template
 tool
 uname
-unmark
 update
 version"
          exit 0
@@ -601,6 +601,14 @@ version"
 
       libexec-dir|library-path)
          exekutor echo "${MULLE_SDE_LIBEXEC_DIR}"
+      ;;
+
+      log)
+         cd_virtual_root "${cmd}"
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
       ;;
 
       match|patternfile)

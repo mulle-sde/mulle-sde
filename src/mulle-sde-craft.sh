@@ -50,6 +50,7 @@ Usage:
 
 Options:
    -h         : show this usage
+   -q         : skip uptodate checks
 
 Commands:
    all        : build dependency folder first then the project (default)

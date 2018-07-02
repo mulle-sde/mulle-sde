@@ -1,3 +1,8 @@
+## 0.24.0
+
+* add log command, forwarding it to mulle-craft
+
+
 ### 0.23.4
 
 * rename tests to test, fix some bugs, add new clean target buildorder

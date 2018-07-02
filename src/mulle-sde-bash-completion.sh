@@ -136,7 +136,7 @@ _mulle_sde_library_complete()
    local list
 
    case "${prev}" in
-      get|remove|set)
+      get|remove|set|mark|unmark)
          list="`mulle-sde $* library list -- --format "%a\\n" --no-output-header`"
          COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
          return

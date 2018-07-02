@@ -220,13 +220,23 @@ sde_update_worker()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
    fi
 
-   local flags
+   local options
 
+   options="--no-craft"
    if [ "${runner}" = "_task_run_if_needed" ]
    then
-      flags="--if-needed"
+      options="${options} --if-needed"
    fi
-   sde_subproject_map "Updating" "NO" "mulle-sde ${MULLE_TECHNICAL_FLAGS} update ${flags} --no-craft"
+
+   local flags
+
+   flags="${MULLE_SDE_FLAGS} ${MULLE_TECHNICAL_FLAGS}"
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+   then
+      flags="${flags} -f"
+   fi
+
+   sde_subproject_map "Updating" "NO" "mulle-sde ${flags} update ${options}"
 }
 
 
