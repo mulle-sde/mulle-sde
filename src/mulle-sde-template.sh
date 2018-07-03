@@ -309,7 +309,7 @@ template_contents_replacement_command()
 
 copy_and_expand_template()
 {
-   log_entry "copy_and_expand_template" "$@"
+   log_entry "copy_and_expand_template" "$1" "$2" "..." "$5"
 
    local templatedir="$1"
    local dstfile="$2"
@@ -332,6 +332,12 @@ copy_and_expand_template()
       log_debug "Expanded filename \"${dstfile}\" to \"${expanded_dstfile}\""
    fi
 
+   if [ "${FLAG_FORCE}" = "NO" -a -e "${expanded_dstfile}" ]
+   then
+      log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
+      return 2
+   fi
+
    if [ ! -z "${onlyfile}" ]
    then
       case "${expanded_dstfile}" in
@@ -340,16 +346,10 @@ copy_and_expand_template()
          ;;
 
          *)
-            log_fluff "Ignore \"${expanded_dstfile}\". It is not matching \"${onlyfile}\""
-            return
+            log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (nomatch \"${onlyfile}\")"
+            return 0
          ;;
       esac
-   fi
-
-   if [ "${FLAG_FORCE}" = "NO" -a -e "${expanded_dstfile}" ]
-   then
-      log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
-      return
    fi
 
    mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
@@ -363,7 +363,7 @@ copy_and_expand_template()
    log_debug "Generating text from template \"${templatefile}\""
    text="`LC_ALL=C eval_exekutor "${template_sed}" < "${templatefile}" `"
 
-   log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\""
+   log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 
    redirect_exekutor "${expanded_dstfile}" echo "${text}"
 
@@ -376,7 +376,7 @@ copy_and_expand_template()
 
 default_template_setup()
 {
-   log_entry "default_template_setup" "$@"
+   log_entry "default_template_setup" "$1" "$2" "$3" "$4" "$5" "$6" ...
 
    local templatedir="$1"
    local onlyfile="$6"
@@ -398,6 +398,8 @@ default_template_setup()
    fi
 
    local filename
+   local rval
+
 
    # too funny, IFS="" is wrong IFS="\n" is also wrong. Only hardcoded LF works
 

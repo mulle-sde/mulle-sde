@@ -1,3 +1,7 @@
+### 0.24.2
+
+* bug fixes for --upgrade-project-file
+
 ### 0.24.1
 
 * better support for --upgrade-project-file

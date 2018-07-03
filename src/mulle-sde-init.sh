@@ -248,7 +248,7 @@ _template_file_arguments()
                --extensions '${PROJECT_EXTENSIONS}' \
                --source-dir '${PROJECT_SOURCE_DIR}'"
 
-   if [ "${force}" = "YES" -o ! -z "${onlyfilename}" ]
+   if [ "${force}" = "YES" ]
    then
       _arguments="${_arguments} -f"
    fi
@@ -698,6 +698,10 @@ run_init()
       auxflags="-f"
    fi
 
+   #
+   # TODO: small database with sha256 sums, that the user has "allowed"
+   #       if not in database query Y/n like mulle-bootstrap used to
+   #
    log_warning "Running init script \"${executable}\""
 
    eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
@@ -1465,6 +1469,17 @@ install_extensions()
       esac
    fi
 
+   if [ ! -z "${onlyfilename}" ]
+   then
+      (
+         shopt -s nullglob
+         for i in ${onlyfilename}
+         do
+            remove_file_if_present "${i}"
+         done
+      )
+   fi
+
    #
    # buildtool is the most likely to fail, due to a mistyped
    # projectdir, if that happens, we have done the least pollution yet
@@ -2180,7 +2195,8 @@ Some files may be missing and the project may not be craftable."
    #
    # An upgrade is an "inplace" refresh of the extensions
    #
-   if [ "${OPTION_REINIT}" != "YES" -a "${OPTION_UPGRADE}" != "YES" -a \
+   if [ "${OPTION_REINIT}" != "YES" -a \
+       "${OPTION_UPGRADE}" != "YES" -a \
         -d "${MULLE_SDE_DIR}" ]
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
@@ -2228,17 +2244,17 @@ Use \`mulle-sde upgrade\` for maintainance"
 
    add_environment_variables "${OPTION_DEFINES}"
 
-   mkdir_if_missing "${MULLE_SDE_DIR}" || exit 1
-   redirect_exekutor "${MULLE_SDE_DIR}/.init" echo "Start init: `date`"
-
-   #
-   # always wipe these for clean upgrades
-   # except if we are just updating a specific project file
-   # (i.e. CMakeLists.txt). Keep "extension" file around in case something
-   # goes wrong. Also temporarily keep old share
-   #
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
+      mkdir_if_missing "${MULLE_SDE_DIR}" || exit 1
+      redirect_exekutor "${MULLE_SDE_DIR}/.init" echo "Start init: `date`"
+
+      #
+      # always wipe these for clean upgrades
+      # except if we are just updating a specific project file
+      # (i.e. CMakeLists.txt). Keep "extension" file around in case something
+      # goes wrong. Also temporarily keep old share
+      #
       rmdir_safer "${MULLE_SDE_DIR}/share.old"
       if [ -d "${MULLE_SDE_DIR}/share" ]
       then
@@ -2282,12 +2298,15 @@ Use \`mulle-sde upgrade\` for maintainance"
                       "${MULLE_FLAG_MAGNUM_FORCE}"
    fi
 
-   rmdir_safer "${MULLE_SDE_DIR}/share.old"
-   remove_file_if_present "${MULLE_SDE_DIR}/.init"
-
-   if [ "${OPTION_BLURB}" = "YES" ]
+   if [ -z "${OPTION_PROJECT_FILE}" ]
    then
-      log_info "Enter the environment:
+      rmdir_safer "${MULLE_SDE_DIR}/share.old"
+      remove_file_if_present "${MULLE_SDE_DIR}/.init"
+
+      if [ "${OPTION_BLURB}" = "YES" ]
+      then
+         log_info "Enter the environment:
    ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
+      fi
    fi
 }
