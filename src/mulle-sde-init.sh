@@ -857,7 +857,6 @@ _copy_extension_template_directory()
    local projecttype="$1"; shift
    local force="$1"; shift
 
-
    local first
    local second
 
@@ -1068,21 +1067,25 @@ vendor \"${vendor}\""
       return
    fi
 
-   #
-   # mulle-env stuff
-   #
-   if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment|tool|optionaltool" \
-                                        "no-env" \
-                                        "no-env/${vendor}/${extname}"
+
+   if [ -z "${onlyfilename}" ]
    then
-      add_to_environment "${extensiondir}/environment"
-      add_to_tools "${extensiondir}/tool"
-      add_to_tools "${extensiondir}/optionaltool" "--optional"
+      #
+      # mulle-env stuff
+      #
+      if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment|tool|optionaltool" \
+                                           "no-env" \
+                                           "no-env/${vendor}/${extname}"
+      then
+         add_to_environment "${extensiondir}/environment"
+         add_to_tools "${extensiondir}/tool"
+         add_to_tools "${extensiondir}/optionaltool" "--optional"
 
-      _copy_env_extension_dir "${extensiondir}/env" ||
-         fail "Could not copy \"${extensiondir}/env\""
+         _copy_env_extension_dir "${extensiondir}/env" ||
+            fail "Could not copy \"${extensiondir}/env\""
 
-      _append_to_motd "${extensiondir}"
+         _append_to_motd "${extensiondir}"
+      fi
    fi
 
    #
@@ -1119,15 +1122,17 @@ vendor \"${vendor}\""
 
    fi
 
-   #
-   # used to install this only with project, but it was too surprising
-   # turn it off with no-sourcetree
-   #
-   install_sourcetree_files "${extensiondir}" \
-                            "${vendor}" \
-                            "${extname}" \
-                            "${marks}"
-
+   if [ -z "${onlyfilename}" ]
+   then
+      #
+      # used to install this only with project, but it was too surprising
+      # turn it off with no-sourcetree
+      #
+      install_sourcetree_files "${extensiondir}" \
+                               "${vendor}" \
+                               "${extname}" \
+                               "${marks}"
+   fi
    #
    # the clobber folder is like project but may always overwrite
    # this is used for refreshing cmake/share and such, where the user should
@@ -1498,6 +1503,11 @@ install_extensions()
                               "${onlyfilename}" \
                               "${force}" || exit 1
 
+   if [ ! -z "${onlyfilename}" ]
+   then
+      return
+   fi
+
    fix_permissions
 
    #
@@ -1801,7 +1811,6 @@ __get_installed_extensions()
 }
 
 
-
 remove_from_marks()
 {
    log_entry "remove_from_marks" "$@"
@@ -1835,7 +1844,7 @@ read_project_environment()
 {
    if [ -f ".mulle-env/share/environment-project.sh" ]
    then
-      log_verbose "Reading project settings"
+      log_fluff "Reading project settings"
       . ".mulle-env/share/environment-project.sh"
    fi
 
@@ -2142,8 +2151,11 @@ sde_init_main()
          fail "Could not retrieve previous extension information"
       fi
 
-      rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} \
-                     environment upgrade || exit 1
+      if [ -z "${OPTION_PROJECT_FILE}" ]
+      then
+         rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} \
+                        environment upgrade || exit 1
+      fi
    else
       [ $# -eq 0 ] && sde_init_usage "Missing project type"
       [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
@@ -2251,6 +2263,15 @@ Use \`mulle-sde upgrade\` for maintainance"
          else
             fail "Things went really bad, can't restore old configuration"
          fi
+      fi
+
+      if [ -z "${OPTION_PROJECT_FILE}" ]
+      then
+         #
+         # repair patternfiles as a "bonus" with -add option
+         #
+         exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
+                    ${MULLE_MATCH_FLAGS} patternfile repair --add
       fi
    else
       install_project "${OPTION_NAME:-${PROJECT_NAME}}" \

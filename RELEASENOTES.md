@@ -1,3 +1,7 @@
+### 0.24.1
+
+* better support for --upgrade-project-file
+
 ## 0.24.0
 
 * add log command, forwarding it to mulle-craft

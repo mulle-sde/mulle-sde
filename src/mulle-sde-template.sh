@@ -315,12 +315,7 @@ copy_and_expand_template()
    local dstfile="$2"
    local filename_sed="$3"
    local template_sed="$4"
-
-   if [ "${FLAG_FORCE}" = "NO" -a -e "${dstfile}" ]
-   then
-      log_fluff "\"${templatedir}\" !! \"${dstfile}\" (exists)"
-      return
-   fi
+   local onlyfile="$5"
 
    local templatefile
 
@@ -328,23 +323,33 @@ copy_and_expand_template()
 
    [ ! -f "${templatefile}" ] && internal_fail "\"${templatefile}\" is missing"
 
-   local text
-
-   log_debug "Generating text from template \"${templatefile}\""
-   text="`LC_ALL=C eval_exekutor "${template_sed}" < "${templatefile}" `"
-
    local expanded_dstfile
 
    expanded_dstfile="`LC_ALL=C eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
 
    if [ "${expanded_dstfile}" != "${dstfile}" ]
    then
-      log_debug "Expanded \"${dstfile}\" to \"${expanded_dstfile}\""
-      if [ "${FLAG_FORCE}" = "NO" -a -e "${expanded_dstfile}" ]
-      then
-         log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
-         return
-      fi
+      log_debug "Expanded filename \"${dstfile}\" to \"${expanded_dstfile}\""
+   fi
+
+   if [ ! -z "${onlyfile}" ]
+   then
+      case "${expanded_dstfile}" in
+         ${onlyfile})
+            log_verbose "Install \"${expanded_dstfile}\""
+         ;;
+
+         *)
+            log_fluff "Ignore \"${expanded_dstfile}\". It is not matching \"${onlyfile}\""
+            return
+         ;;
+      esac
+   fi
+
+   if [ "${FLAG_FORCE}" = "NO" -a -e "${expanded_dstfile}" ]
+   then
+      log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
+      return
    fi
 
    mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
@@ -352,6 +357,11 @@ copy_and_expand_template()
    then
       exekutor chmod ug+w "${expanded_dstfile}"
    fi
+
+   local text
+
+   log_debug "Generating text from template \"${templatefile}\""
+   text="`LC_ALL=C eval_exekutor "${template_sed}" < "${templatefile}" `"
 
    log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\""
 
@@ -382,7 +392,10 @@ default_template_setup()
       return 0
    fi
 
-   log_verbose "Installing template directory \"${templatedir}\""
+   if [ -z "${onlyfile}" ]
+   then
+      log_verbose "Installing template directory \"${templatedir}\""
+   fi
 
    local filename
 
@@ -394,22 +407,20 @@ default_template_setup()
    do
       IFS="${DEFAULT_IFS}"
 
+      filename="${filename#./}"
+
       # suppress OS X uglies
       case "${filename}" in
-         .*/*.DS_Store)
+         *.DS_Store)
             continue
          ;;
       esac
 
-      if [ -z "${onlyfile}" -o "${filename}" = "./${onlyfile}" ]
-      then
-         copy_and_expand_template "${templatedir}" \
-                                  "${filename}" \
-                                  "${filename_sed}" \
-                                  "${template_sed}"
-      else
-         log_debug "Ignoring \"${filename}\" (onlyfile=${onlyfile})..."
-      fi
+      copy_and_expand_template "${templatedir}" \
+                               "${filename}" \
+                               "${filename_sed}" \
+                               "${template_sed}" \
+                               "${onlyfile}"
       IFS="
 "
    done
