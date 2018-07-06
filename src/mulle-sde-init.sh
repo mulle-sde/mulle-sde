@@ -1198,6 +1198,14 @@ install_extension()
 {
    log_entry "install_extension" "$@"
 
+#   local projecttype="$1"
+#   local exttype="$2"
+   local vendor="$3"
+   local extname="$4"
+#   local marks="$5"
+   local onlyfilename="$6"
+#   local force="$7"
+
    local TEMPLATE_DIRECTORIES
 
    _install_extension "$@"
@@ -1209,7 +1217,10 @@ install_extension()
 
    [ -z "${TEMPLATE_DIRECTORIES}" ] && return
 
-   log_info "Installing project files for \"$3/$4\""
+   if [ -z "${onlyfilename}" ]
+   then
+      log_info "Installing project files for \"${vendor}/${extname}\""
+   fi
 
    #
    # using the --embedded option, the template generator keeps state in

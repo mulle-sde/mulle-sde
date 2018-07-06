@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.24.2
+MULLE_EXECUTABLE_VERSION=0.24.3
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -205,7 +205,7 @@ determine_project_dir()
 }
 
 
-run_command_in_subshell()
+exec_command_in_subshell()
 {
    cd "`determine_project_dir`" || exit 1
 
@@ -380,11 +380,16 @@ main()
             buildinfo|buildorder|callback|clean|craft|dependency|\
 environment|fetch|find|library|log|match|monitor|patternfile|subproject|style|\
 task|template|tool|update)
-               run_command_in_subshell "$@"
+               exec_command_in_subshell "$@"
             ;;
 
             bash-completion|commands|extension|init|init-and-enter|reinit|uname|version\
 libexec-dir|library-path|project-dir)
+            ;;
+
+            enter)
+               shift
+               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "$@"
             ;;
 
             "")
@@ -688,7 +693,7 @@ version"
       ;;
 
       update)
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root "${cmd}" # "NO"
 
          # shellcheck source=src/mulle-sde-update.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"

@@ -342,7 +342,7 @@ copy_and_expand_template()
    then
       case "${expanded_dstfile}" in
          ${onlyfile})
-            log_verbose "Install \"${expanded_dstfile}\""
+            log_info "Install \"${expanded_dstfile}\""
          ;;
 
          *)

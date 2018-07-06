@@ -102,7 +102,6 @@ Builds your project including all dependencies.
 mulle-sde craft
 ```
 
-
 ## mulle-sde dependency
 
 ![](dox/mulle-sde-dependency.png)
@@ -219,6 +218,18 @@ mulle-sde library add m
 See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
 information about managing libraries.
 
+
+## mulle-sde log
+
+![](dox/mulle-sde-log.png)
+
+List and inspect log files produced by craft.
+
+```
+mulle-sde log list
+mulle-sde log cat
+mulle-sde log -p "MulleObjC" grep 'foo'
+```
 
 ## mulle-sde monitor
 

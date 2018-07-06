@@ -1171,7 +1171,7 @@ sde_extension_main()
       ;;
    esac
 
-   case "${cmd:-list}" in
+   case "${cmd}" in
       add|pimp)
          [ $# -eq 0 ] && sde_extension_${cmd}_usage
 
@@ -1230,6 +1230,11 @@ sde_extension_main()
       upgrade)
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
+
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            exec_command_in_subshell extension upgrade "$@"
+         fi
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} add" \
             sde_upgrade_main "$@"

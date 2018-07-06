@@ -1,3 +1,7 @@
+### 0.24.3
+
+* add "fluff" command enter
+
 ### 0.24.2
 
 * bug fixes for --upgrade-project-file
