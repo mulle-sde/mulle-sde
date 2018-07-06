@@ -1,3 +1,7 @@
+### 0.24.4
+
+* add convenient experimental run command
+
 ### 0.24.3
 
 * add "fluff" command enter
