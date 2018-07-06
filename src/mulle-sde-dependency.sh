@@ -477,7 +477,15 @@ _sde_enhance_url()
    #
    local upcaseid
 
-   upcaseid="`tr 'a-z-' 'A-Z_' <<< "${address}"`"
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
+   fi
+
+   upcaseid="`tweaked_de_camel_case "${address}"`"
+   upcaseid="`printf "%s" "${upcaseid}" | tr -c 'a-zA-Z0-9' '_'`"
+   upcaseid="`tr 'a-z' 'A-Z' <<< "${upcaseid}"`"
 
    local last
    local leading

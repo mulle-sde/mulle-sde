@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.24.4
+MULLE_EXECUTABLE_VERSION=0.24.5
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -50,7 +50,8 @@ print_commands()
       SHOWN_COMMANDS="\
    bash-completion: get bash completion with \`. \$(mulle-sde bash-completion)\`
    extension      : show available language and buildtool extensions
-   init           : create a new project"
+   init           : create a new project
+   run            : run a command in a subshell"
 
       HIDDEN_COMMANDS="\
    environment    : manage environment variables (project settings)
@@ -702,7 +703,8 @@ version"
       ;;
 
       update)
-         cd_virtual_root "${cmd}" # "NO"
+         # must allow NO for subenv updates
+         cd_virtual_root "${cmd}" "NO"
 
          # shellcheck source=src/mulle-sde-update.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"

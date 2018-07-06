@@ -1,3 +1,7 @@
+### 0.24.5
+
+* fix subproject update
+
 ### 0.24.4
 
 * add convenient experimental run command
