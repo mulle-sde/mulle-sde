@@ -202,7 +202,12 @@ sde_craft_main()
       local tasks
 
       updateflags="--if-needed"
-      tasks="source"
+
+      case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+         *:source:*)
+            tasks="source"
+         ;;
+      esac
 
       #
       # Make a quick estimate if this is a virgin checkout scenario, by checking
@@ -240,7 +245,11 @@ sde_craft_main()
       # run task sourcetree, if present (0) or was dirty (2)
       if [ ${dbrval} -ne 1 ]
       then
-         tasks="${tasks} sourcetree"
+         case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+            *:sourcetree:*)
+               tasks="${tasks} sourcetree"
+            ;;
+         esac
       fi
 
       if [ "${OPTION_UPDATE}" = "YES" ]

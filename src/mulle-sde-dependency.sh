@@ -86,11 +86,14 @@ Usage:
 
 Options:
    --branch <name> : specify branch to checkout for git repositories
-   --embedded      : the dependency source code is not built
-   --headerless    : the dependency has no headerfile
-   --headeronly    : the dependency has no library
+   --embedded      : the dependency becomes part of the local project
+   --headerless    : has no headerfile
+   --headeronly    : has no library
    --if-missing    : if a node with the same address is present, do nothing
+   --objc          : used for Objective-C dependencies
+   --optional      : is not required to exist
    --plain         : do not enhance URLs with environment variables
+   --private       : headers are not visible to API consumers
       (see: mulle-sourcetree -v add -h for more information about options)
 EOF
   exit 1
@@ -545,6 +548,10 @@ sde_dependency_add_main()
    local marks="${DEPENDENCY_MARKS}"
 
    local OPTION_ENHANCE="YES"     # enrich URL
+   local OPTION_DIALECT="c"
+   local OPTION_PRIVATE="NO"
+   local OPTION_SHARE="YES"
+   local OPTION_OPTIONAL="NO"
 
    #
    # grab options for mulle-sourcetree
@@ -573,8 +580,29 @@ sde_dependency_add_main()
             marks="`comma_concat "${marks}" "no-build,no-header,no-link,no-share"`"
          ;;
 
+         -c|--c)
+            OPTION_DIALECT="c"
+         ;;
+
+         -m|--objc)
+            OPTION_DIALECT="objc"
+         ;;
+
          --plain)
             OPTION_ENHANCE="NO"
+         ;;
+
+         --private)
+            OPTION_PRIVATE="YES"
+         ;;
+
+         --public)
+            OPTION_PRIVATE="NO"
+         ;;
+
+
+         --optional)
+            OPTION_OPTIONAL="YES"
          ;;
 
          --branch)
@@ -646,6 +674,22 @@ sde_dependency_add_main()
             address="${_address}"
          ;;
       esac
+   fi
+
+   case "${OPTION_DIALECT}" in
+      c)
+         marks="`comma_concat "${marks}" "no-import,no-all-load" `"
+      ;;
+   esac
+
+   if [ "${OPTION_PRIVATE}" = "YES" ]
+   then
+      marks="`comma_concat "${marks}" "no-public" `"
+   fi
+
+   if [ "${OPTION_OPTIONAL}" = "YES" ]
+   then
+      marks="`comma_concat "${marks}" "no-require" `"
    fi
 
    if [ ! -z "${nodetype}" ]

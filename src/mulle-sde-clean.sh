@@ -145,6 +145,8 @@ sde_clean_subproject_main()
 
 #
 # this will destroy the buildorder
+# also wipe archive cache. Does not wipe git mirror cache unless -f is given
+# because thats supposed to be harmless
 #
 sde_clean_cache_main()
 {
@@ -152,6 +154,20 @@ sde_clean_cache_main()
 
    log_verbose "Cleaning sde cache"
    rmdir_safer ".mulle-sde/var/${MULLE_HOSTNAME}/cache"
+
+
+   if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
+   then
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+      then
+         rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
+      fi
+   fi
+
+   if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
+   then
+      rmdir_safer "${MULLE_FETCH_ARCHIVE_DIR}"
+   fi
 }
 
 
@@ -287,7 +303,7 @@ tidy"
       ;;
 
       'tidy')
-         domains="output sourcetree var db monitor patternfile"
+         domains="sourcetree output var db monitor patternfile"
       ;;
 
       *)

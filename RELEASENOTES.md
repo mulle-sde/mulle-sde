@@ -1,3 +1,9 @@
+## 0.25.0
+
+* add some more options to dependency add command
+* clean up after a failed init
+
+
 ### 0.24.5
 
 * fix subproject update

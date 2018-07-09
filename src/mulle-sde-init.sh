@@ -412,7 +412,7 @@ install_inheritfile()
                          "${marks}" \
                          "${onlyfilename}" \
                          "${force}" \
-                         "$@" || return 1
+                         "$@"
       IFS="
 "
     done <<< "${text}"
@@ -901,6 +901,7 @@ _copy_extension_template_directory()
 #
 # e.g.   no-project/mulle-sde/cmake
 #
+# Will exit on error. Always returns 0
 #
 _install_extension()
 {
@@ -938,9 +939,8 @@ _install_extension()
 
    if ! extensiondir="`find_extension "${vendor}" "${extname}"`"
    then
-      log_error "Could not find extension \"${extname}\" by \
+      fail "Could not find extension \"${extname}\" by \
 vendor \"${vendor}\""
-      return 1
    fi
 
    if ! _check_file "${extensiondir}/version"
@@ -1051,7 +1051,7 @@ vendor \"${vendor}\""
                           "${inheritmarks}" \
                           "${onlyfilename}" \
                           "${force}" \
-                          "$@" || exit 1
+                          "$@"
    fi
 
    if [ -z "${onlyfilename}" ]
@@ -1193,6 +1193,7 @@ vendor \"${vendor}\""
 
 }
 
+# Will exit on error. Always returns 0
 
 install_extension()
 {
@@ -1239,7 +1240,7 @@ install_extension()
          if [ ! -z "${arguments}" ]
          then
             set +o noglob
-            eval _template_main "${arguments}"
+            eval _template_main "${arguments}" || exit 1
          fi
       done
    )
@@ -1335,12 +1336,13 @@ _install_simple_extension()
                         "${extra_name}" \
                         "${marks}" \
                         "${onlyfilename}" \
-                        "${force}" || return 1
+                        "${force}"
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
+# Will exit on error. Always returns 0
 install_extra_extensions()
 {
    log_entry "install_extra_extensions" "$@"
@@ -1349,6 +1351,7 @@ install_extra_extensions()
 }
 
 
+# Will exit on error. Always returns 0
 install_oneshot_extensions()
 {
    log_entry "install_oneshot_extensions" "$@"
@@ -1401,7 +1404,7 @@ memorize_installed_extensions()
    local extensions="$1"
 
    mkdir_if_missing "${MULLE_SDE_DIR}/share"
-   redirect_exekutor "${MULLE_SDE_DIR}/share/extension" echo "${extensions}"
+   redirect_exekutor "${MULLE_SDE_DIR}/share/extension" echo "${extensions}" || exit 1
 }
 
 
@@ -1501,33 +1504,33 @@ install_extensions()
                      "${meta_name}" \
                      "${marks}" \
                      "${onlyfilename}" \
-                     "${force}" &&
+                     "${force}"
    install_extension "${PROJECT_TYPE}" \
                      "runtime" \
                      "${runtime_vendor}" \
                      "${runtime_name}" \
                      "${marks}" \
                      "${onlyfilename}" \
-                     "${force}" &&
+                     "${force}"
    install_extension "${PROJECT_TYPE}" \
                      "buildtool" \
                      "${buildtool_vendor}" \
                      "${buildtool_name}" \
                      "${marks}" \
                      "${onlyfilename}" \
-                     "${force}" || exit 1
+                     "${force}"
 
    install_extra_extensions "${OPTION_EXTRAS}" \
                             "${PROJECT_TYPE}" \
                             "${marks}" \
                             "${onlyfilename}" \
-                            "${force}" || exit 1
+                            "${force}"
 
    install_oneshot_extensions "${OPTION_ONESHOTS}" \
                               "${PROJECT_TYPE}" \
                               "${marks}" \
                               "${onlyfilename}" \
-                              "${force}" || exit 1
+                              "${force}"
 
    if [ ! -z "${onlyfilename}" ]
    then
@@ -1934,6 +1937,7 @@ sde_init_main()
    local OPTION_PROJECT_SOURCE_DIR
    local OPTION_EXISTING
    local OPTION_UPGRADE_SUBPROJECTS
+   local PURGE_PWD_ON_ERROR="NO"
 
    local line
 
@@ -1977,6 +1981,7 @@ sde_init_main()
 
             exekutor mkdir -p "$1" 2> /dev/null
             exekutor cd "$1" || fail "can't change to \"$1\""
+            PURGE_PWD_ON_ERROR="YES"
          ;;
 
          -e|--extra)
@@ -2253,7 +2258,24 @@ Use \`mulle-sde upgrade\` for maintainance"
       esac
    fi
 
+   local PURGE_MULLE_SDE_DIR_ON_ERROR="NO"
+   local PURGE_MULLE_ENV_DIR_ON_ERROR="NO"
+   local PURGE_MULLE_SOURCETREE_DIR_ON_ERROR="NO"
+
    add_environment_variables "${OPTION_DEFINES}"
+
+   if [ ! -d "${MULLE_SDE_DIR}" ]
+   then
+      PURGE_MULLE_SDE_DIR_ON_ERROR="YES"
+   fi
+   if [ ! -d ".mulle-env" ]
+   then
+      PURGE_MULLE_ENV_DIR_ON_ERROR="YES"
+   fi
+   if [ ! -d ".mulle-sourcetree" ]
+   then
+      PURGE_MULLE_SOURCETREE_DIR_ON_ERROR="YES"
+   fi
 
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
@@ -2277,9 +2299,10 @@ Use \`mulle-sde upgrade\` for maintainance"
    # rmdir_safer ".mulle-env"
    if [ "${OPTION_UPGRADE}" = "YES" ]
    then
-      if ! install_extensions "${OPTION_MARKS}" \
-                              "${OPTION_PROJECT_FILE}" \
-                              "${MULLE_FLAG_MAGNUM_FORCE}"
+      if ! ( install_extensions "${OPTION_MARKS}" \
+                                "${OPTION_PROJECT_FILE}" \
+                                "${MULLE_FLAG_MAGNUM_FORCE}"
+      )
       then
          if [ -d "${MULLE_SDE_DIR}/share.old" ]
          then
@@ -2301,12 +2324,35 @@ Use \`mulle-sde upgrade\` for maintainance"
                     ${MULLE_MATCH_FLAGS} patternfile repair --add
       fi
    else
-      install_project "${OPTION_NAME:-${PROJECT_NAME}}" \
+      if ! (
+         install_project "${OPTION_NAME:-${PROJECT_NAME}}" \
                       "${PROJECT_TYPE}" \
                       "${OPTION_PROJECT_SOURCE_DIR:-${PROJECT_SOURCE_DIR}}" \
                       "${OPTION_MARKS}" \
                       "${OPTION_PROJECT_FILE}" \
                       "${MULLE_FLAG_MAGNUM_FORCE}"
+      )
+      then
+         log_fluff "Cleaning up"
+
+         if [ "${PURGE_MULLE_SDE_DIR_ON_ERROR}" = "YES" ]
+         then
+            rmdir_safer "${MULLE_SDE_DIR}"
+         fi
+         if [ "${PURGE_MULLE_ENV_DIR_ON_ERROR}" = "YES" ]
+         then
+            rmdir_safer ".mulle-env"
+         fi
+         if [ "${PURGE_MULLE_SOURCETREE_DIR_ON_ERROR}" = "YES" ]
+         then
+            rmdir_safer ".mulle-sourcetree"
+         fi
+         if [ "${PURGE_PWD_ON_ERROR}" = "YES" ]
+         then
+            rmdir_safer "${PWD}"
+         fi
+         exit 1
+      fi
    fi
 
    if [ -z "${OPTION_PROJECT_FILE}" ]

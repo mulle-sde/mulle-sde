@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.24.5
+MULLE_EXECUTABLE_VERSION=0.25.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -50,12 +50,12 @@ print_commands()
       SHOWN_COMMANDS="\
    bash-completion: get bash completion with \`. \$(mulle-sde bash-completion)\`
    extension      : show available language and buildtool extensions
-   init           : create a new project
-   run            : run a command in a subshell"
+   init           : create a new project"
 
       HIDDEN_COMMANDS="\
    environment    : manage environment variables (project settings)
    libexec-dir    : print path to mulle-sde libexec
+   run            : run a command in a subshell
    style          : show environment style
    uname          : mulle-sdes simplified uname(1)
    init-and-enter : create a new project then immediately start a subshell"
