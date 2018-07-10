@@ -322,6 +322,7 @@ ${TEMPLATE_DIRECTORIES}"
 }
 
 
+
 install_inheritfile()
 {
    log_entry "install_inheritfile" "$@"
@@ -880,6 +881,69 @@ _copy_extension_template_directory()
                                   "$@"
 }
 
+
+_delete_leaf_files_or_directories()
+{
+   log_entry "_delete_leaf_files_or_directories" "$@"
+
+   local extensiondir="$1"
+   local subdirectory="$2"
+   local projecttype="$3"
+
+   local directory
+
+   directory="`filepath_concat "${extensiondir}" "${subdirectory}" `"
+   directory="`filepath_concat "${directory}" "${projecttype}" `"
+   if [ ! -d "${directory}" ]
+   then
+      return 0
+   fi
+
+   directory="`physicalpath "${directory}"`"
+
+   local i
+
+   # https://stackoverflow.com/questions/1574403/list-all-leaf-subdirectories-in-linux
+   IFS="
+"
+   for i in `find "${directory}" -execdir sh -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
+   do
+      IFS="${DEFAULT_IFS}"
+
+      local relpath
+
+      relpath="${i#${directory}/}"
+
+      if [ -d "${relpath}" ]
+      then
+         rmdir_safer "${relpath}"
+      else
+         if [ "`fast_basename "${relpath}"`" = ".gitignore" ]
+         then
+            relpath="`fast_dirname "${relpath}"`"
+            rmdir_safer "${relpath}"
+         else
+            remove_file_if_present "${relpath}"
+         fi
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+_delete_extension_template_directory()
+{
+   log_entry "_delete_extension_template_directory" "$@"
+
+   local extensiondir="$1"
+   local subdirectory="$2"
+   local projecttype="$3"
+
+   _delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" "${projecttype}"
+   _delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" all
+}
+
+
 #
 # With "marks" you control what should be installed:
 #
@@ -1099,6 +1163,20 @@ vendor \"${vendor}\""
    #  no-project
    #  no-clobber
    #
+   if [ -z "${onlyfilename}" ]
+   then
+      # part of project really
+      if ! is_directory_disabled_by_marks "${marks}" \
+                                          "${extensiondir}/delete" \
+                                          "no-project" \
+                                          "no-project/${vendor}/${extname}"
+      then
+         _delete_extension_template_directory "${extensiondir}" \
+                                              "delete" \
+                                              "${projecttype}"
+      fi
+   fi
+
    if ! is_directory_disabled_by_marks "${marks}" \
                                        "${extensiondir}/demo" \
                                        "no-demo" \
@@ -1137,10 +1215,11 @@ vendor \"${vendor}\""
                                "${extname}" \
                                "${marks}"
    fi
+
    #
    # the clobber folder is like project but may always overwrite
    # this is used for refreshing cmake/share and such, where the user should
-   # not edit
+   # not edit. A feature now obsoleted by "delete"
    #
    if ! is_directory_disabled_by_marks "${marks}" \
                                        "${extensiondir}/clobber" \

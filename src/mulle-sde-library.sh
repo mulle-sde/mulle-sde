@@ -86,6 +86,11 @@ Usage:
 
    Example:
       ${MULLE_USAGE_NAME} libraries add pthread
+
+Options:
+   --objc          : used for static Objective-C libraries
+   --optional      : is not required to exist
+   --private       : headers are not visible to API consumers
 EOF
   exit 1
 }
@@ -156,14 +161,41 @@ sde_library_add_main()
 {
    log_entry "sde_library_add_main" "$@"
 
-   local OPTION_OS_EXCLUDES
-   local OPTION_ALIASES
+   local marks="${LIBRARY_MARKS}"
+
+   local OPTION_DIALECT="c"
+   local OPTION_PRIVATE="NO"
+   local OPTION_OPTIONAL="NO"
 
    while :
    do
       case "$1" in
          -h|--help|help)
             sde_library_add_usage
+         ;;
+
+         -c|--c)
+            OPTION_DIALECT="c"
+         ;;
+
+         -m|--objc)
+            OPTION_DIALECT="objc"
+         ;;
+
+         --plain)
+            OPTION_ENHANCE="NO"
+         ;;
+
+         --private)
+            OPTION_PRIVATE="YES"
+         ;;
+
+         --public)
+            OPTION_PRIVATE="NO"
+         ;;
+
+         --optional)
+            OPTION_OPTIONAL="YES"
          ;;
 
          -*)
@@ -193,11 +225,28 @@ sde_library_add_main()
       esac
    fi
 
+   case "${OPTION_DIALECT}" in
+      c)
+         marks="`comma_concat "${marks}" "no-import,no-all-load" `"
+      ;;
+   esac
+
+   if [ "${OPTION_PRIVATE}" = "YES" ]
+   then
+      marks="`comma_concat "${marks}" "no-public" `"
+   fi
+
+   if [ "${OPTION_OPTIONAL}" = "YES" ]
+   then
+      marks="`comma_concat "${marks}" "no-require" `"
+   fi
+
    log_verbose "Adding \"${libname}\" to libraries"
 
-   exekutor "${MULLE_SOURCETREE}" -V add --nodetype none \
-                                      --marks "${LIBRARY_MARKS},no-all-load" \
-                                    "${libname}"
+   exekutor "${MULLE_SOURCETREE}" -V add \
+                                       --nodetype none \
+                                       --marks "${marks}" \
+                                       "${libname}"
 }
 
 

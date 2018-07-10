@@ -168,11 +168,11 @@ _sourcetree_set_os_excludes()
    local append="${4:-NO}"
    local byurl="$5"
 
-   local mode
+   local flags
 
    if [ "${byurl}" = "YES " ]
    then
-      mode="--url-addressing"
+      flags="--url-addressing"
    fi
 
    local marks
@@ -180,12 +180,12 @@ _sourcetree_set_os_excludes()
    marks="${stdmarks}"
    if [ "${append}" = "YES" ]
    then
-      marks="`exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
+      marks="`exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${flags} \
                 get "${address}" "marks" `"
    fi
 
    marks="`os_excludes_add "${marks}" "${value}" `"
-   exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
+   exekutor "${MULLE_SOURCETREE}" ${MULLE_SOURCETREE_FLAGS} ${flags} \
       set "${address}" "marks" "${marks}"
 }
 

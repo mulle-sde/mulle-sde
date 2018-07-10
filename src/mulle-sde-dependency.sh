@@ -600,7 +600,6 @@ sde_dependency_add_main()
             OPTION_PRIVATE="NO"
          ;;
 
-
          --optional)
             OPTION_OPTIONAL="YES"
          ;;
