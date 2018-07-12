@@ -1,3 +1,7 @@
+### 0.26.4
+
+* fix installer-all for mulle-c-developer, experimentally allow init from inside environment
+
 ### 0.26.3
 
 * mulle-sde searches extensions relative to its install space now

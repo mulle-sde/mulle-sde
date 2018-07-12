@@ -72,6 +72,18 @@ main()
    do
       install_project "mulle-sde" "${project}"
    done
+
+   local vendorproject
+   local vendor
+   local project
+
+   for vendorproject in ${OTHER_PROJECTS}
+   do
+      vendor="${vendorproject%%/*}"
+      project="${vendorproject#*/}"
+
+      install_project "${vendor}" "${project}"
+   done
 }
 
 main "$@"

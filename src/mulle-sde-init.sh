@@ -2214,8 +2214,8 @@ sde_init_main()
 
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
-      [ -z "${MULLE_VIRTUAL_ROOT}" ] || \
-         fail "You can not run init inside an environment shell"
+      # empty it now
+      MULLE_VIRTUAL_ROOT=""
    fi
 
    if [ "${OPTION_UPGRADE}" = "YES" ]
