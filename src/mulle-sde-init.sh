@@ -914,18 +914,23 @@ _delete_leaf_files_or_directories()
 
       relpath="`simplified_path "${i#${directory}/}"`"
 
-      if [ -d "${relpath}" ]
+      if [ ! -d "${relpath}" ]
       then
-         rmdir_safer "${relpath}"
-      else
-         if [ "`fast_basename "${relpath}"`" = ".gitignore" ]
+         if [ "`fast_basename "${relpath}"`" != ".gitignore" ]
          then
-            relpath="`fast_dirname "${relpath}"`"
-            rmdir_safer "${relpath}"
-         else
-            remove_file_if_present "${relpath}"
+            log_warning "Not deleting files at present (${relpath})"
+            continue
          fi
+         relpath="`fast_dirname "${relpath}"`"
       fi
+
+      if [ "`fast_basename "${relpath}"`" != "share" ]
+      then
+         log_warning "Only deleting folders called \"share\" at present (${relpath})"
+         continue
+      fi
+
+      rmdir_safer "${relpath}"
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -1035,7 +1040,7 @@ vendor \"${vendor}\""
 
                log_fluff "Project language set to \"${PROJECT_DIALECT}\""
                log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
-               log_fluff "Dialect extensions set to \"${PROJECT_EXTENSIONS}\""
+               log_fluff "Project extensions set to \"${PROJECT_EXTENSIONS}\""
                LANGUAGE_SET="YES"
            fi
          fi
@@ -1510,8 +1515,6 @@ install_extensions()
    local option
    local tmp
 
-   local _INSTALLED_EXTENSIONS
-
    if [ ! -z "${OPTION_META}" ]
    then
       if [ ! -z "${OPTION_RUNTIME}" -o ! -z "${OPTION_BUILDTOOL}" ]
@@ -1694,9 +1697,9 @@ install_project()
       set PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
 
    local _MOTD
+   local _INSTALLED_EXTENSIONS
 
    _MOTD=""
-
 
    log_info "Installing project extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
 
@@ -1723,28 +1726,32 @@ install_project()
    exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
 
-
-   case "${marks}" in
-      no-motd|*,no-motd,*|*,no-motd)
+   case ",${marks}," in
+      *',no-motd,'*)
+         return
       ;;
+   esac
 
-      *)
-         if [ ! -z "${_MOTD}" ]
-         then
-            _MOTD="
-"
-         fi
+   # only install motd if we have a buildtool extension ?
+   case "${_INSTALLED_EXTENSIONS}" in
+      *';buildtool'*)
 
          local motd
 
          motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
-   mulle-sde craft${C_RESET}" `"
+mulle-sde craft${C_RESET}" `"
 
-         _MOTD="${_MOTD}${motd}"
-
-         install_motd "${_MOTD}"
+         if [ -z "${_MOTD}" ]
+         then
+            _MOTD="${motd}"
+         else
+            _MOTD="${_MOTD}
+${motd}"
+         fi
       ;;
    esac
+
+   install_motd "${_MOTD}"
 }
 
 

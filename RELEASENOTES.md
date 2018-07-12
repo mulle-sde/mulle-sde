@@ -1,3 +1,7 @@
+### 0.26.2
+
+* do not generate craft motd if no builtool extension is installed
+
 ### 0.26.1
 
 * fix problem with delete add `INCLUDE_COMMAND` as template identifier
