@@ -1,3 +1,9 @@
+### 0.26.1
+
+* fix problem with delete add `INCLUDE_COMMAND` as template identifier
+* add --objc --private options to library
+* add delete folder to extensions, which obsoletes clobber
+
 ## 0.25.0
 
 * add some more options to dependency add command

@@ -170,6 +170,16 @@ emit_projectdialect_seds()
 
    cmdline="${cmdline} -e 's/${o}PROJECT_EXTENSION${c}/${escaped_de}/g'"
 
+   case "${PROJECT_DIALECT}" in
+      objc)
+         cmdline="${cmdline} -e 's/${o}INCLUDE_COMMAND${c}/import/g'"
+      ;;
+
+      *)
+         cmdline="${cmdline} -e 's/${o}INCLUDE_COMMAND${c}/include/g'"
+      ;;
+   esac
+
    echo "${cmdline}"
 }
 

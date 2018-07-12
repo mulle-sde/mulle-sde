@@ -912,7 +912,7 @@ _delete_leaf_files_or_directories()
 
       local relpath
 
-      relpath="${i#${directory}/}"
+      relpath="`simplified_path "${i#${directory}/}"`"
 
       if [ -d "${relpath}" ]
       then
