@@ -1,3 +1,7 @@
+### 0.26.3
+
+* mulle-sde searches extensions relative to its install space now
+
 ### 0.26.2
 
 * do not generate craft motd if no builtool extension is installed

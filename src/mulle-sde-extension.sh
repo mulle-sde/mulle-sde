@@ -188,8 +188,21 @@ extension_get_search_path()
    homeextensionsdir="${homeextensionsdir}/mulle-sde/extensions/${vendor}"
    s="$s:${homeextensionsdir}"
 
-   s="$s:/usr/local/share/mulle-sde/extensions"
-   s="$s:/usr/share/mulle-sde/extensions"
+   #
+   # figure out where share is located
+   #
+   local directory
+
+   directory="`fast_dirname "$0" `"           # bin
+   directory="`fast_dirname "${directory}" `" # usr (or local)
+   case "`fast_basename "${directory}"`" in
+      'local')
+         directory="`fast_dirname "${directory}" `" # usr (or local)
+      ;;
+   esac
+
+   s="$s:${directory}/local/share/mulle-sde/extensions"
+   s="$s:${directory}/share/mulle-sde/extensions"
 
    case "$s" in
       :*)
