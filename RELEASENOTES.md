@@ -1,3 +1,7 @@
+### 0.26.5
+
+* add refetch clean target, fix an unsightliness during init
+
 ### 0.26.4
 
 * fix installer-all for mulle-c-developer, experimentally allow init from inside environment

@@ -906,7 +906,7 @@ _delete_leaf_files_or_directories()
    # https://stackoverflow.com/questions/1574403/list-all-leaf-subdirectories-in-linux
    IFS="
 "
-   for i in `find "${directory}" -execdir sh -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
+   for i in `find "${directory}" -mindepth 1 -execdir sh -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
    do
       IFS="${DEFAULT_IFS}"
 
