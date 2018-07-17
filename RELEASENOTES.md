@@ -1,3 +1,7 @@
+### 0.26.9
+
+* fix bugs with symbolic links created by brew on osx
+
 ### 0.26.8
 
 * add a debug statement

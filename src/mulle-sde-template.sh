@@ -414,7 +414,7 @@ default_template_setup()
 
    IFS="
 "
-   for filename in `( cd "${templatedir}" ; find . -type f -print )`
+   for filename in `( cd "${templatedir}" ; find -L . -type f -print )`
    do
       IFS="${DEFAULT_IFS}"
 
