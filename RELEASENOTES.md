@@ -1,3 +1,7 @@
+### 0.26.8
+
+* add a debug statement
+
 ### 0.26.7
 
 * fix recently introduced bug

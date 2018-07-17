@@ -410,7 +410,6 @@ default_template_setup()
    local filename
    local rval
 
-
    # too funny, IFS="" is wrong IFS="\n" is also wrong. Only hardcoded LF works
 
    IFS="
@@ -424,6 +423,9 @@ default_template_setup()
       # suppress OS X uglies
       case "${filename}" in
          *.DS_Store)
+            log_debug "Suppressed ugly \"${filename}\""
+            IFS="
+"
             continue
          ;;
       esac
