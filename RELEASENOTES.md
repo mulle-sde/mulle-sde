@@ -1,3 +1,7 @@
+### 0.26.7
+
+* fix recently introduced bug
+
 ### 0.26.6
 
 * use `MULLE_SDE_EXTENSION_PATH` for override and `MULLE_SDE_EXTENSION_BASE_PATH` for default setting of extensions searchpath

@@ -169,8 +169,10 @@ extension_get_search_path()
    if [ ! -z "${s}" ]
    then
       log_debug "Extension search path: \"${s}\""
-      return "${s}"
+      echo "${s}"
+      return
    fi
+
    s="${MULLE_SDE_EXTENSION_BASE_PATH}"
 
    local homeprefdir
