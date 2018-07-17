@@ -652,7 +652,8 @@ sde_dependency_add_main()
    done
 
    local url="$1"
-   [ -z "${url}" ] && sde_dependency_add_usage "Missing url"
+
+   [ -z "${url}" ] && sde_dependency_add_usage "URL argument is missing ($*)"
    shift
 
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
