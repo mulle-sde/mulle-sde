@@ -1,3 +1,7 @@
+### 0.26.10
+
+* add -D option to define environment variables
+
 ### 0.26.9
 
 * fix bugs with symbolic links created by brew on osx
