@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.26.5
+MULLE_EXECUTABLE_VERSION=0.27.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -103,6 +103,8 @@ print_flags()
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
+   echo "   -DKEY=VALUE   : define one-time environment variable"
+
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       echo "   --style <val>  : see \`mulle-env help\` for style description"
@@ -174,6 +176,56 @@ usage()
 {
    _usage "$@" >&2
    exit 1
+}
+
+
+
+set_custom_define()
+{
+   log_entry "set_custom_define" "$@"
+
+   local keyvalue="$1"
+
+   local key
+   local value
+
+   key="${keyvalue%%=*}"
+
+   if [ -z "${key}" ]
+   then
+      key="${keyvalue}"
+   else
+      value="${keyvalue#*=}"
+   fi
+
+   if [ "${key}" != "`printf "%q" "${key}"`" ]
+   then
+      fail "Invalid Environment key \"${key}\""
+   fi
+
+   eval "export ${key}='${value}'"
+
+   log_fluff "Set environment variable \"${key}\" to \"`eval echo \\\$${key}`\""
+}
+
+
+set_custom_environment()
+{
+   log_entry "set_custom_environment" "$@"
+
+   local defines="$1"
+
+   local i
+
+   set -f; IFS="
+"
+   for i in ${defines}
+   do
+      set +f; IFS="${DEFAULT_IFS}"
+
+      set_custom_define "${i#-D}"
+   done
+   set +f; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -281,6 +333,8 @@ main()
    local MULLE_FLAG_LOG_MERGE="NO"
    local MULLE_TRACE_POSTPONE="NO"
 
+   local defines
+
    #
    # simple option handling
    #
@@ -346,6 +400,13 @@ main()
                options_technical_flags --list-technical-flags
             ) | sort
             exit 0
+         ;;
+
+
+         -D*)
+            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1"`"
+
+            defines="`add_line "${defines}" "$1" `"
          ;;
 
          -*)
@@ -454,6 +515,11 @@ libexec-dir|library-path|project-dir)
       log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
       log_trace2 "MULLE_SOURCETREE=\"${MULLE_SOURCETREE}\""
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+   fi
+
+   if [ ! -z "${defines}" ]
+   then
+      set_custom_environment "${defines}"
    fi
 
    case "${cmd}" in

@@ -410,12 +410,11 @@ default_template_setup()
    local filename
    local rval
 
-
    # too funny, IFS="" is wrong IFS="\n" is also wrong. Only hardcoded LF works
 
    IFS="
 "
-   for filename in `( cd "${templatedir}" ; find . -type f -print )`
+   for filename in `( cd "${templatedir}" ; find -L . -type f -print )`
    do
       IFS="${DEFAULT_IFS}"
 
@@ -424,6 +423,9 @@ default_template_setup()
       # suppress OS X uglies
       case "${filename}" in
          *.DS_Store)
+            log_debug "Suppressed ugly \"${filename}\""
+            IFS="
+"
             continue
          ;;
       esac

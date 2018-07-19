@@ -158,7 +158,6 @@ extension_get_search_path()
 {
    log_entry "extension_get_search_path" "$@"
 
-   local i
    local s
 
    #
@@ -166,27 +165,30 @@ extension_get_search_path()
    # where you don't really want to reinstall extensions with every little
    # edit
    #
-   IFS=":"; set -o noglob
-   for i in ${MULLE_SDE_EXTENSION_PATH}
-   do
-      s="${s}:${i}"
-   done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   s="${MULLE_SDE_EXTENSION_PATH}"
+   if [ ! -z "${s}" ]
+   then
+      log_debug "Extension search path: \"${s}\""
+      echo "${s}"
+      return
+   fi
 
-   local homeextensionsdir
+   s="${MULLE_SDE_EXTENSION_BASE_PATH}"
+
+   local homeprefdir
 
    case "${MULLE_UNAME}" in
       darwin)
          # or what ?
-         homeextensionsdir="${HOME}/Library/Preferences"
+         homeprefdir="${HOME}/Library/Preferences"
       ;;
 
       *)
-         homeextensionsdir="${HOME}/.config"
+         homeprefdir="${HOME}/.config"
       ;;
    esac
-   homeextensionsdir="${homeextensionsdir}/mulle-sde/extensions/${vendor}"
-   s="$s:${homeextensionsdir}"
+
+   s="$s:${homeprefdir}/mulle-sde/extensions"
 
    #
    # figure out where share is located
@@ -210,7 +212,7 @@ extension_get_search_path()
       ;;
    esac
 
-   log_debug "Extension search path: \"$s\""
+   log_debug "Extension search path: \"${s}\""
 
    echo "$s"
 }

@@ -1,3 +1,28 @@
+## 0.27.0
+
+* fix bug when giving craft a target, turn off fetching with `MULLE_SDE_FETCH`
+
+
+### 0.26.10
+
+* add -D option to define environment variables
+
+### 0.26.9
+
+* fix bugs with symbolic links created by brew on osx
+
+### 0.26.8
+
+* add a debug statement
+
+### 0.26.7
+
+* fix recently introduced bug
+
+### 0.26.6
+
+* use `MULLE_SDE_EXTENSION_PATH` for override and `MULLE_SDE_EXTENSION_BASE_PATH` for default setting of extensions searchpath
+
 ### 0.26.5
 
 * add refetch clean target, fix an unsightliness during init
