@@ -172,6 +172,7 @@ sde_craft_main()
 
          all|dependency|project)
             cmd="$1"
+            shift
             break
          ;;
 
@@ -236,10 +237,15 @@ sde_craft_main()
       then
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
-         log_verbose "Run sourcetree update"
+         if [ "${MULLE_SDE_FETCH}" = "NO" ]
+         then
+            log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
+         else
+            log_verbose "Run sourcetree update"
 
-         eval_exekutor "'${MULLE_SOURCETREE}'" \
-                        "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
+            eval_exekutor "'${MULLE_SOURCETREE}'" \
+                           "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
+         fi
       fi
 
       # run task sourcetree, if present (0) or was dirty (2)

@@ -60,9 +60,15 @@ do_update_sourcetree()
 {
    log_entry "do_update_sourcetree" "$@"
 
+   if [ "${MULLE_SDE_FETCH}" = "NO" ]
+   then
+      log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
+      return 0
+   fi
+
    eval_exekutor "'${MULLE_SOURCETREE}'" \
                      "${MULLE_SOURCETREE_FLAGS}" ${MULLE_TECHNICAL_FLAGS} "${OPTION_MODE}" \
-                     "update" "$@" || exit 1
+                     "update" "$@"
 }
 
 
