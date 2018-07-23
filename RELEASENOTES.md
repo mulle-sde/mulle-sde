@@ -1,3 +1,7 @@
+### 0.27.1
+
+* less verbose during init
+
 ## 0.27.0
 
 * fix bug when giving craft a target, turn off fetching with `MULLE_SDE_FETCH`

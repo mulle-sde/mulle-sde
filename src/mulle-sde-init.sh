@@ -1123,10 +1123,15 @@ vendor \"${vendor}\""
                           "$@"
    fi
 
-   if [ -z "${onlyfilename}" ]
+
+   local verb
+
+   verb="Installed"
+   if [ "${OPTION_UPGRADE}" = "YES" ]
    then
-      log_info "${verb} ${exttype} extension \"${vendor}/${extname}\""
+      verb="Upgraded"
    fi
+
 
    # install version first
    if [ "${exttype}" != "oneshot" -a -z "${onlyfilename}" ]
@@ -1137,9 +1142,12 @@ vendor \"${vendor}\""
    # meta only inherits stuff and doesn't add (except version)
    if [ "${exttype}" = "meta" ]
    then
+      if [ -z "${onlyfilename}" ]
+      then
+         log_info "${verb} ${exttype} extension \"${vendor}/${extname}\""
+      fi
       return
    fi
-
 
    if [ -z "${onlyfilename}" ]
    then
@@ -1275,6 +1283,7 @@ vendor \"${vendor}\""
                                       "${force}"
    fi
 
+   log_verbose "${verb} ${exttype} extension \"${vendor}/${extname}\""
 }
 
 # Will exit on error. Always returns 0
