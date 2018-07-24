@@ -2002,6 +2002,16 @@ If you reinited the environment. Try:
 }
 
 
+run_user_post_init_script()
+{
+   log_entry "run_user_post_init_script" "$@"
+
+   if [ -x "${HOME}/bin/post-mulle-sde-init" ]
+   then
+      exekutor "${HOME}/bin/post-mulle-sde-init" "$@" || exit 1
+   fi
+}
+
 ###
 ### parameters and environment variables
 ###
@@ -2454,7 +2464,17 @@ Use \`mulle-sde upgrade\` for maintainance"
    then
       rmdir_safer "${MULLE_SDE_DIR}/share.old"
       remove_file_if_present "${MULLE_SDE_DIR}/.init"
+   fi
 
+   if [ "${OPTION_INIT_ENV}" = "YES"  ]
+   then
+      run_user_post_init_script "${PROJECT_LANGUAGE}" \
+                                "${PROJECT_DIALECT}" \
+                                "${PROJECT_TYPE}"
+   fi
+
+   if [ -z "${OPTION_PROJECT_FILE}" ]
+   then
       if [ "${OPTION_BLURB}" = "YES" ]
       then
          log_info "Enter the environment:

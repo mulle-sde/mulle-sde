@@ -1,3 +1,8 @@
+## 0.28.0
+
+* run user script ${HOME}/bin/post-mulle-sde-init after initial init to setup more environment (like `MULLE_FETCH_SEARCH_PATH)`
+
+
 ### 0.27.1
 
 * less verbose during init
