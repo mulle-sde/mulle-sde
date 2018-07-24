@@ -3,7 +3,7 @@ digraph G {
 
     node[shape=folder];
 
-    "mulle-sde environment"  [ label="mulle-sde tool", shape="none", fontname="monospace", fontcolor="blue"]
+    "mulle-sde environment"  [ label="mulle-sde environment", shape="none", fontname="monospace", fontcolor="blue"]
     "mulle-sde environment" -> "mulle-env"
     "mulle-env"              [ shape="record", color="magenta", fontcolor="magenta"]
 }
