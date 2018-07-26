@@ -2006,11 +2006,25 @@ run_user_post_init_script()
 {
    log_entry "run_user_post_init_script" "$@"
 
-   if [ -x "${HOME}/bin/post-mulle-sde-init" ]
+   local scriptfile
+
+   scriptfile="${HOME}/bin/post-mulle-sde-init"
+   if [ ! -e "${scriptfile}" ]
    then
-      exekutor "${HOME}/bin/post-mulle-sde-init" "$@" || exit 1
+      log_fluff "\"${scriptfile}\" does not exist"
+      return
    fi
+
+   if [ ! -x "${scriptfile}" ]
+   then
+      fail "\"${scriptfile}\" exists but is not executable"
+   fi
+
+   log_warning "Running post-init script \"${scriptfile}\""
+
+   exekutor "${scriptfile}" "$@" || exit 1
 }
+
 
 ###
 ### parameters and environment variables

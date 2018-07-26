@@ -1,3 +1,7 @@
+### 0.28.2
+
+* be more verbose about post-mulle-sde-init
+
 ### 0.28.1
 
 * fix wrong label in graphic
