@@ -474,6 +474,8 @@ environmenttext_to_mset()
 "
    while read -r line
    do
+      line="`tr -d '\0015' <<< "${line}"`"
+
       log_debug "line: ${line}"
       case "${line}" in
          *\#\#*)
@@ -1336,7 +1338,7 @@ install_extension()
             eval _template_main "${arguments}" || exit 1
          fi
       done
-   )
+   ) || exit 1
 }
 
 

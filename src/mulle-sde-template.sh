@@ -301,7 +301,7 @@ template_contents_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS}  \
+             rexekutor "${MULLE_ENV}" -vvv -ld -t -s ${MULLE_ENV_FLAGS}  \
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
                                    --sed-key-suffix '|>'`" || exit 1
@@ -657,11 +657,11 @@ _template_main()
       write)
          if [ -z "${FILENAME_SED}" ]
          then
-            FILENAME_SED="`template_filename_replacement_command`"
+            FILENAME_SED="`template_filename_replacement_command`" || exit 1
          fi
          if [ -z "${CONTENTS_SED}" ]
          then
-            CONTENTS_SED="`template_contents_replacement_command`"
+            CONTENTS_SED="`template_contents_replacement_command`" || exit 1
          fi
 
          "${template_callback}" "${TEMPLATE_DIR}" \
@@ -675,7 +675,7 @@ _template_main()
       ;;
 
       *)
-         log_error "unknown command $1" && template_usage
+         log_error "Unknown command \"$1\"" && template_usage
       ;;
    esac
 }
