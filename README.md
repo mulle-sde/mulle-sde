@@ -49,7 +49,7 @@ $ . `mulle-sde bash-completion`
 This is an example, that creates a cmake project for C (this is the default):
 
 ```
-$ mulle-sde init -d hello -m mulle-sde/cmake-c executable
+$ mulle-sde init -d hello -m mulle-sde/c-developer executable
 ```
 
 Enter the environment:
@@ -76,12 +76,13 @@ Run it:
 $ ./build/hello
 ```
 
-Monitor the filesystem for new, deleted or modified source files. Then update
-some of your source or project files. **mulle-sde** will rebuild your project
-automatically:
+Update your source or project files manually. Then let mulle-sde reflect your
+changes back into the Makefiles and build again:
 
 ```
-$ mulle-sde monitor
+$ mulle-sde update
+$ mulle-sde craft
+
 ```
 
 Leave the environment:
@@ -107,7 +108,7 @@ mulle-sde craft
 ![](dox/mulle-sde-dependency.png)
 
 *Dependencies* are typically GitHub projects, that provide a library (like zlib)
-or headers. These will be downloaded, unpacked and built into `dependencies`
+or headers. These will be downloaded, unpacked and built into `dependency`
 with the next build:
 
 ```
@@ -233,7 +234,7 @@ mulle-sde log -p "MulleObjC" grep 'foo'
 
 ## mulle-sde monitor
 
-Conceptually, *monitor* waits on changes to the filesystem and then calls the
+*monitor* waits on changes to the filesystem and then calls the
 appropriate callback (see below) to rebuild and retest your project.
 
 ![](dox/mulle-sde-monitor.png)
@@ -243,10 +244,6 @@ Environment       | Default        | Description
 ------------------|----------------|--------------------
 `MULLE_SDE_CRAFT` | `mulle-craft`  | Build tool to invoke
 `MULLE_SDE_TEST`  | `mulle-test`   | Test tool to invoke
-
-> Resist the itch to replace `mulle-craft` with **make** or some other tool.
-> Rather write a *buildtool* extension to create Makefiles and write a
-> **mulle-craft** plugin to let it deal with Makefiles.
 
 The monitor is a complex beast and has its own
 [project page](https://github.com/mulle-sde/mulle-monitor) and
