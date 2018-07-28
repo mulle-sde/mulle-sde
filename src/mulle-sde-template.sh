@@ -301,7 +301,7 @@ template_contents_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor "${MULLE_ENV}" -vvv -ld -t -s ${MULLE_ENV_FLAGS}  \
+             rexekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS}  \
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
                                    --sed-key-suffix '|>'`" || exit 1

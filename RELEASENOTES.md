@@ -1,3 +1,7 @@
+### 0.28.4
+
+* remove debug stuff
+
 ### 0.28.3
 
 * fixes for mingw
