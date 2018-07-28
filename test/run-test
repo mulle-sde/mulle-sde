@@ -18,7 +18,7 @@ main()
 
    local i
 
-   log_verbose "mulle-sde/ `mulle-sde version` (`mulle-sde library-path`)"
+   log_verbose "mulle-sde/ `mulle-sde version` (`mulle-sde libexec-dir`)"
 
    OUTPUT_DEVICE=
    for i in "${TEST_DIR}"/*

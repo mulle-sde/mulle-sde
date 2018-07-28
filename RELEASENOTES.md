@@ -1,3 +1,7 @@
+### 0.28.3
+
+* fixes for mingw
+
 ### 0.28.2
 
 * be more verbose about post-mulle-sde-init
