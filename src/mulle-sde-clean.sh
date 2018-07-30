@@ -304,7 +304,7 @@ tidy"
       ;;
 
       'refetch')
-         domains="tidy cache"
+         domains="sourcetree output var db monitor patternfile cache"
       ;;
 
       'tidy')

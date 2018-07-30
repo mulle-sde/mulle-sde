@@ -1107,7 +1107,9 @@ os-excludes"
 
       mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} ${cmd} "$@"
+            exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} \
+                            "${cmd}" \
+                            "$@"
       ;;
 
       set)
