@@ -68,7 +68,7 @@ main()
    (
       cd "${directory}/project"  || exit 1
       run_mulle_sde -vvv -ld fetch  || exit 1
-      run_mulle_sde -v craft -V  || exit 1
+      run_mulle_sde -v craft   || exit 1
    ) || exit 1
 
    log_verbose "----- #1 PASSED -----"

@@ -1,3 +1,7 @@
+### 0.28.6
+
+* lose the -V flag in a test
+
 ### 0.28.5
 
 * fix tidy clean target
