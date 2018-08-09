@@ -42,20 +42,20 @@ Usage:
 
    Build the dependency folder and the project.
 
-   The dependency folder is built with he \`mulle-sde buildorder\` file.
+   The dependency folder is built with using the \`mulle-sde buildorder\` file.
 
    This is a frontend to mulle-craft <project|buildorder>. See
    \`mulle-craft help\` for all the options available.
-
 
 Options:
    -h         : show this usage
    -q         : skip uptodate checks
 
 Commands:
-   all        : build dependency folder first then the project (default)
-   dependency : build dependency folder only
-   project    : build the project only
+   all        : build dependency folder first, then the project (default)
+   buildorder : build dependency folder
+   dependency : synoym for buildorder
+   project    : build the project
 
 EOF
    exit 1
@@ -170,7 +170,7 @@ sde_craft_main()
             OPTION_MOTD="NO"
          ;;
 
-         all|dependency|project)
+         all|buildorder|dependency|project)
             cmd="$1"
             shift
             break
@@ -246,6 +246,7 @@ sde_craft_main()
             eval_exekutor "'${MULLE_SOURCETREE}'" \
                            "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
          fi
+         updateflags="" # db "force" update
       fi
 
       # run task sourcetree, if present (0) or was dirty (2)

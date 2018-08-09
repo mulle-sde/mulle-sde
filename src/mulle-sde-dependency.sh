@@ -46,7 +46,7 @@ Usage:
    ${MULLE_USAGE_NAME} dependency [command]
 
    A dependency is a third party package, that is fetched via an URL.
-   I will be built along with your project. Dependencies are managed with
+   It will be built along with your project. Dependencies are managed with
    mulle-sourcetree. The build definitions for a dependency are managed with
    mulle-make.
 
@@ -768,7 +768,7 @@ __sde_buildinfo_vars_with_url_or_address()
 
    _name="`fast_basename "${_address}"`"
    _subprojectdir="buildinfo/${_name}"
-   _folder="${_subprojectdir}${extension}"
+   _folder="${_subprojectdir}/${_name}${extension}"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}"  = "YES" ]
    then
@@ -811,6 +811,10 @@ sde_dependency_buildinfo_set_main()
       shift
    done
 
+   [ "$#" -eq 0 ] && sde_dependency_buildinfo_set_usage "Missing key"
+   [ "$#" -eq 1 ] && sde_dependency_buildinfo_set_usage "Missing value"
+   [ "$#" -gt 2 ] && sde_dependency_buildinfo_set_usage "Superflous arguments \"$*\""
+   
    if [ "${extension}" = "DEFAULT" ]
    then
       extension=".${MULLE_UNAME}"
@@ -865,7 +869,7 @@ sde_dependency_buildinfo_get_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_buildinfo_get_usage "Missing address or url"
+   [ $# -eq 0 ] && sde_dependency_buildinfo_get_usage "Missing key"
 
    local _address
    local _name

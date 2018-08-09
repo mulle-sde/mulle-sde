@@ -307,6 +307,10 @@ tidy"
          domains="sourcetree output var db monitor patternfile cache"
       ;;
 
+      'subproject')
+         domains="subproject"
+      ;;
+
       'tidy')
          domains="sourcetree output var db monitor patternfile"
       ;;

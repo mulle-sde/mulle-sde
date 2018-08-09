@@ -1,3 +1,7 @@
+### 0.28.7
+
+* fix some error message, fix dependency buildinfo, fix update not running
+
 ### 0.28.6
 
 * lose the -V flag in a test
