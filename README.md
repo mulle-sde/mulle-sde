@@ -151,23 +151,18 @@ spellcheck. There is a *callback* `text-callback` that gets activated via this
 *patternfile* that will schedule the *task* `aspell-task.sh`. The
 extension also installs a template file `demo.txt` to get things going quickly.
 
-*mulle-sde* knows about four different extension types
+*mulle-sde* knows about five different extension types
 
 Extensiontype  | Description
 ---------------|-------------------------------------
 buildtool      | Support for build environment and tools like **cmake** .
-extra          | Support for extra features like **git**
-meta           | A wrapper for extensions (usually buildtool+runtime+extra)
-runtime        | Support for language/runtime combinations like C with X11
+extra          | Support for extra features like **git**.
+meta           | A wrapper for extensions (usually buildtool+runtime+extra).
+oneshot        | A special kind of extra extension, that can be installed multiple times but is not upgradable.
+runtime        | Support for language/runtime combinations like C with X11.
 
-The builtin support is:
-
-Extensiontype  | Vendor    | Name      | Description
----------------|-----------|-----------|--------------------------
-buildtool      | mulle-sde | sde       | Provides the executable `create-build-motd` and some *patternfiles* for working with mulle-sourcetree. It also provides a default README.md file.
-
-
-Use *list* to see the *extensions* available:
+Extensions are installable plugins. The package [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer) 
+provides the basic set of extension. Use *list* to see the *extensions* installed on your system:
 
 ```
 mulle-sde extension list
