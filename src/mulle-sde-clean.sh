@@ -46,7 +46,7 @@ Usage:
    cleaned.
 
 Domains:
-   all         : cleans everything
+   all         : cleans all output
    buildorder  : like rebuild, but also wipes the cached buildorder
    cache       : clean some caches including the archive cache
    default     : clean project and subprojects (default)

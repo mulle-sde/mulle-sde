@@ -1,6 +1,6 @@
 ### 0.28.7
 
-* fix some error message, fix dependency buildinfo, fix update not running
+* fix some error message, fix dependency makeinfo, fix update not running
 
 ### 0.28.6
 
@@ -123,7 +123,7 @@
 
 ### 0.23.2
 
-* improved usage info, removed definition command, improved buildinfo command
+* improved usage info, removed definition command, improved makeinfo command
 
 ### 0.23.1
 
@@ -193,15 +193,15 @@
 
 ### 0.18.2
 
-* rename definition to buildinfo, fix extension searchpath
+* rename definition to makeinfo, fix extension searchpath
 
 ### 0.18.1
 
-* improve buildinfo a bit more
+* improve makeinfo a bit more
 
 ## 0.18.0
 
-* add buildinfo command (incomplete)
+* add makeinfo command (incomplete)
 
 
 ### 0.17.7

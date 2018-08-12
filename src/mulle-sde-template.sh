@@ -71,6 +71,7 @@ emit_projectname_seds()
 
    local escaped_pn
    local escaped_pi
+   local escaped_pcn
    local escaped_pui
    local escaped_pdi
 
@@ -80,6 +81,7 @@ emit_projectname_seds()
    [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "PROJECT_SOURCE_DIR is empty"
 
    escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
+   escaped_pcn="` escaped_sed_pattern "${PROJECT_C_NAME}" `"
    escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
    escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
    escaped_pdi="` escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}" `"
@@ -88,6 +90,7 @@ emit_projectname_seds()
    local cmdline
 
    cmdline="-e 's/${o}PROJECT_NAME${c}/${escaped_pn}/g'"
+   cmdline="${cmdline} -e 's/${o}PROJECT_C_NAME${c}/${escaped_pcn}/g'"
    cmdline="${cmdline} -e 's/${o}PROJECT_IDENTIFIER${c}/${escaped_pi}/g'"
    cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${escaped_pdi}/g'"
    cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${escaped_pui}/g'"

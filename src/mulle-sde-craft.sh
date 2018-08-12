@@ -54,6 +54,7 @@ Options:
 Commands:
    all        : build dependency folder first, then the project (default)
    buildorder : build dependency folder
+   clean      : passed to mulle-craft (but better use mulle-sde clean)
    dependency : synoym for buildorder
    project    : build the project
 
@@ -170,7 +171,7 @@ sde_craft_main()
             OPTION_MOTD="NO"
          ;;
 
-         all|buildorder|dependency|project)
+         all|buildorder|clean|dependency|project)
             cmd="$1"
             shift
             break
@@ -183,6 +184,15 @@ sde_craft_main()
       shift
    done
 
+   case "${cmd}" in
+      'clean')
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
+            exekutor "${MULLE_CRAFT}" \
+                  ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS} \
+                     "${cmd}" "$@"
+         exit $?
+      ;;
+   esac
 
    #
    # our buildorder is specific to a host

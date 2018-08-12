@@ -52,7 +52,7 @@ Usage:
 
 Commands:
    add        : add a dependency to the sourcetree
-   buildinfo  : change build options for the dependency
+   craftinfo  : change build options for the dependency
    get        : retrieve dependency sourcetree settings
    list       : list dependencies (default)
    mark       : add marks to a dependency
@@ -85,7 +85,6 @@ Usage:
       ${MULLE_USAGE_NAME} dependency add https://github.com/mulle-c/mulle-allocator.git
 
 Options:
-   --branch <name> : specify branch to checkout for git repositories
    --embedded      : the dependency becomes part of the local project
    --headerless    : has no headerfile
    --headeronly    : has no library
@@ -94,7 +93,7 @@ Options:
    --optional      : is not required to exist
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
-      (see: mulle-sourcetree -v add -h for more information about options)
+      (see: mulle-sourcetree -e -v add -h for more add options)
 EOF
   exit 1
 }
@@ -167,19 +166,19 @@ EOF
 }
 
 
-sde_dependency_buildinfo_usage()
+sde_dependency_craftinfo_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency buildinfo [option] <dep> <command>
+   ${MULLE_USAGE_NAME} dependency craftinfo [option] <dep> <command>
 
    Manage build settings of a dependency. Thy will be stored in a subproject
-   in your project inside a mulle-sde created folder "buildinfo". This is done
+   in your project inside a mulle-sde created folder "craftinfo". This is done
    for you automatically on the first setting add.
 
-   mulle-sde uses a "oneshot" extension mulle-sde/buildinfo to create that
+   mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
    subproject.
 
    The dependency can be specified by URL or by its address.
@@ -189,7 +188,7 @@ EOF
    if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
    then
       cat <<EOF >&2
-   Eventually the "buildinfo" contents are used by \`mulle-craft\` to populate
+   Eventually the "craftinfo" contents are used by \`mulle-craft\` to populate
    the \`dependency/share/mulle-craft\` folder and override any \`.mulle-make\`
    folders. That's all fairly complicated, but it's necessary to have proper
    setting inheritance across multiple nested projects.
@@ -213,22 +212,22 @@ EOF
 }
 
 
-sde_dependency_buildinfo_set_usage()
+sde_dependency_craftinfo_set_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency buildinfo <dep> set [option] <key> <value>
+   ${MULLE_USAGE_NAME} dependency craftinfo <dep> set [option] <key> <value>
 
    Set a setting value for key. This will automatically create a proper
-   "buildinfo" subproject for you, if there is none yet.
+   "craftinfo" subproject for you, if there is none yet.
 
    See \`mulle-make definition help\` for more info about manipulating
-   buildinfo settings.
+   craftinfo settings.
 
    Example:
-      mulle-sde dependency buildinfo nng --global set --append CPPFLAGS "-DX=0"
+      mulle-sde dependency craftinfo nng --global set --append CPPFLAGS "-DX=0"
 
 Options:
    --append : value will be appended to CPPFLAGS
@@ -238,35 +237,35 @@ EOF
 }
 
 
-sde_dependency_buildinfo_get_usage()
+sde_dependency_craftinfo_get_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency buildinfo <url> get <key>
+   ${MULLE_USAGE_NAME} dependency craftinfo <url> get <key>
 
    Read setting if key.
 
    Example:
-      mulle-sde dependency buildinfo nng --global get CPPFLAGS
+      mulle-sde dependency craftinfo nng --global get CPPFLAGS
 
 EOF
   exit 1
 }
 
 
-sde_dependency_buildinfo_list_usage()
+sde_dependency_craftinfo_list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency buildinfo list <dep>
+   ${MULLE_USAGE_NAME} dependency craftinfo list <dep>
 
    List build settings of a dependency. By default the global settings and
    those for the current platform are listed. To see other platform settings
-   use the "--platform" option of \`dependency buildinfo\`.
+   use the "--platform" option of \`dependency craftinfo\`.
 
 EOF
   exit 1
@@ -717,9 +716,9 @@ sde_dependency_add_main()
 }
 
 
-sde_add_buildinfo_subproject_if_needed()
+sde_add_craftinfo_subproject_if_needed()
 {
-   log_entry "sde_add_buildinfo_subproject_if_needed" "$@"
+   log_entry "sde_add_craftinfo_subproject_if_needed" "$@"
 
    local subprojectdir="$1"
    local name="$2"
@@ -731,7 +730,7 @@ sde_add_buildinfo_subproject_if_needed()
   # shellcheck source=src/mulle-sde-common.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
-   sde_extension_main pimp --oneshot-name "${name}" mulle-sde/buildinfo || return 1
+   sde_extension_main pimp --oneshot-name "${name}" mulle-sde/craftinfo || return 1
 
    [ -d "${subprojectdir}" ] || \
       internal_fail "did not produce \"${subprojectdir}\""
@@ -751,7 +750,7 @@ sde_add_buildinfo_subproject_if_needed()
 # local _subprojectdir
 # local _folder
 #
-__sde_buildinfo_vars_with_url_or_address()
+__sde_craftinfo_vars_with_url_or_address()
 {
    log_entry "sde_url_or_address_to_address" "$@"
 
@@ -767,7 +766,7 @@ __sde_buildinfo_vars_with_url_or_address()
    [ -z "${_address}" ] && fail "Empty url or address"
 
    _name="`fast_basename "${_address}"`"
-   _subprojectdir="buildinfo/${_name}"
+   _subprojectdir="craftinfo/${_name}"
    _folder="${_subprojectdir}/${_name}${extension}"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}"  = "YES" ]
@@ -780,9 +779,9 @@ __sde_buildinfo_vars_with_url_or_address()
 }
 
 
-sde_dependency_buildinfo_set_main()
+sde_dependency_craftinfo_set_main()
 {
-   log_entry "sde_dependency_buildinfo_set_main" "$@"
+   log_entry "sde_dependency_craftinfo_set_main" "$@"
 
    local url="$1"; shift
    local extension="$1"; shift
@@ -792,7 +791,7 @@ sde_dependency_buildinfo_set_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_buildinfo_set_usage
+            sde_dependency_craftinfo_set_usage
          ;;
 
          --append|-a)
@@ -800,7 +799,7 @@ sde_dependency_buildinfo_set_main()
          ;;
 
          -*)
-            sde_dependency_buildinfo_set_usage "Unknown option \"$1\""
+            sde_dependency_craftinfo_set_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -811,10 +810,10 @@ sde_dependency_buildinfo_set_main()
       shift
    done
 
-   [ "$#" -eq 0 ] && sde_dependency_buildinfo_set_usage "Missing key"
-   [ "$#" -eq 1 ] && sde_dependency_buildinfo_set_usage "Missing value"
-   [ "$#" -gt 2 ] && sde_dependency_buildinfo_set_usage "Superflous arguments \"$*\""
-   
+   [ "$#" -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing key"
+   [ "$#" -eq 1 ] && sde_dependency_craftinfo_set_usage "Missing value"
+   [ "$#" -gt 2 ] && sde_dependency_craftinfo_set_usage "Superflous arguments \"$*\""
+
    if [ "${extension}" = "DEFAULT" ]
    then
       extension=".${MULLE_UNAME}"
@@ -825,9 +824,9 @@ sde_dependency_buildinfo_set_main()
    local _subprojectdir
    local _folder
 
-   __sde_buildinfo_vars_with_url_or_address "${url}" "${extension}"
+   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
 
-   sde_add_buildinfo_subproject_if_needed "${_subprojectdir}" "${_name}" || exit 1
+   sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" "${_name}" || exit 1
 
    local setflags
 
@@ -842,9 +841,9 @@ sde_dependency_buildinfo_set_main()
 }
 
 
-sde_dependency_buildinfo_get_main()
+sde_dependency_craftinfo_get_main()
 {
-   log_entry "sde_dependency_buildinfo_list_main" "$@"
+   log_entry "sde_dependency_craftinfo_list_main" "$@"
 
    local url="$1"; shift
    local extension="$1"; shift
@@ -853,12 +852,12 @@ sde_dependency_buildinfo_get_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_buildinfo_get_usage
+            sde_dependency_craftinfo_get_usage
          ;;
 
 
          -*)
-            sde_dependency_buildinfo_get_usage "Unknown option \"$1\""
+            sde_dependency_craftinfo_get_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -869,7 +868,7 @@ sde_dependency_buildinfo_get_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_buildinfo_get_usage "Missing key"
+   [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing key"
 
    local _address
    local _name
@@ -879,7 +878,7 @@ sde_dependency_buildinfo_get_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      __sde_buildinfo_vars_with_url_or_address "${url}" ""
+      __sde_craftinfo_vars_with_url_or_address "${url}" ""
       exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
          definition --info-dir "${_folder}.${MULLE_UNAME}" get "$@"
       rval=$?
@@ -893,16 +892,16 @@ sde_dependency_buildinfo_get_main()
       return $?
    fi
 
-   __sde_buildinfo_vars_with_url_or_address "${url}" "${extension}"
+   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
 
    exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
       definition --info-dir "${_folder}" get "$@"
 }
 
 
-sde_dependency_buildinfo_list_main()
+sde_dependency_craftinfo_list_main()
 {
-   log_entry "sde_dependency_buildinfo_list_main" "$@"
+   log_entry "sde_dependency_craftinfo_list_main" "$@"
 
    local url="$1"; shift
    local extension="$1"; shift
@@ -911,11 +910,11 @@ sde_dependency_buildinfo_list_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_buildinfo_list_usage
+            sde_dependency_craftinfo_list_usage
          ;;
 
          -*)
-            sde_dependency_buildinfo_list_usage "Unknown option \"$1\""
+            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -933,7 +932,7 @@ sde_dependency_buildinfo_list_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      __sde_buildinfo_vars_with_url_or_address "${url}" ""
+      __sde_craftinfo_vars_with_url_or_address "${url}" ""
       log_info "Global"
       exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
          definition --info-dir "${_folder}" list "$@"
@@ -943,7 +942,7 @@ sde_dependency_buildinfo_list_main()
       return
    fi
 
-   __sde_buildinfo_vars_with_url_or_address "${url}" "${extension}"
+   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
 
    log_info "${extension:-Global}"
    exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
@@ -951,9 +950,9 @@ sde_dependency_buildinfo_list_main()
 }
 
 
-sde_dependency_buildinfo_main()
+sde_dependency_craftinfo_main()
 {
-   log_entry "sde_dependency_buildinfo_main" "$@"
+   log_entry "sde_dependency_craftinfo_main" "$@"
 
    local extension
 
@@ -963,7 +962,7 @@ sde_dependency_buildinfo_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_buildinfo_usage
+            sde_dependency_craftinfo_usage
          ;;
 
          --global)
@@ -971,14 +970,14 @@ sde_dependency_buildinfo_main()
          ;;
 
          --platform)
-            [ "$#" -eq 1 ] && sde_dependency_buildinfo_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_dependency_craftinfo_usage "Missing argument to \"$1\""
             shift
 
             extension=".$1"
          ;;
 
          -*)
-            sde_dependency_buildinfo_usage "Unknown option \"$1\""
+            sde_dependency_craftinfo_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -989,12 +988,12 @@ sde_dependency_buildinfo_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_buildinfo_usage "Missing dependency buildinfo command"
+   [ $# -eq 0 ] && sde_dependency_craftinfo_usage "Missing dependency craftinfo command"
 
    local subcmd="$1"
    shift
 
-   [ $# -eq 0 ] && sde_dependency_buildinfo_usage "Missing url or address argument"
+   [ $# -eq 0 ] && sde_dependency_craftinfo_usage "Missing url or address argument"
 
    local url="$1"
    shift
@@ -1007,11 +1006,11 @@ sde_dependency_buildinfo_main()
 
    case "${subcmd:-list}" in
       set|get|list)
-         sde_dependency_buildinfo_${subcmd}_main "${url}" "${extension}" "$@"
+         sde_dependency_craftinfo_${subcmd}_main "${url}" "${extension}" "$@"
       ;;
 
       *)
-        sde_dependency_buildinfo_usage "Unknown dependency buildinfo command \"${subcmd}\""
+        sde_dependency_craftinfo_usage "Unknown dependency craftinfo command \"${subcmd}\""
       ;;
    esac
 }
@@ -1069,7 +1068,7 @@ sde_dependency_main()
       commands)
          echo "\
 add
-buildinfo
+craftinfo
 get
 list
 map
@@ -1080,11 +1079,11 @@ set
 unmark"
       ;;
 
-      buildinfo)
+      craftinfo)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         sde_dependency_buildinfo_main "$@"
+         sde_dependency_craftinfo_main "$@"
          return $?
       ;;
 

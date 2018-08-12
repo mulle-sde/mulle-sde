@@ -181,7 +181,7 @@ _mulle_sde_dependency_complete()
 
          cmd)
             case "${i}" in
-               add|buildinfo|get|list|mark|move|remove|set|unmark)
+               add|makeinfo|get|list|mark|move|remove|set|unmark)
                   subcmd="${i}"
                   state="subcmd"
                ;;
@@ -189,7 +189,7 @@ _mulle_sde_dependency_complete()
          ;;
 
          subcmd)
-            if [ "${subcmd}" = "buildinfo" ]
+            if [ "${subcmd}" = "makeinfo" ]
             then
                case "${i}" in
                   get|list|set)
@@ -213,7 +213,7 @@ _mulle_sde_dependency_complete()
 
       subcmd)
          case "${subcmd}" in
-            "buildinfo")
+            "makeinfo")
                case "${cur}" in
                   -*)
                      COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )
@@ -375,7 +375,7 @@ _mulle_sde_subproject_complete()
 
       "cmd_found")
          case "${cmd}" in
-            buildinfo)
+            makeinfo)
                case "${cur}" in
                   -*)
                      COMPREPLY=( $( compgen -W "--global --platform" -- $cur ) )

@@ -516,11 +516,11 @@ sde_subproject_main()
       commands)
          echo "\
 add
-buildinfo
 enter
 get
 init
 list
+makeinfo
 map
 mark
 move
@@ -543,7 +543,7 @@ update"
 
       infcommands)
          case "$1" in
-            "buildinfo")
+            "makeinfo")
                echo "\
 get
 set
@@ -554,7 +554,7 @@ list"
          return 1
       ;;
 
-      buildinfo|dependency|environment|find|match|patternfile|library|update)
+      dependency|environment|find|makeinfo|match|patternfile|library|update)
          local subproject
 
          [ -z "${SUBPROJECT}" ] && fail "Command \"${cmd}\" requires -s <subproject> option"

@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.28.7
+MULLE_EXECUTABLE_VERSION=0.29.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -73,7 +73,7 @@ print_commands()
    update         : update project makefiles and sources"
 
       HIDDEN_COMMANDS="\
-   buildinfo      : change projects build options like CFLAGS (experimental)
+   makeinfo      : change projects build options like CFLAGS (experimental)
    callback       : manage update callbacks
    extension      : show available language and buildtool extensions
    fetch          : fetch the sourcetree
@@ -103,6 +103,7 @@ print_flags()
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
+   echo "   --no-search   : do not search for enclosing environment"
    echo "   -DKEY=VALUE   : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -442,7 +443,7 @@ main()
          # commands where we want to start a subshell
 
          case "${cmd}" in
-            buildinfo|buildorder|callback|clean|craft|dependency|\
+            makeinfo|buildorder|callback|clean|craft|dependency|\
 environment|fetch|find|library|log|match|monitor|patternfile|subproject|style|\
 task|template|tool|update)
                exec_command_in_subshell "$@"
@@ -527,13 +528,13 @@ libexec-dir|library-path|project-dir)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
       ;;
 
-      buildinfo)
+      makeinfo)
          cd_virtual_root "${cmd}"
 
-         # shellcheck source=src/mulle-sde-buildinfo.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-buildinfo.sh"
+         # shellcheck source=src/mulle-sde-makeinfo.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-makeinfo.sh"
 
-         sde_buildinfo_main "$@"
+         sde_makeinfo_main "$@"
       ;;
 
       buildorder)
@@ -565,7 +566,7 @@ libexec-dir|library-path|project-dir)
       commands)
          echo "\
 bash-completion
-buildinfo
+makeinfo
 buildorder
 callback
 clean

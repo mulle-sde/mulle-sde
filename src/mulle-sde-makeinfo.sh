@@ -32,29 +32,29 @@
 MULLE_SDE_BUILDINFO_SH="included"
 
 
-sde_buildinfo_usage()
+sde_makeinfo_usage()
 {
    [ $# -ne 0 ] && log_error "$1"
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} buildinfo [options] [command]
+   ${MULLE_USAGE_NAME} makeinfo [options] [command]
 
    ** BUILDINFO ON A PROJECT (NOT A DEPENDENCY) ARE POSSIBLY A MISFEATURE
       AND IT MIGHT BE REMOVED **
 
-   Manipulate buildinfo settings for a project. To change buildinfo settings
-   for a dependency use \`mulle-sde dependency buildinfo\`. This command is
+   Manipulate makeinfo settings for a project. To change craftinfo settings
+   for a dependency use \`mulle-sde dependency craftinfo\`. This command is
    not fully coded yet!
 
-   A commonly manipulated buildinfo setting is \"CFLAGS\". By default build
-   settings are set os-specific.
+   A commonly manipulated makeinfo setting is \"CFLAGS\". By default these
+   settings are os-specific.
 
    See \`mulle-make definition\` for more help about the commands "get", "set"
    and "list"
 
    Example:
-      mulle-sde buildinfo set CFLAGS '--no-remorse'
+      mulle-sde makeinfo set CFLAGS '--no-remorse'
 
 Options:
    --info-dir <dir> : specify info directory to manipulate explicitly
@@ -64,16 +64,16 @@ Commands:
    get    : get value of a setting
    set    : change a setting
    list   : list current settings
-   search : locate buildinfo
+   search : locate makeinfo
 
 EOF
    exit 1
 }
 
 
-sde_buildinfo_main()
+sde_makeinfo_main()
 {
-   log_entry "sde_buildinfo_main" "$@"
+   log_entry "sde_makeinfo_main" "$@"
 
    local OPTION_INFO_DIR=".mulle-make"
    local OPTION_GLOBAL="DEFAULT"
@@ -86,7 +86,7 @@ sde_buildinfo_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_buildinfo_usage
+            sde_makeinfo_usage
          ;;
 
          --allow-unknown-option)
@@ -101,7 +101,7 @@ sde_buildinfo_main()
          # with shortcuts
          #
          -i|--info-dir)
-            [ $# -eq 1 ] && sde_buildinfo_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_makeinfo_usage "Missing argument to \"$1\""
             shift
 
             OPTION_INFO_DIR="$1"
@@ -112,7 +112,7 @@ sde_buildinfo_main()
          ;;
 
          -*)
-            sde_buildinfo_usage "Unknown definition option ${argument}"
+            sde_makeinfo_usage "Unknown definition option ${argument}"
          ;;
 
          *)
@@ -123,7 +123,7 @@ sde_buildinfo_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_buildinfo_usage
+   [ $# -eq 0 ] && sde_makeinfo_usage
 
    local cmd="$1"; shift
 
@@ -144,16 +144,16 @@ sde_buildinfo_main()
 
       list|get|set|keys)
          MULLE_USAGE_NAME="mulle-sde" \
-         MULLE_USAGE_COMMAND="buildinfo" \
+         MULLE_USAGE_COMMAND="makeinfo" \
             "${MULLE_MAKE}" -i "${OPTION_INFO_DIR}" ${flags} "definition" "$@"
       ;;
 
       "")
-         sde_buildinfo_usage
+         sde_makeinfo_usage
       ;;
 
       *)
-         sde_buildinfo_usage "Unknown command \"${cmd}\""
+         sde_makeinfo_usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

@@ -49,6 +49,8 @@ set_projectname_environment()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
+   PROJECT_C_NAME="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
+
    PROJECT_IDENTIFIER="`tweaked_de_camel_case "${PROJECT_NAME}"`"
    PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_IDENTIFIER}" | tr -c 'a-zA-Z0-9' '_'`"
    PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z' 'a-z' <<< "${PROJECT_IDENTIFIER}"`"

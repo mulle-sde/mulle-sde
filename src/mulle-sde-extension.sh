@@ -114,7 +114,7 @@ Usage:
    "once" and is not upgradable. You can run oneshot extensions as often as
    you want. Use the -f flag to clobber existing files, like so:
 
-      mulle-sde -f extension pimp --oneshot-name Foo mulle-sde/buildinfo
+      mulle-sde -f extension pimp --oneshot-name Foo mulle-sde/craftinfo
 
 Options:
    --oneshot-name <string> : pass a string to the extension
