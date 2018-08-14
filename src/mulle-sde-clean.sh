@@ -46,12 +46,11 @@ Usage:
    cleaned.
 
 Domains:
-   all         : cleans all output
+   all         : cleans project and buildorder
    buildorder  : like rebuild, but also wipes the cached buildorder
    cache       : clean some caches including the archive cache
    default     : clean project and subprojects (default)
    project     : clean project, keeps dependencies
-   rebuild     : like default plus removes the dependency folder
    refetch     : combines "tidy" with "cache" to update all dependencies
    subproject  : clean subprojects
    tidy        : cleans everything and removes fetched dependencies. It's slow!
@@ -273,14 +272,13 @@ all
 cache
 default
 project
-rebuild
 subproject
 tidy"
          exit 0
       ;;
 
       'all')
-         domains="output var"
+         domains="builddir dependencydir"
       ;;
 
       'buildorder')
@@ -297,10 +295,6 @@ tidy"
 
       'dependency')
          domains="builddir dependencydir"
-      ;;
-
-      'rebuild')
-         domains="builddir"
       ;;
 
       'refetch')

@@ -1,3 +1,11 @@
+## 0.30.0
+
+* rename buildinfo to craftinfo/makeinfo. mulle-sde/craftinfo extension is now part of mulle-sde
+* remove rebuild clean target
+* project build is verbose by default
+* rename buildinfo to makeinfo and craftinfo to keep the two concepts distinct
+
+
 ### 0.28.7
 
 * fix some error message, fix dependency makeinfo, fix update not running

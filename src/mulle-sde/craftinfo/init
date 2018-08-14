@@ -1,0 +1,15 @@
+#! /usr/bin/env bash
+
+[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+
+if [ -z "${ONESHOT_NAME}" ]
+then
+   cat <<EOF >&2
+You must specify --oneshot-name <string>
+
+Example:
+   mulle-sde extension add --oneshot-name "foo" mulle-sde/craftinfo
+
+EOF
+   exit 1
+fi

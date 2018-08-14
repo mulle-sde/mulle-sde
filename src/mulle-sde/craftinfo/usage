@@ -1,0 +1,12 @@
+Used by the command `extension pimp` to set up a subproject to
+hold the build settings for a dependency. This somewhat complicated setup
+allows other projects to inherit your settings.
+
+See: `mulle-sde dependency defintion help` for more help on this topic.
+
+Define the environment variable ONESHOT_NAME so that properly named extension
+file names and file contents can be created.
+
+Example:
+
+   mulle-sde extension pimp --oneshot-name "foo" mulle-sde/craftinfo

@@ -301,12 +301,26 @@ sde_craft_main()
 
    set_projectname_environment "read"
 
-   local cmdline
+   #
+   # by default, we don't want to see the buildorder verbosity
+   # but do like to see project verbosity
+   #
+   local buildorder_cmdline
+   local project_cmdline
+   local flags
 
-   cmdline="'${MULLE_CRAFT}' ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS}"
+   flags="${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS}"
+
+   buildorder_cmdline="'${MULLE_CRAFT}' ${flags}"
+
+   if [ -z ${flags} ]
+   then
+      flags="-v"
+   fi
+   project_cmdline="'${MULLE_CRAFT}' ${flags}"
    if [ "${OPTION_MOTD}" = "YES" ]
    then
-      cmdline="${cmdline} '--motd'"
+      project_cmdline="${project_cmdline} '--motd'"
    fi
 
    local arguments
@@ -324,7 +338,7 @@ sde_craft_main()
          if [ -f "${buildorderfile}" ]
          then
             MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-               eval_exekutor "${cmdline}" buildorder \
+               eval_exekutor "${buildorder_cmdline}" buildorder \
                                           --buildorder-file "'${buildorderfile}'" \
                                           "${arguments}" || return 1
          else
@@ -336,7 +350,7 @@ sde_craft_main()
          if [ -f "${buildorderfile}" ]
          then
             MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-               eval_exekutor "${cmdline}" buildorder \
+               eval_exekutor "${buildorder_cmdline}" buildorder \
                                           --buildorder-file "'${buildorderfile}'" \
                                           "${arguments}" || return 1
          else
@@ -348,6 +362,6 @@ sde_craft_main()
    case "${cmd}" in
       'project'|'all')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-            eval_exekutor "${cmdline}" project "${arguments}" || return 1
+            eval_exekutor "${project_cmdline}" project "${arguments}" || return 1
    esac
 }

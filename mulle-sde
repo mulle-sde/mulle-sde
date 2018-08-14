@@ -32,7 +32,7 @@
 [ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.29.0
+MULLE_EXECUTABLE_VERSION=0.30.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -103,8 +103,8 @@ print_flags()
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
-   echo "   --no-search   : do not search for enclosing environment"
-   echo "   -DKEY=VALUE   : define one-time environment variable"
+   echo "   --no-search    : do not search for enclosing environment"
+   echo "   -DKEY=VALUE    : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then

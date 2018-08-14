@@ -601,7 +601,7 @@ _mulle_sde_complete()
       ;;
 
       craft)
-         _mulle_sde_craft_complete
+         _mulle_craft_complete
          return 0
       ;;
 

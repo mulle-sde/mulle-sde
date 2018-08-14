@@ -185,9 +185,16 @@ main()
    install -m "${mode}" "mulle-sde" "${bin}/mulle-sde" || exit 1
    printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde" >&2
 
-   for i in src/mulle*
+   for i in src/mulle*.sh
    do
       install -v -m "${mode}" "${i}" "${libexec}" || exit 1
+   done
+
+   EXTENSION_DIR="${share}/extensions"
+   for i in src/mulle-sde
+   do
+      mkdir -p "${EXTENSION_DIR}" 2> /dev/null
+      cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
 }
 

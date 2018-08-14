@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_BUILDINFO_SH="included"
+MULLE_SDE_MAKEINFO_SH="included"
 
 
 sde_makeinfo_usage()
@@ -40,15 +40,17 @@ sde_makeinfo_usage()
 Usage:
    ${MULLE_USAGE_NAME} makeinfo [options] [command]
 
-   ** BUILDINFO ON A PROJECT (NOT A DEPENDENCY) ARE POSSIBLY A MISFEATURE
-      AND IT MIGHT BE REMOVED **
+   ** MAKEINFO IS POSSIBLY A MISFEATURE AND IT MIGHT BE REMOVED **
 
-   Manipulate makeinfo settings for a project. To change craftinfo settings
+   This command manipulate makeinfo definitions for a project. A common
+   makeinfo setting is CC to specify the compiler to use (e.g. mulle-clang).
+   By default makeinfo definitions settings are os-specific.
+
+   To change craftinfo settings
    for a dependency use \`mulle-sde dependency craftinfo\`. This command is
    not fully coded yet!
 
-   A commonly manipulated makeinfo setting is \"CFLAGS\". By default these
-   settings are os-specific.
+   A commonly manipulated makeinfo setting is \"CFLAGS\".
 
    See \`mulle-make definition\` for more help about the commands "get", "set"
    and "list"

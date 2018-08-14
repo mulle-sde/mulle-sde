@@ -66,7 +66,6 @@ EOF
 }
 
 
-
 sde_dependency_add_usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
@@ -752,7 +751,7 @@ sde_add_craftinfo_subproject_if_needed()
 #
 __sde_craftinfo_vars_with_url_or_address()
 {
-   log_entry "sde_url_or_address_to_address" "$@"
+   log_entry "__sde_craftinfo_vars_with_url_or_address" "$@"
 
    local url="$1"
    local extension="$2"
