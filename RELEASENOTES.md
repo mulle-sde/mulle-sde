@@ -1,3 +1,11 @@
+## 0.31.0
+
+* use `r_` functions of mulle-bashfunctions 1.8.0
+* rename mulle-sde find to mulle-sde show, so that a shortcut alias doesnt clash with unix find
+* migrated to mulle-bashfunctions 1.8.0, making mulle-sde perceptively snappier
+* added very experimental install command
+
+
 ## 0.30.0
 
 * rename buildinfo to craftinfo/makeinfo. mulle-sde/craftinfo extension is now part of mulle-sde

@@ -2,8 +2,8 @@
 
 ... for Linux, OS X, FreeBSD, Windows
 
-**mulle-sde** is a command-line based software development environment. The
-idea is to organize your project with the filesystem, and then let
+**mulle-sde** is a command-line based software development environment.
+Organize your project in the filesystem, and then let
 mulle-sde reflect the changed filesystem back to the "Makefile".
 An important aspect of a mulle-sde project is, that your project
 can still be built without mulle-sde being installed.
