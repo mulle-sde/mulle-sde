@@ -414,7 +414,7 @@ sde_dependency_list_main()
    if [ "${OPTION_OUTPUT_COMMAND}" = "YES" ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${DEPENDENCY_LIST_MARKS}" \
             --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
             --output-eval \
@@ -425,7 +425,7 @@ sde_dependency_list_main()
             "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
             --format "${formatstring}\\n" \
             --marks "${DEPENDENCY_LIST_MARKS}" \
             --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
@@ -454,13 +454,13 @@ _sde_enhance_url()
 
    if [ -z "${nodetype}" ]
    then
-      nodetype="`${MULLE_SOURCETREE} -V typeguess "${url}"`" || exit 1
+      nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
       [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
    fi
 
    if [ -z "${address}" ]
    then
-      address="`${MULLE_SOURCETREE} -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
+      address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
       if [ -z "${address}" ]
       then
          fail "Specify --address with this kind of URL"
@@ -484,8 +484,10 @@ _sde_enhance_url()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
-   upcaseid="`tweaked_de_camel_case "${address}"`"
-   upcaseid="`printf "%s" "${upcaseid}" | tr -c 'a-zA-Z0-9' '_'`"
+   local RVAL
+
+   r_tweaked_de_camel_case "${address}"
+   upcaseid="`printf "%s" "${RVAL}" | tr -c 'a-zA-Z0-9' '_'`"
    upcaseid="`tr 'a-z' 'A-Z' <<< "${upcaseid}"`"
 
    local last
@@ -550,6 +552,7 @@ sde_dependency_add_main()
    local OPTION_PRIVATE="NO"
    local OPTION_SHARE="YES"
    local OPTION_OPTIONAL="NO"
+   local RVAL
 
    #
    # grab options for mulle-sourcetree
@@ -563,19 +566,23 @@ sde_dependency_add_main()
          ;;
 
          --if-missing)
-            options="`concat "${options}" "--if-missing"`"
+            r_concat "${options}" "--if-missing"
+            options="${RVAL}"
          ;;
 
          --header-less|--headerless)
-            marks="`comma_concat "${marks}" "no-header"`"
+            r_comma_concat "${marks}" "no-header"
+            marks="${RVAL}"
          ;;
 
          --header-only|--headeronly)
-            marks="`comma_concat "${marks}" "no-link"`"
+            r_comma_concat "${marks}" "no-link"
+            marks="${RVAL}"
          ;;
 
          --embedded)
-            marks="`comma_concat "${marks}" "no-build,no-header,no-link,no-share"`"
+            r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
+            marks="${RVAL}"
          ;;
 
          -c|--c)
@@ -627,7 +634,8 @@ sde_dependency_add_main()
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            marks="`comma_concat "${marks}" "$1"`"
+            r_comma_concat "${marks}" "$1"
+            marks="${RVAL}"
          ;;
 
          --url)
@@ -637,7 +645,8 @@ sde_dependency_add_main()
          --*)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
 
-            options="`concat "${options}" "$1 '$2'"`"
+            r_concat "${options}" "$1 '$2'"
+            options="${RVAL}"
             shift
          ;;
 
@@ -676,39 +685,46 @@ sde_dependency_add_main()
 
    case "${OPTION_DIALECT}" in
       c)
-         marks="`comma_concat "${marks}" "no-import,no-all-load" `"
+         r_comma_concat "${marks}" "no-import,no-all-load"
+         marks="${RVAL}"
       ;;
    esac
 
    if [ "${OPTION_PRIVATE}" = "YES" ]
    then
-      marks="`comma_concat "${marks}" "no-public" `"
+      r_comma_concat "${marks}" "no-public"
+      marks="${RVAL}"
    fi
 
    if [ "${OPTION_OPTIONAL}" = "YES" ]
    then
-      marks="`comma_concat "${marks}" "no-require" `"
+      r_comma_concat "${marks}" "no-require"
+      marks="${RVAL}"
    fi
 
    if [ ! -z "${nodetype}" ]
    then
-      options="`concat "${options}" "--nodetype '${nodetype}'"`"
+      r_concat "${options}" "--nodetype '${nodetype}'"
+      options="${RVAL}"
    fi
    if [ ! -z "${address}" ]
    then
-      options="`concat "${options}" "--address '${address}'"`"
+      r_concat "${options}" "--address '${address}'"
+      options="${RVAL}"
    fi
    if [ ! -z "${branch}" ]
    then
-      options="`concat "${options}" "--branch '${branch}'"`"
+      r_concat "${options}" "--branch '${branch}'"
+      options="${RVAL}"
    fi
    if [ ! -z "${marks}" ]
    then
-      options="`concat "${options}" "--marks '${marks}'"`"
+      r_concat "${options}" "--marks '${marks}'"
+      options="${RVAL}"
    fi
 
    log_verbose "Dependency: ${url}"
-   eval_exekutor "${MULLE_SOURCETREE}" -V \
+   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
                      "${MULLE_TECHNICAL_FLAGS}"\
                      "${MULLE_SOURCETREE_FLAGS}" \
                         add "${options}" "'${url}'"
@@ -734,12 +750,12 @@ sde_add_craftinfo_subproject_if_needed()
    [ -d "${subprojectdir}" ] || \
       internal_fail "did not produce \"${subprojectdir}\""
 
-   exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} add --if-missing \
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} add --if-missing \
          --marks "no-update,no-delete,no-share,no-header,no-link" \
          --nodetype "local" \
          "${subprojectdir}"  || return 1
 
-   exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} move "${subprojectdir}" top || return 1
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} move "${subprojectdir}" top || return 1
 }
 
 
@@ -756,7 +772,7 @@ __sde_craftinfo_vars_with_url_or_address()
    local url="$1"
    local extension="$2"
 
-   _address="`exekutor "${MULLE_SOURCETREE}" -V get --url-addressing "${url}"`"
+   _address="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V get --url-addressing "${url}"`"
    if [ -z "${_address}" ]
    then
       _address="${url}"
@@ -1109,7 +1125,7 @@ os-excludes"
 
       mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} \
                             "${cmd}" \
                             "$@"
       ;;

@@ -154,9 +154,9 @@ EOF
 # /usr/share/mulle_sde/extensions/<vendor>
 #
 
-extension_get_search_path()
+r_extension_get_search_path()
 {
-   log_entry "extension_get_search_path" "$@"
+   log_entry "r_extension_get_search_path" "$@"
 
    local s
 
@@ -169,7 +169,7 @@ extension_get_search_path()
    if [ ! -z "${s}" ]
    then
       log_debug "Extension search path: \"${s}\""
-      echo "${s}"
+      RVAL="${s}"
       return
    fi
 
@@ -195,11 +195,15 @@ extension_get_search_path()
    #
    local directory
 
-   directory="`fast_dirname "$0" `"           # bin
-   directory="`fast_dirname "${directory}" `" # usr (or local)
-   case "`fast_basename "${directory}"`" in
+   r_fast_dirname "$0"           # bin
+   r_fast_dirname "${RVAL}"      # usr (or local)
+   directory="${RVAL}"
+
+   r_fast_basename "${directory}"
+   case "${RVAL}" in
       'local')
-         directory="`fast_dirname "${directory}" `" # usr (or local)
+         r_fast_dirname "${directory}"   # usr
+         directory="${RVAL}"
       ;;
    esac
 
@@ -214,13 +218,13 @@ extension_get_search_path()
 
    log_debug "Extension search path: \"${s}\""
 
-   echo "$s"
+   RVAL="$s"
 }
 
 
-extension_get_vendor_path()
+r_extension_get_vendor_path()
 {
-   log_entry "extension_get_vendor_path" "$@"
+   log_entry "r_extension_get_vendor_path" "$@"
 
    local vendor="$1" # can not be empty
 
@@ -230,19 +234,21 @@ extension_get_vendor_path()
    local s
    local i
 
-   searchpath="`extension_get_search_path`"
+   r_extension_get_search_path
+   searchpath="${RVAL}"
 
    IFS=":"; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}/${vendor}" ]
       then
-         echo "${i}/${vendor}"
+         RVAL="${i}/${vendor}"
          return
       fi
       log_debug "Vendor \"${vendor}\" not found in \"${i}\""
    done
 
+   RVAL=""
    return 1
 }
 
@@ -255,14 +261,17 @@ _extension_list_vendors()
    local s
    local i
 
-   searchpath="`extension_get_search_path`"
+   local RVAL
+
+   r_extension_get_search_path
+   searchpath="${RVAL}"
 
    IFS=":"; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}" ]
       then
-         find "${i}" -mindepth 1 -maxdepth 1 -type d -print
+         rexekutor find "${i}" -mindepth 1 -maxdepth 1 -type d -print
       fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -277,7 +286,6 @@ extension_list_vendors()
 }
 
 
-
 _extension_list_vendor_extensions()
 {
    log_entry "_extension_list_vendor_extensions" "$@"
@@ -285,8 +293,10 @@ _extension_list_vendor_extensions()
    local vendor="$1"
 
    local searchpath
+   local RVAL
 
-   searchpath="`extension_get_vendor_path "${vendor}"`"
+   r_extension_get_vendor_path "${vendor}"
+   searchpath="${RVAL}"
    if [ -z "${searchpath}" ]
    then
       return 1
@@ -304,9 +314,9 @@ extension_list_vendor_extensions()
 
 
 
-collect_extension_dirs()
+r_collect_extension_dirs()
 {
-   log_entry "collect_extension_dirs" "$@"
+   log_entry "r_collect_extension_dirs" "$@"
 
    local vendor="$1"
    local extensiontype="$2"
@@ -316,11 +326,15 @@ collect_extension_dirs()
    local extensiondir
    local foundtype
 
-   directory="`extension_get_vendor_path "${vendor}" `"
+   r_extension_get_vendor_path "${vendor}"
+   directory="${RVAL}"
    if [ -z "${directory}" ]
    then
+      RVAL=""
       return 1
    fi
+
+   local directories
 
 #     log_debug "$directory: ${directory}"
    IFS="
@@ -340,16 +354,20 @@ collect_extension_dirs()
             continue
          fi
       fi
-      rexekutor echo "${extensiondir}"
+
+      r_add_line "${directories}" "${extensiondir}"
+      directories="${RVAL}"
    done
 
    IFS="${DEFAULT_IFS}"; set +o noglob
+
+   RVAL="${directories}"
 }
 
 
-find_extension()
+r_find_extension()
 {
-   log_entry "find_extension" "$@"
+   log_entry "r_find_extension" "$@"
 
    local vendor="$1"
    local name="$2"
@@ -367,54 +385,63 @@ Use / separator"
 
    local directory
 
-   directory="`extension_get_vendor_path "${vendor}" `"
+   r_extension_get_vendor_path "${vendor}"
+   directory="${RVAL}"
+
    if [ -z "${directory}" ]
    then
       log_fluff "Extension vendor \"${vendor}\" is unknown."
+      RVAL=""
       return 1
    fi
 
    if [ ! -d "${directory}/${name}" ]
    then
       log_fluff "Extension \"${directory}/${name}\" is not there."
+      RVAL=""
       return 1
    fi
 
    log_fluff "Found extension \"${directory}/${name}\""
-   echo "${directory}/${name}"
+   RVAL="${directory}/${name}"
 }
 
 
-extensionnames_from_extension_dirs()
+r_extensionnames_from_extension_dirs()
 {
-   log_entry "extensionnames_from_extension_dirs" "$@"
+   log_entry "r_extensionnames_from_extension_dirs" "$@"
 
    local vendor="$1"
    local extensiondirs="$2"
 
    local directory
+   local result
 
    IFS="
 " ; set -o noglob
    for directory in ${extensiondirs}
    do
-      echo "${vendor}/`basename -- "${directory}"`"
+      log_fluff "Found \"${directory}\""
+
+      r_fast_basename "${directory}"
+      r_add_line "${result}" "${vendor}/${RVAL}"
+      result="${RVAL}"
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
+
+   RVAL="${result}"
 }
 
 
-collect_extension()
+r_collect_extension()
 {
-   log_entry "collect_extension" "$@"
+   log_entry "r_collect_extension" "$@"
 
    local vendor="$1"
    local extensiontype="$2"
 
-   local result
-
-   result="`collect_extension_dirs "${vendor}" "${extensiontype}"`"
-   extensionnames_from_extension_dirs "${vendor}" "${result}"
+   r_collect_extension_dirs "${vendor}" "${extensiontype}"
+   r_extensionnames_from_extension_dirs "${vendor}" "${RVAL}"
 }
 
 
@@ -473,8 +500,11 @@ _extension_get_version()
    local name="$2"
 
    local directory
+   local RVAL
 
-   directory="`find_extension "${vendor}" "${name}"`"
+   r_find_extension "${vendor}" "${name}"
+   directory="${RVAL}"
+
    [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
 
    local versionfile
@@ -503,6 +533,8 @@ extension_get_version()
 
 emit_extension()
 {
+   log_entry "emit_extension" "$@"
+
    local result="$1"
    local extensiontype="$2"
    local comment="$3"
@@ -603,7 +635,9 @@ sde_extension_list_main()
    esac
 
    log_verbose "Available vendors:"
-   log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}"`"
+   log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}" | sed 's/^/  /'`"
+
+   local RVAL
 
    set -o noglob ; IFS="
 "
@@ -618,36 +652,41 @@ sde_extension_list_main()
 
       case "${cmd}" in
          all|default|meta)
-            tmp="`collect_extension "${vendor}" meta `"  || return 1
-            meta_extension="`add_line "${meta_extension}" "${tmp}" `"  || return 1
+            r_collect_extension "${vendor}" "meta"
+            r_add_line "${meta_extension}" "${RVAL}"
+            meta_extension="${RVAL}"
          ;;
       esac
 
       case "${cmd}" in
          all|default|extra)
-            tmp="`collect_extension "${vendor}" extra `" || return 1
-            extra_extension="`add_line "${extra_extension}" "${tmp}" `"  || return 1
+            r_collect_extension "${vendor}" "extra"
+            r_add_line "${extra_extension}" "${RVAL}"
+            extra_extension="${RVAL}"
          ;;
       esac
 
       case "${cmd}" in
          all|default|oneshot)
-            tmp="`collect_extension "${vendor}" oneshot `" || return 1
-            oneshot_extension="`add_line "${oneshot_extension}" "${tmp}" `"  || return 1
+            r_collect_extension "${vendor}" "oneshot"
+            r_add_line "${oneshot_extension}" "${RVAL}"
+            oneshot_extension="${RVAL}"
          ;;
       esac
 
       case "${cmd}" in
          all|runtime)
-            tmp="`collect_extension "${vendor}" runtime `"  || return 1
-            runtime_extension="`add_line "${runtime_extension}" "${tmp}" `"  || return 1
+            r_collect_extension "${vendor}" "runtime"
+            r_add_line "${runtime_extension}" "${RVAL}"
+            runtime_extension="${RVAL}"
          ;;
       esac
 
       case "${cmd}" in
          all|buildtool)
-            tmp="`collect_extension "${vendor}" buildtool `" || return 1
-            buildtool_extension="`add_line "${buildtool_extension}" "${tmp}" `"  || return 1
+            r_collect_extension "${vendor}" "buildtool"
+            r_add_line "${buildtool_extension}" "${RVAL}"
+            buildtool_extension="${RVAL}"
          ;;
       esac
    done
@@ -728,9 +767,14 @@ a mulle-sde project"
       do
          IFS="${DEFAULT_IFS}"
 
-         extension="`fast_basename "${filename}"`"
-         vendor="`fast_dirname "${filename}"`"
-         vendor="`fast_basename "${vendor}"`"
+         log_verbose "Found ${C_RESET_BOLD}${filename}"
+
+         r_fast_basename "${filename}"
+         extension="${RVAL}"
+         r_fast_dirname "${filename}"
+         vendor="${RVAL}"
+         r_fast_basename "${vendor}"
+         vendor="${RVAL}"
 
          if [ "${OPTION_VERSION}" = "YES" ]
          then
@@ -783,9 +827,10 @@ __set_extension_vars()
       ;;
    esac
 
-   extensiondir="`find_extension "${vendor}" "${extension}"`" \
-         || fail "Unknown extension \"${vendor}/${extension}\""
+   local RVAL
 
+   r_find_extension "${vendor}" "${extension}" || fail "Unknown extension \"${vendor}/${extension}\""
+   extensiondir="${RVAL}"
 
    inherits="`collect_extension_inherits "${extensiondir}"`"
 }
@@ -797,7 +842,6 @@ __emit_extension_list_types()
    local regexp="$2"
 
    local projectdir
-   local name
 
    for projectdir in "${extensiondir}/project"/${regexp}
    do
@@ -810,7 +854,6 @@ __emit_extension_list_types()
 #      capitalized="`tr a-z A-Z <<< "${OPTION_LIST:0:1}"`"
 #      capitalized="${capitalized}${OPTION_LIST:1}"
 
-      name="`fast_basename "${projectdir}"`"
       (
          cd "${projectdir}" || exit 1
          find ./ -print | sed -e '/^\.*$/d' -e 's|^./||'
@@ -1233,13 +1276,18 @@ sde_extension_main()
       searchpath)
          log_info "Extension searchpath"
 
-         extension_get_search_path
+         local RVAL
+
+         r_extension_get_search_path
+         echo ""
       ;;
 
       vendorpath)
          log_info "Extension vendor path"
+         local RVAL
 
-         extension_get_vendor_path "$@"
+         r_extension_get_vendor_path "$@"
+         echo "${RVAL}"
       ;;
 
       upgrade)

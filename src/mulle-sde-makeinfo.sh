@@ -141,13 +141,15 @@ sde_makeinfo_main()
    case "${cmd}" in
       search)
          MULLE_USAGE_NAME="mulle-sde" \
-            "${MULLE_CRAFT}" search ${searchflags} "$@"
+            rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} \
+                        search ${searchflags} "$@"
       ;;
 
       list|get|set|keys)
          MULLE_USAGE_NAME="mulle-sde" \
          MULLE_USAGE_COMMAND="makeinfo" \
-            "${MULLE_MAKE}" -i "${OPTION_INFO_DIR}" ${flags} "definition" "$@"
+            rexekutor "${MULLE_MAKE:-mulle-make}" ${MULLE_TECHNICAL_FLAGS} \
+                           -i "${OPTION_INFO_DIR}" ${flags} "definition" "$@"
       ;;
 
       "")

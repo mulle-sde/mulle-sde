@@ -50,8 +50,9 @@ sde_init_usage()
    -o <oneshot>       : specify oneshot extensions. Multiple uses are possible"
 
    HIDDEN_OPTIONS="\
-   --allow-<name>     : reenable specific pieces of initialization (see source code)
-   --no-<name>        : turn off specific pieces of initialization (see source code)
+   --allow-<name>     : reenable specific pieces of initialization (see source)
+   --no-<name>        : turn off specific pieces of initialization (see source)
+   --no-sourcetree    : do not add dependencies and libraries to project
    -b <buildtool>     : specify the buildtool extension to use
    -r <runtime>       : specify runtime extension to use
    -v <vendor>        : extension vendor to use (mulle-sde)
@@ -623,7 +624,7 @@ add_to_environment()
    # remove lf for command line
    environment="`tr '\n' ' ' <<< "${environment}"`"
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV}'" -s "${MULLE_ENV_FLAGS}" environment \
+      eval_exekutor "'${MULLE_ENV:-mulle-env}'" -s "${MULLE_ENV_FLAGS}" environment \
                            --share mset "${environment}" || exit 1
 }
 
@@ -654,7 +655,7 @@ add_to_tools()
       then
          log_verbose "Adding \"${line}\" to tool"
          MULLE_VIRTUAL_ROOT="`pwd -P`" \
-            exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} tool --share ${scope} \
+            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} tool --share ${scope} \
                                                        add "${line}" || exit 1
       fi
    done
@@ -684,11 +685,13 @@ run_init()
 
    local flags
    local escaped
+   local RVAL
 
    # i need this for testing sometimes
    case "${OPTION_INIT_FLAGS}" in
       *,${vendor}/${extname}=*|${vendor}/${extname}=*)
-         escaped="`escaped_sed_pattern "${vendor}/${extname}"`"
+         r_escaped_sed_pattern "${vendor}/${extname}"
+         escaped="${RVAL}"
 
          flags="`sed -n -e "s/.*${escaped}=\\([^,]*\\).*/\\1/p" <<< "${OPTION_INIT_FLAGS}"`"
       ;;
@@ -951,6 +954,7 @@ _delete_extension_template_directory()
 }
 
 
+
 #
 # With "marks" you control what should be installed:
 #
@@ -1007,12 +1011,14 @@ _install_extension()
    fi
 
    local extensiondir
+   local RVAL
 
-   if ! extensiondir="`find_extension "${vendor}" "${extname}"`"
+   if ! r_find_extension "${vendor}" "${extname}"
    then
       fail "Could not find extension \"${extname}\" by \
 vendor \"${vendor}\""
    fi
+   extensiondir="${RVAL}"
 
    if ! _check_file "${extensiondir}/version"
    then
@@ -1478,7 +1484,7 @@ recall_installed_extensions()
    value="${MULLE_SDE_INSTALLED_EXTENSIONS}"
    if [ -z "${value}" ]
    then
-      value="`rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+      value="`rexekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
                                         ${MULLE_ENV_FLAGS} environment get \
                                           MULLE_SDE_INSTALLED_EXTENSIONS`"
    fi
@@ -1638,7 +1644,7 @@ install_extensions()
    # create files later after init
    #
    log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --share \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --share \
       set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || \
             internal_fail "failed env set"
 
@@ -1696,15 +1702,15 @@ install_project()
    # put these first, so extensions can draw on these in their definitions
    #
    log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_TYPE=\"${PROJECT_TYPE}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_TYPE "${PROJECT_TYPE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
 
    local _MOTD
@@ -1726,15 +1732,15 @@ install_project()
    # values that the user may want to edit
    #
    log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
 
    log_verbose "Environment: PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
-   exekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS} environment --project \
+   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
       set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
 
    case ",${marks}," in
@@ -1782,7 +1788,7 @@ changes into your subshell"
    fi
 
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV}'" "${MULLE_ENV_FLAGS}" environment \
+      eval_exekutor "'${MULLE_ENV:-mulle-env}'" "${MULLE_ENV_FLAGS}" environment \
                            --share mset "${defines}" || exit 1
 }
 
@@ -2023,8 +2029,40 @@ run_user_post_init_script()
    fi
 
    log_warning "Running post-init script \"${scriptfile}\""
+   log_info "You can suppress this behavior with --no-post-init"
 
    exekutor "${scriptfile}" "$@" || exit 1
+}
+
+
+warn_if_unknown_mark()
+{
+   log_entry "warn_if_unknown_mark" "$@"
+
+   local mark="$1"
+   local description="$2"
+
+   local KNOWN_MARKS="\
+extension
+inherit
+env
+share
+init
+sourcetree
+project
+clobber
+demo"
+
+   case "${mark}" in
+      'extension'|'inherit'|'env'|'share'|'init'|'sourcetree'|'project')
+         return
+      ;;
+      'clobber'|'demo')
+         return
+      ;;
+   esac
+
+   log_warning "Unknown mark \"$2\""
 }
 
 
@@ -2057,10 +2095,23 @@ sde_init_main()
    local OPTION_PROJECT_FILE
    local OPTION_PROJECT_SOURCE_DIR
    local OPTION_EXISTING
+   local OPTION_POST_INIT="YES"
    local OPTION_UPGRADE_SUBPROJECTS
    local PURGE_PWD_ON_ERROR="NO"
 
    local line
+   local mark
+
+   local KNOWN_MARKS="\
+extension
+inherit
+env
+share
+init
+sourcetree
+project
+clobber
+demo"
 
    #
    # handle options
@@ -2227,12 +2278,20 @@ sde_init_main()
             OPTION_INIT_ENV="NO"
          ;;
 
+         --no-post-init)
+            OPTION_POST_INIT="NO"
+         ;;
+
          --no-*)
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "${1:2}"`"
+            mark="${1:5}"
+            warn_if_unknown_mark "${mark}" "no-${mark}"
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-${mark}"`"
          ;;
 
          --allow-*)
-            OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${1:8}"`"
+            mark="${1:8}"
+            warn_if_unknown_mark "${mark}" "allow-mark"
+            OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${mark}"`"
          ;;
 
          -*)
@@ -2247,11 +2306,28 @@ sde_init_main()
       shift
    done
 
+
    if [ "${OPTION_INIT_ENV}" = "YES" ]
    then
       # empty it now
       MULLE_VIRTUAL_ROOT=""
    fi
+
+# MEMO: oneshot extensions are bad. Create mulle-sde ´file' command to
+#       add templated files
+#
+#   #
+#   # Special: one-shot extensions can be installed anywhere.
+#   # No project or environment required or even setup
+#   #
+#   if [ "${OPTION_UPGRADE}" != "YES" -a \
+#        ! -z "${OPTION_ONESHOTS}" -a \
+#        -z "${OPTION_META}" -a \
+#        -z "${OPTION_RUNTIME}" -a \
+#        -z "${OPTION_BUILDTOOL}" ]
+#   then
+#      OPTION_INIT_ENV="NO"
+#   fi
 
    if [ "${OPTION_UPGRADE}" = "YES" ]
    then
@@ -2262,12 +2338,12 @@ sde_init_main()
    [ "${OPTION_REINIT}" = "YES" -a "${OPTION_UPGRADE}" = "YES" ] && \
       fail "--reinit and --upgrade exclude each other"
 
-   if [ -z "${MULLE_PATH}" ]
+   if [ -z "${MULLE_PATH_SH}" ]
    then
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || exit 1
    fi
 
-   if [ -z "${MULLE_FILE}" ]
+   if [ -z "${MULLE_FILE_SH}" ]
    then
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || exit 1
    fi
@@ -2305,7 +2381,7 @@ sde_init_main()
 
       if [ -z "${OPTION_PROJECT_FILE}" ]
       then
-         rexekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} \
+         rexekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} \
                         environment upgrade || exit 1
       fi
    else
@@ -2333,7 +2409,7 @@ Some files may be missing and the project may not be craftable."
    # An upgrade is an "inplace" refresh of the extensions
    #
    if [ "${OPTION_REINIT}" != "YES" -a \
-       "${OPTION_UPGRADE}" != "YES" -a \
+        "${OPTION_UPGRADE}" != "YES" -a \
         -d "${MULLE_SDE_DIR}" ]
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
@@ -2362,7 +2438,7 @@ Use \`mulle-sde upgrade\` for maintainance"
          flags="-f"
       fi
 
-      exekutor "${MULLE_ENV}" ${MULLE_ENV_FLAGS} ${flags} \
+      exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} ${flags} \
                                  --style "${OPTION_ENV_STYLE}" \
                                  init --no-blurb
       case $? in
@@ -2441,7 +2517,7 @@ Use \`mulle-sde upgrade\` for maintainance"
          #
          # repair patternfiles as a "bonus" with -add option
          #
-         exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
+         exekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} \
                     ${MULLE_MATCH_FLAGS} patternfile repair --add
       fi
    else
@@ -2480,21 +2556,26 @@ Use \`mulle-sde upgrade\` for maintainance"
    then
       rmdir_safer "${MULLE_SDE_DIR}/share.old"
       remove_file_if_present "${MULLE_SDE_DIR}/.init"
+      # only remove if empty
+      exekutor rmdir "${MULLE_SDE_DIR}" 2>  /dev/null
    fi
 
    if [ "${OPTION_INIT_ENV}" = "YES"  ]
    then
-      run_user_post_init_script "${PROJECT_LANGUAGE}" \
-                                "${PROJECT_DIALECT}" \
-                                "${PROJECT_TYPE}"
-   fi
-
-   if [ -z "${OPTION_PROJECT_FILE}" ]
-   then
-      if [ "${OPTION_BLURB}" = "YES" ]
+      if [ "${OPTION_POST_INIT}" = "YES" ]
       then
-         log_info "Enter the environment:
+         run_user_post_init_script "${PROJECT_LANGUAGE}" \
+                                   "${PROJECT_DIALECT}" \
+                                   "${PROJECT_TYPE}"
+      fi
+
+      if [ -z "${OPTION_PROJECT_FILE}" ]
+      then
+         if [ "${OPTION_BLURB}" = "YES" ]
+         then
+            log_info "Enter the environment:
    ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
+         fi
       fi
    fi
 }

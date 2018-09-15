@@ -429,7 +429,7 @@ sde_subproject_map()
    subprojects="`sde_subproject_get_names`"
    if [ -z "${subprojects}" ]
    then
-      log_verbose "No subprojects, so done"
+      log_fluff "No subprojects, so done"
       return
    fi
 
@@ -508,7 +508,7 @@ sde_subproject_main()
 
    case "${cmd}" in
       add)
-         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} add \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} add \
             --marks "${SUBPROJECT_MARKS}" "$@"
          update_ignore_patternfile "$@"
       ;;
@@ -607,15 +607,15 @@ $1"
             ;;
          esac
 
-         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} ${cmd} ${flags} "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} ${cmd} ${flags} "$@"
       ;;
 
       move)
-         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} move "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} move "$@"
       ;;
 
       remove)
-         exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} remove "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} remove "$@"
          update_ignore_patternfile "$@"
       ;;
 
@@ -634,7 +634,7 @@ $1"
       # for now stay layme
       #
       list)
-         rexekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} list \
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${SUBPROJECT_LIST_MARKS}" \
             --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
             --output-no-url \

@@ -51,7 +51,10 @@ set_projectname_environment()
 
    PROJECT_C_NAME="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
 
-   PROJECT_IDENTIFIER="`tweaked_de_camel_case "${PROJECT_NAME}"`"
+   local RVAL
+
+   r_tweaked_de_camel_case "${PROJECT_NAME}"
+   PROJECT_IDENTIFIER="${RVAL}"
    PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_IDENTIFIER}" | tr -c 'a-zA-Z0-9' '_'`"
    PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z' 'a-z' <<< "${PROJECT_IDENTIFIER}"`"
    PROJECT_UPCASE_IDENTIFIER="`tr 'a-z' 'A-Z' <<< "${PROJECT_IDENTIFIER}"`"

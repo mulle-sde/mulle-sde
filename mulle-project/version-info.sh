@@ -6,3 +6,5 @@
 #
 VERSIONFILE="mulle-sde"
 VERSIONNAME="MULLE_EXECUTABLE_VERSION"
+VERSIONFILEMIRRORS="\
+src/mulle-sde/craftinfo/version"

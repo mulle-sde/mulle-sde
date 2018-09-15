@@ -62,54 +62,43 @@ EOF
 }
 
 
-emit_projectname_seds()
+r_projectname_seds()
 {
-#   log_entry "emit_projectname_seds" "$@"
+#   log_entry "r_projectname_seds" "$@"
 
    local o="$1"
    local c="$2"
-
-   local escaped_pn
-   local escaped_pi
-   local escaped_pcn
-   local escaped_pui
-   local escaped_pdi
 
    # verify minimal set
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME is empty"
    [ -z "${PROJECT_IDENTIFIER}" ] && internal_fail "PROJECT_IDENTIFIER is empty"
    [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "PROJECT_SOURCE_DIR is empty"
 
-   escaped_pn="` escaped_sed_pattern "${PROJECT_NAME}" `"
-   escaped_pcn="` escaped_sed_pattern "${PROJECT_C_NAME}" `"
-   escaped_pi="` escaped_sed_pattern "${PROJECT_IDENTIFIER}" `"
-   escaped_pui="` escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}" `"
-   escaped_pdi="` escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}" `"
-   escaped_psd="` escaped_sed_pattern "${PROJECT_SOURCE_DIR}" `"
-
    local cmdline
 
-   cmdline="-e 's/${o}PROJECT_NAME${c}/${escaped_pn}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_C_NAME${c}/${escaped_pcn}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_IDENTIFIER${c}/${escaped_pi}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${escaped_pdi}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${escaped_pui}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_SOURCE_DIR${c}/${escaped_psd}/g'"
+   r_escaped_sed_pattern "${PROJECT_NAME}"
+   cmdline="-e 's/${o}PROJECT_NAME${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${PROJECT_C_NAME}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_C_NAME${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${PROJECT_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_IDENTIFIER${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${PROJECT_SOURCE_DIR}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_SOURCE_DIR${c}/${RVAL}/g'"
 
-   echo "${cmdline}"
+   RVAL="${cmdline}"
 }
 
 
-emit_projectlanguage_seds()
+r_projectlanguage_seds()
 {
-#   log_entry "emit_projectlanguage_seds" "$@"
+#   log_entry "r_projectlanguage_seds" "$@"
 
    local o="$1"
    local c="$2"
-
-   local escaped_pl
-   local escaped_pdl
-   local escaped_pul
 
    [ -z "${PROJECT_LANGUAGE}" ] && internal_fail "PROJECT_LANGUAGE is empty"
 
@@ -119,23 +108,22 @@ emit_projectlanguage_seds()
    project_downcase_language="`tr A-Z a-z <<< "${PROJECT_LANGUAGE}" `"
    project_upcase_language="`tr a-z A-Z <<< "${PROJECT_LANGUAGE}" `"
 
-   escaped_pl="` escaped_sed_pattern "${PROJECT_LANGUAGE}" `"
-   escaped_pul="` escaped_sed_pattern "${project_upcase_language}" `"
-   escaped_pdl="` escaped_sed_pattern "${project_downcase_language}" `"
-
    local cmdline
 
-   cmdline="-e 's/${o}PROJECT_LANGUAGE${c}/${escaped_pl}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_LANGUAGE${c}/${escaped_pul}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_LANGUAGE${c}/${escaped_pdl}/g'"
+   r_escaped_sed_pattern "${PROJECT_LANGUAGE}"
+   cmdline="-e 's/${o}PROJECT_LANGUAGE${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${project_upcase_language}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_LANGUAGE${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${project_downcase_language}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_LANGUAGE${c}/${RVAL}/g'"
 
-   echo "${cmdline}"
+   RVAL="${cmdline}"
 }
 
 
-emit_projectdialect_seds()
+r_projectdialect_seds()
 {
-#   log_entry "emit_projectdialect_seds" "$@"
+#   log_entry "r_projectdialect_seds" "$@"
 
    local o="$1"
    local c="$2"
@@ -148,19 +136,14 @@ emit_projectdialect_seds()
    project_downcase_dialect="`tr A-Z a-z <<< "${PROJECT_DIALECT}" `"
    project_upcase_dialect="`tr a-z A-Z <<< "${PROJECT_DIALECT}" `"
 
-   local escaped_pl
-   local escaped_pdl
-   local escaped_pul
-
-   escaped_pl="` escaped_sed_pattern "${PROJECT_DIALECT}" `"
-   escaped_pul="` escaped_sed_pattern "${project_upcase_dialect}" `"
-   escaped_pdl="` escaped_sed_pattern "${project_downcase_dialect}" `"
-
    local cmdline
 
-   cmdline="-e 's/${o}PROJECT_DIALECT${c}/${escaped_pl}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_DIALECT${c}/${escaped_pul}/g'"
-   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${escaped_pdl}/g'"
+   r_escaped_sed_pattern "${PROJECT_DIALECT}"
+   cmdline="-e 's/${o}PROJECT_DIALECT${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${project_upcase_dialect}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_DIALECT${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${project_downcase_dialect}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${RVAL}/g'"
 
    #
    # support only first of PROJECT_EXTENSIONS as "primary"
@@ -169,9 +152,8 @@ emit_projectdialect_seds()
    local escaped_de
 
    extensions="${PROJECT_EXTENSIONS:-${project_downcase_dialect}}"
-   escaped_de="` escaped_sed_pattern "${extensions%%:*}" `"
-
-   cmdline="${cmdline} -e 's/${o}PROJECT_EXTENSION${c}/${escaped_de}/g'"
+   r_escaped_sed_pattern "${extensions%%:*}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_EXTENSION${c}/${RVAL}/g'"
 
    case "${PROJECT_DIALECT}" in
       objc)
@@ -183,13 +165,13 @@ emit_projectdialect_seds()
       ;;
    esac
 
-   echo "${cmdline}"
+   RVAL="${cmdline}"
 }
 
 
-emit_author_date_seds()
+r_author_date_seds()
 {
-#   log_entry "emit_author_date_seds" "$@"
+#   log_entry "r_author_date_seds" "$@"
 
    local o="$1"
    local c="$2"
@@ -202,41 +184,31 @@ emit_author_date_seds()
    nowtime="`date "+%H:%M:%S"`"
    nowyear="`date "+%Y"`"
 
-   local escaped_a
-   local escaped_d
-   local escaped_o
-   local escaped_t
-   local escaped_u
-   local escaped_y
-
-   escaped_a="` escaped_sed_pattern "${AUTHOR:-${USER}}" `"
-   escaped_d="` escaped_sed_pattern "${nowdate}" `"
-   escaped_o="` escaped_sed_pattern "${ORGANIZATION}" `"
-   escaped_t="` escaped_sed_pattern "${nowtime}" `"
-   escaped_u="` escaped_sed_pattern "${USER}" `"
-   escaped_y="` escaped_sed_pattern "${nowyear}" `"
-
    local cmdline
 
-   cmdline="-e 's/${o}AUTHOR${c}/${escaped_a}/g'"
-   cmdline="${cmdline} -e 's/${o}DATE${c}/${escaped_d}/g'"
-   cmdline="${cmdline} -e 's/${o}ORGANIZATION${c}/${escaped_o}/g'"
-   cmdline="${cmdline} -e 's/${o}TIME${c}/${escaped_t}/g'"
-   cmdline="${cmdline} -e 's/${o}USER${c}/${escaped_u}/g'"
-   cmdline="${cmdline} -e 's/${o}YEAR${c}/${escaped_y}/g'"
+   r_escaped_sed_pattern "${AUTHOR:-${USER}}"
+   cmdline="-e 's/${o}AUTHOR${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${nowdate}"
+   cmdline="${cmdline} -e 's/${o}DATE${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${ORGANIZATION}"
+   cmdline="${cmdline} -e 's/${o}ORGANIZATION${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${nowtime}"
+   cmdline="${cmdline} -e 's/${o}TIME${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${USER}"
+   cmdline="${cmdline} -e 's/${o}USER${c}/${RVAL}/g'"
+   r_escaped_sed_pattern "${nowyear}"
+   cmdline="${cmdline} -e 's/${o}YEAR${c}/${RVAL}/g'"
 
-   local escaped
+   r_escaped_sed_pattern "${ONESHOT_NAME}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_NAME${c}/${RVAL}/g'"
 
-   escaped="` escaped_sed_pattern "${ONESHOT_NAME}" `"
-   cmdline="${cmdline} -e 's/${o}ONESHOT_NAME${c}/${escaped}/g'"
-
-   echo "${cmdline}"
+   RVAL="${cmdline}"
 }
 
 
-template_filename_replacement_command()
+r_template_filename_replacement_command()
 {
-  log_entry "template_filename_replacement_command" "$@"
+  log_entry "r_template_filename_replacement_command" "$@"
 
    local cmdline
 
@@ -244,20 +216,20 @@ template_filename_replacement_command()
 
    local seds
 
-   seds="`emit_projectname_seds`"
-   cmdline="${cmdline} ${seds}"
+   r_projectname_seds
+   cmdline="${cmdline} ${RVAL}"
 
-   seds="`emit_projectlanguage_seds`"
-   cmdline="${cmdline} ${seds}"
+   r_projectlanguage_seds
+   cmdline="${cmdline} ${RVAL}"
 
-   seds="`emit_projectdialect_seds`"
-   cmdline="${cmdline} ${seds}"
+   r_projectdialect_seds
+   cmdline="${cmdline} ${RVAL}"
 
    #
    # get VENDOR_NAME for file replacement
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor "${MULLE_ENV}" -s \
+             rexekutor "${MULLE_ENV:-mulle-env}" -s \
                            ${MULLE_ENV_FLAGS} environment \
                                  get --output-sed VENDOR_NAME`" || exit 1
    cmdline="${cmdline} ${seds}"
@@ -268,18 +240,19 @@ template_filename_replacement_command()
    #
    local escaped
 
-   escaped="` escaped_sed_pattern "${ONESHOT_NAME:-ONESHOT_NAME}" `"
+   r_escaped_sed_pattern "${ONESHOT_NAME:-ONESHOT_NAME}"
+   escaped="${RVAL}"
    cmdline="${cmdline} -e 's/ONESHOT_NAME/${escaped}/g'"
 
    log_debug "${cmdline}"
 
-   echo "${cmdline}"
+   RVAL="${cmdline}"
 }
 
 
-template_contents_replacement_command()
+r_template_contents_replacement_command()
 {
-   log_entry "template_contents_replacement_command" "$@"
+   log_entry "r_template_contents_replacement_command" "$@"
 
    local cmdline
 
@@ -287,24 +260,24 @@ template_contents_replacement_command()
 
    local seds
 
-   seds="`emit_projectname_seds "<|" "|>"`"
-   cmdline="${cmdline} ${seds}"
+   r_projectname_seds "<|" "|>"
+   cmdline="${cmdline} ${RVAL}"
 
-   seds="`emit_projectlanguage_seds "<|" "|>"`"
-   cmdline="${cmdline} ${seds}"
+   r_projectlanguage_seds "<|" "|>"
+   cmdline="${cmdline} ${RVAL}"
 
-   seds="`emit_projectdialect_seds "<|" "|>"`"
-   cmdline="${cmdline} ${seds}"
+   r_projectdialect_seds "<|" "|>"
+   cmdline="${cmdline} ${RVAL}"
 
-   seds="`emit_author_date_seds "<|" "|>"`"
-   cmdline="${cmdline} ${seds}"
+   r_author_date_seds "<|" "|>"
+   cmdline="${cmdline} ${RVAL}"
 
    #
    # get current environment (as maybe already set by an extensions)
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
-             rexekutor "${MULLE_ENV}" -s ${MULLE_ENV_FLAGS}  \
+             rexekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}  \
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
                                    --sed-key-suffix '|>'`" || exit 1
@@ -316,7 +289,7 @@ template_contents_replacement_command()
 
    log_debug "${cmdline}"
 
-   echo "${cmdline}"
+   RVAL="${cmdline}"
 }
 
 
@@ -331,8 +304,10 @@ copy_and_expand_template()
    local onlyfile="$5"
 
    local templatefile
+   local RVAL
 
-   templatefile="`filepath_concat "${templatedir}" "${dstfile}" `"
+   r_filepath_concat "${templatedir}" "${dstfile}"
+   templatefile="${RVAL}"
 
    [ ! -f "${templatefile}" ] && internal_fail "\"${templatefile}\" is missing"
 
@@ -365,7 +340,8 @@ copy_and_expand_template()
       esac
    fi
 
-   mkdir_if_missing "`fast_dirname "${expanded_dstfile}" `"
+   r_fast_dirname "${expanded_dstfile}"
+   mkdir_if_missing "${RVAL}"
    if [ -f "${expanded_dstfile}" ]
    then
       exekutor chmod ug+w "${expanded_dstfile}"
@@ -650,21 +626,25 @@ _template_main()
       ;;
 
       csed)
-         template_contents_replacement_command
+         r_template_contents_replacement_command
+         echo "${RVAL}"
       ;;
 
       fsed)
-         template_filename_replacement_command
+         r_template_filename_replacement_command
+         echo "${RVAL}"
       ;;
 
       write)
          if [ -z "${FILENAME_SED}" ]
          then
-            FILENAME_SED="`template_filename_replacement_command`" || exit 1
+            r_template_filename_replacement_command
+            FILENAME_SED="${RVAL}" || exit 1
          fi
          if [ -z "${CONTENTS_SED}" ]
          then
-            CONTENTS_SED="`template_contents_replacement_command`" || exit 1
+            r_template_contents_replacement_command
+            CONTENTS_SED="${RVAL}" || exit 1
          fi
 
          "${template_callback}" "${TEMPLATE_DIR}" \

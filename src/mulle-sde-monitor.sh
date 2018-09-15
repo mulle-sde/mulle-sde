@@ -37,7 +37,7 @@ sde_monitor_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} monitor 
+   ${MULLE_USAGE_NAME} monitor
 
    Run the mulle-monitor on the current project.
 
@@ -96,5 +96,5 @@ sde_monitor_main()
    #
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
+      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
 }

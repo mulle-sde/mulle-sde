@@ -104,7 +104,7 @@ create_buildorder_file()
 
    mkdir_if_missing "${cachedir}"
    if ! redirect_exekutor "${buildorderfile}" \
-      "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} \
+      "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} \
          buildorder \
             --output-marks ${MULLE_CRAFT_BUILDORDER_OPTIONS} \
             --callback "`declare -f append_mark_no_memo_to_subproject`"
@@ -187,7 +187,7 @@ sde_craft_main()
    case "${cmd}" in
       'clean')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${cmd}" \
-            exekutor "${MULLE_CRAFT}" \
+            exekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS} \
                      "${cmd}" "$@"
          exit $?
@@ -239,7 +239,7 @@ sde_craft_main()
       #
       local dbrval
 
-      "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} -s dbstatus
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} -s dbstatus
       dbrval="$?"
       log_debug "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
 
@@ -253,7 +253,7 @@ sde_craft_main()
          else
             log_verbose "Run sourcetree update"
 
-            eval_exekutor "'${MULLE_SOURCETREE}'" \
+            eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                            "${MULLE_SOURCETREE_FLAGS}" "update" || exit 1
          fi
          updateflags="" # db "force" update
@@ -308,16 +308,18 @@ sde_craft_main()
    local buildorder_cmdline
    local project_cmdline
    local flags
+   local RVAL
 
-   flags="${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS}"
+   r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
+   flags="${RVAL}" 
 
-   buildorder_cmdline="'${MULLE_CRAFT}' ${flags}"
+   buildorder_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
 
-   if [ -z ${flags} ]
+   if [ -z "${flags}" ]
    then
       flags="-v"
    fi
-   project_cmdline="'${MULLE_CRAFT}' ${flags}"
+   project_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
    if [ "${OPTION_MOTD}" = "YES" ]
    then
       project_cmdline="${project_cmdline} '--motd'"
@@ -331,7 +333,7 @@ sde_craft_main()
       shift
    done
 
-   log_verbose "Craft \"${cmd}\" project \"${PROJECT_NAME}\""
+#   log_fluff "Craft ${C_RESET_BOLD}${cmd}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
    case "${cmd}" in
       'all')

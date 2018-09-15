@@ -54,6 +54,7 @@ print_commands()
 
       HIDDEN_COMMANDS="\
    environment    : manage environment variables (project settings)
+   install        : install a remote mulle-sde project
    libexec-dir    : print path to mulle-sde libexec
    run            : run a command in a subshell
    style          : show environment style
@@ -67,9 +68,10 @@ print_commands()
    craft          : build the project using mulle-craft
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
-   find           : find files that match patternfiles
+   file           : manage files in the project
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
+   show           : show files that match patternfiles
    update         : update project makefiles and sources"
 
       HIDDEN_COMMANDS="\
@@ -180,7 +182,6 @@ usage()
 }
 
 
-
 set_custom_define()
 {
    log_entry "set_custom_define" "$@"
@@ -258,6 +259,7 @@ determine_project_dir()
    return 1
 }
 
+
 _exec_command_in_subshell()
 {
    local cmdline="$1"; shift
@@ -281,7 +283,7 @@ $1"
    done
 
    log_fluff "Run command with mulle-env: -C \"${cmdline}\""
-   rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
+   rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
 }
 
 
@@ -423,9 +425,6 @@ main()
       shift
    done
 
-   MULLE_ENV="${MULLE_ENV:-`command -v mulle-env`}"
-   [ -z "${MULLE_ENV}" ] && fail "mulle-env not in PATH"
-
    if [ "${FLAG_OUTSIDE_ENV}" = "YES" ]
    then
       MULLE_VIRTUAL_ROOT="`pwd -P`"
@@ -444,9 +443,18 @@ main()
 
          case "${cmd}" in
             makeinfo|buildorder|callback|clean|craft|dependency|\
-environment|fetch|find|library|log|match|monitor|patternfile|subproject|style|\
-task|template|tool|update)
+environment|fetch|find|library|log|match|monitor|patternfile|show|subproject|\
+style|task|template|tool|update)
                exec_command_in_subshell "$@"
+            ;;
+
+            install)
+               # shellcheck source=src/mulle-sde-install.sh
+               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-install.sh"
+
+               shift
+               sde_install_main "$@"
+               return $?
             ;;
 
             # experimental "run" command inside subshell
@@ -461,17 +469,17 @@ libexec-dir|library-path|project-dir)
 
             enter)
                shift
-               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "$@"
+               exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
             ;;
 
             "")
-               exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS}
+               exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS}
             ;;
 
             *)
                if [ $# -eq 1 ] && [ -d "$1" ]
                then
-                  rexekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} "$@"
+                  rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
                fi
 
                usage "${MULLE_TRACE}"
@@ -490,31 +498,8 @@ libexec-dir|library-path|project-dir)
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
    MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
 
-   MULLE_SOURCETREE="${MULLE_SOURCETREE:-`command -v mulle-sourcetree`}"
-   [ -z "${MULLE_SOURCETREE}" ] && fail "mulle-sourcetree not in PATH"
-
-   MULLE_MONITOR="${MULLE_MONITOR:-`command -v mulle-monitor`}"
-   [ -z "${MULLE_MONITOR}" ] && fail "mulle-monitor not in PATH"
-
-   MULLE_CRAFT="${MULLE_CRAFT:-`command -v mulle-craft`}"
-   [ -z "${MULLE_CRAFT}" ] && fail "mulle-craft not in PATH"
-
-   MULLE_MATCH="${MULLE_MATCH:-`command -v mulle-match`}"
-   [ -z "${MULLE_MATCH}" ] && fail "mulle-match not in PATH"
-
-   MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
-   [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
-
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
    then
-      log_trace2 "MULLE_CRAFT=\"${MULLE_CRAFT}\""
-      log_trace2 "MULLE_ENV=\"${MULLE_ENV}\""
-      log_trace2 "MULLE_MAKE=\"${MULLE_MAKE}\""
-      log_trace2 "MULLE_MATCH=\"${MULLE_MATCH}\""
-      log_trace2 "MULLE_MONITOR=\"${MULLE_MONITOR}\""
-      log_trace2 "MULLE_SDE_DIR=\"${MULLE_SDE_DIR}\""
-      log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
-      log_trace2 "MULLE_SOURCETREE=\"${MULLE_SOURCETREE}\""
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
    fi
 
@@ -541,7 +526,7 @@ libexec-dir|library-path|project-dir)
          cd_virtual_root "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_SOURCETREE_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -550,7 +535,7 @@ libexec-dir|library-path|project-dir)
 
          MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_MONITOR_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -588,6 +573,8 @@ monitor
 patternfile
 project-dir
 reinit
+run
+show
 subproject
 style
 task
@@ -623,7 +610,7 @@ version"
          cd_virtual_root "${cmd}" "NO"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -643,17 +630,17 @@ version"
          sde_fetch_main "$@"
       ;;
 
-      find)
+      find|show)
          cd_virtual_root "${cmd}" "NO"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_MATCH_FLAGS} "find" \
+            exekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_MATCH_FLAGS} "show" \
                           --format "%t/%c: %f\\n" "$@"
       ;;
 
       "")
-         usage "${MULLE_TRACE}"
+         log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
       ;;
 
       init)
@@ -669,7 +656,7 @@ version"
 
          # interactive shell, dont set usage
          sde_init_main --no-blurb "$@" &&
-            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS}
+            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS}
       ;;
 
       library)
@@ -689,7 +676,7 @@ version"
          cd_virtual_root "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -697,7 +684,7 @@ version"
          cd_virtual_root "${cmd}" "NO"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_MATCH_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -737,9 +724,13 @@ version"
          sde_init_main --reinit "$@"
       ;;
 
+      run)
+         fail "Use run only outside of the mulle-sde environment"
+      ;;
+
       style)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 
@@ -765,7 +756,7 @@ version"
          cd_virtual_root "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV}" ${MULLE_TECHNICAL_FLAGS} \
+            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_ENV_FLAGS} "${cmd}" "$@"
       ;;
 

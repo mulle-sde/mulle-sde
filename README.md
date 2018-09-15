@@ -61,7 +61,7 @@ $ mulle-sde hello
 Optionally look at the project files:
 
 ```
-$ mulle-sde find
+$ mulle-sde show
 ```
 
 Build it:
@@ -161,7 +161,7 @@ meta           | A wrapper for extensions (usually buildtool+runtime+extra).
 oneshot        | A special kind of extra extension, that can be installed multiple times but is not upgradable.
 runtime        | Support for language/runtime combinations like C with X11.
 
-Extensions are installable plugins. The package [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer) 
+Extensions are installable plugins. The package [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer)
 provides the basic set of extension. Use *list* to see the *extensions* installed on your system:
 
 ```
@@ -186,14 +186,14 @@ See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
 information about adding and writing extensions.
 
 
-## mulle-sde find
+## mulle-sde show
 
-![](dox/mulle-sde-find.png)
+![](dox/mulle-sde-show.png)
 
 List project files and their types.
 
 ```
-mulle-sde find
+mulle-sde show
 ```
 
 See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
@@ -249,7 +249,7 @@ The monitor is a complex beast and has its own
 
 ![](dox/mulle-sde-patternfile.png)
 
-Manage the *patternfiles* that are used by `mulle-sde find` to classify the
+Manage the *patternfiles* that are used by `mulle-sde show` to classify the
 files inside your project:
 
 ```

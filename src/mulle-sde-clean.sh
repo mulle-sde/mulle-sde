@@ -100,7 +100,7 @@ sde_clean_project_main()
 {
    log_entry "sde_clean_project_main" "$@"
 
-   rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean project
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} clean project
 }
 
 
@@ -109,7 +109,7 @@ sde_clean_dependency_main()
    log_entry "sde_clean_dependency_main" "$@"
 
    log_verbose "Cleaning \"dependency\" directory"
-   rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean dependency
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} clean dependency
 }
 
 
@@ -128,7 +128,7 @@ sde_clean_subproject_main()
    subprojects="`sde_subproject_get_names`"
    if [ -z "${subprojects}" ]
    then
-      log_verbose "No subprojects, so done"
+      log_fluff "No subprojects, so done"
       return
    fi
 
@@ -137,7 +137,7 @@ sde_clean_subproject_main()
    for subproject in ${subprojects}
    do
       set +o noglob; IFS="${DEFAULT_IFS}"
-      rexekutor "${MULLE_CRAFT}" ${MULLE_TECHNICAL_FLAGS} clean "${subproject}"
+      rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} clean "${subproject}"
    done
    set +o noglob; IFS="${DEFAULT_IFS}"
 }
@@ -196,7 +196,7 @@ sde_clean_db_main()
 {
    log_entry "sde_clean_db_main" "$@"
 
-   rexekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} reset
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_TECHNICAL_FLAGS} reset
 }
 
 
@@ -204,7 +204,7 @@ sde_clean_sourcetree_main()
 {
    log_entry "sde_clean_sourcetree_main" "$@"
 
-   rexekutor "${MULLE_SOURCETREE}" -V ${MULLE_TECHNICAL_FLAGS} clean
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_TECHNICAL_FLAGS} clean
 }
 
 
@@ -212,7 +212,7 @@ sde_clean_patternfile_main()
 {
    log_entry "sde_clean_patternfile_main" "$@"
 
-   rexekutor "${MULLE_MATCH}" ${MULLE_TECHNICAL_FLAGS} clean
+   rexekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} clean
 }
 
 
@@ -222,7 +222,7 @@ sde_clean_monitor_main()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      rexekutor "${MULLE_MONITOR}" ${MULLE_TECHNICAL_FLAGS} clean
+      rexekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} clean
 }
 
 
@@ -310,9 +310,24 @@ tidy"
       ;;
 
       *)
-         rexekutor "${MULLE_CRAFT}" \
+         local escaped_dependency
+         local found
+         local RVAL
+
+         r_escaped_grep_pattern "$1"
+         escaped_dependency="${RVAL}"
+
+         found="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \
+                 sed 's|^.*/||' | \
+                 grep "${escaped_dependency}"`"
+         if [ -z "${found}" ]
+         then
+            fail "Unknown dependency \"$1\""
+         fi
+
+         rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_CRAFT_FLAGS} clean "$@"
+                     ${MULLE_CRAFT_FLAGS} clean "$1"
       ;;
    esac
 

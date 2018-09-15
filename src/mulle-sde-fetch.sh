@@ -40,7 +40,7 @@ sde_fetch_usage()
 Usage:
    ${MULLE_USAGE_NAME} fetch [options]
 
-   Fetch all dependencies and enure the already fetched dependencies are the
+   Fetch all dependencies and ensure the already fetched dependencies are the
    the correct versions (else refetch them).
 
 Options:
@@ -66,7 +66,7 @@ do_update_sourcetree()
       return 0
    fi
 
-   eval_exekutor "'${MULLE_SOURCETREE}'" \
+   eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                      "${MULLE_SOURCETREE_FLAGS}" ${MULLE_TECHNICAL_FLAGS} "${OPTION_MODE}" \
                      "update" "$@"
 }
@@ -109,7 +109,7 @@ sde_fetch_main()
    [ "$#" -eq 0 ] || sde_fetch_usage "superflous arguments \"$*\""
 
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" = YES ] || \
-         ! exekutor "${MULLE_SOURCETREE}" -V ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
+         ! exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
    then
       do_update_sourcetree "$@"
       return $?
