@@ -1,3 +1,7 @@
+### 0.31.1
+
+* mulle-sde craft -V will silently ignore the -V flag, to fix some old travis scripts
+
 ## 0.31.0
 
 * use `r_` functions of mulle-bashfunctions 1.8.0

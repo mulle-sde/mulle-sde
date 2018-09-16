@@ -171,6 +171,10 @@ sde_craft_main()
             OPTION_MOTD="NO"
          ;;
 
+         -V)
+            # old flag silently ignored
+         ;;
+
          all|buildorder|clean|dependency|project)
             cmd="$1"
             shift
@@ -311,7 +315,7 @@ sde_craft_main()
    local RVAL
 
    r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
-   flags="${RVAL}" 
+   flags="${RVAL}"
 
    buildorder_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
 
