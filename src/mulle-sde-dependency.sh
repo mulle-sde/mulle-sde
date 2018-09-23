@@ -171,7 +171,7 @@ sde_dependency_craftinfo_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo [option] <dep> <command>
+   ${MULLE_USAGE_NAME} dependency craftinfo [option] <command>
 
    Manage build settings of a dependency. Thy will be stored in a subproject
    in your project inside a mulle-sde created folder "craftinfo". This is done
@@ -198,7 +198,7 @@ EOF
 
       cat <<EOF >&2
 Commands:
-   get               : retrieve a build setting for dependency with url
+   get               : retrieve a build setting for dependency
    list              : list builds settings
    set               : set a build setting
 
@@ -217,7 +217,7 @@ sde_dependency_craftinfo_set_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo <dep> set [option] <key> <value>
+   ${MULLE_USAGE_NAME} dependency craftinfo set [option] <dep> <key> <value>
 
    Set a setting value for key. This will automatically create a proper
    "craftinfo" subproject for you, if there is none yet.
@@ -226,7 +226,7 @@ Usage:
    craftinfo settings.
 
    Example:
-      mulle-sde dependency craftinfo nng --global set --append CPPFLAGS "-DX=0"
+      mulle-sde dependency craftinfo --global set --append CPPFLAGS "-DX=0"
 
 Options:
    --append : value will be appended to CPPFLAGS
@@ -242,7 +242,7 @@ sde_dependency_craftinfo_get_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo <url> get <key>
+   ${MULLE_USAGE_NAME} dependency craftinfo <dep> <key> <value>
 
    Read setting if key.
 
@@ -260,7 +260,7 @@ sde_dependency_craftinfo_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo list <dep>
+   ${MULLE_USAGE_NAME} dependency craftinfo <dep>
 
    List build settings of a dependency. By default the global settings and
    those for the current platform are listed. To see other platform settings
@@ -489,6 +489,16 @@ _sde_enhance_url()
    r_tweaked_de_camel_case "${address}"
    upcaseid="`printf "%s" "${RVAL}" | tr -c 'a-zA-Z0-9' '_'`"
    upcaseid="`tr 'a-z' 'A-Z' <<< "${upcaseid}"`"
+
+   # ensure its a shell identifier
+   case "${upcaseid}" in
+      [A-Za-z_]*)
+      ;;
+
+      *)
+         upcaseid="_${upcaseid}"
+      ;;
+   esac
 
    local last
    local leading
@@ -798,7 +808,6 @@ sde_dependency_craftinfo_set_main()
 {
    log_entry "sde_dependency_craftinfo_set_main" "$@"
 
-   local url="$1"; shift
    local extension="$1"; shift
 
    local OPTION_APPEND="NO"
@@ -824,6 +833,11 @@ sde_dependency_craftinfo_set_main()
 
       shift
    done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing url or address argument"
+
+   local url="$1"
+   shift
 
    [ "$#" -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing key"
    [ "$#" -eq 1 ] && sde_dependency_craftinfo_set_usage "Missing value"
@@ -860,7 +874,6 @@ sde_dependency_craftinfo_get_main()
 {
    log_entry "sde_dependency_craftinfo_list_main" "$@"
 
-   local url="$1"; shift
    local extension="$1"; shift
 
    while :
@@ -882,6 +895,11 @@ sde_dependency_craftinfo_get_main()
 
       shift
    done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing url or address argument"
+
+   local url="$1"
+   shift
 
    [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing key"
 
@@ -918,7 +936,6 @@ sde_dependency_craftinfo_list_main()
 {
    log_entry "sde_dependency_craftinfo_list_main" "$@"
 
-   local url="$1"; shift
    local extension="$1"; shift
 
    while :
@@ -939,6 +956,11 @@ sde_dependency_craftinfo_list_main()
 
       shift
    done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_list_usage "Missing url or address argument"
+
+   local url="$1"
+   shift
 
    local _address
    local _name
@@ -1008,11 +1030,6 @@ sde_dependency_craftinfo_main()
    local subcmd="$1"
    shift
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_usage "Missing url or address argument"
-
-   local url="$1"
-   shift
-
    if [ -z "${MULLE_MAKE}" ]
    then
       MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
@@ -1021,7 +1038,7 @@ sde_dependency_craftinfo_main()
 
    case "${subcmd:-list}" in
       set|get|list)
-         sde_dependency_craftinfo_${subcmd}_main "${url}" "${extension}" "$@"
+         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@"
       ;;
 
       *)

@@ -7,5 +7,8 @@ file( GLOB BUILDINFO_DIRS
 )
 
 foreach( DIR ${BUILDINFO_DIRS} )
-   install( DIRECTORY "${DIR}" DESTINATION "share/mulle-craft")
+   install( DIRECTORY "${DIR}" DESTINATION "share/mulle-craft"
+            USE_SOURCE_PERMISSIONS
+            PATTERN "*._DS_Store" EXCLUDE
+   )
 endforeach()

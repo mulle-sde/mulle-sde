@@ -331,6 +331,11 @@ sde_craft_main()
 
    local arguments
 
+   if [ "${MULLE_SDE_ALLOW_BUILD_SCRIPT}" = "YES" ]
+   then
+      arguments="--allow-script"
+   fi
+
    while [ $# -ne 0  ]
    do
       arguments="${arguments} '$1'"

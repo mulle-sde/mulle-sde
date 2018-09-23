@@ -231,25 +231,48 @@ r_extension_get_vendor_path()
    [ -z "${vendor}" ] && fail "Empty vendor name"
 
    local searchpath
-   local s
    local i
 
    r_extension_get_search_path
    searchpath="${RVAL}"
+
+   RVAL=""
 
    IFS=":"; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}/${vendor}" ]
       then
-         RVAL="${i}/${vendor}"
-         return
+         r_colon_concat "${RVAL}" "${i}"
       fi
-      log_debug "Vendor \"${vendor}\" not found in \"${i}\""
+      # log_debug "Vendor \"${vendor}\" not found in \"${i}\""
    done
+   IFS="${DEFAULT_IFS}"; set +o noglob
+}
+
+
+r_extension_get_quoted_vendor_dirs()
+{
+   log_entry "r_extension_get_quoted_vendor_dirs" "$@"
+
+   local vendor="$1"
+   local s="$2"
+   local t="$3"
+
+   local vendorpath
+   local i
+
+   r_extension_get_vendor_path "${vendor}"
+   vendorpath="${RVAL}"
 
    RVAL=""
-   return 1
+
+   IFS=":"; set -o noglob
+   for i in ${vendorpath}
+   do
+      r_concat "${RVAL}" "${s}${i}/${vendor}${t}"
+   done
+   IFS="${DEFAULT_IFS}"; set +o noglob
 }
 
 
@@ -292,16 +315,17 @@ _extension_list_vendor_extensions()
 
    local vendor="$1"
 
-   local searchpath
+   local searchpaths
    local RVAL
 
-   r_extension_get_vendor_path "${vendor}"
-   searchpath="${RVAL}"
+   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   searchpaths="${RVAL}"
+
    if [ -z "${searchpath}" ]
    then
       return 1
    fi
-   find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -print
+   eval find "${searchpaths}" -mindepth 1 -maxdepth 1 -type d -print
 }
 
 
@@ -326,9 +350,9 @@ r_collect_extension_dirs()
    local extensiondir
    local foundtype
 
-   r_extension_get_vendor_path "${vendor}"
-   directory="${RVAL}"
-   if [ -z "${directory}" ]
+   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   searchpath="${RVAL}"
+   if [ -z "${searchpath}" ]
    then
       RVAL=""
       return 1
@@ -339,20 +363,22 @@ r_collect_extension_dirs()
 #     log_debug "$directory: ${directory}"
    IFS="
 " ; set -o noglob
-   for extensiondir in `find "${directory}" -mindepth 1 -maxdepth 1 -type d -print`
+   for extensiondir in `eval find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -print`
    do
       IFS="${DEFAULT_IFS}"
 
-      if [ ! -z "${extensiontype}" ]
+      foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
+      if [ -z "${foundtype}" ]
       then
-         foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
-         log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
+         log_debug "\"${extensiondir}\" has no type information, skipped"
+         continue
+      fi
 
-         if [ "${foundtype}" != "${extensiontype}" ]
-         then
-            log_debug "But we are looking for \"${extensiontype}\""
-            continue
-         fi
+      if [ ! -z "${extensiontype}" -a "${foundtype}" != "${extensiontype}" ]
+      then
+         log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
+         log_debug "But we are looking for \"${extensiontype}\""
+         continue
       fi
 
       r_add_line "${directories}" "${extensiondir}"
@@ -383,27 +409,27 @@ Use / separator"
       ;;
    esac
 
-   local directory
+   local searchpath
 
-   r_extension_get_vendor_path "${vendor}"
-   directory="${RVAL}"
+   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   searchpath="${RVAL}"
 
-   if [ -z "${directory}" ]
+   if [ -z "${searchpath}" ]
    then
       log_fluff "Extension vendor \"${vendor}\" is unknown."
       RVAL=""
       return 1
    fi
 
-   if [ ! -d "${directory}/${name}" ]
+   RVAL="`eval_exekutor find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -name "${name}" -print | head -1`"
+
+   if [ -z "${RVAL}" ]
    then
-      log_fluff "Extension \"${directory}/${name}\" is not there."
-      RVAL=""
+      log_fluff "Extension \"${vendor}/${name}\" is not there."
       return 1
    fi
 
-   log_fluff "Found extension \"${directory}/${name}\""
-   RVAL="${directory}/${name}"
+   log_fluff "Found extension \"${RVAL}\""
 }
 
 
@@ -439,6 +465,8 @@ r_collect_extension()
 
    local vendor="$1"
    local extensiontype="$2"
+
+   log_verbose "Looking for \"${vendor}\" extensions of type \"${extensiontype}\""
 
    r_collect_extension_dirs "${vendor}" "${extensiontype}"
    r_extensionnames_from_extension_dirs "${vendor}" "${RVAL}"
@@ -1279,14 +1307,17 @@ sde_extension_main()
          local RVAL
 
          r_extension_get_search_path
-         echo ""
+         echo "${RVAL}"
       ;;
 
       vendorpath)
+         [ $# -eq 0 ] && sde_extension_usage "Missing vendor argument"
+
          log_info "Extension vendor path"
          local RVAL
 
-         r_extension_get_vendor_path "$@"
+         r_extension_get_vendor_path "$1"
+
          echo "${RVAL}"
       ;;
 

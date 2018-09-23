@@ -1756,7 +1756,7 @@ install_project()
          local motd
 
          motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
-mulle-sde craft${C_RESET}" `"
+craft${C_RESET}" `"
 
          if [ -z "${_MOTD}" ]
          then

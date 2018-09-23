@@ -54,9 +54,15 @@ sde_library_usage()
 Usage:
    ${MULLE_USAGE_NAME} library [options] [command]
 
-   A library is a OS (Operating System) supplied C shared library. Like -lm for
-   example. They are place into the sourcetree so that the approriate link
-   statements can be generated on a per platform and buildtool basis.
+   A library is a usually a globally installed C library. Like -lm for
+   example. They are added into the sourcetree so that the appropriate link
+   statements can be generated.
+
+   The link statements can be conditionalized according to platform.
+
+   Occasionally, you may want to link explicitly the dependency of a
+   dependency and not the dependency itself. In this case "library" is the
+   right choice as well.
 
 Options:
    -h     : show this usage
@@ -81,7 +87,7 @@ sde_library_add_usage()
 Usage:
    ${MULLE_USAGE_NAME} library add <name>
 
-   Add a OS supplied library to your project. The name of the library is
+   Add a sytem library to your project. The name of the library is
    without prefix or suffix. E.g. "libm.a" is just "m"
 
    Example:
@@ -104,7 +110,7 @@ sde_library_set_usage()
 Usage:
    ${MULLE_USAGE_NAME} library set [options] <name> <key> <value>
 
-   Modify library settings by its name.
+   Modify a library's settings.
 
    Examples:
       ${MULLE_USAGE_NAME} library set -a pthread aliases pthreads
@@ -129,7 +135,7 @@ sde_library_get_usage()
 Usage:
    ${MULLE_USAGE_NAME} library get <name> <key>
 
-   Retrieve library settings by its name.
+   Retrieve library settings by name.
 
    Examples:
       ${MULLE_USAGE_NAME} library get pthread aliases
