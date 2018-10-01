@@ -319,7 +319,8 @@ tidy"
 
          found="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \
                  sed 's|^.*/||' | \
-                 grep "${escaped_dependency}"`"
+                 fgrep -x "${escaped_dependency}"`"
+
          if [ -z "${found}" ]
          then
             fail "Unknown dependency \"$1\""

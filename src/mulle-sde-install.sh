@@ -47,14 +47,14 @@ Usage:
 
 Examples:
    mulle-sde install --prefix /tmp/yyyy \
-      https://github.com/MulleFoundation/Foundation/archive/latest.zip
+https://github.com/MulleFoundation/Foundation/archive/latest.zip
 
    Grab project from github and place it into a temporary folder. Fetch all
    dependencies also into this temporary folder. Build in /tmp/bar.
    Install into /tmp/yyy. Remove the temporary folder.
 
-   MULLE_FETCH_SEARCH_PATH="/home/src/srcO/mulle-c" \
-      mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
+   MULLE_FETCH_SEARCH_PATH="/src/mulle-c:/src/mulle-objc" \
+mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
 
    Grab local project. Places all dependency projects into
    /tmp/foo preferring local projects. Build in /tmp/foo.

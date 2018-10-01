@@ -158,6 +158,16 @@ sde_craft_main()
 
    while :
    do
+      #
+      # reparse technical flags here, because we want to have -v and friends
+      # even if we use the "craft" alias inside the subshell
+      #
+      if options_technical_flags "$1"
+      then
+         shift
+         continue
+      fi
+
       case "$1" in
          -h|--help|help)
             sde_craft_usage

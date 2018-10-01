@@ -779,6 +779,10 @@ version"
          return 0
       ;;
 
+      install|run|enter)
+         fail "Command must be run from outside of the current environment."
+      ;;
+
       *)
          if [ -d "${cmd}" ]
          then
