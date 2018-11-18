@@ -32,6 +32,10 @@
 MULLE_SDE_PROJECTNAME_SH="included"
 
 
+#
+# this will go away sometime, sinceprojects will use pre-computed environment
+# variables from now on
+#
 set_projectname_environment()
 {
    log_entry "set_projectname_environment" "$@"
@@ -63,10 +67,4 @@ set_projectname_environment()
    export PROJECT_IDENTIFIER
    export PROJECT_DOWNCASE_IDENTIFIER
    export PROJECT_UPCASE_IDENTIFIER
-
-   # gratuitous optimization
-   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
-   export MULLE_MONITOR_DIR
-   export MULLE_SDE_LIBEXEC_DIR
-   export MULLE_SDE_DIR
 }

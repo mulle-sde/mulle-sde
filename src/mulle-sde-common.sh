@@ -57,7 +57,7 @@ commalist_contains()
 }
 
 
-commalist_add()
+r_commalist_add()
 {
    log_entry "commalist_add" "$@"
 
@@ -69,7 +69,7 @@ commalist_add()
       log_info "\"${value}\" already set"
       return 0
    fi
-   comma_concat "${list}" "${value}"
+   r_comma_concat "${list}" "${value}"
 }
 
 
@@ -149,7 +149,8 @@ os_excludes_add()
          continue
       fi
 
-      list="`comma_concat "${list}" "$i" `"
+      r_comma_concat "${list}" "$i"
+      list="${RVAL}"
    done
 
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -178,7 +179,7 @@ _sourcetree_set_os_excludes()
    local marks
 
    marks="${stdmarks}"
-   if [ "${append}" = "YES" ]
+   if [ "${append}" = 'YES' ]
    then
       marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} ${flags} \
                 get "${address}" "marks" `"
@@ -194,7 +195,7 @@ sourcetree_append_os_excludes()
 {
    log_entry "sourcetree_append_os_excludes" "$@"
 
-   _sourcetree_set_os_excludes "$1" "$2" "$3" "YES"
+   _sourcetree_set_os_excludes "$1" "$2" "$3" 'YES'
  }
 
 
@@ -202,7 +203,7 @@ sourcetree_set_os_excludes()
 {
    log_entry "sourcetree_set_os_excludes" "$@"
 
-   _sourcetree_set_os_excludes "$1" "$2" "$3" "NO"
+   _sourcetree_set_os_excludes "$1" "$2" "$3" 'NO'
 }
 
 
@@ -283,10 +284,11 @@ _sourcetree_set_userinfo_field()
 
    local list
 
-   if [ "${append}" = "YES" ]
+   if [ "${append}" = 'YES' ]
    then
       list="`assoc_array_get "${userinfo}" "${field}" `"
-      value="`commalist_add "${list}" "${value}" `"
+      r_commalist_add "${list}" "${value}"
+      value="${RVAL}"
    fi
 
    userinfo="`assoc_array_set "${userinfo}" "${field}" "${value}" `"
@@ -299,7 +301,7 @@ sourcetree_set_userinfo_field()
 {
    log_entry "sourcetree_set_userinfo_field" "$@"
 
-   _sourcetree_set_userinfo_field "$1" "$2" "$3" "YES" "$4"
+   _sourcetree_set_userinfo_field "$1" "$2" "$3" 'YES' "$4"
  }
 
 
@@ -307,7 +309,7 @@ sourcetree_append_userinfo_field()
 {
    log_entry "sourcetree_append_userinfo_field" "$@"
 
-   _sourcetree_set_userinfo_field "$1" "$2" "$3" "NO" "$4"
+   _sourcetree_set_userinfo_field "$1" "$2" "$3" 'NO' "$4"
 }
 
 

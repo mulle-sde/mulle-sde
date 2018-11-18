@@ -90,8 +90,6 @@ EOF
 
 
 #
-# TODO: this stuff should move to mulle-sde
-#
 print_mulle_environment_aux_sh()
 {
    log_entry "print_mulle_environment_aux_sh" "$@"
@@ -150,99 +148,106 @@ EOF
 }
 
 
+print_mulle_include_environment_sh()
+{
+   log_entry "print_none_include_environment_sh" "$@"
+
+   cat <<EOF
+# Top/down order of inclusion. Left overrides right if present.
+# Keep these files (except environment-custom.sh) clean off manual edits so
+# that mulle-env can read and set environment variables.
+#
+# .mulle-env/etc                        | .mulle-env/share
+# --------------------------------------|--------------------
+#                                       | environment-plugin.sh
+#                                       | environment-os-\${MULLE_UNAME}.sh
+#                                       | environment-project.sh
+#                                       | environment-extension.sh
+# environment-global.sh                 |
+# environment-os-\${MULLE_UNAME}.sh      |
+# environment-host-\${MULLE_HOSTNAME}.sh |
+# environment-user-\${USER}.sh           |
+# environment-custom.sh                 |
+#
+
+#
+# The plugin file, if present is to be set by a mulle-env plugin
+#
+if [ -f "\${MULLE_ENV_SHARE_DIR}/environment-plugin.sh" ]
+then
+   . "\${MULLE_ENV_SHARE_DIR}/environment-plugin.sh"
+fi
+
+#
+# The plugin file, if present is to be set by a mulle-env plugin
+#
+if [ -f "\${MULLE_ENV_SHARE_DIR}/environment-plugin-os\${MULLE_UNAME}.sh" ]
+then
+   . "\${MULLE_ENV_SHARE_DIR}/environment-plugin-os\${MULLE_UNAME}.sh"
+fi
+
+
+#
+# The project file, if present is to be set by mulle-sde init itself
+# w/o extensions
+#
+if [ -f "\${MULLE_ENV_SHARE_DIR}/environment-project.sh" ]
+then
+   . "\${MULLE_ENV_SHARE_DIR}/environment-project.sh"
+fi
+
+#
+# The extension file, if present is to be set by mulle-sde extensions.
+#
+if [ -f "\${MULLE_ENV_SHARE_DIR}/environment-extension.sh" ]
+then
+   . "\${MULLE_ENV_SHARE_DIR}/environment-extension.sh"
+fi
+
+#
+# Global user settings
+#
+if [ -f "\${MULLE_ENV_ETC_DIR}/environment-global.sh" ]
+then
+   . "\${MULLE_ENV_ETC_DIR}/environment-global.sh"
+fi
+
+#
+# Load in some user modifications depending on os, hostname, username.
+#
+if [ -f "\${MULLE_ENV_ETC_DIR}/environment-host-\${MULLE_HOSTNAME}.sh" ]
+then
+   . "\${MULLE_ENV_ETC_DIR}/environment-host-\${MULLE_HOSTNAME}.sh"
+fi
+
+if [ -f "\${MULLE_ENV_ETC_DIR}/environment-os-\${MULLE_UNAME}.sh" ]
+then
+   . "\${MULLE_ENV_ETC_DIR}/environment-os-\${MULLE_UNAME}.sh"
+fi
+
+if [ -f "\${MULLE_ENV_ETC_DIR}/environment-user-\${USER}.sh" ]
+then
+   . "\${MULLE_ENV_ETC_DIR}/environment-user-\${USER}.sh"
+fi
+
+#
+# For more complex edits, that don't work with the cmdline tool
+#
+if [ -f "\${MULLE_ENV_ETC_DIR}/environment-custom.sh" ]
+then
+   . "\${MULLE_ENV_ETC_DIR}/environment-custom.sh"
+fi
+EOF
+}
+
+
 print_mulle_include_sh()
 {
    log_entry "print_mulle_include_sh" "$@"
 
-   print_developer_include_sh "$@"
-}
-
-
-#
-# since all mulle- tools are uniform, this is easy.
-# If it's a library, we need to strip off -env from
-# the toolname for the libraryname. Also libexec is versionized
-# so add the version
-#
-env_copy_mulle_tool()
-{
-   log_entry "env_copy_mulle_tool" "$@"
-
-   local toolname="$1"
-   local dstbindir="$2"
-   local dstlibexecdir="$3"
-   local copystyle="${4:-tool}"
-
-   #
-   # these dependencies should be there, but just check
-   #
-   local exefile
-
-   exefile="`command -v "${toolname}" `"
-   if [ -z "${exefile}" ]
-   then
-      fail "${toolname} not in PATH"
-   fi
-
-   # doing it like this renames "src" to $toolname
-
-   local srclibexecdir
-   local parentdir
-   local srclibname
-
-   srclibdir="`exekutor "${exefile}" libexec-dir `" || exit 1
-   srclibexecdir="`fast_dirname "${srclibdir}" `"
-   srclibname="`fast_basename "${srclibdir}" `"
-
-   local dstbindir
-   local dstexefile
-   local dstlibname
-
-   dstlibname="${toolname}"
-   dstexefile="${dstbindir}/${toolname}"
-   mkdir_if_missing "${dstbindir}"
-
-   if [ "${copystyle}" = "library" ]
-   then
-      local version
-
-      version="`"${exefile}" version `" || exit 1
-      dstlibname="`sed 's/-env$//' <<< "${toolname}" `"
-      dstlibdir="${dstlibexecdir}/${dstlibname}/${version}"
-   else
-      dstlibdir="${dstlibexecdir}/${dstlibname}"
-   fi
-
-   # remove previous symlinks or files
-   remove_file_if_present "${dstexefile}"
-   remove_file_if_present "${dstlibdir}" || rmdir_safer "${dstlibdir}"
-
-   #
-   # Developer option, since I don't want to edit copies. Doesn't work
-   # on mingw, but shucks.
-   #
-   if [ "${srclibname}" = "src" -a "${MULLE_ENV_DEVELOPER}" != "NO" ]
-   then
-      mkdir_if_missing "${dstbindir}"
-      mkdir_parent_if_missing "${dstlibdir}" > /dev/null
-
-      log_fluff "Creating symlink \"${dstexefile}\""
-
-      exekutor ln -s -f "${exefile}" "${dstexefile}"
-      exekutor ln -s -f "${srclibexecdir}/src" "${dstlibdir}"
-   else
-      mkdir_if_missing "${dstlibdir}"
-
-      ( cd "${srclibdir}" ; tar cf - . ) | \
-      ( cd "${dstlibdir}" ; tar xf -  )
-
-      mkdir_if_missing "${dstbindir}"
-
-      log_fluff "Copying \"${dstexefile}\""
-
-      exekutor cp "${exefile}" "${dstexefile}" &&
-      exekutor chmod 755 "${dstexefile}"
-   fi
+   print_none_include_header_sh "$@"
+   print_mulle_include_environment_sh "$@"
+   print_none_include_footer_sh "$@"
 }
 
 
@@ -263,6 +268,14 @@ print_mulle_optional_tools_sh()
 }
 
 
+print_mulle_auxscopes_sh()
+{
+   log_entry "print_mulle_auxscopes_sh" "$@"
+
+   echo "project
+extension"
+}
+
 
 env_setup_mulle_tools()
 {
@@ -270,6 +283,8 @@ env_setup_mulle_tools()
 
    local bindir="$1"
    local libexecdir="$2"
+
+   env_setup_developer_tools "$@"
 
    [ -z "${directory}" ] && internal_fail "directory is empty"
 
@@ -280,16 +295,14 @@ env_setup_mulle_tools()
    # checked yet)
    #
    (
-      env_copy_mulle_tool "mulle-bashfunctions-env" "${bindir}" "${libexecdir}" "library" &&
-      env_copy_mulle_tool "mulle-craft"             "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-dispense"          "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-env"               "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-fetch"             "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-make"              "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-match"             "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-monitor"           "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-sde"               "${bindir}" "${libexecdir}" &&
-      env_copy_mulle_tool "mulle-sourcetree"        "${bindir}" "${libexecdir}"
+      env_link_mulle_tool "mulle-craft"             "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-dispense"          "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-fetch"             "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-make"              "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-match"             "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-monitor"           "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-sde"               "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-sourcetree"        "${bindir}" "${libexecdir}"
    ) || return 1
 }
 

@@ -170,8 +170,8 @@ sde_library_add_main()
    local marks="${LIBRARY_MARKS}"
 
    local OPTION_DIALECT="c"
-   local OPTION_PRIVATE="NO"
-   local OPTION_OPTIONAL="NO"
+   local OPTION_PRIVATE='NO'
+   local OPTION_OPTIONAL='NO'
 
    while :
    do
@@ -189,19 +189,19 @@ sde_library_add_main()
          ;;
 
          --plain)
-            OPTION_ENHANCE="NO"
+            OPTION_ENHANCE='NO'
          ;;
 
          --private)
-            OPTION_PRIVATE="YES"
+            OPTION_PRIVATE='YES'
          ;;
 
          --public)
-            OPTION_PRIVATE="NO"
+            OPTION_PRIVATE='NO'
          ;;
 
          --optional)
-            OPTION_OPTIONAL="YES"
+            OPTION_OPTIONAL='YES'
          ;;
 
          -*)
@@ -221,7 +221,7 @@ sde_library_add_main()
 
    local libname="$1"
 
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       case "${libname}" in
          ""|-*|*.*|lib*)
@@ -233,18 +233,21 @@ sde_library_add_main()
 
    case "${OPTION_DIALECT}" in
       c)
-         marks="`comma_concat "${marks}" "no-import,no-all-load" `"
+         r_comma_concat "${marks}" "no-import,no-all-load"
+         marks="${RVAL}"
       ;;
    esac
 
-   if [ "${OPTION_PRIVATE}" = "YES" ]
+   if [ "${OPTION_PRIVATE}" = 'YES' ]
    then
-      marks="`comma_concat "${marks}" "no-public" `"
+      r_comma_concat "${marks}" "no-public"
+      marks="${RVAL}"
    fi
 
-   if [ "${OPTION_OPTIONAL}" = "YES" ]
+   if [ "${OPTION_OPTIONAL}" = 'YES' ]
    then
-      marks="`comma_concat "${marks}" "no-require" `"
+      r_comma_concat "${marks}" "no-require"
+      marks="${RVAL}"
    fi
 
    log_verbose "Adding \"${libname}\" to libraries"
@@ -261,7 +264,7 @@ sde_library_set_main()
 {
    log_entry "sde_library_set_main" "$@"
 
-   local OPTION_APPEND="NO"
+   local OPTION_APPEND='NO'
 
    while :
    do
@@ -271,7 +274,7 @@ sde_library_set_main()
          ;;
 
          -a|--append)
-            OPTION_APPEND="YES"
+            OPTION_APPEND='YES'
          ;;
 
          -*)
@@ -389,7 +392,8 @@ sde_library_list_main()
             [ "$#" -eq 1 ] && usage "Missing argument to \"$1\""
             shift
 
-            marks="`comma_concat "${marks}" "$1"`"
+            r_comma_concat "${marks}" "$1"
+            marks="${RVAL}"
          ;;
 
          --)

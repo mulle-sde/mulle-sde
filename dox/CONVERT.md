@@ -2,7 +2,7 @@
 
 1. Checkout the project
 2. Move old CMakeLists.txt away (but keep it for now)
-3. Find suitable extension with `mulle-sde extension list`
+3. Find suitable extension with `mulle-sde extension show`
 4. mulle-sde init with the existing option
 5. If something goes wrong during init, the easiest way to start a new is  `rm -rf .mulle-env .mulle-sde`
 

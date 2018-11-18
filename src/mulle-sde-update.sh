@@ -42,7 +42,7 @@ Usage:
 
    Update runs the default list of MULLE_SDE_UPDATE_CALLBACKS defined by the
    environment, unless task names have been given. See
-   `mulle-monitor callback` and `mulle-monitor task` for more information.
+   \`mulle-monitor callback\` and \`mulle-monitor task\` for more information.
 
    Typical callbacks for mulle-sde are:
 
@@ -66,7 +66,7 @@ EOF
 
 _callback_run()
 {
-   log_entry "_callback_run"
+   log_entry "_callback_run" "$@"
 
    local callback="$1"
 
@@ -74,7 +74,7 @@ _callback_run()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-   MULLE_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
+   MULLE_MONITOR_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                      callback run "${callback}"
 }
@@ -82,7 +82,7 @@ _callback_run()
 
 _task_run()
 {
-   log_entry "_task_run"
+   log_entry "_task_run" "$@"
 
    local task="$1"
 
@@ -90,7 +90,7 @@ _task_run()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-   MULLE_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
+   MULLE_MONITOR_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                   task run "${task}"
 }
@@ -98,7 +98,7 @@ _task_run()
 
 _task_status()
 {
-   log_entry "_task_status"
+   log_entry "_task_status" "$@"
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -111,14 +111,14 @@ _task_status()
 #
 _task_run_if_needed()
 {
-   log_entry "_task_run_if_needed"
+   log_entry "_task_run_if_needed"  "$@"
 
    local task="$1"
 
    local status
 
    status="unknown"
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       status="`_task_status "${task}"`"
       log_fluff "Last known status of task \"${task}\" is \"${status}\""
@@ -139,26 +139,15 @@ _task_run_if_needed()
 
 _sde_update_main()
 {
-   log_entry "_sde_update_main"
+   log_entry "_sde_update_main" "$@"
 
-   local runner="$1"
-
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
-
-   set_projectname_environment
+   local runner="$1" ; shift
 
    local task
    local name
 
-   # call backs are actually comma separated
-   set -o noglob; IFS=":"
-   for name in ${MULLE_SDE_UPDATE_CALLBACKS}
+   for name in "$@"
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
-
       if [ -z "${name}" ]
       then
          continue
@@ -172,14 +161,13 @@ _sde_update_main()
          fi
       ) &
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
 
    wait
 
    #
    # this is set by mulle-sde monitor
    #
-   if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" != "YES" ]
+   if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" != 'YES' ]
    then
       return
    fi
@@ -189,17 +177,16 @@ _sde_update_main()
 
 sde_update_worker()
 {
-   log_entry "sde_update_worker"
+   log_entry "sde_update_worker" "$@"
 
-   local runner="$1"
-   local recurse="$2"
+   local runner="$1" ; shift
+   local recurse="$1" ; shift
 
    log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
 
-   _sde_update_main "${runner}" || exit 1
-
-   if [ "${recurse}" = "NO" ]
+   if [ "${recurse}" = 'NO' ]
    then
+      _sde_update_main "${runner}" "$@" || exit 1
       return 0
    fi
 
@@ -231,12 +218,16 @@ sde_update_worker()
    local flags
 
    flags="${MULLE_SDE_FLAGS} ${MULLE_TECHNICAL_FLAGS}"
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
       flags="${flags} -f"
    fi
 
-   sde_subproject_map "Updating" "NO" "mulle-sde ${flags} update ${options}"
+   # can't handle failure here oh well
+   _sde_update_main "${runner}" "$@" &
+   sde_subproject_map 'Updating' 'NO' 'YES' "mulle-sde ${flags} update ${options} $*"
+
+   wait
 }
 
 
@@ -244,7 +235,7 @@ sde_update_main()
 {
    log_entry "sde_update_main" "$@"
 
-   local OPTION_RECURSE="YES"
+   local OPTION_RECURSE='YES'
 
    local runner
 
@@ -264,17 +255,17 @@ sde_update_main()
          ;;
 
          --craft)
-            MULLE_SDE_CRAFT_AFTER_UPDATE="YES"
+            MULLE_SDE_CRAFT_AFTER_UPDATE='YES'
             export MULLE_SDE_CRAFT_AFTER_UPDATE
          ;;
 
          --no-craft)
-            MULLE_SDE_CRAFT_AFTER_UPDATE="NO"
+            MULLE_SDE_CRAFT_AFTER_UPDATE='NO'
             export MULLE_SDE_CRAFT_AFTER_UPDATE
          ;;
 
          --no-recurse)
-            OPTION_RECURSE="NO"
+            OPTION_RECURSE='NO'
          ;;
 
          -*)
@@ -289,12 +280,31 @@ sde_update_main()
       shift
    done
 
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
+
+   set_projectname_environment
+
+   # gratuitous optimization ?
+   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+   export MULLE_SDE_LIBEXEC_DIR
+   export MULLE_SDE_DIR
 
    if [ $# -ne 0 ]
    then
-      MULLE_SDE_UPDATE_CALLBACKS="`tr ' ' ':' <<< "$*"`"
-      export MULLE_SDE_UPDATE_CALLBACKS
+      sde_update_worker "${runner}" "'${OPTION_RECURSE}'" "$@"
+      return $?
    fi
 
-   sde_update_worker "${runner}" "${OPTION_RECURSE}"
+   local tasks
+
+   tasks="${MULLE_SDE_UPDATE_CALLBACKS//:/ }"
+   if [ -z "${tasks}" ]
+   then
+      log_fluff "Nothing to do as no tasks are configured by MULLE_SDE_UPDATE_CALLBACKS"
+      return 0
+   fi
+   eval sde_update_worker "'${runner}'" "'${OPTION_RECURSE}'" "${tasks}"
 }

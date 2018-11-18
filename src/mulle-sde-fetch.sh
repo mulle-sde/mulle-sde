@@ -60,7 +60,7 @@ do_update_sourcetree()
 {
    log_entry "do_update_sourcetree" "$@"
 
-   if [ "${MULLE_SDE_FETCH}" = "NO" ]
+   if [ "${MULLE_SDE_FETCH}" = 'NO' ]
    then
       log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
       return 0
@@ -108,8 +108,28 @@ sde_fetch_main()
 
    [ "$#" -eq 0 ] || sde_fetch_usage "superflous arguments \"$*\""
 
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = YES ] || \
-         ! exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} status --is-uptodate
+   local do_update
+   local rval
+
+
+   do_update="${MULLE_FLAG_MAGNUM_FORCE}"
+   if [ "${do_update}" != 'YES' ]
+   then
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                    -V \
+                    ${MULLE_TECHNICAL_FLAGS} \
+                    ${MULLE_SOURCETREE_FLAGS} \
+                    status --is-uptodate
+      rval=$?
+      log_fluff "is-uptodate returned with $rval"
+
+      if [ ${rval} -ne 0 ]
+      then
+         do_update='YES'
+      fi
+   fi
+
+   if [ "${do_update}" = 'YES' ]
    then
       do_update_sourcetree "$@"
       return $?

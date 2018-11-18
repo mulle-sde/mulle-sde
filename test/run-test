@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
 TEST_DIR="`dirname "$0"`"
@@ -28,7 +28,7 @@ main()
          log_verbose "------------------------------------------"
          log_info    "$i:"
          log_verbose "------------------------------------------"
-         if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+         if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
          then
             ( cd "$i" && ./run-test "$@" > /dev/null 2>&1 ) || fail "Test \"$i\" failed"
          else

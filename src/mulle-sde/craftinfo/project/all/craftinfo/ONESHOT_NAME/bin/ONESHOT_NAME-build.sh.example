@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-[ "${TRACE}" = "YES" -o "${MULLE_BUILD_SH_TRACE}" = "YES" ] && set -x && : "$0" "$@"
+[ "${TRACE}" = 'YES' -o "${MULLE_BUILD_SH_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 #
 # This is an example build script. Build scripts can be useful, if the
@@ -59,19 +59,19 @@ usage()
 Usage:
    ${MULLE_USAGE_NAME} [flags] [command] [options]
 
-   Build script
+   Script to build <|ONESHOT_NAME|>.
 
 Flags:
 EOF
 
-   options_technical_flags_usage "         : " >&2
+   options_technical_flags_usage "      : " >&2
 
    cat <<EOF >&2
 
 Commands:
-   install       : build and install [default]
-   build         : just build
-   version       : script version
+   install : build and install [default]
+   build   : just build
+   version : script version
 EOF
 
    exit 1
@@ -97,17 +97,20 @@ install_main()
 {
    log_entry "install_main" "$@"
 
-   if ! build_main "$@"
+   if build_main "$@"
    then
       return 1
    fi
+
    #
-   # collect results and place them into DEPENDENCY
-   # it's probably not a bad idea to use mulle-dispense for that
+   # Collect results and place them into PREFIX if needed. F.e. the Makefile
+   # does not support PREFIX.
    #
-   # But you could also just use a set of copy commands
+   # It's probably not a bad idea to use mulle-dispense for that.
+   # But you could also just use a set of copy commands.
    #
    # exekutor mulle-dispense dispense "${BUILD_DIR}" "${PREFIX}"
+   #
 }
 
 

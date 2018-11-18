@@ -1,4 +1,4 @@
-# 🏋🏼 Cross-platform IDE for the command-line
+# 💠 Cross-platform IDE for the command-line
 
 ... for Linux, OS X, FreeBSD, Windows
 
@@ -61,7 +61,7 @@ $ mulle-sde hello
 Optionally look at the project files:
 
 ```
-$ mulle-sde show
+$ mulle-sde list
 ```
 
 Build it:
@@ -186,14 +186,14 @@ See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
 information about adding and writing extensions.
 
 
-## mulle-sde show
+## mulle-sde list
 
-![](dox/mulle-sde-show.png)
+![](dox/mulle-sde-list.png)
 
 List project files and their types.
 
 ```
-mulle-sde show
+mulle-sde list
 ```
 
 See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
@@ -249,7 +249,7 @@ The monitor is a complex beast and has its own
 
 ![](dox/mulle-sde-patternfile.png)
 
-Manage the *patternfiles* that are used by `mulle-sde show` to classify the
+Manage the *patternfiles* that are used by `mulle-sde list` to classify the
 files inside your project:
 
 ```

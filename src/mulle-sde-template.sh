@@ -215,15 +215,18 @@ r_template_filename_replacement_command()
    cmdline="sed"
 
    local seds
-
+   
    r_projectname_seds
-   cmdline="${cmdline} ${RVAL}"
+   r_concat "${cmdline}" "${RVAL}"
+   cmdline="${RVAL}"
 
    r_projectlanguage_seds
-   cmdline="${cmdline} ${RVAL}"
+   r_concat "${cmdline}" "${RVAL}"
+   cmdline="${RVAL}"
 
    r_projectdialect_seds
-   cmdline="${cmdline} ${RVAL}"
+   r_concat "${cmdline}" "${RVAL}"
+   cmdline="${RVAL}"
 
    #
    # get VENDOR_NAME for file replacement
@@ -231,9 +234,11 @@ r_template_filename_replacement_command()
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
              rexekutor "${MULLE_ENV:-mulle-env}" -s \
                            ${MULLE_ENV_FLAGS} environment \
-                                 get --output-sed VENDOR_NAME`" || exit 1
-   cmdline="${cmdline} ${seds}"
+                                 get --output-sed VENDOR_NAME`" 
 
+   r_concat "${cmdline}" "${seds}"
+   cmdline="${RVAL}"
+   
    #
    # get ONESHOT_NAME from environment for file replacement. Name is used by
    # oneshot extensions...it's a shabby hack
@@ -320,7 +325,7 @@ copy_and_expand_template()
       log_debug "Expanded filename \"${dstfile}\" to \"${expanded_dstfile}\""
    fi
 
-   if [ "${FLAG_FORCE}" = "NO" -a -e "${expanded_dstfile}" ]
+   if [ "${FLAG_FORCE}" = 'NO' -a -e "${expanded_dstfile}" ]
    then
       log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
       return 2
@@ -428,11 +433,11 @@ _template_main()
 {
    log_entry "_template_main" "$@"
 
-   local OPTION_EMBEDDED="NO"
+   local OPTION_EMBEDDED='NO'
 
    case "$1" in
       --embedded)
-         OPTION_EMBEDDED="YES"
+         OPTION_EMBEDDED='YES'
          shift
       ;;
 
@@ -443,7 +448,7 @@ _template_main()
       ;;
    esac
 
-   local FLAG_FORCE="NO"
+   local FLAG_FORCE='NO'
    local TEMPLATE_DIR
    local PROJECT_NAME
    local PROJECT_LANGUAGE
@@ -462,7 +467,7 @@ _template_main()
    while [ $# -ne 0 ]
    do
 
-      if [ "${OPTION_EMBEDDED}" = "NO" ]
+      if [ "${OPTION_EMBEDDED}" = 'NO' ]
       then
          if options_technical_flags "$1"
          then
@@ -491,7 +496,7 @@ _template_main()
          ;;
 
          -f|--force)
-            FLAG_FORCE="YES"
+            FLAG_FORCE='YES'
          ;;
 
          --file)
@@ -578,12 +583,12 @@ _template_main()
       shift
    done
 
-   if [ "${MULLE_FLAG_EXEKUTOR_DRY_RUN}" = "YES" ]
+   if [ "${MULLE_FLAG_EXEKUTOR_DRY_RUN}" = 'YES' ]
    then
-      FLAG_FORCE="YES" # ignore existing dst, since we are doing nothing
+      FLAG_FORCE='YES' # ignore existing dst, since we are doing nothing
    fi
 
-   if [ "${OPTION_EMBEDDED}" = "NO" ]
+   if [ "${OPTION_EMBEDDED}" = 'NO' ]
    then
       options_setup_trace "${MULLE_TRACE}"
    fi
@@ -603,7 +608,7 @@ _template_main()
       PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_EXTENSIONS}"`"
    fi
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "PROJECT_DIALECT=${PROJECT_DIALECT}"
       log_trace2 "PROJECT_EXTENSIONS=${PROJECT_EXTENSIONS}"
@@ -669,21 +674,21 @@ template_main()
    log_entry "template_main" "$@"
 
    # technical flags
-   local MULLE_FLAG_DONT_DEFER="NO"
-   local MULLE_FLAG_EXEKUTOR_DRY_RUN="NO"
-   local MULLE_FLAG_FOLLOW_SYMLINKS="YES"
-   local MULLE_FLAG_LOG_CACHE="NO"
-   local MULLE_FLAG_LOG_DEBUG="NO"
-   local MULLE_FLAG_LOG_EXEKUTOR="NO"
-   local MULLE_FLAG_LOG_FLUFF="NO"
-   local MULLE_FLAG_LOG_MERGE="NO"
-   local MULLE_FLAG_LOG_SCRIPTS="NO"
-   local MULLE_FLAG_LOG_SETTINGS="NO"
-   local MULLE_FLAG_LOG_VERBOSE="NO"
-   local MULLE_TRACE_PATHS_FLIP_X="NO"
-   local MULLE_TRACE_POSTPONE="NO"
-   local MULLE_TRACE_RESOLVER_FLIP_X="NO"
-   local MULLE_TRACE_SETTINGS_FLIP_X="NO"
+   local MULLE_FLAG_DONT_DEFER='NO'
+   local MULLE_FLAG_EXEKUTOR_DRY_RUN='NO'
+   local MULLE_FLAG_FOLLOW_SYMLINKS='YES'
+   local MULLE_FLAG_LOG_CACHE='NO'
+   local MULLE_FLAG_LOG_DEBUG='NO'
+   local MULLE_FLAG_LOG_EXEKUTOR='NO'
+   local MULLE_FLAG_LOG_FLUFF='NO'
+   local MULLE_FLAG_LOG_MERGE='NO'
+   local MULLE_FLAG_LOG_SCRIPTS='NO'
+   local MULLE_FLAG_LOG_SETTINGS='NO'
+   local MULLE_FLAG_LOG_VERBOSE='NO'
+   local MULLE_TRACE_PATHS_FLIP_X='NO'
+   local MULLE_TRACE_POSTPONE='NO'
+   local MULLE_TRACE_RESOLVER_FLIP_X='NO'
+   local MULLE_TRACE_SETTINGS_FLIP_X='NO'
 
    _template_main "$@"
 }

@@ -2,7 +2,7 @@
 #
 # (c) 2018, coded by Nat!, Mulle KybernetiK
 #
-[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
 PREFIX="${1:-/usr/local}"
@@ -51,7 +51,7 @@ install_project()
 
          curl -L "https://github.com/${vendor}/${name}/archive/${version}.tar.gz" \
             | tar xfz - && cd "${name}-${version}" && \
-               ( ${SUDO} ./installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+               ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
       ) || exit 1
    fi
 }

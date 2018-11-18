@@ -59,6 +59,7 @@ Options:
 
 Commands:
    add             : add an existing subproject
+   enter           : open a subshell for subproject
    init            : create a subproject
    remove          : remove a subproject
    move            : change buildorder of subproject
@@ -156,35 +157,38 @@ sde_subproject_init_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} subproject init <name> ...
+   ${MULLE_USAGE_NAME} subproject init [options] <projecttype> ...
 
    Intitialize a subproject for mulle-sde and add it to the list of
-   subprojects. The remainder of the arguments is passed to
-   \`mulle-sde init\`.
+   subprojects. The remainder of the arguments is passed to \`mulle-sde init\`.
 
-   If no arguments are given, the subproject inherits the extensions and
-   style from the main project.
+   By default the subproject inherits the extensions and the style from the
+   main project.
 
-   Examples:
-      ${MULLE_USAGE_NAME} subproject init src/Base
+   Example:
+      ${MULLE_USAGE_NAME} subproject init -d src/Base library
 
+Options:
+   --existing : project already exists, don't clobber
+   -d <dir>   : subproject directory to use (required)
+   -m <meta>  : meta extension to use
+   -s <style> : style to use
 EOF
   exit 1
 }
-
 
 
 sde_subproject_set_main()
 {
    log_entry "sde_subproject_set_main" "$@"
 
-   local OPTION_APPEND="NO"
+   local OPTION_APPEND='NO'
 
    while :
    do
       case "$1" in
          -a|--append)
-            OPTION_APPEND="YES"
+            OPTION_APPEND='YES'
          ;;
 
          -*)
@@ -327,6 +331,11 @@ sde_subproject_init_main()
 {
    log_entry "sde_subproject_init_main" "$@"
 
+   local directory
+   local meta
+   local style
+   local flags
+
    while :
    do
       case "$1" in
@@ -334,10 +343,31 @@ sde_subproject_init_main()
             sde_subproject_init_usage
          ;;
 
-         --)
+         -d|--directory)
+            [ $# -eq 1 ] && sde_subproject_init_usage "Missing option to \"$1\""
             shift
-            break
+
+            directory="$1"
          ;;
+
+         -m|--meta)
+            [ $# -eq 1 ] && sde_subproject_init_usage "Missing option to \"$1\""
+            shift
+
+            meta="$1"
+         ;;
+
+         -s|--style)
+            [ $# -eq 1 ] && sde_subproject_init_usage "Missing option to \"$1\""
+            shift
+
+            style="$1"
+         ;;
+
+         --existing)
+				r_concat "${flags}" "$1"
+				flags="${RVAL}"
+			;;
 
          -*)
             sde_subproject_init_usage "Unknown option \"$1\""
@@ -351,11 +381,7 @@ sde_subproject_init_main()
       shift
    done
 
-   local directory
-
-   [ $# -eq 0 ] && sde_subproject_init_usage
-
-   directory="$1"; shift
+   [ -z "${directory}" ]  && sde_subproject_init_usage
 
    if [ -d "${directory}/.mulle-sde" ]
    then
@@ -364,56 +390,99 @@ sde_subproject_init_main()
 
    local args
 
-   if [ $# -eq 0 ]
+   if [ -z "${meta}" ]
    then
       if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
       then
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
       fi
 
-      local meta
-
       meta="`sde_extension_main installed-meta`"
       if [ -z "${meta}" ]
       then
          fail "Unknown installed meta extension. Specify it yourself"
-         exit 1
       fi
-
-      args="--style `mulle-env style` -m '${meta}' library"
    fi
 
-   if [ -z "${MULLE_PATH_SH}" ]
+   if [ -z "${style}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+      style="`mulle-env style`"
    fi
 
-   mkdir_if_missing "${directory}"
+   [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+   [ -z "${MULLE_FILE_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+
+   # get this error early
+   sde_subproject_main "add" "${directory}" || exit 1
+
    (
-      cd "${directory}"
-
       # shellcheck source=src/mulle-sde-init.sh
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
+      #
+      # pass some information to init scripts via environment
+      #
+      PARENT_PROJECT_DIALECT="${PROJECT_DIALECT}" \
+      PARENT_PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}" \
+      PARENT_PROJECT_LANGUAGE="${PROJECT_LANGUAGE}" \
+      PARENT_PROJECT_NAME="${PROJECT_NAME}" \
+      PARENT_PROJECT_TYPE="${PROJECT_TYPE}" \
+      PARENT_DIR="${MULLE_VIRTUAL_ROOT}" \
+      MULLE_FLAG_MAGNUM_FORCE='YES' \
       MULLE_VIRTUAL_ROOT="" \
-      MULLE_FLAG_MAGNUM_FORCE="YES" \
       PROJECT_NAME="" \
-         eval_exekutor sde_init_main --no-motd --no-blurb --project-source-dir "." "$@" "${args}"
-   ) || exit 1
+         eval_exekutor sde_init_main -d "${directory}" \
+                                     -m "${meta}" \
+                                     ${flags} \
+                                     --style "${style}" \
+                                     --subproject \
+                                     --no-post-init \
+                                     --no-motd \
+                                     --no-blurb \
+                                     --project-source-dir "." \
+                                     "${args}" \
+                                     "$@"
+   )
 
-   sde_subproject_main "add" "${directory}"
+   if [ $? -ne 0 ]
+   then
+      (
+         sde_subproject_main "remove" "${directory}" > /dev/null 2>&1
+      )
+      exit 1
+   fi
 }
 
 
-sde_subproject_get_names()
+exekutor_sourcetree_cmd_nofail()
 {
-   log_entry "sde_subproject_get_names" "$@"
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               -V \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_SOURCETREE_FLAGS} \
+            "$@" || exit 1
+}
 
-   sde_subproject_main list --format '%a\n' --no-output-header
+rexekutor_sourcetree_cmd_nofail()
+{
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               -V \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_SOURCETREE_FLAGS} \
+            "$@" || exit 1
+}
+
+
+sde_subproject_get_addresses()
+{
+   log_entry "sde_subproject_get_addresses" "$@"
+
+   rexekutor_sourcetree_cmd_nofail list \
+        --marks "${SUBPROJECT_LIST_MARKS}" \
+        --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
+        --no-output-header \
+        --output-raw \
+        --format '%a\n'
 }
 
 
@@ -423,52 +492,76 @@ sde_subproject_map()
 
    local verb="${1:-Updating}" ; shift
    local lenient="${1:-NO}" ; shift
+   local parallel="${1:-NO}" ; shift
 
    local subprojects
 
-   subprojects="`sde_subproject_get_names`"
+   [ $# -eq 0 ] && internal_fail "missing commandline"
+
+   subprojects="`sde_subproject_get_addresses`"
    if [ -z "${subprojects}" ]
    then
       log_fluff "No subprojects, so done"
       return
    fi
 
-   local subproject
-   local command
-   local rval
+   if [ "${parallel}" = 'YES' -a "${lenient}" = "YES" ]
+   then
+      internal_fail "Can't have parallel and lenient together"
+   fi
 
-   command="$*"
+   (
+      local command
 
-   set -o noglob;  IFS="
+      command="$*"
+
+      local rval
+      local subproject
+
+      rval=0
+
+      set -o noglob;  IFS="
 "
-   for subproject in ${subprojects}
-   do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      for subproject in ${subprojects}
+      do
+         set +o noglob; IFS="${DEFAULT_IFS}"
 
-      if [ -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle-sde" ]
-      then
-         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
-         exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
-         rval=$?
-         if [ ${rval} -ne 0 ]
+         if [ ! -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle-sde" ]
          then
-            if [ "${lenient}" = "NO" ]
-            then
-               return ${rval}
-            fi
-            log_fluff "Ignoring rval $rval coz we're lenient"
+            log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
+            continue
          fi
-      else
-         log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
-      fi
-   done
-   set +o noglob; IFS="${DEFAULT_IFS}"
-}
 
+         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
+
+         if [ "${parallel}" = 'YES' ]
+         then
+            exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}" &
+         else
+            exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
+            rval=$?
+            if [ ${rval} -ne 0 ]
+            then
+               if [ "${lenient}" = 'NO' ]
+               then
+                  exit $rval
+               fi
+               log_fluff "Ignoring rval $rval coz we're lenient"
+            fi
+         fi
+      done
+
+      if [ "${parallel}" = 'YES' ]
+      then
+         wait
+      fi
+   )
+}
 
 
 ###
 ### parameters and environment variables
+### this is still pretty hacky and needs a rework
 ###
 sde_subproject_main()
 {
@@ -508,8 +601,7 @@ sde_subproject_main()
 
    case "${cmd}" in
       add)
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} add \
-            --marks "${SUBPROJECT_MARKS}" "$@"
+         exekutor_sourcetree_cmd_nofail add --marks "${SUBPROJECT_MARKS}" "$@"
          update_ignore_patternfile "$@"
       ;;
 
@@ -581,7 +673,7 @@ $1"
          done
 
          log_fluff "Run command with mulle-env: -C \"${cmdline}\""
-         exekutor exec "${MULLE_ENV}" ${MULLE_ENV_FLAGS} -C "${cmdline}" subenv "${SUBPROJECT}"
+         exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} -C "${cmdline}" subenv "${SUBPROJECT}"
       ;;
 
       get)
@@ -591,11 +683,25 @@ $1"
       ;;
 
       enter)
-         "${MULLE_ENV}" ${MULLE_ENV_FLAGS} subenv "$1"
+         "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} subenv "$@"
       ;;
 
       init)
          sde_subproject_init_main "$@"
+      ;;
+
+      #
+      # future: retrieve list as CSV and interpret it
+      # for now stay layme
+      #
+      list)
+         rexekutor_sourcetree_cmd_nofail list \
+           --marks "${SUBPROJECT_LIST_MARKS}" \
+            --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
+            --output-no-url \
+            --output-no-marks "${SUBPROJECT_MARKS}" \
+            --format '%a;%m;%i={aliases,,-------};%i={include,,-------}\n' \
+            "$@"
       ;;
 
       mark|unmark)
@@ -607,39 +713,26 @@ $1"
             ;;
          esac
 
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} ${cmd} ${flags} "$@"
+         exekutor_sourcetree_cmd_nofail ${cmd} ${flags} "$@"
       ;;
 
       move)
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} move "$@"
+         exekutor_sourcetree_cmd_nofail move "$@"
       ;;
 
       remove)
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} remove "$@"
+         exekutor_sourcetree_cmd_nofail remove "$@"
          update_ignore_patternfile "$@"
       ;;
 
       map)
-         sde_subproject_map "$@"
+         sde_subproject_map 'Executing' 'NO' 'NO' "$@"
       ;;
 
       set)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
          sde_subproject_set_main "$@"
-      ;;
-
-      #
-      # future: retrieve list as CSV and interpret it
-      # for now stay layme
-      #
-      list)
-         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} list \
-            --marks "${SUBPROJECT_LIST_MARKS}" \
-            --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
-            --output-no-url \
-            --output-no-marks "${SUBPROJECT_MARKS}" \
-            "$@"
       ;;
 
       update-patternfile)

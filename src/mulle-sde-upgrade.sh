@@ -57,7 +57,7 @@ EOF
 
    (
       echo "${SHOWN_COMMANDS}"
-      if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
+      if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
       then
          echo "${HIDDEN_COMMANDS}"
       fi
@@ -77,7 +77,7 @@ sde_upgrade_main()
 {
    log_entry "sde_upgrade_main" "$@"
 
-   local OPTION_RECURSE="YES"
+   local OPTION_RECURSE='YES'
 
    while :
    do
@@ -87,7 +87,7 @@ sde_upgrade_main()
          ;;
 
          --no-recurse)
-            OPTION_RECURSE="NO"
+            OPTION_RECURSE='NO'
          ;;
 
          *)
@@ -112,7 +112,7 @@ sde_upgrade_main()
 
    eval_exekutor sde_init_main --upgrade "$@" || return 1
 
-   if [ "${OPTION_RECURSE}" = "NO" ]
+   if [ "${OPTION_RECURSE}" = 'NO' ]
    then
       return 0
    fi
@@ -125,10 +125,10 @@ sde_upgrade_main()
    local flags
 
    flags="${MULLE_SDE_FLAGS} ${MULLE_TECHNICAL_FLAGS}"
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
       flags="${flags} -f"
    fi
 
-   sde_subproject_map "Upgrading" "NO" "mulle-sde ${flags} extension upgrade"
+   sde_subproject_map 'Upgrading' 'NO' 'NO' "mulle-sde ${flags} extension upgrade"
 }

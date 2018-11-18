@@ -51,11 +51,13 @@ load_plugin_if_needed()
 
    local plugin
    local libexedir
+   local RVAL
 
    plugin="$(eval echo "\${${varname}}" )"
    if [ -z "${plugin}" ]
    then
-      libexedir="`dirname -- "$0" `/../libexec"
+      r_fast_dirname="$0"
+      libexedir="${RVAL}/../libexec"
       plugin="${libexedir}/${filename}"
       if [ ! -f "${plugin}" ]
       then

@@ -47,6 +47,7 @@ install( DIRECTORY ${EXTENSIONS}
    DESTINATION "share/mulle-sde/extensions"
    USE_SOURCE_PERMISSIONS
    PATTERN "*._DS_Store" EXCLUDE
+   PATTERN "*.ignore" EXCLUDE
 )
 
 

@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-[ "${TRACE}" = "YES" -o "${MULLE_SDE_TRACE}" = "YES" ] && set -x && : "$0" "$@"
+[ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
 MULLE_EXECUTABLE_VERSION=0.32.0
@@ -49,7 +49,7 @@ print_commands()
    then
       SHOWN_COMMANDS="\
    bash-completion: get bash completion with \`. \$(mulle-sde bash-completion)\`
-   extension      : show available language and buildtool extensions
+   show           : show available language and buildtool extensions
    init           : create a new project"
 
       HIDDEN_COMMANDS="\
@@ -71,11 +71,12 @@ print_commands()
    file           : manage files in the project
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
-   show           : show files that match patternfiles
+   list           : list project files (filed that match patternfiles)
    update         : update project makefiles and sources"
 
       HIDDEN_COMMANDS="\
-   makeinfo       : change projects build options like CFLAGS (experimental)
+   buildstatus    : show the build status of the dependencies
+   definition     : change projects build options like CFLAGS (experimental)
    callback       : manage update callbacks
    extension      : show available language and buildtool extensions
    fetch          : fetch the sourcetree
@@ -85,12 +86,13 @@ print_commands()
    patternfile    : manage patternfiles
    subproject     : manage local subprojects
    task           : manage update tasks
-   test           : run tests using mulle-test"
+   test           : run tests using mulle-test
+   treestatus     : show the sourcetree status"
    fi
 
    echo "${SHOWN_COMMANDS}" | LC_ALL=C sort
 
-   if [ "${show_all}" != "NO" ]
+   if [ "${show_all}" != 'NO' ]
    then
       echo "${HIDDEN_COMMANDS}" | LC_ALL=C sort
    fi
@@ -159,7 +161,7 @@ EOF
 
    print_commands "${verbose}" | LC_ALL=C sort
 
-   if [ "${verbose}" = "NO" ]
+   if [ "${verbose}" = 'NO' ]
    then
       cat <<EOF
       (use mulle-sde -v help to show more commands)
@@ -231,18 +233,16 @@ set_custom_environment()
 }
 
 
-determine_project_dir()
+r_determine_project_dir()
 {
-   local current
-
-   current="`pwd -P`"
+   local current="${1:-`pwd -P`}"
 
    while [ "${current}" != "/" ]
    do
       if [ -d "${current}/.mulle-sde" ]
       then
-         rexekutor echo "${current}"
-         return
+         RVAL="${current}"
+         return 0
       fi
 
       if [ -z "${MULLE_PATH_SH}" ]
@@ -254,7 +254,8 @@ determine_project_dir()
          . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
       fi
 
-      current="`fast_dirname "${current}"`"
+      r_fast_dirname "${current}"
+      current="${RVAL}"
    done
    return 1
 }
@@ -264,7 +265,20 @@ _exec_command_in_subshell()
 {
    local cmdline="$1"; shift
 
-   cd "`determine_project_dir`" || exit 1
+   local RVAL
+   local current
+
+   current="`pwd -P`"
+
+   if ! r_determine_project_dir "${current}"
+   then
+       fail "There is no mulle-sde project here ($current)"
+   fi
+
+   if [ "${current}" != "${RVAL}" ]
+   then
+      cd "${RVAL}"
+   fi
 
    local flag
 
@@ -298,7 +312,7 @@ cd_virtual_root()
    local cmd="$1"
    local subenvcheck="${2:-YES}"
 
-   if [ "${subenvcheck}" = "YES" ]
+   if [ "${subenvcheck}" = 'YES' ]
    then
       case "${MULLE_SHELL_MODE}" in
          *SUBENV*)
@@ -314,27 +328,37 @@ cd_virtual_root()
 
    if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
    then
-      exekutor cd "${MULLE_VIRTUAL_ROOT}" || exit 1
+      exekutor cd "${MULLE_VIRTUAL_ROOT}" ||
+         fail  "Virtual root directory \"${MULLE_VIRTUAL_ROOT}\" missing \
+or inaccesible"
    fi
+}
+
+
+cd_virtual_root_assert_mulle_sde()
+{
+   cd_virtual_root "$@"
+
+   [ ! -d "${MULLE_SDE_DIR}" ] && fail "There is no ${MULLE_SDE_DIR} here"
 }
 
 
 main()
 {
-   local MULLE_FLAG_MAGNUM_FORCE="NO"
+   local MULLE_FLAG_MAGNUM_FORCE='NO'
 
    # technical flags
    local MULLE_TRACE
-   local MULLE_FLAG_EXEKUTOR_DRY_RUN="NO"
-   local MULLE_FLAG_LOG_LOCAL="NO"
-   local MULLE_FLAG_LOG_DEBUG="NO"
-   local MULLE_FLAG_LOG_EXEKUTOR="NO"
-   local MULLE_FLAG_LOG_FLUFF="NO"
-   local MULLE_FLAG_LOG_SCRIPTS="NO"
-   local MULLE_FLAG_LOG_SETTINGS="NO"
-   local MULLE_FLAG_LOG_VERBOSE="NO"
-   local MULLE_FLAG_LOG_MERGE="NO"
-   local MULLE_TRACE_POSTPONE="NO"
+   local MULLE_FLAG_EXEKUTOR_DRY_RUN='NO'
+   local MULLE_FLAG_LOG_LOCAL='NO'
+   local MULLE_FLAG_LOG_DEBUG='NO'
+   local MULLE_FLAG_LOG_EXEKUTOR='NO'
+   local MULLE_FLAG_LOG_FLUFF='NO'
+   local MULLE_FLAG_LOG_SCRIPTS='NO'
+   local MULLE_FLAG_LOG_SETTINGS='NO'
+   local MULLE_FLAG_LOG_VERBOSE='NO'
+   local MULLE_FLAG_LOG_MERGE='NO'
+   local MULLE_TRACE_POSTPONE='NO'
 
    local defines
 
@@ -355,11 +379,11 @@ main()
          ;;
 
          -e|--environment-override)
-            FLAG_OUTSIDE_ENV="YES"
+            FLAG_OUTSIDE_ENV='YES'
          ;;
 
          -f|--force)
-            MULLE_FLAG_MAGNUM_FORCE="YES"
+            MULLE_FLAG_MAGNUM_FORCE='YES'
             MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
          ;;
 
@@ -427,7 +451,7 @@ main()
 
    options_setup_trace "${MULLE_TRACE}"
 
-   if [ "${FLAG_OUTSIDE_ENV}" = "YES" ]
+   if [ "${FLAG_OUTSIDE_ENV}" = 'YES' ]
    then
       MULLE_VIRTUAL_ROOT="`pwd -P`"
       [ "${MULLE_VIRTUAL_ROOT}" = "/" ] && fail "MULLE_VIRTUAL_ROOT can't be /"
@@ -444,9 +468,9 @@ main()
          # commands where we want to start a subshell
 
          case "${cmd}" in
-            makeinfo|buildorder|callback|clean|craft|dependency|\
-environment|fetch|find|library|log|match|monitor|patternfile|show|subproject|\
-style|task|template|tool|update)
+            definition|buildorder|buildstatus|callback|clean|craft|dependency|\
+environment|fetch|find|library|list|log|match|monitor|patternfile|subproject|\
+style|task|template|tool|treestatus|update|upgrade)
                exec_command_in_subshell "$@"
             ;;
 
@@ -465,7 +489,7 @@ style|task|template|tool|update)
                _exec_command_in_subshell "$@"
             ;;
 
-            bash-completion|commands|extension|init|init-and-enter|reinit|uname|version\
+            bash-completion|commands|extension|init|init-and-enter|reinit|uname|show|version\
 libexec-dir|library-path|project-dir)
             ;;
 
@@ -498,7 +522,7 @@ libexec-dir|library-path|project-dir)
    MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
    MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
    fi
@@ -513,34 +537,42 @@ libexec-dir|library-path|project-dir)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
       ;;
 
-      makeinfo)
-         cd_virtual_root "${cmd}"
+      buildorder)
+         cd_virtual_root_assert_mulle_sde "${cmd}"
 
-         # shellcheck source=src/mulle-sde-makeinfo.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-makeinfo.sh"
+         # shellcheck source=src/mulle-sde-buildorder.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-buildorder.sh"
 
-         sde_makeinfo_main "$@"
+         sde_buildorder_main "$@"
       ;;
 
-      buildorder)
-         cd_virtual_root "${cmd}"
+      buildstatus)
+         cd_virtual_root_assert_mulle_sde "${cmd}"
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_SOURCETREE_FLAGS} "${cmd}" "$@"
+         # shellcheck source=src/mulle-sde-craft.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         sde_buildstatus_main "$@"
       ;;
 
       callback|task)
-         cd_virtual_root "${cmd}"
+         cd_virtual_root_assert_mulle_sde "${cmd}"
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
+         fi
 
          MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_MONITOR_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_MONITOR:-mulle-monitor}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_MONITOR_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       clean)
-         cd_virtual_root "${cmd}"
+         cd_virtual_root_assert_mulle_sde "${cmd}"
 
          # shellcheck source=src/mulle-sde-clean.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
@@ -549,14 +581,15 @@ libexec-dir|library-path|project-dir)
       ;;
 
       commands)
-         echo "\
+         echo "
 bash-completion
-makeinfo
 buildorder
+buildstatus
 callback
 clean
 commands
 craft
+definition
 dependency
 environment
 extension
@@ -567,6 +600,7 @@ init-and-enter
 libexec-dir
 library
 library-path
+list
 log
 match
 monitor
@@ -580,25 +614,37 @@ style
 task
 template
 tool
+treestatus
 uname
 update
 version"
          exit 0
       ;;
 
-      #
-      # forward stuff to mulle-craft verbatim
-      #
       craft)
-         cd_virtual_root "${cmd}"
+         cd_virtual_root_assert_mulle_sde "${cmd}"
 
          # shellcheck source=src/mulle-sde-craft.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
          sde_craft_main "$@"
       ;;
 
+      definition)
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to define"
+         fi
+
+         # shellcheck source=src/mulle-sde-definition.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-definition.sh"
+
+         sde_definition_main "$@"
+      ;;
+
       dependency)
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
          # shellcheck source=src/mulle-sde-dependency.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
@@ -607,11 +653,14 @@ version"
       ;;
 
       environment)
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root "${cmd}" 'NO'
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       extension)
@@ -622,7 +671,7 @@ version"
       ;;
 
       fetch)
-         cd_virtual_root "${cmd}"
+         cd_virtual_root_assert_mulle_sde "${cmd}"
 
          # shellcheck source=src/mulle-sde-fetch.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
@@ -630,16 +679,23 @@ version"
          sde_fetch_main "$@"
       ;;
 
-      find|show)
-         cd_virtual_root "${cmd}" "NO"
+      list)
+         cd_virtual_root "${cmd}" 'NO'
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to list"
+         fi
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_MATCH_FLAGS} "show" \
-                          --format "%t/%c: %f\\n" "$@"
+            exekutor "${MULLE_MATCH:-mulle-match}"
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_MATCH_FLAGS} \
+                        list \
+                           --format "%t/%c: %f\\n" "$@"
       ;;
 
-      "")
+      '')
          log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
       ;;
 
@@ -656,11 +712,13 @@ version"
 
          # interactive shell, dont set usage
          sde_init_main --no-blurb "$@" &&
-            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS}
+            exekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS}
       ;;
 
       library)
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
          # shellcheck source=src/mulle-sde-library.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
@@ -673,23 +731,39 @@ version"
       ;;
 
       log)
-         cd_virtual_root "${cmd}"
+         cd_virtual_root_assert_mulle_sde "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_CRAFT_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_CRAFT:-mulle-craft}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_CRAFT_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       match|patternfile)
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root "${cmd}" 'NO'
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
+         fi
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_MATCH_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_MATCH:-mulle-match}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_MATCH_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       monitor)
          cd_virtual_root "${cmd}"
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
+         fi
 
          # shellcheck source=src/mulle-sde-monitor.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
@@ -698,7 +772,15 @@ version"
       ;;
 
       project-dir)
-         determine_project_dir
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', there is no project directory"
+         fi
+
+         if r_determine_project_dir
+         then
+            echo "${RVAL}"
+         fi
       ;;
 
       #
@@ -707,7 +789,7 @@ version"
       # your files
       #
       reinit)
-         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
          then
             log_error "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
 #
@@ -728,14 +810,29 @@ version"
          fail "Use run only outside of the mulle-sde environment"
       ;;
 
+      show)
+         # shellcheck source=src/mulle-sde-extension.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+
+         sde_extension_main show "$@"
+      ;;
+
       style)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       subproject)
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', no subprojects are possible"
+         fi
 
          # shellcheck source=src/mulle-sde-subproject.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh"
@@ -752,17 +849,41 @@ version"
          sde_template_main "$@"
       ;;
 
+      treestatus)
+         cd_virtual_root_assert_mulle_sde "${cmd}"
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS} \
+                        status \
+                           "$@"
+      ;;
+
       tool)
          cd_virtual_root "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_ENV_FLAGS} "${cmd}" "$@"
+            exekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        "${cmd}" \
+                           "$@"
+      ;;
+
+      uname)
+         rexekutor echo "${MULLE_UNAME}"
       ;;
 
       update)
          # must allow NO for subenv updates
-         cd_virtual_root "${cmd}" "NO"
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to update"
+         fi
 
          # shellcheck source=src/mulle-sde-update.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
@@ -770,8 +891,11 @@ version"
          sde_update_main "$@"
       ;;
 
-      uname)
-         rexekutor echo "${MULLE_UNAME}"
+      upgrade)
+         # shellcheck source=src/mulle-sde-extension.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+
+         sde_extension_main upgrade "$@"
       ;;
 
       version)
@@ -779,7 +903,7 @@ version"
          return 0
       ;;
 
-      install|run|enter)
+      enter|install|run)
          fail "Command must be run from outside of the current environment."
       ;;
 

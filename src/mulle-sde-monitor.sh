@@ -82,13 +82,14 @@ sde_monitor_main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
       fi
 
-      MULLE_SDE_CRAFT_AFTER_UPDATE="YES" sde_update_main
+      MULLE_SDE_CRAFT_AFTER_UPDATE='YES' sde_update_main
    fi
 
    if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
    fi
+
    set_projectname_environment "read"
 
    #

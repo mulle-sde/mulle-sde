@@ -41,24 +41,26 @@ Usage:
    ${MULLE_USAGE_NAME} install [options] <url>
 
    Install a remote mulle-sde project, pointed at by URL. This command must
-   be run outside of a mulle-sde environment.
+   be run outside of a mulle-sde environment. The URL can be a repository or
+   an archive. It can also be an existing project.
 
-   The URL can be a repository or an archive.
+   You should never use this command inside an existing project, instead you
+   let "install" create a temporary project for you that installs the existing
+   project as a dependency.
 
 Examples:
    mulle-sde install --prefix /tmp/yyyy \
 https://github.com/MulleFoundation/Foundation/archive/latest.zip
 
-   Grab project from github and place it into a temporary folder. Fetch all
-   dependencies also into this temporary folder. Build in /tmp/bar.
-   Install into /tmp/yyy. Remove the temporary folder.
+      Grab project from github and place it into a temporary folder. Fetch all
+      dependencies into this temporary folder. Build in \`/tmp/bar\`.
+      Install into \`/tmp/yyy\`. Remove the temporary folder.
 
-   MULLE_FETCH_SEARCH_PATH="/src/mulle-c:/src/mulle-objc" \
-mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
+   mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
 
-   Grab local project. Places all dependency projects into
-   /tmp/foo preferring local projects. Build in /tmp/foo.
-   Install into /tmp/xxx. Keep /tmp/foo.
+      Grab local project. Place all dependency projects into \`/tmp/foo\`
+      preferring local projects. Build in \`/tmp/foo\`.
+      Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`.
 
 Options:
    -d <dir>          : directory to fetch into (\$PWD)
@@ -77,15 +79,82 @@ do_update_sourcetree()
 {
    log_entry "do_update_sourcetree" "$@"
 
-   if [ "${MULLE_SDE_FETCH}" = "NO" ]
+   if [ "${MULLE_SDE_FETCH}" = 'NO' ]
    then
       log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
       return 0
    fi
 
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                     "${MULLE_SOURCETREE_FLAGS}" ${MULLE_TECHNICAL_FLAGS} "${OPTION_MODE}" \
-                     "update" "$@"
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS} \
+                        "${OPTION_MODE}" \
+                     "update" \
+                        "$@"
+}
+
+install_in_tmp()
+{
+   log_entry "install_in_tmp" "$@"
+
+   local url="$1"
+   local directory="$2"
+   local arguments="$3"
+
+   exekutor mkdir -p "${directory}" 2> /dev/null
+   exekutor cd "${directory}" || fail "can't change to \"${directory}\""
+
+   local add
+
+   add='YES'
+   if mulle-sourcetree -s -e -N dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+   then
+      log_verbose "Reusing previous .mulle-sourcetree folder unchanged. \
+Use -f flag to clobber."
+      add='NO'
+   else
+      rmdir_safer ".mulle-sourcetree"
+   fi
+
+   if [ "${add}" = 'YES' ]
+   then
+      r_simplified_absolutepath "${url}" "${MULLE_EXECUTABLE_PWD}"
+      if [ -d "${RVAL}" ]
+      then
+         url="https://localhost${RVAL}"
+         r_fast_dirname "${RVAL}"
+
+         r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
+         MULLE_FETCH_SEARCH_PATH="${RVAL}"
+
+         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+                                   -N ${MULLE_TECHNICAL_FLAGS}  \
+                                   add --nodetype git "${url}"  || return 1
+         eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
+                           mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+                                            -N ${MULLE_TECHNICAL_FLAGS}  \
+                                            update --symlink || return 1
+      else
+         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+                                   -N ${MULLE_TECHNICAL_FLAGS} \
+                                   add "${url}"  || return 1
+
+         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+                                   -N ${MULLE_TECHNICAL_FLAGS} \
+                                   update || return 1
+      fi
+   fi
+
+   exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+                             -N ${MULLE_TECHNICAL_FLAGS} \
+                             buildorder --output-marks > buildorder || return 1
+
+   eval_exekutor "${environment}" mulle-craft \
+         -e ${MULLE_CRAFT_FLAGS} ${MULLE_TECHNICAL_FLAGS} \
+         buildorder \
+            --no-protect \
+            -f buildorder \
+            "${arguments}" || return 1
 }
 
 
@@ -182,7 +251,7 @@ sde_install_main()
    environment="${environment} PATH='${DEPENDENCY_DIR}/bin:$PATH'"
    environment="${environment} MULLE_VIRTUAL_ROOT='${PROJECT_DIR}'"
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "BUILD_DIR=${BUILD_DIR}"
       log_trace2 "DEPENDENCY_DIR=${DEPENDENCY_DIR}"
@@ -204,62 +273,16 @@ sde_install_main()
       arguments="-- ${arguments}"
    fi
 
-   exekutor mkdir -p "${PROJECT_DIR}" 2> /dev/null
-   exekutor cd "${PROJECT_DIR}" || fail "can't change to \"${PROJECT_DIR}\""
+   local rval
 
-   local add
+   install_in_tmp "${URL}" "${PROJECT_DIR}" "${arguments}"
+   rval=$?
 
-   add="YES"
-
-   if mulle-sourcetree -s -e -N dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+   if [ ${rval} -eq 0 ]
    then
-      log_verbose "Reusing previous .mulle-sourcetree folder unchanged. \
-Use -f flag to clobber."
-      add="NO"
-   else
-      rmdir_safer ".mulle-sourcetree"
-   fi
-
-   if [ "${add}" = "YES" ]
-   then
-      r_simplified_absolutepath "${URL}" "${MULLE_EXECUTABLE_PWD}"
-      if [ -d "${RVAL}" ]
+      if [ ! -z "${delete_tmp}" ]
       then
-         URL="https://localhost${RVAL}"
-         r_fast_dirname "${RVAL}"
-
-         MULLE_FETCH_SEARCH_PATH="`colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"`"
-
-         exekutor  mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
-                                    -N ${MULLE_TECHNICAL_FLAGS}  \
-                                    add --nodetype git "${URL}"  || exit 1
-         eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
-                           mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
-                                            -N ${MULLE_TECHNICAL_FLAGS}  \
-                                            update --symlink || exit 1
-      else
-         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
-                                   -N ${MULLE_TECHNICAL_FLAGS} \
-                                   add "${URL}"  || exit 1
-
-         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
-                                   -N ${MULLE_TECHNICAL_FLAGS} \
-                                   update || exit 1
+         rmdir_safer "${delete_tmp}"
       fi
-   fi
-
-   exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
-                             -N ${MULLE_TECHNICAL_FLAGS} \
-                             buildorder --output-marks > buildorder || exit 1
-   eval_exekutor "${environment}" mulle-craft \
-         -e ${MULLE_CRAFT_FLAGS} ${MULLE_TECHNICAL_FLAGS} \
-         buildorder \
-            --no-protect \
-            -f buildorder \
-            "${arguments}" || exit 1
-
-   if [ ! -z "${delete_tmp}" ]
-   then
-      _rmdir_safer "${delete_tmp}"
    fi
 }

@@ -46,36 +46,32 @@ Usage:
    cleaned.
 
 Domains:
-   all         : cleans project and buildorder
-   buildorder  : like rebuild, but also wipes the cached buildorder
-   cache       : clean some caches including the archive cache
+   all         : cleans buildorder, cache, project. Removes folder "`fast_basename "${DEPENDENCY_DIR}"`"
+   cache       : clean some caches including the archive and buildorder cache
    default     : clean project and subprojects (default)
    project     : clean project, keeps dependencies
-   refetch     : combines "tidy" with "cache" to update all dependencies
-   subproject  : clean subprojects
+   refetch     : combines "tidy" with "cache" to force a refetch from remotes
+   subprojects : clean subprojects
    tidy        : cleans everything and removes fetched dependencies. It's slow!
 EOF
    exit 1
 }
 
 
-
 #
 # use rexekutor to show call, put pass -n flag via technical flags so
 # nothing gets actually deleted with -n
 #
-
-
 sde_clean_output_main()
 {
    log_entry "sde_clean_output_main" "$@"
 
    log_verbose "Cleaning addiction directory"
-   rmdir_safer "${ADDICTION_DIR}"
+   [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
    log_verbose "Cleaning build directory"
-   rmdir_safer "${BUILD_DIR}"
+   [ ! -z "${BUILD_DIR}" ] && rmdir_safer "${BUILD_DIR}"
    log_verbose "Cleaning dependency directory"
-   rmdir_safer "${DEPENDENCY_DIR}"
+   [ ! -z "${DEPENDENCY_DIR}" ] && rmdir_safer "${DEPENDENCY_DIR}"
 }
 
 
@@ -84,7 +80,7 @@ sde_clean_builddir_main()
    log_entry "sde_clean_builddir_main" "$@"
 
    log_verbose "Cleaning \"build\" directory"
-   rmdir_safer "${BUILD_DIR}"
+   [ ! -z "${BUILD_DIR}" ] && rmdir_safer "${BUILD_DIR}"
 }
 
 sde_clean_dependencydir_main()
@@ -92,7 +88,7 @@ sde_clean_dependencydir_main()
    log_entry "sde_clean_dependencydir_main" "$@"
 
    log_verbose "Cleaning \"dependency\" directory"
-   rmdir_safer "${DEPENDENCY_DIR}"
+   [ ! -z "${DEPENDENCY_DIR}" ] && rmdir_safer "${DEPENDENCY_DIR}"
 }
 
 
@@ -100,7 +96,11 @@ sde_clean_project_main()
 {
    log_entry "sde_clean_project_main" "$@"
 
-   rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} clean project
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_CRAFT_FLAGS} \
+               clean \
+                  project
 }
 
 
@@ -109,7 +109,11 @@ sde_clean_dependency_main()
    log_entry "sde_clean_dependency_main" "$@"
 
    log_verbose "Cleaning \"dependency\" directory"
-   rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} clean dependency
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_CRAFT_FLAGS} \
+               clean \
+                  dependency
 }
 
 
@@ -119,25 +123,36 @@ sde_clean_subproject_main()
 
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || \
+         internal_fail "missing file"
    fi
 
    local subprojects
    local subproject
 
-   subprojects="`sde_subproject_get_names`"
+   subprojects="`sde_subproject_get_addresses`"
    if [ -z "${subprojects}" ]
    then
       log_fluff "No subprojects, so done"
       return
    fi
 
+   local name
+   local RVAL
+
    set -o noglob; IFS="
 "
    for subproject in ${subprojects}
    do
+      r_fast_basename "${subproject}"
+      name="${RVAL}"
+
       set +o noglob; IFS="${DEFAULT_IFS}"
-      rexekutor "${MULLE_CRAFT:-mulle-craft}" ${MULLE_TECHNICAL_FLAGS} clean "${subproject}"
+      rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+            ${MULLE_TECHNICAL_FLAGS} \
+            ${MULLE_CRAFT_FLAGS} \
+            clean \
+               "${name}"
    done
    set +o noglob; IFS="${DEFAULT_IFS}"
 }
@@ -158,7 +173,7 @@ sde_clean_cache_main()
 
    if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
    then
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
          rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
       fi
@@ -196,7 +211,11 @@ sde_clean_db_main()
 {
    log_entry "sde_clean_db_main" "$@"
 
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_TECHNICAL_FLAGS} reset
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+               reset
 }
 
 
@@ -204,7 +223,11 @@ sde_clean_sourcetree_main()
 {
    log_entry "sde_clean_sourcetree_main" "$@"
 
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_TECHNICAL_FLAGS} clean
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+               clean
 }
 
 
@@ -212,7 +235,10 @@ sde_clean_patternfile_main()
 {
    log_entry "sde_clean_patternfile_main" "$@"
 
-   rexekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} clean
+   rexekutor "${MULLE_MATCH:-mulle-match}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_MONITOR_FLAGS} \
+               clean
 }
 
 
@@ -222,7 +248,10 @@ sde_clean_monitor_main()
 
    MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      rexekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} clean
+      rexekutor "${MULLE_MONITOR:-mulle-monitor}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_MONITOR_FLAGS} \
+                  clean
 }
 
 
@@ -230,6 +259,8 @@ sde_clean_monitor_main()
 sde_clean_main()
 {
    log_entry "sde_clean_main" "$@"
+
+   local OPTION_TEST="YES"
 
    #
    # handle options
@@ -239,6 +270,10 @@ sde_clean_main()
       case "$1" in
          -h*|--help|help)
             sde_clean_usage
+         ;;
+
+         --no-test)
+            OPTION_TEST="NO"
          ;;
 
          -*)
@@ -271,64 +306,71 @@ sde_clean_main()
 all
 cache
 default
+dependency
 project
-subproject
+refetch
+subprojects
 tidy"
          exit 0
       ;;
 
-      'all')
-         domains="builddir dependencydir"
+      all)
+         domains="builddir dependencydir cache"
       ;;
 
-      'buildorder')
-         domains="cache builddir dependencydir"
-      ;;
-
-      'cache')
+      cache)
          domains="cache db monitor patternfile"
       ;;
 
-      'default')
+      default)
          domains="project subproject"
       ;;
 
-      'dependency')
-         domains="builddir dependencydir"
+      project)
+         domains="project"
       ;;
 
-      'refetch')
+      refetch)
          domains="sourcetree output var db monitor patternfile cache"
       ;;
 
-      'subproject')
+      subproject|subprojects)
          domains="subproject"
       ;;
 
-      'tidy')
+      tidy)
          domains="sourcetree output var db monitor patternfile"
       ;;
 
       *)
-         local escaped_dependency
-         local found
-         local RVAL
-
-         r_escaped_grep_pattern "$1"
-         escaped_dependency="${RVAL}"
-
-         found="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \
-                 sed 's|^.*/||' | \
-                 fgrep -x "${escaped_dependency}"`"
-
-         if [ -z "${found}" ]
+         if [ "${OPTION_TEST}" = "YES" ]
          then
-            fail "Unknown dependency \"$1\""
+            local escaped_dependency
+            local targets
+            local found
+            local RVAL
+
+            r_escaped_grep_pattern "$1"
+            escaped_dependency="${RVAL}"
+
+            targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \
+                    sed 's|^.*/||'`"
+            found="`fgrep -x "${escaped_dependency}" <<< "${targets}" `"
+
+            if [ -z "${found}" ]
+            then
+               fail "Unknown clean target \"$1\".
+${C_VERBOSE}Known dependencies:
+${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
+}"
+            fi
          fi
 
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_CRAFT_FLAGS} clean "$1"
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_CRAFT_FLAGS} \
+                     clean \
+                        "$1"
       ;;
    esac
 

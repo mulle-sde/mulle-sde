@@ -47,10 +47,11 @@ Usage:
 
 Commands:
    add        : add an extra extension to your project
-   list       : list available and installed extensions
+   list       : list installed extensions
    meta       : print the installed meta extension
    pimp       : pimp up your your project with a one shot extension
    searchpath : show locations where extensions are searched
+   show       : show available extensions
    upgrade    : upgrade project extensions to the latest version
    usage      : show usage information for an extension
 EOF
@@ -64,11 +65,28 @@ sde_extension_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} extension list [options] [type]
+   ${MULLE_USAGE_NAME} extension list
 
-   List available mulle-sde extensions of types "meta" and "extra". Those are
-   usually the candidates to select. The "meta" extension in tells mulle-sde
-   to load the required "runtime" and "buildtool" extensions.
+   List installed extensions.
+
+Options:
+   --no-version  : don't show version of the extensions
+
+EOF
+   exit 1
+}
+
+
+sde_extension_show_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension show [options] [type]
+
+   Shows the available mulle-sde extensions of types "meta" and "extra" by
+   default. Those are usually the candidates to select.
 
 Options:
    --version   : show version of the extensions
@@ -77,13 +95,13 @@ Types:
    all       : list all available extensions
    buildtool : list available buildtool extensions
    extra     : list available extra extensions
-   installed : list extensions installed in your project
    meta      : list available meta extensions
    oneshot   : list available oneshot extensions
    runtime   : list available runtime extensions
 EOF
    exit 1
 }
+
 
 
 sde_extension_add_usage()
@@ -583,7 +601,7 @@ emit_extension()
    do
       IFS="${DEFAULT_IFS}"
 
-      if [ "${OPTION_VERSION}" = "YES" ]
+      if [ "${OPTION_VERSION}" = 'YES' ]
       then
          version="`extension_get_version "${extension}"`"
          echo "${extension}" "${version}"
@@ -595,11 +613,11 @@ emit_extension()
 }
 
 
-sde_extension_list_main()
+sde_extension_show_main()
 {
-   log_entry "sde_extension_list_main" "$@"
+   log_entry "sde_extension_show_main" "$@"
 
-   local OPTION_VERSION
+   local OPTION_VERSION='NO'
 
    #
    # handle options
@@ -612,7 +630,11 @@ sde_extension_list_main()
          ;;
 
          --version)
-            OPTION_VERSION="YES"
+            OPTION_VERSION='YES'
+         ;;
+
+         --no-version)
+            OPTION_VERSION='NO'
          ;;
 
          -*)
@@ -629,19 +651,16 @@ sde_extension_list_main()
 
    local cmd
 
-   cmd="${1:-default}"
-
-   case "${cmd}" in
-      installed)
-         if [ "${OPTION_VERSION}" = "YES" ]
-         then
-            sde_extension_list_installed --version "$@"
-         else
-            sde_extension_list_installed "$@"
-         fi
-         return
-      ;;
-   esac
+   cmd="$1"
+   if [ -z "${cmd}" ]
+   then
+      if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         cmd="default"
+      else
+         cmd="meta"
+      fi
+   fi
 
    local runtime_extension
    local buildtool_extension
@@ -730,11 +749,11 @@ sde_extension_list_main()
 }
 
 
-sde_extension_list_installed()
+sde_extension_list_main()
 {
-   log_entry sde_extension_list_installed "$@"
+   log_entry "sde_extension_list_main" "$@"
 
-   local OPTION_VERSION
+   local OPTION_VERSION='YES'
 
    while :
    do
@@ -744,7 +763,11 @@ sde_extension_list_installed()
          ;;
 
          --version)
-            OPTION_VERSION="YES"
+            OPTION_VERSION='YES'
+         ;;
+
+         --no-version)
+            OPTION_VERSION='NO'
          ;;
 
          -*)
@@ -804,7 +827,7 @@ a mulle-sde project"
          r_fast_basename "${vendor}"
          vendor="${RVAL}"
 
-         if [ "${OPTION_VERSION}" = "YES" ]
+         if [ "${OPTION_VERSION}" = 'YES' ]
          then
             version="`LC_ALL=C egrep -v '^#' < "${filename}"`"
             echo "${vendor}/${extension}" "${version}"
@@ -901,7 +924,7 @@ __emit_extension_usage()
 
    __set_extension_vars
 
-   if [ "${OPTION_LIST_TYPES}" = "YES" ]
+   if [ "${OPTION_LIST_TYPES}" = 'YES' ]
    then
        collect_extension_projecttypes "${extensiondir}"
        return
@@ -911,7 +934,7 @@ __emit_extension_usage()
 
    exttype="`LC_ALL=C egrep -v '^#' < "${extensiondir}/type"`"
 
-   if [ "${OPTION_USAGE_ONLY}" != "YES" ]
+   if [ "${OPTION_USAGE_ONLY}" != 'YES' ]
    then
       echo "Usage:"
       echo "   mulle-sde init --${exttype}" "${vendor}/${extension} <type>"
@@ -922,7 +945,7 @@ __emit_extension_usage()
 
    usagetext="`collect_file_info "${extensiondir}" "usage"`"
 
-   if [ "${OPTION_USAGE_ONLY}" != "YES" ]
+   if [ "${OPTION_USAGE_ONLY}" != 'YES' ]
    then
       if [ ! -z "${usagetext}" ]
       then
@@ -953,7 +976,7 @@ __emit_extension_usage()
       echo
    fi
 
-   if [ "${OPTION_USAGE_ONLY}" = "YES" ]
+   if [ "${OPTION_USAGE_ONLY}" = 'YES' ]
    then
       if [ ! -z "${usagetext}" ]
       then
@@ -979,7 +1002,7 @@ __emit_extension_usage()
    sed 's/^/   /' <<< "${text}"
    echo
 
-   if [ "${OPTION_INFO}" = "YES" ]
+   if [ "${OPTION_INFO}" = 'YES' ]
    then
       if [ -d "${extensiondir}/share/ignore.d" ]
       then
@@ -1080,7 +1103,7 @@ emit_extension_usage()
 
    local extension="$1"
 
-   if [ "${OPTION_RECURSE}" = "YES" ]
+   if [ "${OPTION_RECURSE}" = 'YES' ]
    then
       local dependency
 
@@ -1097,7 +1120,7 @@ emit_extension_usage()
          set +o noglob ; IFS="${DEFAULT_IFS}"
 
          emit_extension_usage "${dependency}"
-         if [ "${OPTION_LIST_TYPES}" = "NO" ]
+         if [ "${OPTION_LIST_TYPES}" = 'NO' ]
          then
             echo "------------------------------------------------------------"
             echo
@@ -1115,11 +1138,11 @@ sde_extension_usage_main()
 
    local OPTION_VENDOR="mulle-sde"
    local OPTION_LIST=
-   local OPTION_LIST_TYPES="NO"
-   local OPTION_INFO="NO"
-   local OPTION_RECURSE="NO"
-   local OPTION_USAGE_ONLY="NO"
-   local OPTION_NO_USAGE="NO"
+   local OPTION_LIST_TYPES='NO'
+   local OPTION_INFO='NO'
+   local OPTION_RECURSE='NO'
+   local OPTION_USAGE_ONLY='NO'
+   local OPTION_NO_USAGE='NO'
 
    while :
    do
@@ -1129,7 +1152,7 @@ sde_extension_usage_main()
          ;;
 
          -i|--info)
-            OPTION_INFO="YES"
+            OPTION_INFO='YES'
          ;;
 
          -l|--list)
@@ -1140,7 +1163,7 @@ sde_extension_usage_main()
          ;;
 
          -r|--recurse)
-            OPTION_RECURSE="YES"
+            OPTION_RECURSE='YES'
          ;;
 
          -v|--vendor)
@@ -1151,11 +1174,11 @@ sde_extension_usage_main()
          ;;
 
          --usage-only)
-            OPTION_USAGE_ONLY="YES"
+            OPTION_USAGE_ONLY='YES'
          ;;
 
          --list-types)
-            OPTION_LIST_TYPES="YES"
+            OPTION_LIST_TYPES='YES'
          ;;
 
          -*)
@@ -1176,7 +1199,7 @@ sde_extension_usage_main()
 
    [ "$#" -ne 0 ] && sde_extension_usage_usage "superflous arguments \"$*\""
 
-   if [ "${OPTION_LIST_TYPES}" = "YES" ]
+   if [ "${OPTION_LIST_TYPES}" = 'YES' ]
    then
       emit_extension_usage "${extension}" | LC_ALL=C sort -u
    else
@@ -1193,16 +1216,16 @@ hack_option_and_single_quote_everything()
 
    local i
    local last
-   local first="YES"
+   local first='YES'
 
    for i in "$@"
    do
-      if [ "${first}" = "NO" ]
+      if [ "${first}" = 'NO' ]
       then
          echo "'${last}'"
       fi
       last="$i"
-      first="NO"
+      first='NO'
    done
 
    echo "${option}"
@@ -1279,8 +1302,8 @@ sde_extension_main()
             eval sde_init_main --no-blurb --no-env --add "${args}"
       ;;
 
-      list)
-         sde_extension_list_main "$@"
+      list|show)
+         sde_extension_${cmd}_main "$@"
       ;;
 
       meta|installed-meta)

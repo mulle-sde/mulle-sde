@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-[ "${TRACE}" = "YES" ] && set -x && : "$0" "$@"
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
 if [ "`type -t "_mulle_match_complete"`" != "function" ]
@@ -87,22 +87,22 @@ _mulle_sde_init_complete()
       ;;
 
       -b|--buildtool)
-         extensions="`mulle-sde -s extension list buildtool`"
+         extensions="`mulle-sde -s extension show buildtool`"
          COMPREPLY=( $( compgen -W "${extensions}" -- $cur ) )
       ;;
 
       -m|--meta)
-         extensions="`mulle-sde -s extension list meta`"
+         extensions="`mulle-sde -s extension show meta`"
          COMPREPLY=( $( compgen -W "${extensions}" -- $cur ) )
       ;;
 
       -e|--extra)
-         extensions="`mulle-sde -s extension list extra`"
+         extensions="`mulle-sde -s extension show extra`"
          COMPREPLY=( $( compgen -W "${extensions}" -- $cur ) )
       ;;
 
       -r|--runtime)
-         extensions="`mulle-sde -s extension list runtime`"
+         extensions="`mulle-sde -s extension show runtime`"
          COMPREPLY=( $( compgen -W "${extensions}" -- $cur ) )
       ;;
 
@@ -450,17 +450,17 @@ _mulle_sde_extension_complete()
       ;;
 
       add)
-         list="`mulle-sde -s extension list extra`"
+         list="`mulle-sde -s extension show extra`"
          COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
       ;;
 
       usage)
-         list="`mulle-sde -s extension list`"
+         list="`mulle-sde -s extension show`"
          COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
       ;;
 
       pimp)
-         list="`mulle-sde -s extension list oneshot`"
+         list="`mulle-sde -s extension show oneshot`"
          COMPREPLY=( $( compgen -W "${list}" -- $cur ) )
       ;;
 

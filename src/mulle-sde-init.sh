@@ -62,18 +62,13 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   Use \`mulle-sde extension list\` to see, which extensions are available on
-   your system. Pick a meta extension to install. Check what project types are
-   present for your chosen extension with \`mulle-sde extension usage\`.
+   List available extensions with \`mulle-sde extension show\`. Pick a meta
+   extension to install. Choose a project type like "library", "executable"
+   or "none".
 
-   Now you can create a mulle-sde project of your chosen type:
+   Example:
 
       mulle-sde init -d ./my-project -m mulle-sde/c-developer executable
-
-   To use an existing project with mulle-sde:
-
-      cd my-project
-      mulle-sde init --existing -m mulle-sde/c-developer executable
 
    You can use \`mulle-sde extension add\` to add extra and oneshot extensions.
    at a later date.
@@ -82,7 +77,7 @@ Options:
 EOF
    (
       echo "${COMMON_OPTIONS}"
-      if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
+      if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
       then
          echo "${HIDDEN_OPTIONS}"
       fi
@@ -109,7 +104,7 @@ _copy_extension_dir()
 
    local flags
 
-   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' ]
    then
       flags=-v
    fi
@@ -118,7 +113,7 @@ _copy_extension_dir()
    # the extensions have "overwrite" semantics, so that previous
    # files are overwritten.
    #
-   if [ "${overwrite}" = "NO" ]
+   if [ "${overwrite}" = 'NO' ]
    then
       flags="${flags} -n"  # don't clobber
    fi
@@ -135,7 +130,7 @@ _copy_extension_dir()
 
    # need L flag since homebrew creates relative links
    exekutor cp -RLa ${flags} "${directory}" "${MULLE_SDE_DIR}/" &&
-   if [ "${writeprotect}" = "YES" ]
+   if [ "${writeprotect}" = 'YES' ]
    then
       #
       # for git its not nice to write protect directories like share,
@@ -184,7 +179,7 @@ _copy_env_extension_dir()
 
    local flags
 
-   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' ]
    then
       flags=-v
    fi
@@ -249,7 +244,7 @@ _template_file_arguments()
                --extensions '${PROJECT_EXTENSIONS}' \
                --source-dir '${PROJECT_SOURCE_DIR}'"
 
-   if [ "${force}" = "YES" ]
+   if [ "${force}" = 'YES' ]
    then
       _arguments="${_arguments} -f"
    fi
@@ -312,7 +307,7 @@ _copy_extension_template_files()
    # If force is not set, the destination will not be overwritten so the
    # first file wins. In this case we reverse the order
    #
-   if [ "${force}" = "YES" ]
+   if [ "${force}" = 'YES' ]
    then
       TEMPLATE_DIRECTORIES="${TEMPLATE_DIRECTORIES}
 ${_arguments}"
@@ -388,7 +383,8 @@ install_inheritfile()
       exttype="${exttype:-${defaultexttype}}"
       if [ "${exttype}" = "meta" ]
       then
-         fail "A meta extension tried to inherit meta extension (\"${inheritfilename}\")"
+         fail "A meta extension mistakenly tries to inherit another meta \
+extension (\"${inheritfilename}\")"
       fi
 
       #
@@ -488,12 +484,14 @@ environmenttext_to_mset()
          ;;
 
          \#\ *)
-            comment="`concat "${comment}" "${line:2}" "\\n"`"
+            r_concat "${comment}" "${line:2}" "\\n"
+            comment="${RVAL}"
             continue
          ;;
 
          \#*)
-            comment="`concat "${comment}" "${line:1}" "\\n"`"
+            r_concat "${comment}" "${line:1}" "\\n"
+            comment="${RVAL}"
             continue
          ;;
 
@@ -616,7 +614,7 @@ add_to_environment()
       return
    fi
 
-   if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
    then
       environment_mset_log "${environment}"
    fi
@@ -624,8 +622,14 @@ add_to_environment()
    # remove lf for command line
    environment="`tr '\n' ' ' <<< "${environment}"`"
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV:-mulle-env}'" -s "${MULLE_ENV_FLAGS}" environment \
-                           --share mset "${environment}" || exit 1
+      eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
+                           --no-search \
+                           -s \
+                           "${MULLE_TECHNICAL_FLAGS}" \
+                           "${MULLE_ENV_FLAGS}" \
+                        environment \
+                           --scope extension \
+                           mset "${environment}" || exit 1
 }
 
 
@@ -634,7 +638,7 @@ add_to_tools()
    log_entry "add_to_tools" "$@"
 
    local filename="$1"
-   local scope="$2"
+   local tooloption="$2"
 
    if _check_file "${filename}.${MULLE_UNAME}"
    then
@@ -654,9 +658,17 @@ add_to_tools()
       if [ ! -z "${line}" ]
       then
          log_verbose "Adding \"${line}\" to tool"
-         MULLE_VIRTUAL_ROOT="`pwd -P`" \
-            exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} tool --share ${scope} \
-                                                       add "${line}" || exit 1
+         MULLE_VIRTUAL_ROOT="${PWD}" \
+            exekutor "${MULLE_ENV:-mulle-env}" \
+                           --no-search \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                           tool ${tooloption} \
+                              add "${line}"
+         if [ $? -eq 1 ] # only 1 is error, 2 is ok
+         then
+         	fail "Addition of tool \"${line}\" failed"
+         fi
       fi
    done
    IFS="${DEFAULT_IFS}"
@@ -668,17 +680,17 @@ run_init()
    log_entry "run_init" "$@"
 
    local executable="$1"
-   local projectytpe="$2"
+   local projecttype="$2"
    local vendor="$3"
    local extname="$4"
    local marks="$5"
    local force="$6"
 
-   if [ ! -x "${extensiondir}/init" ]
+   if [ ! -x "${executable}" ]
    then
-      if _check_file "${extensiondir}/init"
+      if _check_file "${executable}"
       then
-         fail "\"${extensiondir}/init\" must have execute permissions"
+         fail "\"${executable}\" must have execute permissions"
       fi
       return
    fi
@@ -699,7 +711,7 @@ run_init()
 
    local auxflags
 
-   if [ "${force}" = "YES" ]
+   if [ "${force}" = 'YES' ]
    then
       auxflags="-f"
    fi
@@ -711,7 +723,14 @@ run_init()
    log_warning "Running init script \"${executable}\""
 
    eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
-                 OPTION_REINIT="${OPTION_REINIT}"
+                 OPTION_REINIT="${OPTION_REINIT}" \
+                 OPTION_INIT_TYPE="${OPTION_INIT_TYPE}" \
+                 PROJECT_DIALECT="${PROJECT_DIALECT}" \
+                 PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}" \
+                 PROJECT_LANGUAGE="${PROJECT_LANGUAGE}" \
+                 PROJECT_NAME="${PROJECT_NAME}" \
+                 PROJECT_TYPE="${PROJECT_TYPE}" \
+                 MULLE_VIRTUAL_ROOT="${PWD}" \
                      "${executable}" "${INIT_FLAGS}" "${flags}" \
                                                  "${auxflags}" \
                                                  --marks "'${marks}'" \
@@ -847,7 +866,7 @@ install_version()
 
    local flags
 
-   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' ]
    then
       flags=-v
    fi
@@ -911,25 +930,30 @@ _delete_leaf_files_or_directories()
    # https://stackoverflow.com/questions/1574403/list-all-leaf-subdirectories-in-linux
    IFS="
 "
-   for i in `find "${directory}" -mindepth 1 -execdir sh -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
+   for i in `find "${directory}" -mindepth 1 \
+                                 -execdir sh -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
    do
       IFS="${DEFAULT_IFS}"
 
       local relpath
 
-      relpath="`simplified_path "${i#${directory}/}"`"
+      r_simplified_path "${i#${directory}/}"
+      relpath="${RVAL}"
 
       if [ ! -d "${relpath}" ]
       then
-         if [ "`fast_basename "${relpath}"`" != ".gitignore" ]
+         r_fast_basename "${relpath}"
+         if [ "${RVAL}" != ".gitignore" ]
          then
             log_warning "Not deleting files at present (${relpath})"
             continue
          fi
-         relpath="`fast_dirname "${relpath}"`"
+         r_fast_dirname "${relpath}"
+         relpath="${RVAL}"
       fi
 
-      if [ "`fast_basename "${relpath}"`" != "share" ]
+      r_fast_basename "${relpath}"
+      if [ "${RVAL}" != "share" ]
       then
          log_warning "Only deleting folders called \"share\" at present (${relpath})"
          continue
@@ -1002,12 +1026,16 @@ _install_extension()
 
    if egrep -q -s "^${vendor}/${extname};" <<< "${_INSTALLED_EXTENSIONS}"
    then
-      log_fluff "Extension \"${vendor}/${extname}\" is already installed"
-      return
-   fi
-   if [ "${exttype}" != "oneshot" ]
-   then
-      _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"`"
+      if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         log_fluff "Extension \"${vendor}/${extname}\" is already installed"
+         return
+      fi
+   else
+      if [ "${exttype}" != "oneshot" ]
+      then
+         _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"`"
+      fi
    fi
 
    local extensiondir
@@ -1032,7 +1060,7 @@ vendor \"${vendor}\""
          #
          # do this only once for the first runtime extension
          #
-         if [ "${LANGUAGE_SET}" != "YES" ]
+         if [ "${LANGUAGE_SET}" != 'YES' ]
          then
             if _check_file "${extensiondir}/language"
             then
@@ -1049,7 +1077,7 @@ vendor \"${vendor}\""
                log_fluff "Project language set to \"${PROJECT_DIALECT}\""
                log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
                log_fluff "Project extensions set to \"${PROJECT_EXTENSIONS}\""
-               LANGUAGE_SET="YES"
+               LANGUAGE_SET='YES'
            fi
          fi
       ;;
@@ -1072,7 +1100,7 @@ vendor \"${vendor}\""
    local verb
 
    verb="Installing"
-   if [ "${OPTION_UPGRADE}" = "YES" ]
+   if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
       verb="Upgrading"
    fi
@@ -1115,7 +1143,8 @@ vendor \"${vendor}\""
                IFS="${DEFAULT_IFS}"
                if [ ! -z "${line}" ]
                then
-                  inheritmarks="`comma_concat "${inheritmarks}" "${line}"`"
+                  r_comma_concat "${inheritmarks}" "${line}"
+                  inheritmarks="${RVAL}"
                fi
             done
             IFS="${DEFAULT_IFS}"
@@ -1135,7 +1164,7 @@ vendor \"${vendor}\""
    local verb
 
    verb="Installed"
-   if [ "${OPTION_UPGRADE}" = "YES" ]
+   if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
       verb="Upgraded"
    fi
@@ -1166,7 +1195,13 @@ vendor \"${vendor}\""
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
-         add_to_environment "${extensiondir}/environment"
+         if [ "${projecttype}" != 'none' ]
+         then
+            add_to_environment "${extensiondir}/environment"
+         else
+            log_debug "${extensiondir}/environment not installed because project type is \"none\""
+         fi
+
          add_to_tools "${extensiondir}/tool"
          add_to_tools "${extensiondir}/optionaltool" "--optional"
 
@@ -1184,45 +1219,76 @@ vendor \"${vendor}\""
    #  no-project
    #  no-clobber
    #
-   if [ -z "${onlyfilename}" ]
+   if [ "${projecttype}" != 'none' ]
    then
-      # part of project really
+      if [ -z "${onlyfilename}" ]
+      then
+         # part of project really
+         if ! is_directory_disabled_by_marks "${marks}" \
+                                             "${extensiondir}/delete" \
+                                             "no-project" \
+                                             "no-project/${vendor}/${extname}"
+         then
+            _delete_extension_template_directory "${extensiondir}" \
+                                                 "delete" \
+                                                 "${projecttype}"
+         fi
+      fi
+
       if ! is_directory_disabled_by_marks "${marks}" \
-                                          "${extensiondir}/delete" \
+                                          "${extensiondir}/demo" \
+                                          "no-demo" \
+                                          "no-demo/${vendor}/${extname}"
+      then
+         _copy_extension_template_directory "${extensiondir}" \
+                                            "demo" \
+                                            "${projecttype}" \
+                                            "${force}" \
+                                            "${onlyfilename}" \
+                                            "$@"
+      fi
+
+      local subdirectory
+
+      if [ -d "${extensiondir}/${OPTION_INIT_TYPE}" ]
+      then
+         subdirectory="${OPTION_INIT_TYPE}"
+      else
+         subdirectory="project"
+      fi
+
+      if ! is_directory_disabled_by_marks "${marks}" \
+                                          "${extensiondir}/project" \
                                           "no-project" \
                                           "no-project/${vendor}/${extname}"
       then
-         _delete_extension_template_directory "${extensiondir}" \
-                                              "delete" \
-                                              "${projecttype}"
+         _copy_extension_template_directory "${extensiondir}" \
+                                            "project" \
+                                            "${projecttype}" \
+                                            "${force}" \
+                                            "${onlyfilename}" \
+                                            "$@"
       fi
-   fi
 
-   if ! is_directory_disabled_by_marks "${marks}" \
-                                       "${extensiondir}/demo" \
-                                       "no-demo" \
-                                       "no-demo/${vendor}/${extname}"
-   then
-      _copy_extension_template_directory "${extensiondir}" \
-                                         "demo" \
-                                         "${projecttype}" \
-                                         "${force}" \
-                                         "${onlyfilename}" \
-                                         "$@"
-   fi
-
-   if ! is_directory_disabled_by_marks "${marks}" \
-                                       "${extensiondir}/project" \
-                                       "no-project" \
-                                       "no-project/${vendor}/${extname}"
-   then
-      _copy_extension_template_directory "${extensiondir}" \
-                                         "project" \
-                                         "${projecttype}" \
-                                         "${force}" \
-                                         "${onlyfilename}" \
-                                         "$@"
-
+      #
+      # the clobber folder is like project but may always overwrite
+      # this is used for refreshing cmake/share and such, where the user should
+      # not edit. A feature now obsoleted by "delete"
+      #
+      if ! is_directory_disabled_by_marks "${marks}" \
+                                          "${extensiondir}/clobber" \
+                                          "no-clobber" \
+                                          "no-clobber/${vendor}/${extname}"
+      then
+         _copy_extension_template_directory "${extensiondir}" \
+                                            "clobber" \
+                                            "${projecttype}" \
+                                            'YES' \
+                                            "${onlyfilename}" \
+                                            "$@"
+      fi
+   else
+      log_fluff "Not installing project or demo files, as project type is \"none\""
    fi
 
    if [ -z "${onlyfilename}" ]
@@ -1237,23 +1303,6 @@ vendor \"${vendor}\""
                                "${marks}"
    fi
 
-   #
-   # the clobber folder is like project but may always overwrite
-   # this is used for refreshing cmake/share and such, where the user should
-   # not edit. A feature now obsoleted by "delete"
-   #
-   if ! is_directory_disabled_by_marks "${marks}" \
-                                       "${extensiondir}/clobber" \
-                                       "no-clobber" \
-                                       "no-clobber/${vendor}/${extname}"
-   then
-      _copy_extension_template_directory "${extensiondir}" \
-                                         "clobber" \
-                                         "${projecttype}" \
-                                         "YES" \
-                                         "${onlyfilename}" \
-                                         "$@"
-   fi
 
    if [ ! -z "${onlyfilename}" ]
    then
@@ -1273,29 +1322,46 @@ vendor \"${vendor}\""
                                        "no-share" \
                                        "no-share/${vendor}/${extname}"
    then
-      _copy_extension_dir "${extensiondir}/share" "YES" "YES" ||
+      _copy_extension_dir "${extensiondir}/share" 'YES' 'YES' ||
          fail "Could not copy \"${extensiondir}/share\""
    fi
 
 
+   local executable
+
+   executable="${extensiondir}/init"
    if ! is_file_disabled_by_marks "${marks}" \
-                                  "${extensiondir}/init" \
+                                  "${executable}" \
                                   "no-init" \
                                   "no-init/${vendor}/${extname}"
    then
-      run_init "${extensiondir}/init" "${projecttype}" \
-                                      "${exttype}" \
-                                      "${vendor}" \
-                                      "${extname}" \
-                                      "${marks}" \
-                                      "${force}"
+      run_init "${executable}" "${projecttype}" \
+                               "${exttype}" \
+                               "${vendor}" \
+                               "${extname}" \
+                               "${marks}" \
+                               "${force}"
+   fi
+
+   executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
+   if ! is_file_disabled_by_marks "${marks}" \
+                                  "${executable}" \
+                                  "no-init" \
+                                  "no-init/${vendor}/${extname}"
+   then
+      run_init "${executable}" "${projecttype}" \
+                               "${exttype}" \
+                               "${vendor}" \
+                               "${extname}" \
+                               "${marks}" \
+                               "${force}"
    fi
 
    log_verbose "${verb} ${exttype} extension \"${vendor}/${extname}\""
 }
 
-# Will exit on error. Always returns 0
 
+# Will exit on error. Always returns 0
 install_extension()
 {
    log_entry "install_extension" "$@"
@@ -1484,9 +1550,13 @@ recall_installed_extensions()
    value="${MULLE_SDE_INSTALLED_EXTENSIONS}"
    if [ -z "${value}" ]
    then
-      value="`rexekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} \
-                                        ${MULLE_ENV_FLAGS} environment get \
-                                          MULLE_SDE_INSTALLED_EXTENSIONS`"
+      value="`rexekutor "${MULLE_ENV:-mulle-env}" \
+                              --no-search \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_ENV_FLAGS} \
+                           environment \
+                              --scope extension \
+                              get MULLE_SDE_INSTALLED_EXTENSIONS`"
    fi
 
    if [ ! -z "${value}" ]
@@ -1506,6 +1576,68 @@ memorize_installed_extensions()
 
    mkdir_if_missing "${MULLE_SDE_DIR}/share"
    redirect_exekutor "${MULLE_SDE_DIR}/share/extension" echo "${extensions}" || exit 1
+}
+
+
+env_set_var()
+{
+   local key="$1"
+   local value="$2"
+   local scope="${3:-extension}"
+
+   log_verbose "Environment: key=\"${value}\""
+
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                     --no-search \
+                     -s \
+                     ${MULLE_ENV_FLAGS} \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                  environment \
+                     --scope "${scope}" \
+                     set "${key}" "${value}" || internal_fail "failed env set"
+}
+
+
+#
+# also pre-compute variations needed for scripts
+#
+memorize_project_name()
+{
+   log_entry "memorize_project_name" "$@"
+
+   local PROJECT_NAME="$1"
+
+   env_set_var PROJECT_NAME "${PROJECT_NAME}" "project"
+
+   local PROJECT_C_NAME
+
+   PROJECT_C_NAME="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
+
+   env_set_var PROJECT_C_NAME "${PROJECT_NAME}" "project"
+
+   local PROJECT_IDENTIFIER
+   local PROJECT_DOWNCASE_IDENTIFIER
+   local PROJECT_UPCASE_IDENTIFIER
+
+
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
+   fi
+
+   local RVAL
+
+   r_tweaked_de_camel_case "${PROJECT_NAME}"
+
+   PROJECT_IDENTIFIER="${RVAL}"
+   PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_IDENTIFIER}" | tr -c 'a-zA-Z0-9' '_'`"
+   PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z' 'a-z' <<< "${PROJECT_IDENTIFIER}"`"
+   PROJECT_UPCASE_IDENTIFIER="`tr 'a-z' 'A-Z' <<< "${PROJECT_IDENTIFIER}"`"
+
+   env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project"
+   env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project"
+   env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project"
 }
 
 
@@ -1643,10 +1775,7 @@ install_extensions()
    # also remember version and given project name, which we may need to
    # create files later after init
    #
-   log_verbose "Environment: MULLE_SDE_INSTALLED_VERSION=\"${MULLE_EXECUTABLE_VERSION}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --share \
-      set MULLE_SDE_INSTALLED_VERSION "${MULLE_EXECUTABLE_VERSION}" || \
-            internal_fail "failed env set"
+   env_set_var "MULLE_SDE_INSTALLED_VERSION" "${MULLE_EXECUTABLE_VERSION}"
 
    memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
 }
@@ -1670,11 +1799,12 @@ install_project()
    local PROJECT_TYPE
    local LANGUAGE_SET
 
-   LANGUAGE_SET="NO"
+   LANGUAGE_SET='NO'
    PROJECT_NAME="${projectname}"
    if [ -z "${PROJECT_NAME}" ]
    then
-      PROJECT_NAME="`fast_basename "${PWD}"`"
+      r_fast_basename "${PWD}"
+      PROJECT_NAME="${RVAL}"
    fi
 
    # check that PROJECT_NAME looks usable as an identifier
@@ -1701,17 +1831,14 @@ install_project()
    #
    # put these first, so extensions can draw on these in their definitions
    #
-   log_verbose "Environment: PROJECT_NAME=\"${PROJECT_NAME}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
-      set PROJECT_NAME "${PROJECT_NAME}" || internal_fail "failed env set"
+   memorize_project_name "${PROJECT_NAME}"
 
-   log_verbose "Environment: PROJECT_TYPE=\"${PROJECT_TYPE}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
-      set PROJECT_TYPE "${PROJECT_TYPE}" || internal_fail "failed env set"
+   env_set_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
 
-   log_verbose "Environment: PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
-      set PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" || internal_fail "failed env set"
+   if [ "${PROJECT_TYPE}" != "none" ]
+   then
+      env_set_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
+   fi
 
    local _MOTD
    local _INSTALLED_EXTENSIONS
@@ -1731,17 +1858,12 @@ install_project()
    # setup the initial environment-global.sh (if missing) with some
    # values that the user may want to edit
    #
-   log_verbose "Environment: PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
-      set PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" || internal_fail "failed env set"
-
-   log_verbose "Environment: PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
-      set PROJECT_DIALECT "${PROJECT_DIALECT}" || internal_fail "failed env set"
-
-   log_verbose "Environment: PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
-   exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} environment --project \
-      set PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" || internal_fail "failed env set"
+   if [ "${PROJECT_TYPE}" != "none" ]
+   then
+      env_set_var PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" "project"
+      env_set_var PROJECT_DIALECT "${PROJECT_DIALECT}" "project"
+      env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "project"
+   fi
 
    case ",${marks}," in
       *',no-motd,'*)
@@ -1756,7 +1878,7 @@ install_project()
          local motd
 
          motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
-craft${C_RESET}" `"
+   craft${C_RESET}" `"
 
          if [ -z "${_MOTD}" ]
          then
@@ -1780,16 +1902,21 @@ add_environment_variables()
 
    [ -z "${defines}" ] && return 0
 
-   if [ "${OPTION_UPGRADE}" = "YES" -a "${_INFOED_ENV_RELOAD}" != "YES" ]
+   if [ "${OPTION_UPGRADE}" = 'YES' -a "${_INFOED_ENV_RELOAD}" != 'YES' ]
    then
-      _INFOED_ENV_RELOAD="YES"
+      _INFOED_ENV_RELOAD='YES'
       log_warning "Use ${C_RESET_BOLD}mulle-env-reload${C_INFO} to get environment \
 changes into your subshell"
    fi
 
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV:-mulle-env}'" "${MULLE_ENV_FLAGS}" environment \
-                           --share mset "${defines}" || exit 1
+      eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
+                           --no-search \
+                           "${MULLE_ENV_FLAGS}" \
+                           "${MULLE_TECHNICAL_FLAGS}" \
+                        environment \
+                           --scope extension \
+                              mset "${defines}" || exit 1
 }
 
 
@@ -1798,9 +1925,6 @@ __sde_init_add()
    log_entry "_sde_init_add" "$@"
 
    [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
-
-   [ -z "${PROJECT_TYPE}" ] && fail "PROJECT_TYPE is not defined"
-   [ -z "${PROJECT_SOURCE_DIR}" ] && fail "PROJECT_SOURCE_DIR is not defined"
 
    if [ ! -d "${MULLE_SDE_DIR}" ]
    then
@@ -1819,15 +1943,13 @@ __sde_init_add()
       fail "You must specify an extra or oneshot extension to be added"
    fi
 
+   [ -z "${PROJECT_TYPE}" ] && fail "PROJECT_TYPE is not defined"
+
    add_environment_variables "${OPTION_DEFINES}"
 
    local _INSTALLED_EXTENSIONS
 
    _INSTALLED_EXTENSIONS="`recall_installed_extensions`"
-   if [ -z "${_INSTALLED_EXTENSIONS}" ]
-   then
-      fail "Refusing to add as there are apparently no extensions defined here yet ? (MULLE_SDE_INSTALLED_EXTENSIONS is empty)"
-   fi
    log_debug "Installed extensions: ${_INSTALLED_EXTENSIONS}"
 
    if ! install_extra_extensions "${OPTION_EXTRAS}" \
@@ -1960,7 +2082,8 @@ remove_from_marks()
 
       if [ "${mark}" != "${i}" ]
       then
-         newmarks="`comma_concat "${newmarks}" "${i}"`"
+         r_comma_concat "${newmarks}" "${i}"
+         newmarks="${RVAL}"
       fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1986,10 +2109,6 @@ read_project_environment()
       then
          log_warning "Reading OLD project settings from \".mulle-env/share.old/environment-project.sh\""
          . ".mulle-env/share/environment-project.sh"
-      else
-         log_error "No valid project settings found. \
-If you reinited the environment. Try:
-   ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_TYPE library"
       fi
    fi
 
@@ -1998,7 +2117,7 @@ If you reinited the environment. Try:
 If you reinited the environment. Try:
    ${C_RESET}${C_BOLD}mulle-sde -e environment --project set PROJECT_TYPE library"
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
       log_trace2 "PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
@@ -2042,22 +2161,11 @@ warn_if_unknown_mark()
    local mark="$1"
    local description="$2"
 
-   local KNOWN_MARKS="\
-extension
-inherit
-env
-share
-init
-sourcetree
-project
-clobber
-demo"
-
-   case "${mark}" in
+      case "${mark}" in
       'extension'|'inherit'|'env'|'share'|'init'|'sourcetree'|'project')
          return
       ;;
-      'clobber'|'demo')
+      'clobber'|'demo'|'motd')
          return
       ;;
    esac
@@ -2081,10 +2189,10 @@ sde_init_main()
    local OPTION_RUNTIME=""
    local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="mulle-sde"
-   local OPTION_INIT_ENV="YES"
+   local OPTION_INIT_ENV='YES'
    local OPTION_ENV_STYLE="mulle/wild" # wild is least culture shock initially
-   local OPTION_BLURB="YES"
-   local OPTION_TEMPLATE_FILES="YES"
+   local OPTION_BLURB='YES'
+   local OPTION_TEMPLATE_FILES='YES'
    local OPTION_INIT_FLAGS
    local OPTION_MARKS=""
    local OPTION_DEFINES
@@ -2094,24 +2202,14 @@ sde_init_main()
    local OPTION_EXTENSION_FILE=".mulle-sde/share/extension"
    local OPTION_PROJECT_FILE
    local OPTION_PROJECT_SOURCE_DIR
-   local OPTION_EXISTING
-   local OPTION_POST_INIT="YES"
+   local OPTION_POST_INIT='YES'
    local OPTION_UPGRADE_SUBPROJECTS
-   local PURGE_PWD_ON_ERROR="NO"
+   local PURGE_PWD_ON_ERROR='NO'
+   local RVAL
+   local OPTION_INIT_TYPE="project"
 
    local line
    local mark
-
-   local KNOWN_MARKS="\
-extension
-inherit
-env
-share
-init
-sourcetree
-project
-clobber
-demo"
 
    #
    # handle options
@@ -2137,7 +2235,7 @@ demo"
          ;;
 
          -a|--add)
-            OPTION_ADD="YES"
+            OPTION_ADD='YES'
          ;;
 
          -b|--buildtool)
@@ -2153,7 +2251,7 @@ demo"
 
             exekutor mkdir -p "$1" 2> /dev/null
             exekutor cd "$1" || fail "can't change to \"$1\""
-            PURGE_PWD_ON_ERROR="YES"
+            PURGE_PWD_ON_ERROR='YES'
          ;;
 
          -e|--extra)
@@ -2161,6 +2259,26 @@ demo"
             shift
 
             OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "$1" `"
+         ;;
+
+         --existing)
+            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
+            # TODO: reinit by removing .mulle-sde/.mulle-env in conjunction
+            # with reinit ?
+         ;;
+
+         --extension-file)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_EXTENSION_FILE="$1"
+         ;;
+
+         -i|--init-flags)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_INIT_FLAGS="$1"
          ;;
 
          --oneshot-name)
@@ -2178,33 +2296,12 @@ demo"
             OPTION_ONESHOTS="`add_line "${OPTION_ONESHOTS}" "$1" `"
          ;;
 
-         -i|--init-flags)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_INIT_FLAGS="$1"
-         ;;
-
          -m|--meta)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_META="$1"
          ;;
-
-         # little hack
-         --upgrade-project-file)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_PROJECT_FILE="$1"
-            OPTION_UPGRADE="YES"
-            OPTION_BLURB="NO"
-            # different marks, we upgrade project/demo/clobber!
-            OPTION_MARKS="no-env,no-init,no-share,no-sourcetree"
-            OPTION_INIT_ENV="NO"
-         ;;
-
 
          -n|--name|--project-name)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
@@ -2213,7 +2310,28 @@ demo"
             OPTION_NAME="$1"
          ;;
 
-         --source-dir|--project-source-dir)
+         # little hack
+         --upgrade-project-file)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_PROJECT_FILE="$1"
+            OPTION_UPGRADE='YES'
+            OPTION_BLURB='NO'
+            # different marks, we upgrade project/demo/clobber!
+            OPTION_MARKS="no-env,no-init,no-share,no-sourcetree"
+            OPTION_INIT_ENV='NO'
+         ;;
+
+         # only used for one-shotting none project types
+         --project-type)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            PROJECT_TYPE="$1"
+         ;;
+
+         --project-source-dir|--source-dir)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
@@ -2234,6 +2352,10 @@ demo"
             OPTION_ENV_STYLE="$1"
          ;;
 
+         --subproject)
+            OPTION_INIT_TYPE="subproject"
+         ;;
+
          -v|--vendor)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
@@ -2241,51 +2363,42 @@ demo"
             OPTION_VENDOR="$1"
          ;;
 
-         --existing)
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
-            OPTION_EXISTING="YES"
-         ;;
-
-         --extension-file)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_EXTENSION_FILE="$1"
-         ;;
-
          --reinit)
-            OPTION_REINIT="YES"
-            OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-project"`"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-sourcetree"`"
-            OPTION_INIT_ENV="NO"
+            OPTION_REINIT='YES'
+            OPTION_BLURB='NO'
+            r_comma_concat "${OPTION_MARKS}" "no-demo"
+            r_comma_concat "${RVAL}" "no-project"
+            r_comma_concat "${RVAL}" "no-sourcetree"
+            OPTION_MARKS="${RVAL}"
+            OPTION_INIT_ENV='NO'
          ;;
 
          --upgrade)
-            OPTION_UPGRADE="YES"
-            OPTION_BLURB="NO"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-sourcetree"`"
-            OPTION_INIT_ENV="NO"
+            OPTION_UPGRADE='YES'
+            OPTION_BLURB='NO'
+            r_comma_concat "${OPTION_MARKS}" "no-demo"
+            r_comma_concat "${RVAL}" "no-sourcetree"
+            OPTION_MARKS="${RVAL}"
+            OPTION_INIT_ENV='NO'
          ;;
 
          --no-blurb)
-            OPTION_BLURB="NO"
+            OPTION_BLURB='NO'
          ;;
 
          --no-env)
-            OPTION_INIT_ENV="NO"
+            OPTION_INIT_ENV='NO'
          ;;
 
          --no-post-init)
-            OPTION_POST_INIT="NO"
+            OPTION_POST_INIT='NO'
          ;;
 
          --no-*)
             mark="${1:5}"
             warn_if_unknown_mark "${mark}" "no-${mark}"
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-${mark}"`"
+            r_comma_concat "${OPTION_MARKS}" "no-${mark}"
+            OPTION_MARKS="${RVAL}"
          ;;
 
          --allow-*)
@@ -2307,7 +2420,7 @@ demo"
    done
 
 
-   if [ "${OPTION_INIT_ENV}" = "YES" ]
+   if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
       # empty it now
       MULLE_VIRTUAL_ROOT=""
@@ -2320,22 +2433,23 @@ demo"
 #   # Special: one-shot extensions can be installed anywhere.
 #   # No project or environment required or even setup
 #   #
-#   if [ "${OPTION_UPGRADE}" != "YES" -a \
+#   if [ "${OPTION_UPGRADE}" != 'YES' -a \
 #        ! -z "${OPTION_ONESHOTS}" -a \
 #        -z "${OPTION_META}" -a \
 #        -z "${OPTION_RUNTIME}" -a \
 #        -z "${OPTION_BUILDTOOL}" ]
 #   then
-#      OPTION_INIT_ENV="NO"
+#      OPTION_INIT_ENV='NO'
 #   fi
 
-   if [ "${OPTION_UPGRADE}" = "YES" ]
+   if [ "${OPTION_UPGRADE}" = 'YES' -o "${OPTION_ADD}" = 'YES' ]
    then
+      # todo: make this nicer
       [ -z "${MULLE_VIRTUAL_ROOT}" ] && \
-         fail "An extension upgrade must run inside an environment shell"
+         fail "An extension addition or upgrade must run inside an environment shell"
    fi
 
-   [ "${OPTION_REINIT}" = "YES" -a "${OPTION_UPGRADE}" = "YES" ] && \
+   [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
 
    if [ -z "${MULLE_PATH_SH}" ]
@@ -2359,16 +2473,16 @@ demo"
    fi
    MULLE_SDE_DIR=".mulle-sde"
 
-   if [ "${OPTION_ADD}" = "YES" ]
+   if [ "${OPTION_ADD}" = 'YES' ]
    then
-      [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ] && \
+      [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ] && \
          fail "--add and --reinit/--upgrade exclude each other"
 
       __sde_init_add "$@"
       return $?
    fi
 
-   if [ "${OPTION_REINIT}" = "YES" -o "${OPTION_UPGRADE}" = "YES" ]
+   if [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ]
    then
       [ ! -d "${MULLE_SDE_DIR}" ] && fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
 
@@ -2376,13 +2490,17 @@ demo"
 
       if ! __get_installed_extensions
       then
-         fail "Could not retrieve previous extension information"
+         fail "Could not retrieve previous extension information.
+This hurts, but you have to init again. If you feel "
       fi
 
       if [ -z "${OPTION_PROJECT_FILE}" ]
       then
-         rexekutor "${MULLE_ENV:-mulle-env}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} \
-                        environment upgrade || exit 1
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment \
+                           upgrade || exit 1
       fi
    else
       [ $# -eq 0 ] && sde_init_usage "Missing project type"
@@ -2396,23 +2514,34 @@ demo"
          fail "Project type is empty"
       ;;
 
-      empty|library|executable|extension)
+      executable|extension|framework|library|none|unknown)
+      ;;
+
+      show)
+			[ -z "${MULLE_SDE_EXTENSION_SH}" ] && \
+				. "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+      	sde_extension_show_main meta
+      	return $?
       ;;
 
       *)
-         log_warning "\"${PROJECT_TYPE}\" is not a standard project type.
-Some files may be missing and the project may not be craftable."
+			if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+			then
+         	fail "\"${PROJECT_TYPE}\" is not a standard project type.
+Some files may be missing and the project may not be craftable.
+${C_INFO}Use -f to use \"${PROJECT_TYPE}\""
+			fi
       ;;
    esac
 
    #
    # An upgrade is an "inplace" refresh of the extensions
    #
-   if [ "${OPTION_REINIT}" != "YES" -a \
-        "${OPTION_UPGRADE}" != "YES" -a \
+   if [ "${OPTION_REINIT}" != 'YES' -a \
+        "${OPTION_UPGRADE}" != 'YES' -a \
         -d "${MULLE_SDE_DIR}" ]
    then
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
       then
          if _check_file "${MULLE_SDE_DIR}/.init"
          then
@@ -2429,18 +2558,22 @@ Use \`mulle-sde upgrade\` for maintainance"
    # if we init env now, then extensions can add environment
    # variables and tools
    #
-   if [ "${OPTION_INIT_ENV}" = "YES" ]
+   if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
       local flags
 
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = "YES" ]
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
          flags="-f"
       fi
 
-      exekutor "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} ${flags} \
-                                 --style "${OPTION_ENV_STYLE}" \
-                                 init --no-blurb
+      exekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} \
+                     ${flags} \
+                     --style "${OPTION_ENV_STYLE}" \
+                  init \
+                     --no-blurb
       case $? in
          0)
          ;;
@@ -2455,23 +2588,30 @@ Use \`mulle-sde upgrade\` for maintainance"
       esac
    fi
 
-   local PURGE_MULLE_SDE_DIR_ON_ERROR="NO"
-   local PURGE_MULLE_ENV_DIR_ON_ERROR="NO"
-   local PURGE_MULLE_SOURCETREE_DIR_ON_ERROR="NO"
+   local PURGE_MULLE_SDE_DIR_ON_ERROR='NO'
+   local PURGE_MULLE_ENV_DIR_ON_ERROR='NO'
+   local PURGE_MULLE_SOURCETREE_DIR_ON_ERROR='NO'
+
+   if [ "${OPTION_UPGRADE}" = 'YES' -a -z "${OPTION_PROJECT_FILE}" ]
+   then
+      # on upgrade blow previous contents away
+      # should be part of mulle-env to clear a scope
+      remove_file_if_present ".mulle-env/share/environment-extension.sh"
+   fi
 
    add_environment_variables "${OPTION_DEFINES}"
 
    if [ ! -d "${MULLE_SDE_DIR}" ]
    then
-      PURGE_MULLE_SDE_DIR_ON_ERROR="YES"
+      PURGE_MULLE_SDE_DIR_ON_ERROR='YES'
    fi
    if [ ! -d ".mulle-env" ]
    then
-      PURGE_MULLE_ENV_DIR_ON_ERROR="YES"
+      PURGE_MULLE_ENV_DIR_ON_ERROR='YES'
    fi
    if [ ! -d ".mulle-sourcetree" ]
    then
-      PURGE_MULLE_SOURCETREE_DIR_ON_ERROR="YES"
+      PURGE_MULLE_SOURCETREE_DIR_ON_ERROR='YES'
    fi
 
    if [ -z "${OPTION_PROJECT_FILE}" ]
@@ -2494,7 +2634,7 @@ Use \`mulle-sde upgrade\` for maintainance"
    fi
 
    # rmdir_safer ".mulle-env"
-   if [ "${OPTION_UPGRADE}" = "YES" ]
+   if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
       if ! ( install_extensions "${OPTION_MARKS}" \
                                 "${OPTION_PROJECT_FILE}" \
@@ -2523,28 +2663,28 @@ Use \`mulle-sde upgrade\` for maintainance"
    else
       if ! (
          install_project "${OPTION_NAME:-${PROJECT_NAME}}" \
-                      "${PROJECT_TYPE}" \
-                      "${OPTION_PROJECT_SOURCE_DIR:-${PROJECT_SOURCE_DIR}}" \
-                      "${OPTION_MARKS}" \
-                      "${OPTION_PROJECT_FILE}" \
-                      "${MULLE_FLAG_MAGNUM_FORCE}"
+                         "${PROJECT_TYPE}" \
+                         "${OPTION_PROJECT_SOURCE_DIR:-${PROJECT_SOURCE_DIR}}" \
+                         "${OPTION_MARKS}" \
+                         "${OPTION_PROJECT_FILE}" \
+                         "${MULLE_FLAG_MAGNUM_FORCE}"
       )
       then
-         log_fluff "Cleaning up"
+         log_error "Cleaning up after error"
 
-         if [ "${PURGE_MULLE_SDE_DIR_ON_ERROR}" = "YES" ]
+         if [ "${PURGE_MULLE_SDE_DIR_ON_ERROR}" = 'YES' ]
          then
             rmdir_safer "${MULLE_SDE_DIR}"
          fi
-         if [ "${PURGE_MULLE_ENV_DIR_ON_ERROR}" = "YES" ]
+         if [ "${PURGE_MULLE_ENV_DIR_ON_ERROR}" = 'YES' ]
          then
             rmdir_safer ".mulle-env"
          fi
-         if [ "${PURGE_MULLE_SOURCETREE_DIR_ON_ERROR}" = "YES" ]
+         if [ "${PURGE_MULLE_SOURCETREE_DIR_ON_ERROR}" = 'YES' ]
          then
             rmdir_safer ".mulle-sourcetree"
          fi
-         if [ "${PURGE_PWD_ON_ERROR}" = "YES" ]
+         if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
          then
             rmdir_safer "${PWD}"
          fi
@@ -2560,9 +2700,9 @@ Use \`mulle-sde upgrade\` for maintainance"
       exekutor rmdir "${MULLE_SDE_DIR}" 2>  /dev/null
    fi
 
-   if [ "${OPTION_INIT_ENV}" = "YES"  ]
+   if [ "${OPTION_INIT_ENV}" = 'YES'  ]
    then
-      if [ "${OPTION_POST_INIT}" = "YES" ]
+      if [ "${OPTION_POST_INIT}" = 'YES' ]
       then
          run_user_post_init_script "${PROJECT_LANGUAGE}" \
                                    "${PROJECT_DIALECT}" \
@@ -2571,7 +2711,7 @@ Use \`mulle-sde upgrade\` for maintainance"
 
       if [ -z "${OPTION_PROJECT_FILE}" ]
       then
-         if [ "${OPTION_BLURB}" = "YES" ]
+         if [ "${OPTION_BLURB}" = 'YES' ]
          then
             log_info "Enter the environment:
    ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"

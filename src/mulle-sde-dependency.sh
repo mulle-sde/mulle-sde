@@ -59,6 +59,7 @@ Commands:
    move       : reorder dependencies
    remove     : remove a dependency
    set        : change dependency settings
+   source-dir : find the source location of a dependency
    unmark     : remove marks from a dependency
          (use <command> -h for more help about commands)
 EOF
@@ -119,6 +120,7 @@ Keys:
    aliases     : alternate names of dependency, separated by comma
    include     : alternative include filename instead of <name>.h
    os-excludes : names of OSes to exclude, separated by comma
+   tag         : tag or version to fetch
 EOF
   exit 1
 }
@@ -165,109 +167,19 @@ EOF
 }
 
 
-sde_dependency_craftinfo_usage()
+sde_dependency_source_dir_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo [option] <command>
+   ${MULLE_USAGE_NAME} dependency source-dir <dep>
 
-   Manage build settings of a dependency. Thy will be stored in a subproject
-   in your project inside a mulle-sde created folder "craftinfo". This is done
-   for you automatically on the first setting add.
-
-   mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
-   subproject.
-
-   The dependency can be specified by URL or by its address.
+   Find the source location of the given dependency. Will return empty, if
+   the dependency is unknown. The returned filename does not need to exist yet.
 
 EOF
-
-   if [ "${MULLE_FLAG_LOG_VERBOSE}" = "YES" ]
-   then
-      cat <<EOF >&2
-   Eventually the "craftinfo" contents are used by \`mulle-craft\` to populate
-   the \`dependency/share/mulle-craft\` folder and override any \`.mulle-make\`
-   folders. That's all fairly complicated, but it's necessary to have proper
-   setting inheritance across multiple nested projects.
-EOF
-   else
-      echo "   (use -v to see more help)"
-   fi
-
-      cat <<EOF >&2
-Commands:
-   get               : retrieve a build setting for dependency
-   list              : list builds settings
-   set               : set a build setting
-
-Options:
-   --global          : use global settings instead of current platform settings
-   --platform <name> : specify settings for a specific platform
-
-EOF
-  exit 1
-}
-
-
-sde_dependency_craftinfo_set_usage()
-{
-   [ "$#" -ne 0 ] && log_error "$1"
-
-    cat <<EOF >&2
-Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo set [option] <dep> <key> <value>
-
-   Set a setting value for key. This will automatically create a proper
-   "craftinfo" subproject for you, if there is none yet.
-
-   See \`mulle-make definition help\` for more info about manipulating
-   craftinfo settings.
-
-   Example:
-      mulle-sde dependency craftinfo --global set --append CPPFLAGS "-DX=0"
-
-Options:
-   --append : value will be appended to CPPFLAGS
-
-EOF
-  exit 1
-}
-
-
-sde_dependency_craftinfo_get_usage()
-{
-   [ "$#" -ne 0 ] && log_error "$1"
-
-    cat <<EOF >&2
-Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo <dep> <key> <value>
-
-   Read setting if key.
-
-   Example:
-      mulle-sde dependency craftinfo nng --global get CPPFLAGS
-
-EOF
-  exit 1
-}
-
-
-sde_dependency_craftinfo_list_usage()
-{
-   [ "$#" -ne 0 ] && log_error "$1"
-
-    cat <<EOF >&2
-Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo <dep>
-
-   List build settings of a dependency. By default the global settings and
-   those for the current platform are listed. To see other platform settings
-   use the "--platform" option of \`dependency craftinfo\`.
-
-EOF
-  exit 1
+   exit 1
 }
 
 
@@ -278,13 +190,13 @@ sde_dependency_set_main()
 {
    log_entry "sde_dependency_set_main" "$@"
 
-   local OPTION_APPEND="NO"
+   local OPTION_APPEND='NO'
 
    while :
    do
       case "$1" in
          -a|--append)
-            OPTION_APPEND="YES"
+            OPTION_APPEND='YES'
          ;;
 
          -*)
@@ -325,7 +237,11 @@ sde_dependency_set_main()
       ;;
 
       *)
-         fail "Unknown field name \"${field}\""
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                          ${MULLE_TECHNICAL_FLAGS} \
+                          ${MULLE_SOURCETREE_FLAGS} \
+                      set "${address}" "${field}" "${value}"
       ;;
    esac
 }
@@ -365,7 +281,7 @@ sde_dependency_list_main()
    formatstring="%a;%m;%i={aliases,,-------}"
    marks="${DEPENDENCY_MARKS}"
 
-   local OPTION_OUTPUT_COMMAND="NO"
+   local OPTION_OUTPUT_COMMAND='NO'
 
    while :
    do
@@ -386,11 +302,12 @@ sde_dependency_list_main()
             [ "$#" -eq 1 ] && sde_dependency_list_usage "Missing argument to \"$1\""
             shift
 
-            marks="`comma_concat "${marks}" "$1"`"
+            r_comma_concat "${marks}" "$1"
+            marks="${RVAL}"
          ;;
 
          --output-cmd|--output-command|--command)
-            OPTION_OUTPUT_COMMAND="YES"
+            OPTION_OUTPUT_COMMAND='YES'
          ;;
 
          --)
@@ -411,17 +328,19 @@ sde_dependency_list_main()
       shift
    done
 
-   if [ "${OPTION_OUTPUT_COMMAND}" = "YES" ]
+   if [ "${OPTION_OUTPUT_COMMAND}" = 'YES' ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
             --marks "${DEPENDENCY_LIST_MARKS}" \
             --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
             --output-eval \
-            --output-cmd \
+            --output-cmd2 \
+            --output-no-url \
             --output-no-column \
             --output-no-header \
             --output-no-marks "${DEPENDENCY_MARKS}" \
+            --output-cmdline "${MULLE_USAGE_NAME} dependency add" \
             "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
@@ -557,11 +476,11 @@ sde_dependency_add_main()
    local branch
    local marks="${DEPENDENCY_MARKS}"
 
-   local OPTION_ENHANCE="YES"     # enrich URL
+   local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_DIALECT="c"
-   local OPTION_PRIVATE="NO"
-   local OPTION_SHARE="YES"
-   local OPTION_OPTIONAL="NO"
+   local OPTION_PRIVATE='NO'
+   local OPTION_SHARE='YES'
+   local OPTION_OPTIONAL='NO'
    local RVAL
 
    #
@@ -604,19 +523,19 @@ sde_dependency_add_main()
          ;;
 
          --plain)
-            OPTION_ENHANCE="NO"
+            OPTION_ENHANCE='NO'
          ;;
 
          --private)
-            OPTION_PRIVATE="YES"
+            OPTION_PRIVATE='YES'
          ;;
 
          --public)
-            OPTION_PRIVATE="NO"
+            OPTION_PRIVATE='NO'
          ;;
 
          --optional)
-            OPTION_OPTIONAL="YES"
+            OPTION_OPTIONAL='YES'
          ;;
 
          --branch)
@@ -675,7 +594,7 @@ sde_dependency_add_main()
 
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
 
-   if [ "${OPTION_ENHANCE}" = "YES" ]
+   if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
       case "${nodetype}" in
          local|symlink|file)
@@ -700,13 +619,13 @@ sde_dependency_add_main()
       ;;
    esac
 
-   if [ "${OPTION_PRIVATE}" = "YES" ]
+   if [ "${OPTION_PRIVATE}" = 'YES' ]
    then
       r_comma_concat "${marks}" "no-public"
       marks="${RVAL}"
    fi
 
-   if [ "${OPTION_OPTIONAL}" = "YES" ]
+   if [ "${OPTION_OPTIONAL}" = 'YES' ]
    then
       r_comma_concat "${marks}" "no-require"
       marks="${RVAL}"
@@ -755,7 +674,12 @@ sde_add_craftinfo_subproject_if_needed()
   # shellcheck source=src/mulle-sde-common.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
-   sde_extension_main pimp --oneshot-name "${name}" mulle-sde/craftinfo || return 1
+
+   (
+      sde_extension_main pimp --project-type "${PROJECT_TYPE}" \
+                              --oneshot-name "${name}" \
+                              mulle-sde/craftinfo
+   ) || return 1
 
    [ -d "${subprojectdir}" ] || \
       internal_fail "did not produce \"${subprojectdir}\""
@@ -769,61 +693,19 @@ sde_add_craftinfo_subproject_if_needed()
 }
 
 
-#
-# local _address
-# local _name
-# local _subprojectdir
-# local _folder
-#
-__sde_craftinfo_vars_with_url_or_address()
+sde_dependency_source_dir_main()
 {
-   log_entry "__sde_craftinfo_vars_with_url_or_address" "$@"
+   log_entry "sde_dependency_source_dir_main" "$@"
 
-   local url="$1"
-   local extension="$2"
-
-   _address="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V get --url-addressing "${url}"`"
-   if [ -z "${_address}" ]
-   then
-      _address="${url}"
-   fi
-
-   [ -z "${_address}" ] && fail "Empty url or address"
-
-   _name="`fast_basename "${_address}"`"
-   _subprojectdir="craftinfo/${_name}"
-   _folder="${_subprojectdir}/${_name}${extension}"
-
-   if [ "${MULLE_FLAG_LOG_SETTINGS}"  = "YES" ]
-   then
-      log_trace2 "_name:          ${_name}"
-      log_trace2 "_address:       ${_address}"
-      log_trace2 "_subprojectdir: ${_subprojectdir}"
-      log_trace2 "_folder:        ${_folder}"
-   fi
-}
-
-
-sde_dependency_craftinfo_set_main()
-{
-   log_entry "sde_dependency_craftinfo_set_main" "$@"
-
-   local extension="$1"; shift
-
-   local OPTION_APPEND="NO"
    while :
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_set_usage
-         ;;
-
-         --append|-a)
-            OPTION_APPEND="YES"
+            sde_dependency_source_dir_usage
          ;;
 
          -*)
-            sde_dependency_craftinfo_set_usage "Unknown option \"$1\""
+            sde_dependency_source_dir_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -834,217 +716,23 @@ sde_dependency_craftinfo_set_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing url or address argument"
+   local address=$1
 
-   local url="$1"
+   [ -z "${address}" ] && sde_dependency_source_dir_usage "Missing argument"
    shift
+   [ $# -ne 0 ]        && sde_dependency_source_dir_usage "Superflous arguments \"$*\""
 
-   [ "$#" -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing key"
-   [ "$#" -eq 1 ] && sde_dependency_craftinfo_set_usage "Missing value"
-   [ "$#" -gt 2 ] && sde_dependency_craftinfo_set_usage "Superflous arguments \"$*\""
+   local escaped
 
-   if [ "${extension}" = "DEFAULT" ]
-   then
-      extension=".${MULLE_UNAME}"
-   fi
+   r_escaped_shellstring "${address}"
+   escaped="${RVAL}"
 
-   local _address
-   local _name
-   local _subprojectdir
-   local _folder
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  walk \
+                     --lenient \
+                     --qualifier 'MATCHES dependency' \
+                     '[ "${MULLE_ADDRESS}" = "'${escaped}'" ] && echo "${MULLE_FILENAME}"'
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
-
-   sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" "${_name}" || exit 1
-
-   local setflags
-
-   if [ "${OPTION_APPEND}" = "YES" ]
-   then
-      setflags="-+"
-   fi
-
-   exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-      definition --info-dir "${_folder}" set ${setflags} "$@"
-
-}
-
-
-sde_dependency_craftinfo_get_main()
-{
-   log_entry "sde_dependency_craftinfo_list_main" "$@"
-
-   local extension="$1"; shift
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde_dependency_craftinfo_get_usage
-         ;;
-
-
-         -*)
-            sde_dependency_craftinfo_get_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing url or address argument"
-
-   local url="$1"
-   shift
-
-   [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing key"
-
-   local _address
-   local _name
-   local _subprojectdir
-   local _folder
-   local rval
-
-   if [ "${extension}" = "DEFAULT" ]
-   then
-      __sde_craftinfo_vars_with_url_or_address "${url}" ""
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --info-dir "${_folder}.${MULLE_UNAME}" get "$@"
-      rval=$?
-      if [ $rval -ne 2 ]
-      then
-         return $rval
-      fi
-
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --info-dir "${_folder}" get "$@"
-      return $?
-   fi
-
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
-
-   exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-      definition --info-dir "${_folder}" get "$@"
-}
-
-
-sde_dependency_craftinfo_list_main()
-{
-   log_entry "sde_dependency_craftinfo_list_main" "$@"
-
-   local extension="$1"; shift
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde_dependency_craftinfo_list_usage
-         ;;
-
-         -*)
-            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ $# -eq 0 ] && sde_dependency_craftinfo_list_usage "Missing url or address argument"
-
-   local url="$1"
-   shift
-
-   local _address
-   local _name
-   local _subprojectdir
-   local _folder
-
-   if [ "${extension}" = "DEFAULT" ]
-   then
-      __sde_craftinfo_vars_with_url_or_address "${url}" ""
-      log_info "Global"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --info-dir "${_folder}" list "$@"
-      log_info "${MULLE_UNAME}"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --info-dir "${_folder}.${MULLE_UNAME}" list "$@"
-      return
-   fi
-
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
-
-   log_info "${extension:-Global}"
-   exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-      definition --info-dir "${_folder}" list "$@"
-}
-
-
-sde_dependency_craftinfo_main()
-{
-   log_entry "sde_dependency_craftinfo_main" "$@"
-
-   local extension
-
-   extension="DEFAULT"
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde_dependency_craftinfo_usage
-         ;;
-
-         --global)
-            extension=""
-         ;;
-
-         --platform)
-            [ "$#" -eq 1 ] && sde_dependency_craftinfo_usage "Missing argument to \"$1\""
-            shift
-
-            extension=".$1"
-         ;;
-
-         -*)
-            sde_dependency_craftinfo_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ $# -eq 0 ] && sde_dependency_craftinfo_usage "Missing dependency craftinfo command"
-
-   local subcmd="$1"
-   shift
-
-   if [ -z "${MULLE_MAKE}" ]
-   then
-      MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
-      [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
-   fi
-
-   case "${subcmd:-list}" in
-      set|get|list)
-         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@"
-      ;;
-
-      *)
-        sde_dependency_craftinfo_usage "Unknown dependency craftinfo command \"${subcmd}\""
-      ;;
-   esac
 }
 
 
@@ -1108,12 +796,14 @@ mark
 move
 remove
 set
+source-dir
 unmark"
       ;;
 
       craftinfo)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
 
          sde_dependency_craftinfo_main "$@"
          return $?
@@ -1153,6 +843,10 @@ os-excludes"
 
          sde_dependency_set_main "$@"
          return $?
+      ;;
+
+      source-dir)
+         sde_dependency_source_dir_main "$@"
       ;;
 
       "")
