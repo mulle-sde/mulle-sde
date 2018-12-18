@@ -81,6 +81,7 @@ print_commands()
    extension      : show available language and buildtool extensions
    fetch          : fetch the sourcetree
    init           : create a new project
+   linkorder      : show linkorder of built dependencies
    match          : experiment with patternfiles
    monitor        : monitor project files, run update and build
    patternfile    : manage patternfiles
@@ -107,7 +108,7 @@ print_flags()
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
-   echo "   --no-search    : do not search for enclosing environment"
+   echo "   -S   ${delimiter}search for enclosing environment"
    echo "   -DKEY=VALUE    : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -411,7 +412,7 @@ main()
             exit 0
          ;;
 
-         --no-search)
+         -N|--no-search)
             MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --no-search`"
          ;;
 
@@ -468,9 +469,9 @@ main()
          # commands where we want to start a subshell
 
          case "${cmd}" in
-            definition|buildorder|buildstatus|callback|clean|craft|dependency|\
-environment|fetch|find|library|list|log|match|monitor|patternfile|subproject|\
-style|task|template|tool|treestatus|update|upgrade)
+            buildorder|buildstatus|callback|clean|craft|dependency|definition|\
+environment|fetch|find|library|linkorder|list|log|mark|match|monitor|patternfile|\
+subproject|style|task|test|template|tool|treestatus|unmark|update|upgrade)
                exec_command_in_subshell "$@"
             ;;
 
@@ -485,6 +486,7 @@ style|task|template|tool|treestatus|update|upgrade)
 
             # experimental "run" command inside subshell
             run)
+               MULLE_VIRTUAL_ROOT=""  # experimental fix
                shift
                _exec_command_in_subshell "$@"
             ;;
@@ -508,6 +510,7 @@ libexec-dir|library-path|project-dir)
                   rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
                fi
 
+               log_error "Unknown command \"${cmd}\""
                usage "${MULLE_TRACE}"
             ;;
          esac
@@ -600,6 +603,7 @@ init-and-enter
 libexec-dir
 library
 library-path
+linkorder
 list
 log
 match
@@ -613,6 +617,7 @@ subproject
 style
 task
 template
+test
 tool
 treestatus
 uname
@@ -679,26 +684,6 @@ version"
          sde_fetch_main "$@"
       ;;
 
-      list)
-         cd_virtual_root "${cmd}" 'NO'
-
-         if [ "${PROJECT_TYPE}" = 'none' ]
-         then
-            fail "PROJECT_TYPE is 'none', nothing to list"
-         fi
-
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}"
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_MATCH_FLAGS} \
-                        list \
-                           --format "%t/%c: %f\\n" "$@"
-      ;;
-
-      '')
-         log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
-      ;;
-
       init)
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
@@ -730,6 +715,31 @@ version"
          exekutor echo "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
+      linkorder)
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         # shellcheck source=src/mulle-sde-dependency.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-linkorder.sh"
+
+         sde_linkorder_main "$@"
+      ;;
+
+      list)
+         cd_virtual_root "${cmd}" 'NO'
+
+         if [ "${PROJECT_TYPE}" = 'none' ]
+         then
+            fail "PROJECT_TYPE is 'none', nothing to list"
+         fi
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MATCH:-mulle-match}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_MATCH_FLAGS} \
+                        list \
+                           --format "%t/%c: %f\\n" "$@"
+      ;;
+
       log)
          cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -737,7 +747,7 @@ version"
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_CRAFT_FLAGS} \
-                        "${cmd}" \
+                        log \
                            "$@"
       ;;
 
@@ -757,6 +767,22 @@ version"
                            "$@"
       ;;
 
+      # convenient shortcuts
+      mark|unmark)
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         # shellcheck source=src/mulle-sde-dependency.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+
+         sde_dependency_main "${cmd}" "$@"
+      ;;
+
+
+
+      '')
+         log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
+      ;;
+
       monitor)
          cd_virtual_root "${cmd}"
 
@@ -772,11 +798,6 @@ version"
       ;;
 
       project-dir)
-         if [ "${PROJECT_TYPE}" = 'none' ]
-         then
-            fail "PROJECT_TYPE is 'none', there is no project directory"
-         fi
-
          if r_determine_project_dir
          then
             echo "${RVAL}"
@@ -807,7 +828,9 @@ version"
       ;;
 
       run)
-         fail "Use run only outside of the mulle-sde environment"
+         MULLE_VIRTUAL_ROOT=""
+         shift
+         _exec_command_in_subshell "$@"
       ;;
 
       show)
@@ -847,6 +870,15 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh"
 
          sde_template_main "$@"
+      ;;
+
+      test)
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         # shellcheck source=src/mulle-sde-update.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-test.sh"
+
+         sde_test_main "$@"
       ;;
 
       treestatus)
