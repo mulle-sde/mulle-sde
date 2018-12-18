@@ -50,6 +50,9 @@ Usage:
    mulle-sourcetree. The build definitions for a dependency are managed with
    mulle-make.
 
+   See the \`set\` command if you have problems finding dependencies header
+   or libraries.
+
 Commands:
    add        : add a dependency to the sourcetree
    craftinfo  : change build options for the dependency
@@ -76,23 +79,29 @@ Usage:
    ${MULLE_USAGE_NAME} dependency add [options] <url>
 
    Add a dependency to your project. A dependency is a git repository or
-   a tar or zip archive (more options may be available if
-   additional mulle-fetch plugins have been installed).
+   a tar or zip archive (more options may be available if additional
+   mulle-fetch plugins are installed).
 
    The default dependency is a library with a headerfile.
 
+   You should specify with options, if a dependency supports the mulle-make
+   three phase build protocol for vastly superior build times.
+
    Example:
-      ${MULLE_USAGE_NAME} dependency add https://github.com/mulle-c/mulle-allocator.git
+      ${MULLE_USAGE_NAME} dependency add --multiphase --github nat foobar
 
 Options:
    --embedded      : the dependency becomes part of the local project
+   --github <name> : create an URL for a - possibly fictitious - github name
    --headerless    : has no headerfile
    --headeronly    : has no library
    --if-missing    : if a node with the same address is present, do nothing
-   --objc          : used for Objective-C dependencies
+   --multiphase    : the dependency can be built in three phases
+   --objc          : used for Objective-C dependencies, implies --multiphase
    --optional      : is not required to exist
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
+   --singlephase   : the dependency must be built in one phase
       (see: mulle-sourcetree -e -v add -h for more add options)
 EOF
   exit 1
@@ -108,10 +117,12 @@ Usage:
    ${MULLE_USAGE_NAME} dependency set [options] <dep> <key> <value>
 
    Modify a dependency's settings. The dependency is referenced by its url or
-   address.
+   address. It's pretty common to change the include header and the library
+   name of a dependency.
 
    Examples:
       ${MULLE_USAGE_NAME} dependency set --append pthreads aliases pthread
+      ${MULLE_USAGE_NAME} dependency set libdill include libdill.h
 
 Options:
    --append    : append value instead of set
@@ -481,6 +492,8 @@ sde_dependency_add_main()
    local OPTION_PRIVATE='NO'
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
+   local OPTION_SINGLEPHASE='NO'
+   local OPTION_FAKE_GITHUB
    local RVAL
 
    #
@@ -515,11 +528,28 @@ sde_dependency_add_main()
          ;;
 
          -c|--c)
-            OPTION_DIALECT="c"
+            OPTION_DIALECT='c'
+            OPTION_SINGLEPHASE='YES'
          ;;
 
          -m|--objc)
-            OPTION_DIALECT="objc"
+            OPTION_DIALECT='objc'
+            OPTION_SINGLEPHASE='NO'
+         ;;
+
+         --multiphase)
+            OPTION_SINGLEPHASE='NO'
+         ;;
+
+         --singlephase)
+            OPTION_SINGLEPHASE='YES'
+         ;;
+
+         --github|--fake)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_FAKE_GITHUB="$1"
          ;;
 
          --plain)
@@ -594,6 +624,23 @@ sde_dependency_add_main()
 
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
 
+   if [ ! -z "${OPTION_FAKE_GITHUB}" ]
+   then
+   	case "${nodetype}" in
+   		git)
+      		url="https://github.com/${OPTION_FAKE_GITHUB}/${url}.git"
+      	;;
+
+      	zip)
+      		url="https://github.com/${OPTION_FAKE_GITHUB}/${url}/archive/latest.zip"
+      	;;
+
+      	*)
+      		url="https://github.com/${OPTION_FAKE_GITHUB}/${url}/archive/latest.tar.gz"
+      	;;
+      esac
+   fi
+
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
       case "${nodetype}" in
@@ -618,6 +665,12 @@ sde_dependency_add_main()
          marks="${RVAL}"
       ;;
    esac
+
+   if [ "${OPTION_SINGLEPHASE}" = 'NO' ]
+   then
+      r_comma_concat "${marks}" "no-singlephase"
+      marks="${RVAL}"
+   fi
 
    if [ "${OPTION_PRIVATE}" = 'YES' ]
    then
@@ -772,7 +825,7 @@ sde_dependency_main()
       shift
    done
 
-   local cmd="$1"
+   local cmd="${1:-list}"
 
    [ $# -ne 0 ] && shift
 
@@ -832,9 +885,12 @@ os-excludes"
 
       mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} \
-                            "${cmd}" \
-                            "$@"
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       set)

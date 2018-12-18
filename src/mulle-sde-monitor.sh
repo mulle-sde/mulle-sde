@@ -39,7 +39,7 @@ sde_monitor_usage()
 Usage:
    ${MULLE_USAGE_NAME} monitor
 
-   Run the mulle-monitor on the current project.
+   Run the mulle-monitor with the current project configuration.
 
 Options:
    -h     : show this usage
@@ -73,24 +73,6 @@ sde_monitor_main()
 
       shift
    done
-
-
-   if [ -z "${MULLE_SDE_NO_UPDATE}" ]
-   then
-      if [ -z "${MULLE_SDE_UPDATE_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
-      fi
-
-      MULLE_SDE_CRAFT_AFTER_UPDATE='YES' sde_update_main
-   fi
-
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
-
-   set_projectname_environment "read"
 
    #
    # environment can specify a different set of patternfiles to match against

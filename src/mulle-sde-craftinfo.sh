@@ -194,7 +194,7 @@ clobber possibly existing .mulle-make definitions"
    local dstname
 
    shopt -s nullglob
-   for i in "${srcdir}"/.mulle-make* ]
+   for i in "${srcdir}"/.mulle-make* 
    do
       if [ -d "${i}" ]
       then

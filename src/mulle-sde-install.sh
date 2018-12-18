@@ -66,6 +66,7 @@ Options:
    -d <dir>          : directory to fetch into (\$PWD)
    --prefix <prefix> : installation prefix (\$PWD)
    -b <dir>          : build directory (\$PWD/build)
+   --keep-tmp        : don't delete temporary directory
 
 Environment:
    MULLE_FETCH_SEARCH_PATH : specify places to search local projects
@@ -163,6 +164,7 @@ sde_install_main()
    log_entry "sde_install_main" "$@"
 
    local OPTION_PROJECT_DIR
+   local OPTION_KEEP_TMP='NO'
 
    while [ $# -ne 0 ]
    do
@@ -190,6 +192,10 @@ sde_install_main()
             shift
 
             DEPENDENCY_DIR="$1"
+         ;;
+
+         --keep-tmp)
+            OPTION_KEEP_TMP='YES'
          ;;
 
          --)
@@ -233,7 +239,10 @@ sde_install_main()
    if [ -z "${OPTION_PROJECT_DIR}" ]
    then
       PROJECT_DIR="`make_tmp_directory`" || exit 1
-      delete_tmp="${PROJECT_DIR}"
+      if [ "${OPTION_KEEP_TMP}" = 'NO' ]
+      then
+         delete_tmp="${PROJECT_DIR}"
+      fi
    else
       r_simplified_absolutepath "${OPTION_PROJECT_DIR}"
       PROJECT_DIR="${RVAL}"

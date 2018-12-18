@@ -55,7 +55,6 @@ Options:
 Targets:
    all        : build dependency folder first, then the project (default)
    buildorder : build dependency folder
-   clean      : passed to mulle-craft (preferably use mulle-sde clean)
    <name>     : name of a single entry in the buildorder
    project    : build the project
 
@@ -263,15 +262,6 @@ sde_craft_main()
       shift
    done
 
-   case "${target}" in
-      'clean')
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} clean" \
-            exekutor "${MULLE_CRAFT:-mulle-craft}" \
-                  ${MULLE_TECHNICAL_FLAGS} ${MULLE_CRAFT_FLAGS} \
-                     "clean" "$@"
-         exit $?
-      ;;
-   esac
 
    #
    # our buildorder is specific to a host
@@ -368,11 +358,10 @@ sde_craft_main()
       'all')
          if [ -f "${_buildorderfile}" ]
          then
-            MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
-               eval_exekutor "${buildorder_cmdline}" buildorder \
-                                          --buildorder-file "'${_buildorderfile}'" \
-                                          --no-memo-makeflags "'${flags}'" \
-                                          "${arguments}" || return 1
+            eval_exekutor "${buildorder_cmdline}" buildorder \
+                              --buildorder-file "'${_buildorderfile}'" \
+                              --no-memo-makeflags "'${flags}'" \
+                              "${arguments}" || return 1
          else
             log_fluff "No buildorderfile so skipping buildorder craft step"
          fi
@@ -381,11 +370,10 @@ sde_craft_main()
       'buildorder')
          if [ -f "${_buildorderfile}" ]
          then
-            MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
-               eval_exekutor "${buildorder_cmdline}" buildorder \
-                                          --buildorder-file "'${_buildorderfile}'" \
-                                          --no-memo-makeflags "'${flags}'" \
-                                          "${arguments}" || return 1
+            eval_exekutor "${buildorder_cmdline}" buildorder \
+                              --buildorder-file "'${_buildorderfile}'" \
+                              --no-memo-makeflags "'${flags}'" \
+                              "${arguments}" || return 1
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${_buildorderfile} does not exist"
@@ -399,11 +387,10 @@ sde_craft_main()
       *)
          if [ -f "${_buildorderfile}" ]
          then
-            MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
-               eval_exekutor "${buildorder_cmdline}" "${target}" \
-                                          --buildorder-file "'${_buildorderfile}'" \
-                                          --no-memo-makeflags "'${flags}'" \
-                                          "${arguments}" || return 1
+            eval_exekutor "${buildorder_cmdline}" "${target}" \
+                              --buildorder-file "'${_buildorderfile}'" \
+                              --no-memo-makeflags "'${flags}'" \
+                              "${arguments}" || return 1
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${_buildorderfile} does not exist"

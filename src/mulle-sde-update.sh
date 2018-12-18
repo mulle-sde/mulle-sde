@@ -52,12 +52,10 @@ Usage:
 Options:
    --if-needed   : check before update, if it seems unneccessary
    --craft       : craft after update
-   --no-craft    : do not craft after update
    --no-recurse  : do not recurse into subprojects
 
 Environment:
    MULLE_SDE_UPDATE_CALLBACKS   : default callbacks used for update
-   MULLE_SDE_CRAFT_AFTER_UPDATE : run \`mulle-sde craft\' after update [YES/NO]
 EOF
    exit 1
 }
@@ -137,41 +135,64 @@ _task_run_if_needed()
 }
 
 
+_sde_update_task()
+{
+   log_entry "_sde_update_task" "$@"
+
+   local runner="$1"
+   local statusfile="$2"
+   local name="$3"
+
+   local task
+   local rval
+
+   task="`_callback_run "${name}"`"
+   rval=$?
+
+   if [ ! -z "${statusfile}" ]
+   then
+      redirect_append_exekutor "${statusfile}" echo $rval
+   fi
+
+   if [ ! -z "${task}" ]
+   then
+      "${runner}" "${task}"
+      rval=$?
+      if [ ! -z "${statusfile}" ]
+      then
+         redirect_append_exekutor "${statusfile}" echo $rval
+      fi
+   fi
+
+   return $rval
+}
+
+
 _sde_update_main()
 {
    log_entry "_sde_update_main" "$@"
 
    local runner="$1" ; shift
+   local statusfile="$1"; shift
 
    local task
    local name
 
+   if [ $# -eq 1 ]
+   then
+      _sde_update_task "${runner}" "${statusfile}" "${name}"
+      return $?
+   fi
+
    for name in "$@"
    do
-      if [ -z "${name}" ]
+      if [ ! -z "${name}" ]
       then
-         continue
+         _sde_update_task "${runner}" "${statusfile}" "${name}" &
       fi
-
-      (
-         task="`_callback_run "${name}"`"
-         if [ ! -z "${task}" ]
-         then
-            "${runner}" "${task}"
-         fi
-      ) &
    done
 
    wait
-
-   #
-   # this is set by mulle-sde monitor
-   #
-   if [ "${MULLE_SDE_CRAFT_AFTER_UPDATE}" != 'YES' ]
-   then
-      return
-   fi
-   "${runner}" "craft"
 }
 
 
@@ -186,8 +207,8 @@ sde_update_worker()
 
    if [ "${recurse}" = 'NO' ]
    then
-      _sde_update_main "${runner}" "$@" || exit 1
-      return 0
+      _sde_update_main "${runner}" "" "$@"
+      return $?
    fi
 
    #
@@ -206,10 +227,17 @@ sde_update_worker()
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
    fi
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+   fi
 
    local options
 
-   options="--no-craft"
    if [ "${runner}" = "_task_run_if_needed" ]
    then
       options="${options} --if-needed"
@@ -224,10 +252,28 @@ sde_update_worker()
    fi
 
    # can't handle failure here oh well
-   _sde_update_main "${runner}" "$@" &
-   sde_subproject_map 'Updating' 'NO' 'YES' "mulle-sde ${flags} update ${options} $*"
+   local statusfile
+
+   r_make_tmp "mulle-sde"
+   statusfile="${RVAL}"
+
+   sde_subproject_map 'Updating' 'NO' 'YES' "${statusfile}" "mulle-sde ${flags} update ${options} $*"
+   _sde_update_main "${runner}" "${statusfile}" "$@"
 
    wait
+
+   local rval
+
+   rval=0
+   if rexekutor grep -v 0 -s -q "${statusfile}"
+   then
+      log_fluff "A project errored out"
+      rval=1
+   fi
+
+   remove_file_if_present "${statusfile}"
+
+   return $rval
 }
 
 
@@ -252,16 +298,6 @@ sde_update_main()
 
          --if-needed)
             runner="_task_run_if_needed"
-         ;;
-
-         --craft)
-            MULLE_SDE_CRAFT_AFTER_UPDATE='YES'
-            export MULLE_SDE_CRAFT_AFTER_UPDATE
-         ;;
-
-         --no-craft)
-            MULLE_SDE_CRAFT_AFTER_UPDATE='NO'
-            export MULLE_SDE_CRAFT_AFTER_UPDATE
          ;;
 
          --no-recurse)

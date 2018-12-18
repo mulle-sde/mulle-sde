@@ -322,8 +322,21 @@ tidy"
          domains="cache db monitor patternfile"
       ;;
 
+      buildorder)
+         rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_CRAFT_FLAGS} \
+                     clean \
+                        buildorder
+      ;;
+
       default)
          domains="project subproject"
+      ;;
+
+      # used by mulle-craft implicitly via error message
+      dependency)
+         domains="dependencydir"
       ;;
 
       project)
@@ -355,7 +368,7 @@ tidy"
 
             targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \
                     sed 's|^.*/||'`"
-            found="`fgrep -x "${escaped_dependency}" <<< "${targets}" `"
+            found="`grep -x "${escaped_dependency}" <<< "${targets}" `"
 
             if [ -z "${found}" ]
             then

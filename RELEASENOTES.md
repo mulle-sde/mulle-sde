@@ -1,3 +1,25 @@
+## 0.33.0
+
+* clean has two new domains buildorder and dependency
+* the craft command doesn't support clean anymore (use clean for that)
+* new --github option for dependency add command
+* --multiphase mulle-make support
+* `PROJECT_UPCASE_IDENTIFIER` and friends are now saved into the environment
+* added linkorder command for the benefit of external tools
+* added test command that supports and simplified the new mulle-test
+* overhauled the environment scheme. mulle-env plugin moved from mulle-env to mulle-sde
+* Changed icon
+* renamed "show" command to "list"
+* renamed "makeinfo" command to "definition"
+* added "buildstatus" and "treestatus" commands
+* changed craftinfo to a somewhat more intuitive layout
+* improve detection of misspelled clean target
+* support mulle-env 1.0.0 with our own plugin (migrated from mulle-env)
+* support script builds
+* fix URLS starting with a digit
+* allow multiple extension paths for same vendor
+
+
 ### 0.31.1
 
 * mulle-sde craft -V will silently ignore the -V flag, to fix some old travis scripts

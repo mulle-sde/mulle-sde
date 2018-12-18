@@ -160,7 +160,7 @@ print_mulle_include_environment_sh()
 # .mulle-env/etc                        | .mulle-env/share
 # --------------------------------------|--------------------
 #                                       | environment-plugin.sh
-#                                       | environment-os-\${MULLE_UNAME}.sh
+#                                       | environment-plugin-os-\${MULLE_UNAME}.sh
 #                                       | environment-project.sh
 #                                       | environment-extension.sh
 # environment-global.sh                 |

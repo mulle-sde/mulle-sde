@@ -258,22 +258,6 @@ _template_file_arguments()
 }
 
 
-_copy_template_file()
-{
-   log_entry "_copy_template_file" "$@"
-
-   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
-   fi
-
-   # put in own shell to avoid side effects
-   (
-      eval _template_main "${_arguments}"
-   ) || fail "template generation failed"
-}
-
-
 _copy_extension_template_files()
 {
    log_entry "_copy_extension_template_files" "$@"
@@ -1044,7 +1028,9 @@ _install_extension()
    if ! r_find_extension "${vendor}" "${extname}"
    then
       fail "Could not find extension \"${extname}\" by \
-vendor \"${vendor}\""
+vendor \"${vendor}\". Either download the required extension from vendor
+\"${vendor}\" or edit ${C_RESET_BOLD}.mulle-sde/share/extension${C_ERROR}, if
+the extension has been renamed or is unavailable."
    fi
    extensiondir="${RVAL}"
 
@@ -1077,6 +1063,7 @@ vendor \"${vendor}\""
                log_fluff "Project language set to \"${PROJECT_DIALECT}\""
                log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
                log_fluff "Project extensions set to \"${PROJECT_EXTENSIONS}\""
+
                LANGUAGE_SET='YES'
            fi
          fi
@@ -1607,34 +1594,20 @@ memorize_project_name()
 
    local PROJECT_NAME="$1"
 
-   env_set_var PROJECT_NAME "${PROJECT_NAME}" "project"
-
-   local PROJECT_C_NAME
-
-   PROJECT_C_NAME="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
-
-   env_set_var PROJECT_C_NAME "${PROJECT_NAME}" "project"
-
-   local PROJECT_IDENTIFIER
-   local PROJECT_DOWNCASE_IDENTIFIER
-   local PROJECT_UPCASE_IDENTIFIER
-
 
    if [ -z "${MULLE_CASE_SH}" ]
    then
       # shellcheck source=mulle-case.sh
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
+   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+   fi
 
-   local RVAL
+   set_projectname_variables "${PROJECT_NAME}"
 
-   r_tweaked_de_camel_case "${PROJECT_NAME}"
-
-   PROJECT_IDENTIFIER="${RVAL}"
-   PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_IDENTIFIER}" | tr -c 'a-zA-Z0-9' '_'`"
-   PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z' 'a-z' <<< "${PROJECT_IDENTIFIER}"`"
-   PROJECT_UPCASE_IDENTIFIER="`tr 'a-z' 'A-Z' <<< "${PROJECT_IDENTIFIER}"`"
-
+   env_set_var PROJECT_NAME                "${PROJECT_NAME}" "project"
    env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project"
    env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project"
    env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project"
@@ -1720,7 +1693,11 @@ install_extensions()
          shopt -s nullglob
          for i in ${onlyfilename}
          do
-            remove_file_if_present "${i}"
+            if [ -f "${i}" ]
+            then
+               remove_file_if_present "${i}.bak"
+               exekutor mv "${i}" "${i}.bak"
+            fi
          done
       )
    fi
@@ -1791,9 +1768,13 @@ install_project()
    local marks="$4"
    local onlyfilename="$5"
    local force="$6"
+   local language="$7"
+   local dialect="$8"
+   local extensions="$9"
 
    local PROJECT_NAME
    local PROJECT_LANGUAGE
+   local PROJECT_EXTENSIONS
    local PROJECT_DIALECT      # for objc
    local PROJECT_SOURCE_DIR
    local PROJECT_TYPE
@@ -1806,6 +1787,10 @@ install_project()
       r_fast_basename "${PWD}"
       PROJECT_NAME="${RVAL}"
    fi
+
+   PROJECT_LANGUAGE="${language}"
+   PROJECT_DIALECT="${dialect}"
+   PROJECT_EXTENSIONS="${extensions}"
 
    # check that PROJECT_NAME looks usable as an identifier
    case "${PROJECT_NAME}" in
@@ -1858,16 +1843,13 @@ install_project()
    # setup the initial environment-global.sh (if missing) with some
    # values that the user may want to edit
    #
-   if [ "${PROJECT_TYPE}" != "none" ]
-   then
-      env_set_var PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" "project"
-      env_set_var PROJECT_DIALECT "${PROJECT_DIALECT}" "project"
-      env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "project"
-   fi
+   [ ! -z "${PROJECT_LANGUAGE}" ]    && env_set_var PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" "project"
+   [ ! -z "${PROJECT_DIALECT}" ]     && env_set_var PROJECT_DIALECT "${PROJECT_DIALECT}" "project"
+   [ ! -z "${PROJECT_EXTENSIONS}" ]  && env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "project"
 
    case ",${marks}," in
       *',no-motd,'*)
-         return
+         return 0
       ;;
    esac
 
@@ -2177,9 +2159,9 @@ warn_if_unknown_mark()
 ###
 ### parameters and environment variables
 ###
-sde_init_main()
+_sde_init_main()
 {
-   log_entry "sde_init_main" "$@"
+   log_entry "_sde_init_main" "$@"
 
    local OPTION_NAME
    local OPTION_EXTRAS
@@ -2195,6 +2177,9 @@ sde_init_main()
    local OPTION_TEMPLATE_FILES='YES'
    local OPTION_INIT_FLAGS
    local OPTION_MARKS=""
+   local OPTION_DIALECT
+   local OPTION_EXTENSIONS
+   local OPTION_LANGUAGE
    local OPTION_DEFINES
    local OPTION_UPGRADE
    local OPTION_ADD
@@ -2311,7 +2296,7 @@ sde_init_main()
          ;;
 
          # little hack
-         --upgrade-project-file)
+         --project-file|--upgrade-project-file)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
@@ -2321,6 +2306,27 @@ sde_init_main()
             # different marks, we upgrade project/demo/clobber!
             OPTION_MARKS="no-env,no-init,no-share,no-sourcetree"
             OPTION_INIT_ENV='NO'
+         ;;
+
+         --project-dialect)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_DIALECT="$1"
+         ;;
+
+         --project-language)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_LANGUAGE="$1"
+         ;;
+
+         --project-extensions)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_EXTENSIONS="$1"
          ;;
 
          # only used for one-shotting none project types
@@ -2445,8 +2451,11 @@ sde_init_main()
    if [ "${OPTION_UPGRADE}" = 'YES' -o "${OPTION_ADD}" = 'YES' ]
    then
       # todo: make this nicer
-      [ -z "${MULLE_VIRTUAL_ROOT}" ] && \
-         fail "An extension addition or upgrade must run inside an environment shell"
+      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         RERUN='YES'
+         return 32
+      fi
    fi
 
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
@@ -2617,7 +2626,7 @@ Use \`mulle-sde upgrade\` for maintainance"
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
       mkdir_if_missing "${MULLE_SDE_DIR}" || exit 1
-      redirect_exekutor "${MULLE_SDE_DIR}/.init" echo "Start init: `date`"
+      redirect_exekutor "${MULLE_SDE_DIR}/.init" echo "Start init `date` in $PWD on ${MULLE_HOSTNAME}"
 
       #
       # always wipe these for clean upgrades
@@ -2652,6 +2661,12 @@ Use \`mulle-sde upgrade\` for maintainance"
          fi
       fi
 
+      # upgrade identifiers if missing
+      #
+      # TODO: compare old version to new, and run custom pre/postscripts
+      #
+      memorize_project_name "${PROJECT_NAME}"
+
       if [ -z "${OPTION_PROJECT_FILE}" ]
       then
          #
@@ -2667,7 +2682,10 @@ Use \`mulle-sde upgrade\` for maintainance"
                          "${OPTION_PROJECT_SOURCE_DIR:-${PROJECT_SOURCE_DIR}}" \
                          "${OPTION_MARKS}" \
                          "${OPTION_PROJECT_FILE}" \
-                         "${MULLE_FLAG_MAGNUM_FORCE}"
+                         "${MULLE_FLAG_MAGNUM_FORCE}" \
+                         "${OPTION_LANGUAGE}"  \
+                         "${OPTION_DIALECT}"  \
+                         "${OPTION_EXTENSIONS}"
       )
       then
          log_error "Cleaning up after error"
@@ -2702,6 +2720,15 @@ Use \`mulle-sde upgrade\` for maintainance"
 
    if [ "${OPTION_INIT_ENV}" = 'YES'  ]
    then
+      if [ "${OPTION_INIT_TYPE}" = "subproject" ]
+      then
+         exekutor "${MULLE_ENV:-mulle-env}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} \
+                     tweak \
+                        climb
+      fi
+
       if [ "${OPTION_POST_INIT}" = 'YES' ]
       then
          run_user_post_init_script "${PROJECT_LANGUAGE}" \
@@ -2718,4 +2745,22 @@ Use \`mulle-sde upgrade\` for maintainance"
          fi
       fi
    fi
+}
+
+
+sde_init_main()
+{
+   log_entry "sde_init_main" "$@"
+
+   local RERUN='NO'
+
+   _sde_init_main "$@"
+   rval="$?"
+
+   if [ "${RERUN}" = 'YES' ]
+   then
+      exec_command_in_subshell init "$@"
+   fi
+
+   return $rval
 }

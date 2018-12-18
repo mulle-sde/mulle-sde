@@ -32,20 +32,18 @@
 MULLE_SDE_PROJECTNAME_SH="included"
 
 
-#
-# this will go away sometime, sinceprojects will use pre-computed environment
-# variables from now on
-#
-set_projectname_environment()
+set_projectname_variables()
 {
-   log_entry "set_projectname_environment" "$@"
+   log_entry "set_projectname_variables" "$@"
+
+   PROJECT_NAME="${PROJECT_NAME:-$1}"
+
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty"
 
    if [ ! -z "${PROJECT_UPCASE_IDENTIFIER}" ]
    then
       return
    fi
-
-   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty"
 
    if [ -z "${MULLE_CASE_SH}" ]
    then
@@ -53,18 +51,25 @@ set_projectname_environment()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
-   PROJECT_C_NAME="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
+   PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
 
    local RVAL
 
-   r_tweaked_de_camel_case "${PROJECT_NAME}"
-   PROJECT_IDENTIFIER="${RVAL}"
-   PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_IDENTIFIER}" | tr -c 'a-zA-Z0-9' '_'`"
-   PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z' 'a-z' <<< "${PROJECT_IDENTIFIER}"`"
-   PROJECT_UPCASE_IDENTIFIER="`tr 'a-z' 'A-Z' <<< "${PROJECT_IDENTIFIER}"`"
+   r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+   PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z-' 'a-z_' <<< "${RVAL}"`"
+   PROJECT_UPCASE_IDENTIFIER="`tr 'a-z-' 'A-Z_' <<< "${PROJECT_DOWNCASE_IDENTIFIER}"`"
+}
+
+
+set_projectname_environment()
+{
+   log_entry "set_projectname_environment" "$@"
+
+   set_projectname_variables "$@"
 
    export PROJECT_NAME
    export PROJECT_IDENTIFIER
    export PROJECT_DOWNCASE_IDENTIFIER
    export PROJECT_UPCASE_IDENTIFIER
 }
+

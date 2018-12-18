@@ -78,8 +78,6 @@ r_projectname_seds()
 
    r_escaped_sed_pattern "${PROJECT_NAME}"
    cmdline="-e 's/${o}PROJECT_NAME${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${PROJECT_C_NAME}"
-   cmdline="${cmdline} -e 's/${o}PROJECT_C_NAME${c}/${RVAL}/g'"
    r_escaped_sed_pattern "${PROJECT_IDENTIFIER}"
    cmdline="${cmdline} -e 's/${o}PROJECT_IDENTIFIER${c}/${RVAL}/g'"
    r_escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}"
@@ -215,7 +213,7 @@ r_template_filename_replacement_command()
    cmdline="sed"
 
    local seds
-   
+
    r_projectname_seds
    r_concat "${cmdline}" "${RVAL}"
    cmdline="${RVAL}"
@@ -234,11 +232,11 @@ r_template_filename_replacement_command()
    seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
              rexekutor "${MULLE_ENV:-mulle-env}" -s \
                            ${MULLE_ENV_FLAGS} environment \
-                                 get --output-sed VENDOR_NAME`" 
+                                 get --output-sed VENDOR_NAME`"
 
    r_concat "${cmdline}" "${seds}"
    cmdline="${RVAL}"
-   
+
    #
    # get ONESHOT_NAME from environment for file replacement. Name is used by
    # oneshot extensions...it's a shabby hack
@@ -347,6 +345,7 @@ copy_and_expand_template()
 
    r_fast_dirname "${expanded_dstfile}"
    mkdir_if_missing "${RVAL}"
+
    if [ -f "${expanded_dstfile}" ]
    then
       exekutor chmod ug+w "${expanded_dstfile}"
@@ -366,7 +365,6 @@ copy_and_expand_template()
    permissions="`lso "${templatefile}"`"
    chmod "${permissions}" "${expanded_dstfile}"
 }
-
 
 default_template_setup()
 {
@@ -414,15 +412,23 @@ default_template_setup()
          ;;
       esac
 
+      # assume we can for as much as we want
       copy_and_expand_template "${templatedir}" \
-                               "${filename}" \
-                               "${filename_sed}" \
-                               "${template_sed}" \
-                               "${onlyfile}"
+                                "${filename}" \
+                                "${filename_sed}" \
+                                "${template_sed}" \
+                                "${onlyfile}"
+      if [ $? -eq 1 ]
+      then
+         exit 1
+      fi
+
       IFS="
 "
    done
    IFS="${DEFAULT_IFS}"
+
+   wait
 }
 
 
@@ -458,7 +464,6 @@ _template_main()
    local PROJECT_DOWNCASE_IDENTIFIER
    local PROJECT_SOURCE_DIR
    local OPTION_FILE
-
 
    local template_callback
 
@@ -598,7 +603,7 @@ _template_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
    fi
 
-   set_projectname_environment "none"
+   set_projectname_variables "${PROJECT_NAME}"
 
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-none}"
    PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
@@ -618,10 +623,13 @@ _template_main()
       log_trace2 "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
    fi
 
+   local RVAL
+
    if [ -z "${TEMPLATE_DIR}" ]
    then
-      TEMPLATE_DIR="`dirname -- "$0"`/project"
-      TEMPLATE_DIR="`absolutepath "${TEMPLATE_DIR}" `"
+      r_fast_dirname "$0"
+      r_absolutepath "${RVAL}/project"
+      TEMPLATE_DIR="${RVAL}"
    fi
 
    case "${1:-write}" in

@@ -65,7 +65,7 @@ sde_extension_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} extension list
+   ${MULLE_USAGE_NAME} extension [options] list
 
    List installed extensions.
 
@@ -484,7 +484,7 @@ r_collect_extension()
    local vendor="$1"
    local extensiontype="$2"
 
-   log_verbose "Looking for \"${vendor}\" extensions of type \"${extensiontype}\""
+   log_verbose "Looking for vendor \"${vendor}\" extensions of type \"${extensiontype}\""
 
    r_collect_extension_dirs "${vendor}" "${extensiontype}"
    r_extensionnames_from_extension_dirs "${vendor}" "${RVAL}"

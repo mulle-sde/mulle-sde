@@ -196,6 +196,15 @@ main()
       mkdir -p "${EXTENSION_DIR}" 2> /dev/null
       cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
+
+   share="${prefix}/share/mulle-env"
+   EXTENSION_DIR="${share}/plugins"
+   for i in src/mulle-env/plugins/*
+   do
+      mkdir -p "${EXTENSION_DIR}" 2> /dev/null
+      cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
+   done
+
 }
 
 main "$@"

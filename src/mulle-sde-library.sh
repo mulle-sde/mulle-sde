@@ -454,7 +454,7 @@ sde_library_main()
       shift
    done
 
-   local cmd="$1"
+   local cmd="${1:-list}"
 
    [ $# -ne 0 ] && shift
 

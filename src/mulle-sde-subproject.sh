@@ -493,6 +493,7 @@ sde_subproject_map()
    local verb="${1:-Updating}" ; shift
    local lenient="${1:-NO}" ; shift
    local parallel="${1:-NO}" ; shift
+   local statusfile="$1" ; shift
 
    local subprojects
 
@@ -536,7 +537,10 @@ sde_subproject_map()
 
          if [ "${parallel}" = 'YES' ]
          then
-            exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}" &
+            (
+               exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
+               redirect_append_exekutor "${statusfile}" echo $?
+            ) &
          else
             exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
             rval=$?
@@ -726,7 +730,7 @@ $1"
       ;;
 
       map)
-         sde_subproject_map 'Executing' 'NO' 'NO' "$@"
+         sde_subproject_map 'Executing' 'NO' 'NO' 'egal' "$@"
       ;;
 
       set)
