@@ -13,3 +13,4 @@ _Sources.cmake
 mulle-sde.graffle/
 dox/*Wishlist.txt
 
+src/mulle-sde-add.sh

@@ -167,6 +167,7 @@ main()
    local share
 
    cd "`dirname -- "$0"`"
+   cd .. # compensate for installer being in bin
 
    bin="${prefix}/bin"
    libexec="${prefix}/libexec/mulle-sde"

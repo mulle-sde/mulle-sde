@@ -1,3 +1,7 @@
+### 0.33.1
+
+* only walk dependencies in linkorder
+
 ## 0.33.0
 
 * clean has two new domains buildorder and dependency

@@ -61,7 +61,7 @@ sde_linkorder_all_nodes()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   walk \
                      --lenient \
-                     --qualifier 'MATCHES link' \
+                     --qualifier 'MATCHES link AND MATCHES dependency' \
                      'echo "${MULLE_ADDRESS};${MULLE_MARKS}"'
 }
 
