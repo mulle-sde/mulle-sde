@@ -1,3 +1,7 @@
+### 0.33.5
+
+* try to fix brew installation
+
 ### 0.33.4
 
 * try to debug curious error

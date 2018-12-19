@@ -201,19 +201,18 @@ main()
       cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
 
-   set -x
+   local share
+
+   share="${prefix}/share/mulle-env"
+
    #
    # install mulle-env plugins
    #
-   EXTENSION_DIR="`mulle-env plugin-installpath`" || exit 1
-
-   ls -ld "${EXTENSION_DIR}" >&2
-   ls -ld "`dirname -- "${EXTENSION_DIR}"`" >&2
-
-   mkdir -p "${EXTENSION_DIR}" || exit 1
-   for i in src/mulle-env/plugins/*
+   PLUGIN_DIR="${share}/plugins"
+   mkdir -p "${PLUGIN_DIR}" || exit 1
+   for i in src/mulle-env/plugins/*.sh
    do
-      cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
+      cp -av "${i}" "${PLUGIN_DIR}/" || exit 1
    done
 }
 
