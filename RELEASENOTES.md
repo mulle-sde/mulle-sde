@@ -1,3 +1,7 @@
+### 0.33.2
+
+* simplify and improve extension search
+
 ### 0.33.1
 
 * only walk dependencies in linkorder

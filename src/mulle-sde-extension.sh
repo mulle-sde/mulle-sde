@@ -98,6 +98,11 @@ Types:
    meta      : list available meta extensions
    oneshot   : list available oneshot extensions
    runtime   : list available runtime extensions
+
+
+Environment:
+   MULLE_SDE_EXTENSION_PATH      : Overrides searchpath for extensions
+   MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath (without "/extensions")
 EOF
    exit 1
 }
@@ -176,22 +181,17 @@ r_extension_get_search_path()
 {
    log_entry "r_extension_get_search_path" "$@"
 
-   local s
-
    #
    # allow environment to add more extensions, mostly useful for development
    # where you don't really want to reinstall extensions with every little
    # edit
    #
-   s="${MULLE_SDE_EXTENSION_PATH}"
-   if [ ! -z "${s}" ]
+   if [ ! -z "${MULLE_SDE_EXTENSION_PATH}" ]
    then
-      log_debug "Extension search path: \"${s}\""
-      RVAL="${s}"
+      log_debug "Extension search path: \"${MULLE_SDE_EXTENSION_PATH}\""
+      RVAL="${MULLE_SDE_EXTENSION_PATH}"
       return
    fi
-
-   s="${MULLE_SDE_EXTENSION_BASE_PATH}"
 
    local homeprefdir
 
@@ -206,7 +206,10 @@ r_extension_get_search_path()
       ;;
    esac
 
-   s="$s:${homeprefdir}/mulle-sde/extensions"
+   local s
+
+   r_colon_concat "${MULLE_SDE_EXTENSION_BASE_PATH}" "${homeprefdir}/mulle-sde/extensions"
+   s="${RVAL}"
 
    #
    # figure out where share is located
@@ -355,60 +358,6 @@ extension_list_vendor_extensions()
 }
 
 
-
-r_collect_extension_dirs()
-{
-   log_entry "r_collect_extension_dirs" "$@"
-
-   local vendor="$1"
-   local extensiontype="$2"
-
-   local directory
-   local searchpath
-   local extensiondir
-   local foundtype
-
-   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
-   searchpath="${RVAL}"
-   if [ -z "${searchpath}" ]
-   then
-      RVAL=""
-      return 1
-   fi
-
-   local directories
-
-#     log_debug "$directory: ${directory}"
-   IFS="
-" ; set -o noglob
-   for extensiondir in `eval find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -print`
-   do
-      IFS="${DEFAULT_IFS}"
-
-      foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
-      if [ -z "${foundtype}" ]
-      then
-         log_debug "\"${extensiondir}\" has no type information, skipped"
-         continue
-      fi
-
-      if [ ! -z "${extensiontype}" -a "${foundtype}" != "${extensiontype}" ]
-      then
-         log_debug "\"${extensiondir}\" purports to be of type \"${foundtype}\""
-         log_debug "But we are looking for \"${extensiontype}\""
-         continue
-      fi
-
-      r_add_line "${directories}" "${extensiondir}"
-      directories="${RVAL}"
-   done
-
-   IFS="${DEFAULT_IFS}"; set +o noglob
-
-   RVAL="${directories}"
-}
-
-
 r_find_extension()
 {
    log_entry "r_find_extension" "$@"
@@ -451,25 +400,31 @@ Use / separator"
 }
 
 
-r_extensionnames_from_extension_dirs()
+r_extensionnames_from_vendorextensions()
 {
-   log_entry "r_extensionnames_from_extension_dirs" "$@"
+   log_entry "r_extensionnames_from_vendorextensions" "$@"
 
-   local vendor="$1"
-   local extensiondirs="$2"
+   local vendorextensions="$1"
+   local extensiontype="$2"
+   local vendor="$3"
 
-   local directory
+   local line
    local result
+   local foundtype
+   local directory
 
    IFS="
 " ; set -o noglob
-   for directory in ${extensiondirs}
+   for line in ${vendorextensions}
    do
-      log_fluff "Found \"${directory}\""
-
-      r_fast_basename "${directory}"
-      r_add_line "${result}" "${vendor}/${RVAL}"
-      result="${RVAL}"
+      foundtype="${line#*;}"
+      if [ -z "${extensiontype}" -o "${foundtype}" = "${extensiontype}" ]
+      then
+         directory="${line%%;*}"
+         r_fast_basename "${directory}"
+         r_add_line "${result}" "${vendor}/${RVAL}"
+         result="${RVAL}"
+      fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -477,17 +432,49 @@ r_extensionnames_from_extension_dirs()
 }
 
 
-r_collect_extension()
+
+r_collect_vendorextensions()
 {
-   log_entry "r_collect_extension" "$@"
+   log_entry "r_collect_vendorextensions" "$@"
 
    local vendor="$1"
-   local extensiontype="$2"
 
-   log_verbose "Looking for vendor \"${vendor}\" extensions of type \"${extensiontype}\""
+   local directory
+   local searchpath
+   local extensiondir
+   local foundtype
 
-   r_collect_extension_dirs "${vendor}" "${extensiontype}"
-   r_extensionnames_from_extension_dirs "${vendor}" "${RVAL}"
+   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   searchpath="${RVAL}"
+   if [ -z "${searchpath}" ]
+   then
+      RVAL=""
+      return 1
+   fi
+
+   local vendorextensions
+
+#     log_debug "$directory: ${directory}"
+   IFS="
+" ; set -o noglob
+   for extensiondir in `eval find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -print`
+   do
+      IFS="${DEFAULT_IFS}"; set +o noglob
+
+      foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
+      if [ -z "${foundtype}" ]
+      then
+         log_debug "\"${extensiondir}\" has no type information, skipped"
+         continue
+      fi
+
+      r_add_line "${vendorextensions}" "${extensiondir};${foundtype}"
+      vendorextensions="${RVAL}"
+   done
+
+   IFS="${DEFAULT_IFS}"; set +o noglob
+
+   RVAL="${vendorextensions}"
 }
 
 
@@ -697,9 +684,16 @@ sde_extension_show_main()
          continue
       fi
 
+      local vendorextensions
+
+      r_collect_vendorextensions "${vendor}"
+      vendorextensions="${RVAL}"
+
+      log_debug "vendorextensions: ${vendorextensions}"
+
       case "${cmd}" in
          all|default|meta)
-            r_collect_extension "${vendor}" "meta"
+            r_extensionnames_from_vendorextensions "${vendorextensions}" "meta" "${vendor}"
             r_add_line "${meta_extension}" "${RVAL}"
             meta_extension="${RVAL}"
          ;;
@@ -707,7 +701,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|default|extra)
-            r_collect_extension "${vendor}" "extra"
+            r_extensionnames_from_vendorextensions "${vendorextensions}" "extra" "${vendor}"
             r_add_line "${extra_extension}" "${RVAL}"
             extra_extension="${RVAL}"
          ;;
@@ -715,7 +709,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|default|oneshot)
-            r_collect_extension "${vendor}" "oneshot"
+            r_extensionnames_from_vendorextensions "${vendorextensions}" "oneshot" "${vendor}"
             r_add_line "${oneshot_extension}" "${RVAL}"
             oneshot_extension="${RVAL}"
          ;;
@@ -723,7 +717,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|runtime)
-            r_collect_extension "${vendor}" "runtime"
+            r_extensionnames_from_vendorextensions "${vendorextensions}" "runtime" "${vendor}"
             r_add_line "${runtime_extension}" "${RVAL}"
             runtime_extension="${RVAL}"
          ;;
@@ -731,7 +725,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|buildtool)
-            r_collect_extension "${vendor}" "buildtool"
+            r_extensionnames_from_vendorextensions "${vendorextensions}" "buildtool" "${vendor}"
             r_add_line "${buildtool_extension}" "${RVAL}"
             buildtool_extension="${RVAL}"
          ;;
@@ -1302,7 +1296,16 @@ sde_extension_main()
             eval sde_init_main --no-blurb --no-env --add "${args}"
       ;;
 
-      list|show)
+      show)
+         sde_extension_${cmd}_main "$@"
+      ;;
+
+      list)
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            exec_command_in_subshell extension ${cmd} "$@"
+         fi
+
          sde_extension_${cmd}_main "$@"
       ;;
 
