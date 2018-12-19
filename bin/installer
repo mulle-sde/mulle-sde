@@ -197,7 +197,7 @@ main()
    EXTENSION_DIR="${share}/extensions"
    for i in src/mulle-sde
    do
-      mkdir -p "${EXTENSION_DIR}" 2> /dev/null
+      mkdir -p "${EXTENSION_DIR}" || exit 1
       cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
 
@@ -205,8 +205,8 @@ main()
    # install mulle-env plugins
    #
    EXTENSION_DIR="`mulle-env plugin-installpath`" || exit 1
-   mkdir -p "${EXTENSION_DIR}" 2> /dev/null
 
+   mkdir -p "${EXTENSION_DIR}" || exit 1
    for i in src/mulle-env/plugins/*
    do
       cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
