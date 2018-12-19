@@ -1,3 +1,8 @@
+### 0.33.4
+
+* try to debug curious error
+* try to debug travis
+
 ### 0.33.3
 
 * use mulle-env plugin-installpath to locate place for plugin
