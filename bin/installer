@@ -156,6 +156,12 @@ main()
       installer_fail "usage: install.sh [prefix] [mode]"
    fi
 
+   local directory
+
+   directory="`dirname -- "$0"`"
+   cd "${directory}" || installer_fail "Could not cd to \"$directory\" ($PWD)"
+   cd .. || installer_fail "Could not cd to \"..\" ($PWD)"  # compensate for installer being in bin
+
    prefix="`installer_realpath "${prefix}"`"
    if [ ! -d "${prefix}" ]
    then
@@ -165,9 +171,6 @@ main()
    local bin
    local libexec
    local share
-
-   cd "`dirname -- "$0"`"
-   cd .. # compensate for installer being in bin
 
    bin="${prefix}/bin"
    libexec="${prefix}/libexec/mulle-sde"
@@ -198,14 +201,16 @@ main()
       cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
 
-   share="${prefix}/share/mulle-env"
-   EXTENSION_DIR="${share}/plugins"
+   #
+   # install mulle-env plugins
+   #
+   EXTENSION_DIR="`mulle-env plugin-installpath`" || exit 1
+   mkdir -p "${EXTENSION_DIR}" 2> /dev/null
+
    for i in src/mulle-env/plugins/*
    do
-      mkdir -p "${EXTENSION_DIR}" 2> /dev/null
       cp -Rav "${i}" "${EXTENSION_DIR}/" || exit 1
    done
-
 }
 
 main "$@"

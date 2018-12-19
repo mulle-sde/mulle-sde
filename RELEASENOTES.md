@@ -1,3 +1,7 @@
+### 0.33.3
+
+* use mulle-env plugin-installpath to locate place for plugin
+
 ### 0.33.2
 
 * simplify and improve extension search
