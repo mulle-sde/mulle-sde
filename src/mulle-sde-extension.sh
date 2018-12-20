@@ -166,13 +166,35 @@ EOF
    exit 1
 }
 
-
+#
+# Though libexec can be found tied to the executable, it's kind
+# of a fools errand to do the same with "share". At least if
+# you want to avoid hardcoding in paths like /usr/local/share
+# and I tried...
+#
 r_extension_get_installdir()
 {
    log_entry "r_extension_get_installdir" "$@"
 
    local dev="${1:-YES}"
 
+   local prefix
+
+   r_fast_dirname "$0"
+   r_fast_dirname "${RVAL}"
+   prefix="${RVAL}"
+
+   # are we a symlink ?
+   if [ "${prefix}/libexec" != "${MULLE_SDE_LIBEXEC_DIR}" ]
+   then
+      # YES: this  is good
+      r_simplified_path "${prefix}/share/mulle-sde/extensions"
+      return
+   fi
+
+   #
+   # not a symlink
+   #
    if [ "${dev}" = 'YES' ]
    then
       case "${MULLE_SDE_LIBEXEC_DIR}" in
@@ -181,16 +203,16 @@ r_extension_get_installdir()
             if [ -z "${MULLE_SDE_EXTENSION_BASE_PATH}" ]
             then
                RVAL="/tmp/share/mulle-sde/extensions"
-               log_fluff "Developer environment uses ${RVAL} as install-dir"
+               log_fluff "Developer environment uses ${RVAL}"
                return
             else
-               log_fluff "MULLE_SDE_EXTENSION_BASE_PATH inhibits /tmp install-dir"
+               log_fluff "MULLE_SDE_EXTENSION_BASE_PATH inhibits /tmp"
             fi
          ;;
       esac
    fi
 
-   r_simplified_path "$0/../../share/mulle-sde/extensions"
+   r_simplified_path "${prefix}/share/mulle-sde/extensions"
 }
 
 #
@@ -242,6 +264,20 @@ r_extension_get_searchpath()
    r_extension_get_installdir
    r_colon_concat "${s}" "${RVAL}"
    s="${RVAL}"
+
+   case "${MULLE_UNAME}" in
+      linux|freebsd)
+         r_colon_concat "${s}" "/usr/share/mulle-sde/extensions"
+         s="${RVAL}"
+      ;;
+   esac
+
+   case "${MULLE_UNAME}" in
+      darwin|linux|freebsd)
+         r_colon_concat "${s}" "/usr/local/share/mulle-sde/extensions"
+         s="${RVAL}"
+      ;;
+   esac
 
    log_debug "Extension search path: \"${s}\""
 
@@ -1391,15 +1427,6 @@ sde_extension_main()
             return 1
          fi
          echo "${meta}"
-      ;;
-
-      install-dir)
-         log_info "Extension installation directory"
-
-         local RVAL
-
-         r_extension_get_installdir
-         echo "${RVAL}"
       ;;
 
       searchpath)

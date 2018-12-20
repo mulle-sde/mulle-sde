@@ -1,3 +1,7 @@
+### 0.33.12
+
+* hardcode some share searchpaths again
+
 ### 0.33.11
 
 * more fun with extension paths

@@ -138,12 +138,6 @@ export ADDICTION_DIR="\${MULLE_VIRTUAL_ROOT}/addiction"
 #
 export BUILD_DIR="\${MULLE_VIRTUAL_ROOT}/build"
 
-#
-# Modify path so that dependency and addictions executables are found and
-# preferred.
-#
-export PATH="\${DEPENDENCY_DIR}/bin:\${ADDICTION_DIR}/bin:\$PATH"
-
 EOF
 }
 
@@ -295,14 +289,14 @@ env_setup_mulle_tools()
    # checked yet)
    #
    (
-      env_link_mulle_tool "mulle-craft"             "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-dispense"          "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-fetch"             "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-make"              "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-match"             "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-monitor"           "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-sde"               "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-sourcetree"        "${bindir}" "${libexecdir}"
+      env_link_mulle_tool "mulle-craft"      "$@" &&
+      env_link_mulle_tool "mulle-dispense"   "$@" &&
+      env_link_mulle_tool "mulle-fetch"      "$@" &&
+      env_link_mulle_tool "mulle-make"       "$@" &&
+      env_link_mulle_tool "mulle-match"      "$@" &&
+      env_link_mulle_tool "mulle-monitor"    "$@" &&
+      env_link_mulle_tool "mulle-sde"        "$@" &&
+      env_link_mulle_tool "mulle-sourcetree" "$@"
    ) || return 1
 }
 
@@ -310,15 +304,14 @@ env_setup_mulle_tools()
 ## callback
 env_r_mulle_add_runpath()
 {
-   log_entry "env_mulle_add_runpath" "$@"
+   log_entry "env_r_mulle_add_runpath" "$@"
 
    local directory="$1"
    local runpath="$2"
 
    # prepend in reverse order, so dependencies is first
-   r_colon_concat "${runpath}" "${directory}/addiction/bin" "${runpath}"
-   runpath="${RVAL}"
-   r_colon_concat "${directory}/dependency/bin" "${runpath}"
+   r_colon_concat "${directory}/addiction/bin" "${runpath}"
+   r_colon_concat "${directory}/dependency/bin" "${RVAL}"
 }
 
 
