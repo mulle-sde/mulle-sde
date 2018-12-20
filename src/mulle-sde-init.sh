@@ -1035,8 +1035,8 @@ _install_extension()
 
    if ! r_find_extension_in_searchpath "${vendor}" "${extname}" "${searchpath}"
    then
-      fail "Could not find extension \"${extname}\" by \
-vendor \"${vendor}\" in ${searchpath}.
+      fail "Could not find extension \"${extname}\" (vendor \"${vendor}\") in
+${searchpath}
 ${C_INFO}Possibly ways to fix this:
    ${C_VERBOSE}Either download the required extension from vendor \"${vendor}\" or edit
       ${C_RESET}${C_BOLD}.mulle-sde/share/extension

@@ -89,7 +89,8 @@ Usage:
    default. Those are usually the candidates to select.
 
 Options:
-   --version   : show version of the extensions
+   --version     : show version of the extensions
+   --output-raw  : show locations and type of extensions as CSV
 
 Types:
    all       : list all available extensions
@@ -176,8 +177,15 @@ r_extension_get_installdir()
    then
       case "${MULLE_SDE_LIBEXEC_DIR}" in
          */src)
-            RVAL="/tmp/share/mulle-sde/extensions"
-            return
+            # stupid hack around for travis
+            if [ -z "${MULLE_SDE_EXTENSION_BASE_PATH}" ]
+            then
+               RVAL="/tmp/share/mulle-sde/extensions"
+               log_fluff "Developer environment uses ${RVAL} as install-dir"
+               return
+            else
+               log_fluff "MULLE_SDE_EXTENSION_BASE_PATH inhibits /tmp install-dir"
+            fi
          ;;
       esac
    fi
@@ -313,7 +321,11 @@ _extension_list_vendors()
    do
       if [ -d "${i}" ]
       then
-         rexekutor find "${i}" -mindepth 1 -maxdepth 1 \( -type d -o -type l \)  -print
+         rexekutor find "${i}" -mindepth 1 \
+                               -maxdepth 1 \
+                               \( -type d -o -type l \) \
+                               \! -name mulle-env  \
+                               -print
       fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -634,6 +646,7 @@ sde_extension_show_main()
    log_entry "sde_extension_show_main" "$@"
 
    local OPTION_VERSION='NO'
+   local OPTION_OUTPUT_RAW='NO'
 
    #
    # handle options
@@ -651,6 +664,10 @@ sde_extension_show_main()
 
          --no-version)
             OPTION_VERSION='NO'
+         ;;
+
+         --output-raw)
+            OPTION_OUTPUT_RAW='YES'
          ;;
 
          -*)
@@ -717,6 +734,21 @@ sde_extension_show_main()
 
       r_collect_vendorextensions "${vendor}"
       vendorextensions="${RVAL}"
+
+      if [ -z "${vendorextensions}" ]
+      then
+         log_warning "Vendor ${vendor} provides no extensions"
+         continue
+      fi
+
+      if [ "${OPTION_OUTPUT_RAW}" = 'YES' ]
+      then
+         if ! [ -z "${vendorextensions}" ]
+         then
+            echo "${vendorextensions}"
+         fi
+         continue
+      fi
 
       log_debug "vendorextensions: ${vendorextensions}"
 

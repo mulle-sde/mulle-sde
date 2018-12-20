@@ -1,3 +1,7 @@
+### 0.33.11
+
+* more fun with extension paths
+
 ### 0.33.10
 
 * use /tmp for extensions in developer mode
