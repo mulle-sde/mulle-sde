@@ -176,13 +176,13 @@ r_extension_get_installdir()
    then
       case "${MULLE_SDE_LIBEXEC_DIR}" in
          */src)
-            RVAL="${MULLE_SDE_LIBEXEC_DIR}"
+            RVAL="/tmp/share/mulle-sde/extensions"
             return
          ;;
       esac
    fi
 
-   r_simplified_path "${MULLE_SDE_LIBEXEC_DIR}/../../share/mulle-sde/extensions"
+   r_simplified_path "$0/../../share/mulle-sde/extensions"
 }
 
 #

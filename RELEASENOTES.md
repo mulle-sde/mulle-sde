@@ -1,3 +1,7 @@
+### 0.33.10
+
+* use /tmp for extensions in developer mode
+
 ### 0.33.9
 
 * use restrict as new default, be smarter to detect installdir for extensions
