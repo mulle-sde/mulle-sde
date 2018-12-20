@@ -102,7 +102,7 @@ Types:
 
 Environment:
    MULLE_SDE_EXTENSION_PATH      : Overrides searchpath for extensions
-   MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath (without "/extensions")
+   MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath for extensions
 EOF
    exit 1
 }
@@ -166,6 +166,15 @@ EOF
 }
 
 
+r_extension_get_installdir()
+{
+   log_entry "r_extension_get_installdir" "$@"
+
+   r_fast_dirname "$0"           # /usr/local/bin/mulle-sde -> /usr/local/bin
+   r_fast_dirname "${RVAL}"      # -> /usr/local
+   r_filepath_concat "${RVAL}" "share/mulle-sde/extensions"
+}
+
 #
 # An extension must be present at init time. Nothing from the project
 # exists (there is nothing in MULLE_VIRTUAL_ROOT/dependencies)
@@ -173,13 +182,14 @@ EOF
 # Find extensions in:
 #
 # ${HOME}/.config/mulle-sde/extensions/<vendor> (or elsewhere OS dependent)
-# /usr/local/share/mulle_sde/extensions/<vendor>
-# /usr/share/mulle_sde/extensions/<vendor>
+# /usr/local/share/mulle_sde/extensions/<vendor> or whereever mulle-sde is
+# installed
 #
 
-r_extension_get_search_path()
+
+r_extension_get_searchpath()
 {
-   log_entry "r_extension_get_search_path" "$@"
+   log_entry "r_extension_get_searchpath" "$@"
 
    #
    # allow environment to add more extensions, mostly useful for development
@@ -211,35 +221,13 @@ r_extension_get_search_path()
    r_colon_concat "${MULLE_SDE_EXTENSION_BASE_PATH}" "${homeprefdir}/mulle-sde/extensions"
    s="${RVAL}"
 
-   #
-   # figure out where share is located
-   #
-   local directory
-
-   r_fast_dirname "$0"           # bin
-   r_fast_dirname "${RVAL}"      # usr (or local)
-   directory="${RVAL}"
-
-   r_fast_basename "${directory}"
-   case "${RVAL}" in
-      'local')
-         r_fast_dirname "${directory}"   # usr
-         directory="${RVAL}"
-      ;;
-   esac
-
-   s="$s:${directory}/local/share/mulle-sde/extensions"
-   s="$s:${directory}/share/mulle-sde/extensions"
-
-   case "$s" in
-      :*)
-         s="${s:1}"
-      ;;
-   esac
+   r_extension_get_installdir
+   r_colon_concat "${s}" "${RVAL}"
+   s="${RVAL}"
 
    log_debug "Extension search path: \"${s}\""
 
-   RVAL="$s"
+   RVAL="${s}"
 }
 
 
@@ -254,7 +242,7 @@ r_extension_get_vendor_path()
    local searchpath
    local i
 
-   r_extension_get_search_path
+   r_extension_get_searchpath
    searchpath="${RVAL}"
 
    RVAL=""
@@ -307,7 +295,7 @@ _extension_list_vendors()
 
    local RVAL
 
-   r_extension_get_search_path
+   r_extension_get_searchpath
    searchpath="${RVAL}"
 
    IFS=":"; set -o noglob
@@ -315,7 +303,7 @@ _extension_list_vendors()
    do
       if [ -d "${i}" ]
       then
-         rexekutor find "${i}" -mindepth 1 -maxdepth 1 -type d -print
+         rexekutor find "${i}" -mindepth 1 -maxdepth 1 \( -type d -o -type l \)  -print
       fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -346,7 +334,7 @@ _extension_list_vendor_extensions()
    then
       return 1
    fi
-   eval find "${searchpaths}" -mindepth 1 -maxdepth 1 -type d -print
+   eval find "${searchpaths}" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -print
 }
 
 
@@ -377,7 +365,7 @@ Use / separator"
       ;;
    esac
 
-   RVAL="`eval_exekutor find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -name "${name}" -print | head -1`"
+   RVAL="`eval_exekutor find "${searchpath}" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -name "${name}" -print | head -1`"
 
    if [ -z "${RVAL}" ]
    then
@@ -488,7 +476,7 @@ r_collect_vendorextensions()
 #     log_debug "$directory: ${directory}"
    IFS="
 " ; set -o noglob
-   for extensiondir in `eval find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -print`
+   for extensiondir in `eval find "${searchpath}" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -print`
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -1358,12 +1346,21 @@ sde_extension_main()
          echo "${meta}"
       ;;
 
+      install-dir)
+         log_info "Extension installation directory"
+
+         local RVAL
+
+         r_extension_get_installdir
+         echo "${RVAL}"
+      ;;
+
       searchpath)
          log_info "Extension searchpath"
 
          local RVAL
 
-         r_extension_get_search_path
+         r_extension_get_searchpath
          echo "${RVAL}"
       ;;
 

@@ -1028,7 +1028,7 @@ _install_extension()
 
    if ! r_find_get_quoted_searchpath "${vendor}"
    then
-      fail "Could not find any installed extensions!!"
+      fail "Could not find any installed extensions of vendor \"${vendor}\"!!"
    fi
    searchpath="${RVAL}"
 
@@ -1038,8 +1038,8 @@ _install_extension()
 vendor \"${vendor}\" in ${searchpath}.
 ${C_INFO}Possibly ways to fix this:
    ${C_VERBOSE}Either download the required extension from vendor \"${vendor}\" or edit
-      ${C_RESET}${C_BOLD}.mulle-sde/share/extension${C_INFO},
-   if the extension has been renamed or is unavailable."
+      ${C_RESET}${C_BOLD}.mulle-sde/share/extension
+   ${C_INFO}if the extension has been renamed or is unavailable."
    fi
    extensiondir="${RVAL}"
 

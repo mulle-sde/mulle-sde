@@ -1,3 +1,7 @@
+### 0.33.7
+
+* modified and simplified extension searchpath
+
 ### 0.33.6
 
 * more verbose error output to catch osx problem
