@@ -1024,13 +1024,22 @@ _install_extension()
 
    local extensiondir
    local RVAL
+   local searchpath
 
-   if ! r_find_extension "${vendor}" "${extname}"
+   if ! r_find_get_quoted_searchpath "${vendor}"
+   then
+      fail "Could not find any installed extensions!!"
+   fi
+   searchpath="${RVAL}"
+
+   if ! r_find_extension_in_searchpath "${vendor}" "${extname}" "${searchpath}"
    then
       fail "Could not find extension \"${extname}\" by \
-vendor \"${vendor}\". Either download the required extension from vendor
-\"${vendor}\" or edit ${C_RESET_BOLD}.mulle-sde/share/extension${C_ERROR}, if
-the extension has been renamed or is unavailable."
+vendor \"${vendor}\" in ${searchpath}.
+${C_INFO}Possibly ways to fix this:
+   ${C_VERBOSE}Either download the required extension from vendor \"${vendor}\" or edit
+      ${C_RESET}${C_BOLD}.mulle-sde/share/extension${C_INFO},
+   if the extension has been renamed or is unavailable."
    fi
    extensiondir="${RVAL}"
 

@@ -358,12 +358,13 @@ extension_list_vendor_extensions()
 }
 
 
-r_find_extension()
+r_find_extension_in_searchpath()
 {
-   log_entry "r_find_extension" "$@"
+   log_entry "r_find_extension_in_searchpath" "$@"
 
    local vendor="$1"
    local name="$2"
+   local searchpath="$3"
 
    case "${name}" in
       */*)
@@ -375,6 +376,24 @@ r_find_extension()
 Use / separator"
       ;;
    esac
+
+   RVAL="`eval_exekutor find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -name "${name}" -print | head -1`"
+
+   if [ -z "${RVAL}" ]
+   then
+      log_fluff "Extension \"${vendor}/${name}\" is not there."
+      return 1
+   fi
+
+   log_fluff "Found extension \"${RVAL}\""
+}
+
+
+r_find_get_quoted_searchpath()
+{
+   log_entry "r_find_get_quoted_searchpath" "$@"
+
+   local vendor="$1"
 
    local searchpath
 
@@ -388,15 +407,27 @@ Use / separator"
       return 1
    fi
 
-   RVAL="`eval_exekutor find "${searchpath}" -mindepth 1 -maxdepth 1 -type d -name "${name}" -print | head -1`"
+   RVAL="${searchpath}"
+}
 
-   if [ -z "${RVAL}" ]
+
+r_find_extension()
+{
+   log_entry "r_find_extension" "$@"
+
+   local vendor="$1"
+   local name="$2"
+
+   local searchpath
+
+   if ! r_find_get_quoted_searchpath "${vendor}"
    then
-      log_fluff "Extension \"${vendor}/${name}\" is not there."
       return 1
    fi
 
-   log_fluff "Found extension \"${RVAL}\""
+   searchpath="${RVAL}"
+
+   r_find_extension_in_searchpath "${vendor}" "${name}" "${searchpath}"
 }
 
 

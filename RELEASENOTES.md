@@ -1,3 +1,7 @@
+### 0.33.6
+
+* more verbose error output to catch osx problem
+
 ### 0.33.5
 
 * try to fix brew installation
