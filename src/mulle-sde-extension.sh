@@ -170,9 +170,19 @@ r_extension_get_installdir()
 {
    log_entry "r_extension_get_installdir" "$@"
 
-   r_fast_dirname "$0"           # /usr/local/bin/mulle-sde -> /usr/local/bin
-   r_fast_dirname "${RVAL}"      # -> /usr/local
-   r_filepath_concat "${RVAL}" "share/mulle-sde/extensions"
+   local dev="${1:-YES}"
+
+   if [ "${dev}" = 'YES' ]
+   then
+      case "${MULLE_SDE_LIBEXEC_DIR}" in
+         */src)
+            RVAL="${MULLE_SDE_LIBEXEC_DIR}"
+            return
+         ;;
+      esac
+   fi
+
+   r_simplified_path "${MULLE_SDE_LIBEXEC_DIR}/../../share/mulle-sde/extensions"
 }
 
 #
@@ -1292,6 +1302,11 @@ sde_extension_main()
          fi
       ;;
    esac
+
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+   fi
 
    case "${cmd}" in
       add|pimp)

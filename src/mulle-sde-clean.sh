@@ -49,8 +49,8 @@ Domains:
    all         : cleans buildorder, cache, project. Removes folder "`fast_basename "${DEPENDENCY_DIR}"`"
    cache       : clean some caches including the archive and buildorder cache
    default     : clean project and subprojects (default)
+   fetch       : combines "tidy" with "cache" to force a fetch from remotes
    project     : clean project, keeps dependencies
-   refetch     : combines "tidy" with "cache" to force a refetch from remotes
    subprojects : clean subprojects
    tidy        : cleans everything and removes fetched dependencies. It's slow!
 EOF
@@ -308,7 +308,7 @@ cache
 default
 dependency
 project
-refetch
+fetch
 subprojects
 tidy"
          exit 0
@@ -343,7 +343,7 @@ tidy"
          domains="project"
       ;;
 
-      refetch)
+      fetch)
          domains="sourcetree output var db monitor patternfile cache"
       ;;
 

@@ -393,7 +393,16 @@ _sde_enhance_url()
       address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
       if [ -z "${address}" ]
       then
-         fail "Specify --address with this kind of URL"
+         if [ ! -e "${url}" ]
+         then
+            fail "Specify --address with this kind of URL"
+         fi
+
+         r_fast_basename "${url}"
+         address="${RVAL}"
+
+         url="file://${url}"
+         nodetype="git"
       fi
    fi
 

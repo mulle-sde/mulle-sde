@@ -1,3 +1,7 @@
+### 0.33.9
+
+* use restrict as new default, be smarter to detect installdir for extensions
+
 ### 0.33.8
 
 * fix quoting problem in eval

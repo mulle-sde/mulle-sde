@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.33.8
+MULLE_EXECUTABLE_VERSION=0.33.9
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -866,7 +866,7 @@ version"
       template)
          cd_virtual_root "${cmd}"
 
-         # shellcheck source=src/mulle-sde-tool.sh
+         # shellcheck source=src/mulle-sde-template.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh"
 
          sde_template_main "$@"

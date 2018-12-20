@@ -900,8 +900,9 @@ _delete_leaf_files_or_directories()
 
    local directory
 
-   directory="`filepath_concat "${extensiondir}" "${subdirectory}" `"
-   directory="`filepath_concat "${directory}" "${projecttype}" `"
+   r_filepath_concat "${extensiondir}" "${subdirectory}"
+   r_filepath_concat "${RVAL}" "${projecttype}"
+   directory="${RVAL}"
    if [ ! -d "${directory}" ]
    then
       return 0
@@ -2181,7 +2182,7 @@ _sde_init_main()
    local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV='YES'
-   local OPTION_ENV_STYLE="mulle/wild" # wild is least culture shock initially
+   local OPTION_ENV_STYLE="mulle/restrict"
    local OPTION_BLURB='YES'
    local OPTION_TEMPLATE_FILES='YES'
    local OPTION_INIT_FLAGS
