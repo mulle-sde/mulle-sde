@@ -1,3 +1,7 @@
+### 0.33.13
+
+* so much fun with find and symbolic links
+
 ### 0.33.12
 
 * hardcode some share searchpaths again

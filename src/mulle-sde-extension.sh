@@ -357,11 +357,11 @@ _extension_list_vendors()
    do
       if [ -d "${i}" ]
       then
-         rexekutor find "${i}" -mindepth 1 \
-                               -maxdepth 1 \
-                               \( -type d -o -type l \) \
-                               \! -name mulle-env  \
-                               -print
+         rexekutor find -H "${i}" -mindepth 1 \
+                                  -maxdepth 1 \
+                                  \( -type d -o -type l \) \
+                                  \! -name mulle-env  \
+                                  -print
       fi
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -392,7 +392,7 @@ _extension_list_vendor_extensions()
    then
       return 1
    fi
-   eval find "${searchpaths}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print
+   eval_exekutor find -H "${searchpaths}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print
 }
 
 
@@ -423,7 +423,7 @@ Use / separator"
       ;;
    esac
 
-   RVAL="`eval_exekutor find "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -name "${name}" -print | head -1`"
+   RVAL="`eval_exekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -name "${name}" -print | head -1`"
 
    if [ -z "${RVAL}" ]
    then
@@ -534,7 +534,7 @@ r_collect_vendorextensions()
 #     log_debug "$directory: ${directory}"
    IFS="
 " ; set -o noglob
-   for extensiondir in `eval find "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print`
+   for extensiondir in `eval_exekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print`
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
 
