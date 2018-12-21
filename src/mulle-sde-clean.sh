@@ -198,6 +198,10 @@ sde_clean_var_main()
    do
       IFS="${DEFAULT_IFS}"
       case "${directory}" in
+         */.mulle-env/var)
+            # not that it has the bin dir
+         ;;
+
          */.mulle-*/var)
             rmdir_safer "${directory}"
          ;;

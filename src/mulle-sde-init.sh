@@ -2503,14 +2503,22 @@ _sde_init_main()
 
    if [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ]
    then
-      [ ! -d "${MULLE_SDE_DIR}" ] && fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
+      [ ! -d "${MULLE_SDE_DIR}" ] && \
+         fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_DIR} is missing)"
 
       read_project_environment
 
       if ! __get_installed_extensions
       then
+         case "${PROJECT_TYPE}" in
+            "none"|"empty")
+               log_info "Nothing to upgrade, as no extensions have been installed."
+               return 0
+            ;;
+         esac
+
          fail "Could not retrieve previous extension information.
-This hurts, but you have to init again. If you feel "
+This may hurt, but you have to init again."
       fi
 
       if [ -z "${OPTION_PROJECT_FILE}" ]

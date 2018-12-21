@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.33.13
+MULLE_EXECUTABLE_VERSION=0.33.14
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -344,6 +344,45 @@ cd_virtual_root_assert_mulle_sde()
 }
 
 
+try_to_enter_or_download()
+{
+   local dst="$1"
+
+   if [ $# -eq 1 ]
+   then
+      case "$1" in
+         *://*)
+            local scm
+
+            scm="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
+                               ${MULLE_TECHNICAL_FLAGS} \
+                               ${MULLE_FETCH_FLAGS} typeguess "$@"`"
+            dst="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
+                               ${MULLE_TECHNICAL_FLAGS} \
+                               ${MULLE_FETCH_FLAGS} nameguess -s "${scm}" "$@"`"
+            if [ ! -z "${dst}" ]
+            then
+               exekutor "${MULLE_FETCH:-mulle-fetch}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_FETCH_FLAGS} "$@" || exit 1
+               rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "${dst}"
+            fi
+         ;;
+
+         *)
+            if [ -d "$1" ]
+            then
+               rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
+            fi
+         ;;
+        esac
+   fi
+
+   log_error "Unknown command \"${cmd}\""
+   usage "${MULLE_TRACE}"
+}
+
+
 main()
 {
    local MULLE_FLAG_MAGNUM_FORCE='NO'
@@ -505,13 +544,7 @@ libexec-dir|library-path|project-dir)
             ;;
 
             *)
-               if [ $# -eq 1 ] && [ -d "$1" ]
-               then
-                  rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
-               fi
-
-               log_error "Unknown command \"${cmd}\""
-               usage "${MULLE_TRACE}"
+               try_to_enter_or_download "$@"
             ;;
          esac
       fi
