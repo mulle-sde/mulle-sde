@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.33.14
+MULLE_EXECUTABLE_VERSION=0.33.15
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -329,6 +329,12 @@ cd_virtual_root()
 
    if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
    then
+      # quick check that we are not passing a "mulle-env" boundary
+      if [ -d "${PWD}/.mulle-env" ]
+      then
+         log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, as we are in a subshell already"
+      fi
+
       exekutor cd "${MULLE_VIRTUAL_ROOT}" ||
          fail  "Virtual root directory \"${MULLE_VIRTUAL_ROOT}\" missing \
 or inaccesible"

@@ -86,7 +86,7 @@ sde_test_run()
          exekutor cd "${directory}" &&
          exekutor mulle-test ${MULLE_TECHNICAL_FLAGS} \
                              ${MULLE_TEST_FLAGS} \
-                           "$@"
+                             "$@"
       )
       then
          return 1

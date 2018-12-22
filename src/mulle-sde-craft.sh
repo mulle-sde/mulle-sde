@@ -358,10 +358,11 @@ sde_craft_main()
       'all')
          if [ -f "${_buildorderfile}" ]
          then
-            eval_exekutor "${buildorder_cmdline}" buildorder \
-                              --buildorder-file "'${_buildorderfile}'" \
-                              --no-memo-makeflags "'${flags}'" \
-                              "${arguments}" || return 1
+            eval_exekutor "${buildorder_cmdline}" \
+                                 --buildorder-file "'${_buildorderfile}'" \
+                              buildorder \
+                                 --no-memo-makeflags "'${flags}'" \
+                                 "${arguments}" || return 1
          else
             log_fluff "No buildorderfile so skipping buildorder craft step"
          fi
@@ -370,10 +371,11 @@ sde_craft_main()
       'buildorder')
          if [ -f "${_buildorderfile}" ]
          then
-            eval_exekutor "${buildorder_cmdline}" buildorder \
-                              --buildorder-file "'${_buildorderfile}'" \
-                              --no-memo-makeflags "'${flags}'" \
-                              "${arguments}" || return 1
+            eval_exekutor "${buildorder_cmdline}" \
+                                 --buildorder-file "'${_buildorderfile}'" \
+                              buildorder \
+                                 --no-memo-makeflags "'${flags}'" \
+                                 "${arguments}" || return 1
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${_buildorderfile} does not exist"
@@ -387,10 +389,11 @@ sde_craft_main()
       *)
          if [ -f "${_buildorderfile}" ]
          then
-            eval_exekutor "${buildorder_cmdline}" "${target}" \
-                              --buildorder-file "'${_buildorderfile}'" \
-                              --no-memo-makeflags "'${flags}'" \
-                              "${arguments}" || return 1
+            eval_exekutor "${buildorder_cmdline}" \
+                                 --buildorder-file "'${_buildorderfile}'" \
+                              "${target}" \
+                                 --no-memo-makeflags "'${flags}'" \
+                                 "${arguments}" || return 1
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${_buildorderfile} does not exist"

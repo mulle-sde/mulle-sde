@@ -1,3 +1,7 @@
+### 0.33.15
+
+* adapt to changes in mulle-craft
+
 ### 0.33.14
 
 * make mulle-sde `<url>` happen, also don't clean .mulle-env/var
