@@ -54,18 +54,6 @@ EOF
 }
 
 
-sde_linkorder_all_nodes()
-{
-   log_entry "sde_linkorder_all_nodes" "$@"
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  walk \
-                     --lenient \
-                     --qualifier 'MATCHES link AND MATCHES dependency' \
-                     'echo "${MULLE_ADDRESS};${MULLE_MARKS}"'
-}
-
-
 r_sde_locate_library()
 {
    log_entry "r_sde_locate_library" "$@"
@@ -104,12 +92,16 @@ _emit_file_output()
    local cmdline
    local filename
    local RVAL
+   local marks
+   local csv
 
    IFS="
 " ; set -f
-   for filename in "$@"
+   for csv in "$@"
    do
       IFS="${DEFAULT_IFS}"; set +f
+
+      filename="${csv%%;*}"
 
       r_concat "${cmdline}" "${filename}" "${sep}"
       cmdline="${RVAL}"
@@ -125,6 +117,8 @@ emit_file_output()
    log_entry "emit_file_output" "$@"
 
    shift
+   shift
+   shift
 
    local sep=" "
    _emit_file_output "${sep}" "$@"
@@ -135,6 +129,8 @@ emit_file_lf_output()
 {
    log_entry "emit_file_lf_output" "$@"
 
+   shift
+   shift
    shift
 
    local sep="
@@ -150,6 +146,7 @@ _emit_ld_output()
    local sep="${1: }"; shift
    local withldpath="$1"; shift
    local withrpath="$1"; shift
+   local wholearchiveformat="$1"; shift
 
    [ -z "${MULLE_PATH_SH}" ] && \
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
@@ -162,18 +159,18 @@ _emit_ld_output()
 
    if [ "${withldpath}" = 'YES' ]
    then
-      r_platform_translate "ldpath" "-L" "${sep}" "$@" || exit 1
+      r_platform_translate "ldpath" "-L" "${sep}" "${wholearchiveformat}" "$@" || exit 1
       r_concat "${result}" "${RVAL}" "${sep}"
       result="${RVAL}"
    fi
 
-   r_platform_translate "ld" "-l" "${sep}" "$@" || exit 1
+   r_platform_translate "ld" "-l" "${sep}" "${wholearchiveformat}" "$@" || exit 1
    r_concat "${result}" "${RVAL}" "${sep}"
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
    then
-      r_platform_translate "rpath" "-Wl,-rpath -Wl," "${sep}" "$@" || exit 1
+      r_platform_translate "rpath" "-Wl,-rpath -Wl," "${sep}" "${wholearchiveformat}" "$@" || exit 1
       r_concat "${result}" "${RVAL}" "${sep}"
       result="${RVAL}"
    fi
@@ -201,6 +198,132 @@ emit_ld_lf_output()
 }
 
 
+
+emit_csv_output()
+{
+   log_entry "emit_csv_output" "$@"
+
+   shift
+   shift
+   shift
+   shift
+
+   printf "%s" "$@"
+}
+
+
+
+sde_linkorder_all_nodes()
+{
+   log_entry "sde_linkorder_all_nodes" "$@"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  walk \
+                     --lenient \
+                     --qualifier 'MATCHES link' \
+                     --permissions descend-symlink \
+                     'echo "${MULLE_ADDRESS};${MULLE_MARKS}"'
+}
+
+
+#
+# local _dependency_libs
+# local _optional_dependency_libs
+# local _os_specific_libs
+#
+linkorder_collect()
+{
+   log_entry "sde_linkorder_main" "$@"
+
+   local address="$1"
+   local marks="$2"
+   local collect_libraries="$3"
+
+   local name
+
+   r_fast_basename "${address}"
+   name="${RVAL}"
+
+   local is_standalone
+
+   is_standalone="NO"
+
+   # find dependency lib and
+   case ",${marks}," in
+      *,only-standalone,*)
+         [ -z "${standalone_load}" ] || \
+            fail "Nodes \"${name}\" and \"${standalone_load}\" both marked as only-standalone"
+         standalone_load="${name}"
+
+         is_standalone="YES"
+         log_debug "${name} is a standalone library"
+      ;;
+   esac
+
+
+   case ",${marks},*" in
+      *,no-dependency,*)
+         # os-library, ignore it unless we do 'ld'
+         if [ "${collect_libraries}" = 'NO' ]
+         then
+            return 1
+         fi
+
+         r_concat "${name}" "${marks}" ";"
+         return
+      ;;
+   esac
+
+   local libpath
+
+   r_sde_locate_library "${is_standalone}" "${name}"
+   libpath="${RVAL}"
+   [ -z "${libpath}" ] && fail "Did not find \"${name}\" library"
+
+   log_fluff "Found library \"${name}\" at \"${libpath}\""
+
+   r_concat "${libpath}" "${marks}" ";"
+
+#   local linklibrary_dir
+#   local linkinclude_dir
+#
+#   linklibrary_dir="${DEPENDENCY_DIR}/lib"
+#   linkinclude_dir="${DEPENDENCY_DIR}/include/${name}/link"
+#
+#
+#   if [ -d "${linkinclude_dir}" ]
+#   then
+#      log_fluff "Reading link information from \"${linkinclude_dir}\""
+#
+#      alibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/all-load-libraries.txt" `"
+#      dlibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/dependency-libraries.txt" `"
+#      olibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/optional-dependency-libraries.txt" `"
+#      oslibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/os-specific-libraries.txt" `"
+#
+#      if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
+#      then
+#         log_trace2 "all-loads    : ${alibs}"
+#         log_trace2 "dependencies : ${dlibs}"
+#         log_trace2 "optionals    : ${olibs}"  # wtf ?
+#         log_trace2 "os-specifics : ${oslibs}"
+#      fi
+#
+#      dlibs="`sed 's/$/;no-all-load/' <<< "${dlibs}" `"
+#      olibs="`sed 's/$/;no-all-load/' <<< "${olibs}" `"
+#      oslibs="`sed 's/$/;no-all-load/' <<< "${oslibs}" `"
+#
+#      r_add_unique_lines "${_dependency_libs}" "${dlibs}"
+#      _dependency_libs="${RVAL}"
+#      r_add_unique_lines "${_optional_dependency_libs}" "${olibs}"
+#      _optional_dependency_libs="${RVAL}"
+#      r_add_unique_lines "${_os_specific_libs}" "${oslibs}"
+#      _os_specific_libs="${RVAL}"
+#   else
+#      log_fluff "No link information in \"${linkinclude_dir}\""
+#   fi
+}
+
+
 sde_linkorder_main()
 {
    log_entry "sde_linkorder_main" "$@"
@@ -209,6 +332,10 @@ sde_linkorder_main()
    local OPTION_OUTPUT_FORMAT="file_lf"
    local OPTION_LD_PATH='YES'
    local OPTION_RPATH='YES'
+   local OPTION_FORCE_LOAD='NO'
+   local OPTION_WHOLE_ARCHIVE_FORMAT='whole-archive'
+
+   local collect_libraries='NO'
 
    while :
    do
@@ -228,7 +355,7 @@ sde_linkorder_main()
             OPTION_RPATH='YES'
          ;;
 
-         --output-rpath)
+         --output-no-rpath)
             OPTION_RPATH='NO'
          ;;
 
@@ -240,13 +367,25 @@ sde_linkorder_main()
             OPTION_LD_PATH='NO'
          ;;
 
+         --whole-archive-format)
+            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_WHOLE_ARCHIVE_FORMAT="$1"
+         ;;
+
          --output-format)
-           [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
             shift
 
             OPTION_OUTPUT_FORMAT="$1"
             case "${OPTION_OUTPUT_FORMAT}" in
-               file|file_lf|ld|ld_lf)
+               csv|file|file_lf)
+                  collect_libraries='NO'
+               ;;
+
+               ld|ld_lf)
+                  collect_libraries='YES'
                ;;
 
                *)
@@ -290,8 +429,6 @@ sde_linkorder_main()
    log_debug "nodes: ${nodes}"
 
    local dependency_libs
-   local optional_dependency_libs
-   local os_specific_libs
 
    IFS="
 " ; set -f
@@ -301,83 +438,16 @@ sde_linkorder_main()
 
       IFS=";" read address marks <<< "${node}"
 
-      r_fast_basename "${address}"
-      name="${RVAL}"
-
-      local is_standalone
-
-      is_standalone="NO"
-      # find dependency lib and
-      case ",${marks}," in
-         *,only-standalone,*)
-            [ -z "${standalone_load}" ] || \
-               fail "Nodes \"${name}\" and \"${standalone_load}\" both marked as only-standalone"
-            standalone_load="${name}"
-
-            is_standalone="YES"
-            log_debug "${name} is a standalone library"
-         ;;
-
-         *,no-all-load,*)
-            r_add_line  "${static_loads}" "${name}"
-            normal_loads="${RVAL}"
-            log_debug "${name} is a C library"
-         ;;
-
-         *)
-            r_add_line  "${all_loads}" "${name}"
-            all_loads="${RVAL}"
-            log_debug "${name} is an ObjC library"
-         ;;
-      esac
-
-      local libpath
-
-      r_sde_locate_library "${is_standalone}" "${name}"
-      libpath="${RVAL}"
-      [ -z "${libpath}" ] && fail "Did not find \"${name}\" library"
-
-      log_fluff "Found \"${libpath}\" as library \"${name}\""
-
-      r_add_unique_line "${dependency_libs}" "${libpath}"
-      dependency_libs="${RVAL}"
-
-      local linklibrary_dir
-      local linkinclude_dir
-
-      linklibrary_dir="${DEPENDENCY_DIR}/lib"
-      linkinclude_dir="${DEPENDENCY_DIR}/include/${name}/link"
-
-      if [ -d "${linkinclude_dir}" ]
+      if linkorder_collect "${address}" "${marks}"
       then
-         log_fluff "Reading link information from \"${linkinclude_dir}\""
-
-         dlibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/dependency-libraries.txt" `"
-         olibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/optional-dependency-libraries.txt" `"
-         oslibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/os-specific-libraries.txt" `"
-
-         if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
-         then
-            log_trace2 "dependencies : ${dlibs}"
-            log_trace2 "optionals    : ${olibs}"
-            log_trace2 "os-specifics : ${oslibs}"
-         fi
-
-         r_add_unique_lines "${dependency_libs}" "${dlibs}"
+         r_add_unique_line "${dependency_libs}" "${RVAL}"
          dependency_libs="${RVAL}"
-         r_add_unique_lines "${optional_dependency_libs}" "${olibs}"
-         optional_dependency_libs="${RVAL}"
-         r_add_unique_lines "${os_specific_libs}" "${oslibs}"
-         os_specific_libs="${RVAL}"
-      else
-         log_fluff "No link information in \"${linkinclude_dir}\""
       fi
    done
    IFS="${DEFAULT_IFS}"; set +f
 
    emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \
                                        "${OPTION_RPATH}" \
-                                       ${dependency_libs} \
-                                       ${optional_dependency_libs} \
-                                       ${os_specific_libs}
+                                       "${OPTION_WHOLE_ARCHIVE_FORMAT}" \
+                                       ${dependency_libs}
 }

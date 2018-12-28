@@ -178,7 +178,7 @@ copy_mulle_make_definitions()
    srcdir="`sde_dependency_source_dir_main "${name}"`"
    if [ -z "${srcdir}" ]
    then
-      log_warning "No source directory for \${name}\" found."
+      log_warning "No source directory for \"${name}\" found."
       return
    fi
 
@@ -194,7 +194,7 @@ clobber possibly existing .mulle-make definitions"
    local dstname
 
    shopt -s nullglob
-   for i in "${srcdir}"/.mulle-make* 
+   for i in "${srcdir}"/.mulle-make*
    do
       if [ -d "${i}" ]
       then
@@ -285,6 +285,7 @@ __sde_craftinfo_vars_with_url_or_address()
 
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               -V \
+                              -s \
                               ${MULLE_SOURCETREE_FLAGS} \
                            get \
                               --url-addressing \

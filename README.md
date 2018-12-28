@@ -1,4 +1,8 @@
-# 💠 Cross-platform IDE for the command-line
+# mulle-sde
+
+💠 Cross-platform IDE for the command-line
+
+![Last version](https://img.shields.io/github/tag/mulle-sde/mulle-sde.svg)
 
 ... for Linux, OS X, FreeBSD, Windows
 

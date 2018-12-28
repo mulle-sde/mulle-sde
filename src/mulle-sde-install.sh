@@ -150,12 +150,13 @@ Use -f flag to clobber."
                              -N ${MULLE_TECHNICAL_FLAGS} \
                              buildorder --output-marks > buildorder || return 1
 
-   eval_exekutor "${environment}" mulle-craft \
-         -e ${MULLE_CRAFT_FLAGS} ${MULLE_TECHNICAL_FLAGS} \
-         buildorder \
-            --no-protect \
-            -f buildorder \
-            "${arguments}" || return 1
+   eval_exekutor "${environment}" mulle-craft -e \
+                                       ${MULLE_CRAFT_FLAGS} \
+                                       ${MULLE_TECHNICAL_FLAGS} \
+                                       --buildorder-file buildorder \
+                                    buildorder \
+                                       --no-protect \
+                                       "${arguments}" || return 1
 }
 
 

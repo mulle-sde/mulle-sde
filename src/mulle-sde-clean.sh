@@ -47,9 +47,9 @@ Usage:
 
 Domains:
    all         : cleans buildorder, cache, project. Removes folder "`fast_basename "${DEPENDENCY_DIR}"`"
-   cache       : clean some caches including the archive and buildorder cache
+   cache       : clean the archive cache
    default     : clean project and subprojects (default)
-   fetch       : combines "tidy" with "cache" to force a fetch from remotes
+   fetch       : clean to force a fresh fetch from remotes
    project     : clean project, keeps dependencies
    subprojects : clean subprojects
    tidy        : cleans everything and removes fetched dependencies. It's slow!
@@ -158,6 +158,15 @@ sde_clean_subproject_main()
 }
 
 
+sde_clean_buildordercache_main()
+{
+   log_entry "sde_clean_buildordercache_main" "$@"
+
+   log_verbose "Cleaning sde cache"
+   rmdir_safer ".mulle-sde/var/${MULLE_HOSTNAME}/cache"
+}
+
+
 #
 # this will destroy the buildorder
 # also wipe archive cache. Does not wipe git mirror cache unless -f is given
@@ -166,9 +175,6 @@ sde_clean_subproject_main()
 sde_clean_cache_main()
 {
    log_entry "sde_clean_cache_main" "$@"
-
-   log_verbose "Cleaning sde cache"
-   rmdir_safer ".mulle-sde/var/${MULLE_HOSTNAME}/cache"
 
 
    if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
@@ -200,6 +206,10 @@ sde_clean_var_main()
       case "${directory}" in
          */.mulle-env/var)
             # not that it has the bin dir
+         ;;
+
+         */.mulle-sourcetree/var)
+            # wipe database separately
          ;;
 
          */.mulle-*/var)
@@ -257,6 +267,19 @@ sde_clean_monitor_main()
                      ${MULLE_MONITOR_FLAGS} \
                   clean
 }
+
+
+sde_clean_graveyard_main()
+{
+   log_entry "sde_clean_graveyard_main" "$@"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+               desecrate
+}
+
 
 
 
@@ -319,11 +342,11 @@ tidy"
       ;;
 
       all)
-         domains="builddir dependencydir cache"
+         domains="builddir dependencydir cache buildordercache"
       ;;
 
       cache)
-         domains="cache db monitor patternfile"
+         domains="cache db monitor patternfile buildordercache"
       ;;
 
       buildorder)
@@ -348,7 +371,7 @@ tidy"
       ;;
 
       fetch)
-         domains="sourcetree output var db monitor patternfile cache"
+         domains="sourcetree buildordercache output var db monitor patternfile cache"
       ;;
 
       subproject|subprojects)
@@ -356,7 +379,7 @@ tidy"
       ;;
 
       tidy)
-         domains="sourcetree output var db monitor patternfile"
+         domains="sourcetree buildordercache graveyard output var db monitor patternfile"
       ;;
 
       *)

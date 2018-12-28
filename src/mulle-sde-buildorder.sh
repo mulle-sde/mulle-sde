@@ -220,8 +220,8 @@ sde_buildorder_main()
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_CRAFT_FLAGS} \
-                        list \
-                           --buildorder-file "${_buildorderfile}"
+                           --buildorder-file "${_buildorderfile}" \
+                        list
       fi
       return $?
    fi

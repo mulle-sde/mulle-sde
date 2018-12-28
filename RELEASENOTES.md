@@ -1,3 +1,8 @@
+## 0.34.0
+
+* linkorder is simpler, because tests now are based on mulle-sde, which means we don't need the linkmanifest files anymore
+
+
 ### 0.33.15
 
 * adapt to changes in mulle-craft
