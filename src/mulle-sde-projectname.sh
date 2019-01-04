@@ -38,7 +38,8 @@ set_projectname_variables()
 
    PROJECT_NAME="${PROJECT_NAME:-$1}"
 
-   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty"
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty.
+${C_INFO}Are you runnning inside a mulle-sde environment ?"
 
    if [ ! -z "${PROJECT_UPCASE_IDENTIFIER}" ]
    then
@@ -52,8 +53,6 @@ set_projectname_variables()
    fi
 
    PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
-
-   local RVAL
 
    r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
    PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z-' 'a-z_' <<< "${RVAL}"`"

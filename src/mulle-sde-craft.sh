@@ -295,8 +295,6 @@ sde_craft_main()
    local buildorder_cmdline
    local project_cmdline
    local flags
-   local RVAL
-
    r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
    flags="${RVAL}"
 

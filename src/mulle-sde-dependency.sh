@@ -87,22 +87,25 @@ Usage:
    You should specify with options, if a dependency supports the mulle-make
    three phase build protocol for vastly superior build times.
 
+   You should also specify the language if the dependency is Objective-C.
+
    Example:
       ${MULLE_USAGE_NAME} dependency add --multiphase --github nat foobar
 
 Options:
+   --c             : used for C dependencies (default)
    --embedded      : the dependency becomes part of the local project
    --github <name> : create an URL for a - possibly fictitious - github name
    --headerless    : has no headerfile
    --headeronly    : has no library
    --if-missing    : if a node with the same address is present, do nothing
    --multiphase    : the dependency can be built in three phases
-   --objc          : used for Objective-C dependencies, implies --multiphase
-   --optional      : is not required to exist
+   --objc          : used for Objective-C dependencies
+   --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
-   --singlephase   : the dependency must be built in one phase
-      (see: mulle-sourcetree -e -v add -h for more add options)
+   --singlephase   : the dependency must be built in one phase (default)
+      (see: mulle-sourcetree -v add -h for more add options)
 EOF
   exit 1
 }
@@ -123,6 +126,10 @@ Usage:
    Examples:
       ${MULLE_USAGE_NAME} dependency set --append pthreads aliases pthread
       ${MULLE_USAGE_NAME} dependency set libdill include libdill.h
+
+   Note: Specifiying aliases works nicely in the generated cmake files. The
+         'linkorder' though has a problem, since it doesn't use cmake's
+         find_library.
 
 Options:
    --append    : append value instead of set
@@ -423,8 +430,6 @@ _sde_enhance_url()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
-   local RVAL
-
    r_tweaked_de_camel_case "${address}"
    upcaseid="`printf "%s" "${RVAL}" | tr -c 'a-zA-Z0-9' '_'`"
    upcaseid="`tr 'a-z' 'A-Z' <<< "${upcaseid}"`"
@@ -501,10 +506,8 @@ sde_dependency_add_main()
    local OPTION_PRIVATE='NO'
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
-   local OPTION_SINGLEPHASE='NO'
+   local OPTION_SINGLEPHASE='YES' # safe default
    local OPTION_FAKE_GITHUB
-   local RVAL
-
    #
    # grab options for mulle-sourcetree
    # interpret sde options
@@ -538,12 +541,10 @@ sde_dependency_add_main()
 
          -c|--c)
             OPTION_DIALECT='c'
-            OPTION_SINGLEPHASE='YES'
          ;;
 
          -m|--objc)
             OPTION_DIALECT='objc'
-            OPTION_SINGLEPHASE='NO'
          ;;
 
          --multiphase)

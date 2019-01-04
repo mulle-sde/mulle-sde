@@ -32,11 +32,45 @@
 MULLE_SDE_CLEAN_SH="included"
 
 
+# Cleaning is a delightfully complex topic. You want to clean because you
+# want to recompile your project fully. A symlinked dependency has changed.
+# You want your sourcetree clean again. You want to fetch newer versions from
+# repositories. mulle-sde goofed somewhere and you want to start anew.
+# But you don't want to clean too much, because rebuilding takes time.
+#
+# Identifying major clean tasks:
+#
+#            |    project    |      all      |     tidy      |    fetch      |
+# -----------|---------------|---------------|---------------|---------------|
+# craft      |    project    |     build     |  build,dep    |  build,dep    |
+# -----------|---------------|---------------|---------------|---------------|
+# fetch      |               |               |               |    cache      |
+# -----------|---------------|---------------|---------------|---------------|
+# make       |      N/A      |      N/A      |      N/A      |      N/A      |
+# -----------|---------------|---------------|---------------|---------------|
+# match      |               |               |               |               |
+# -----------|---------------|---------------|---------------|---------------|
+# monitor    |               |               |               |               |
+# -----------|---------------|---------------|---------------|---------------|
+# sde        |      N/A      |      N/A      |      N/A      |      N/A      |
+# -----------|---------------|---------------|---------------|---------------|
+# sourcetree |               |               |  cln/rst/grv  |               |
+# -----------|---------------|---------------|---------------|---------------|
+#
+#
+# craft:       project, buildorder, built, individual build, build, dependency
+# fetch:       archive cache, repository cache
+# make:        nothing
+# match:       patternfiles in var
+# monitor:     locks and status files in var
+# sde:         N/A
+# sourcetree:  touch, clean, reset, graveyard
+#
 sde_clean_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
-    cat <<EOF >&2
+   cat <<EOF >&2
 Usage:
    ${MULLE_USAGE_NAME} clean [domain]
 
@@ -44,15 +78,24 @@ Usage:
    domains. Clean will rebuild your project including subprojects.
    Use \`${MULLE_USAGE_NAME} -v -n -lx clean\` to preview, what will be
    cleaned.
+EOF
+   if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
+   then
+      cat <<EOF >&2
 
+
+
+EOF
+   fi
+   cat <<EOF >&2
 Domains:
-   all         : cleans buildorder, cache, project. Removes folder "`fast_basename "${DEPENDENCY_DIR}"`"
+   all         : clean buildorder, project. Remove folder "`fast_basename "${DEPENDENCY_DIR}"`"
    cache       : clean the archive cache
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
-   project     : clean project, keeps dependencies
+   project     : clean project, keep dependencies
    subprojects : clean subprojects
-   tidy        : cleans everything and removes fetched dependencies. It's slow!
+   tidy        : clean everything and remove fetched dependencies. It's slow!
 EOF
    exit 1
 }
@@ -82,6 +125,7 @@ sde_clean_builddir_main()
    log_verbose "Cleaning \"build\" directory"
    [ ! -z "${BUILD_DIR}" ] && rmdir_safer "${BUILD_DIR}"
 }
+
 
 sde_clean_dependencydir_main()
 {
@@ -138,8 +182,6 @@ sde_clean_subproject_main()
    fi
 
    local name
-   local RVAL
-
    set -o noglob; IFS="
 "
    for subproject in ${subprojects}
@@ -163,7 +205,7 @@ sde_clean_buildordercache_main()
    log_entry "sde_clean_buildordercache_main" "$@"
 
    log_verbose "Cleaning sde cache"
-   rmdir_safer ".mulle-sde/var/${MULLE_HOSTNAME}/cache"
+   rmdir_safer ".mulle/var/sde/${MULLE_HOSTNAME}/cache"
 }
 
 
@@ -204,11 +246,11 @@ sde_clean_var_main()
    do
       IFS="${DEFAULT_IFS}"
       case "${directory}" in
-         */.mulle-env/var)
+         */.mulle/var/env)
             # not that it has the bin dir
          ;;
 
-         */.mulle-sourcetree/var)
+         */.mulle/var/sourcetree)
             # wipe database separately
          ;;
 
@@ -260,7 +302,6 @@ sde_clean_monitor_main()
 {
    log_entry "sde_clean_monitor_main" "$@"
 
-   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       rexekutor "${MULLE_MONITOR:-mulle-monitor}" \
                      ${MULLE_TECHNICAL_FLAGS} \
@@ -331,22 +372,23 @@ sde_clean_main()
       'domains')
          echo "\
 all
+buildorder
 cache
 default
 dependency
-project
 fetch
+project
 subprojects
 tidy"
          exit 0
       ;;
 
       all)
-         domains="builddir dependencydir cache buildordercache"
+         domains="builddir dependencydir buildordercache"
       ;;
 
       cache)
-         domains="cache db monitor patternfile buildordercache"
+         domains="cache"
       ;;
 
       buildorder)
@@ -388,9 +430,7 @@ tidy"
             local escaped_dependency
             local targets
             local found
-            local RVAL
-
-            r_escaped_grep_pattern "$1"
+                     r_escaped_grep_pattern "$1"
             escaped_dependency="${RVAL}"
 
             targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \

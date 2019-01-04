@@ -30,16 +30,18 @@ endif()
 
 # install craftinfos
 
-file( GLOB BUILDINFO_DIRS
-   mulle-make*
+file( GLOB DEFINITION_DIRS
+   definition*
 )
 
-if( BUILDINFO_DIRS)
-	foreach( DIR ${BUILDINFO_DIRS} )
+if( DEFINITION_DIRS)
+	foreach( DIR ${DEFINITION_DIRS} )
 	   install( DIRECTORY "${DIR}" DESTINATION "share/mulle-craft/<|ONESHOT_NAME|>"
 	            USE_SOURCE_PERMISSIONS
 	            PATTERN "*._DS_Store" EXCLUDE
 	   )
 	endforeach()
+else()
+   message( FATAL_ERROR "Remove craftinfo \"<|ONESHOT_NAME|>\" as it is empty with:\n   mulle-sourcetree remove craftinfo/<|ONESHOT_NAME|>\n   rm -rf craftinfo/<|ONESHOT_NAME|>")
 endif()
 

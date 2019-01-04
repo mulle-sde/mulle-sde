@@ -62,9 +62,10 @@ EOF
    then
       cat <<EOF >&2
    Eventually the "craftinfo" contents are used by \`mulle-craft\` to populate
-   the \`dependency/share/mulle-craft\` folder and override any \`.mulle-make\`
-   folders. That's all fairly complicated, but it's necessary to have proper
-   setting inheritance across multiple nested projects.
+   the \`dependency/share/mulle-craft\` folder and override any
+   \`.mulle/etc/craft/definition\`folders. That's all fairly complicated, but
+   it's necessary to have proper setting inheritance across multiple nested
+   projects.
 
 EOF
    else
@@ -185,16 +186,16 @@ copy_mulle_make_definitions()
    if [ ! -d "${srcdir}" ]
    then
       log_warning "Source directory not there yet, be careful not to \
-clobber possibly existing .mulle-make definitions"
+clobber possibly existing .mulle/etc/craft definitions"
       return
    fi
 
    local i
-   local RVAL
+
    local dstname
 
    shopt -s nullglob
-   for i in "${srcdir}"/.mulle-make*
+   for i in "${srcdir}"/.mulle/etc/craft/definition*
    do
       if [ -d "${i}" ]
       then
@@ -300,7 +301,7 @@ __sde_craftinfo_vars_with_url_or_address()
    r_fast_basename "${_address}"
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}"
-   _folder="${_subprojectdir}/mulle-make${extension}"
+   _folder="${_subprojectdir}/definition${extension}"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}"  = 'YES' ]
    then

@@ -4,16 +4,20 @@ digraph G {
     node[shape=record];
 
     { rank = same; "mulle-sde monitor" };
-    { rank = same; "src", ".mulle-sourcetree" };
+    { rank = same; "src", ".mulle" };
 
     "project"            [ shape="folder", color="gray", fontcolor="gray"]
     "src"                [ shape="folder"]
-    ".mulle-sourcetree"  [ shape="folder", color="gray", fontcolor="gray"]
+    ".mulle"             [ shape="folder", color="gray", fontcolor="gray"]
+    "etc"                [ shape="folder", color="gray", fontcolor="gray"]
+    "sourcetree f"       [ label="sourcetree", shape="folder", color="gray", fontcolor="gray"]
     "config"             [ shape="note"]
 
-    "project"            -> "src"                [ arrowhead="none", color="gray", fontcolor="gray"]
-    "project"            -> ".mulle-sourcetree"  [ arrowhead="none", color="gray", fontcolor="gray"]
-    ".mulle-sourcetree"  -> "config"             [ arrowhead="none" ]
+    "project"            -> "src"           [ arrowhead="none", color="gray", fontcolor="gray"]
+    "project"            -> ".mulle"        [ arrowhead="none", color="gray", fontcolor="gray"]
+    ".mulle"             -> "etc"           [ arrowhead="none", color="gray", fontcolor="gray"]
+    "etc"                -> "sourcetree f"  [ arrowhead="none", color="gray", fontcolor="gray"]
+    "sourcetree f"  -> "config"             [ arrowhead="none" ]
 
     "source"               [ shape="diamond", color="#fa8231", fontcolor="#fa8231", label="\"source\"" ]
     "sourcetree"           [ shape="diamond", color="#fa8231", fontcolor="#fa8231", label="\"sourcetree\"" ]

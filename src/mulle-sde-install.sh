@@ -94,6 +94,7 @@ do_update_sourcetree()
                         "$@"
 }
 
+
 install_in_tmp()
 {
    log_entry "install_in_tmp" "$@"
@@ -108,7 +109,7 @@ install_in_tmp()
    local add
 
    add='YES'
-   if mulle-sourcetree -s -e -N dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+   if mulle-sourcetree -s -N dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       log_verbose "Reusing previous .mulle-sourcetree folder unchanged. \
 Use -f flag to clobber."
@@ -128,29 +129,31 @@ Use -f flag to clobber."
          r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
          MULLE_FETCH_SEARCH_PATH="${RVAL}"
 
-         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS}  \
                                    add --nodetype git "${url}"  || return 1
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
-                           mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+                           mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                             -N ${MULLE_TECHNICAL_FLAGS}  \
                                             update --symlink || return 1
       else
-         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS} \
                                    add "${url}"  || return 1
 
-         exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS} \
                                    update || return 1
       fi
    fi
 
-   exekutor mulle-sourcetree -e ${MULLE_SOURCETREE_FLAGS} \
+   exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                              -N ${MULLE_TECHNICAL_FLAGS} \
-                             buildorder --output-marks > buildorder || return 1
+                             buildorder \
+                                --no-print-env \
+                                --output-marks > buildorder || return 1
 
-   eval_exekutor "${environment}" mulle-craft -e \
+   eval_exekutor "${environment}" mulle-craft \
                                        ${MULLE_CRAFT_FLAGS} \
                                        ${MULLE_TECHNICAL_FLAGS} \
                                        --buildorder-file buildorder \
@@ -235,8 +238,6 @@ sde_install_main()
 
    local delete_tmp
    local PROJECT_DIR
-   local RVAL
-
    if [ -z "${OPTION_PROJECT_DIR}" ]
    then
       PROJECT_DIR="`make_tmp_directory`" || exit 1

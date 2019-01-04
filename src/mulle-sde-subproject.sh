@@ -157,13 +157,15 @@ sde_subproject_init_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} subproject init [options] <projecttype> ...
+   ${MULLE_USAGE_NAME} subproject init -d <directory> ...
+
+   ** BEWARE: SUBPROJECTS ARE HARD TO CONFIGURE CORRECTLY **
 
    Intitialize a subproject for mulle-sde and add it to the list of
-   subprojects. The remainder of the arguments is passed to \`mulle-sde init\`.
+   subprojects. The arguments are passed to \`mulle-sde init\`.
 
-   By default the subproject inherits the extensions and the style from the
-   main project.
+   By default the subproject inherits the extensions and the environment
+   style from the main project.
 
    Example:
       ${MULLE_USAGE_NAME} subproject init -d src/Base library
@@ -280,7 +282,7 @@ emit_ignore_patternfile()
 
 update_ignore_patternfile()
 {
-   log_entry "sde_subproject_main" "$@"
+   log_entry "update_ignore_patternfile" "$@"
 
    local subprojects
    local contents
@@ -291,8 +293,8 @@ update_ignore_patternfile()
    local sharefile
    local etcfile
 
-   sharefile="${MULLE_SDE_DIR}/share/ignore.d/30-subproject--none"
-   etcfile="${MULLE_SDE_ETC_DIR}/ignore.d/30-subproject--none"
+   sharefile="${MULLE_SDE_SHARE_DIR}/../match/ignore.d/30-subproject--none"
+   etcfile="${MULLE_SDE_ETC_DIR}/../match/ignore.d/30-subproject--none"
 
    if [ -e "${sharefile}" ]
    then
@@ -334,7 +336,6 @@ sde_subproject_init_main()
    local directory
    local meta
    local style
-   local flags
 
    while :
    do
@@ -364,15 +365,6 @@ sde_subproject_init_main()
             style="$1"
          ;;
 
-         --existing)
-				r_concat "${flags}" "$1"
-				flags="${RVAL}"
-			;;
-
-         -*)
-            sde_subproject_init_usage "Unknown option \"$1\""
-         ;;
-
          *)
             break
          ;;
@@ -383,12 +375,10 @@ sde_subproject_init_main()
 
    [ -z "${directory}" ]  && sde_subproject_init_usage
 
-   if [ -d "${directory}/.mulle-sde" ]
+   if [ -d "${directory}/.mulle/share/sde" ]
    then
       fail "\"${directory}\" is already present and initialized"
    fi
-
-   local args
 
    if [ -z "${meta}" ]
    then
@@ -440,7 +430,6 @@ sde_subproject_init_main()
                                      --no-motd \
                                      --no-blurb \
                                      --project-source-dir "." \
-                                     "${args}" \
                                      "$@"
    )
 
@@ -462,6 +451,7 @@ exekutor_sourcetree_cmd_nofail()
                ${MULLE_SOURCETREE_FLAGS} \
             "$@" || exit 1
 }
+
 
 rexekutor_sourcetree_cmd_nofail()
 {
@@ -527,9 +517,9 @@ sde_subproject_map()
       do
          set +o noglob; IFS="${DEFAULT_IFS}"
 
-         if [ ! -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle-sde" ]
+         if [ ! -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle/share/sde" ]
          then
-            log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle-sde folder"
+            log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle/share/sde folder"
             continue
          fi
 
@@ -539,7 +529,12 @@ sde_subproject_map()
          then
             (
                exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
-               redirect_append_exekutor "${statusfile}" echo $?
+               rval=$?
+
+               if [ $rval -ne 0 ]
+               then
+                  redirect_append_exekutor "${statusfile}" echo $rval
+               fi
             ) &
          else
             exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
@@ -602,11 +597,16 @@ sde_subproject_main()
 
    [ $# -ne 0 ] && shift
 
-
    case "${cmd}" in
       add)
-         exekutor_sourcetree_cmd_nofail add --marks "${SUBPROJECT_MARKS}" "$@"
-         update_ignore_patternfile "$@"
+         [ -z "${MULLE_SDE_DEPENDENCY_SH}" ] && \
+            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+
+         sde_dependency_add_main --address "$1" \
+                                 --marks "${SUBPROJECT_MARKS}" \
+                                 --nodetype local \
+                                 "$1"  || exit 1
+         update_ignore_patternfile # old cruft
       ;;
 
       commands)

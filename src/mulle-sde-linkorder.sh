@@ -47,8 +47,11 @@ Usage:
 
    This command is useful for compiling and linking single sourcefiles.
 
+   The linkorder command may produce incorrect link names, if the aliases
+   feature is used.
+
 Options:
-   --output-format <format>  : specify file,file_lf or ld, ld_lf
+   --output-format <format>  : specify node,file,file_lf or ld, ld_lf
 EOF
    exit 1
 }
@@ -58,27 +61,17 @@ r_sde_locate_library()
 {
    log_entry "r_sde_locate_library" "$@"
 
-   local standalone="$1"; shift
-
-   local prefer
-   local type
-
-   prefer="static"
-   type="library"
-
-   if [ "${standalone}" = "YES" ]
-   then
-      type="standalone"
-      prefer="dynamic"
-   fi
+   local libstyle="$1"; shift
+   local require="$1"; shift
 
    [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
 
    r_platform_search "${DEPENDENCY_DIR}:${ADDICTION_DIR}" \
                      "lib" \
-                     "${type}" \
-                     "${prefer}" \
+                     "${libstyle}" \
+                     "static" \
+                     "${require}" \
                      "$@"
 }
 
@@ -91,7 +84,7 @@ _emit_file_output()
 
    local cmdline
    local filename
-   local RVAL
+
    local marks
    local csv
 
@@ -154,7 +147,7 @@ _emit_ld_output()
    [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
 
-   local RVAL
+
    local result
 
    if [ "${withldpath}" = 'YES' ]
@@ -218,11 +211,13 @@ sde_linkorder_all_nodes()
    log_entry "sde_linkorder_all_nodes" "$@"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  walk \
-                     --lenient \
-                     --qualifier 'MATCHES link' \
-                     --permissions descend-symlink \
-                     'echo "${MULLE_ADDRESS};${MULLE_MARKS}"'
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+               walk \
+                  --lenient \
+                  --buildorder-qualifier 'MATCHES link' \
+                  --permissions 'descend-symlink,descend-mark' \
+                  'echo "${MULLE_ADDRESS};${MULLE_MARKS};${MULLE_RAW_USERINFO}"'
 }
 
 
@@ -237,16 +232,18 @@ linkorder_collect()
 
    local address="$1"
    local marks="$2"
-   local collect_libraries="$3"
+   local aliases="$3"
+   local collect_libraries="$4"
 
    local name
 
    r_fast_basename "${address}"
    name="${RVAL}"
 
-   local is_standalone
+   local librarytype
+   local requirement
 
-   is_standalone="NO"
+   librarytype="library"
 
    # find dependency lib and
    case ",${marks}," in
@@ -255,8 +252,16 @@ linkorder_collect()
             fail "Nodes \"${name}\" and \"${standalone_load}\" both marked as only-standalone"
          standalone_load="${name}"
 
-         is_standalone="YES"
+         librarytype="standalone"
          log_debug "${name} is a standalone library"
+      ;;
+
+      *,no-dynamic-link,*)
+         requirement="static"
+      ;;
+
+      *,no-static-link,*)
+         requirement="dynamic"
       ;;
    esac
 
@@ -276,51 +281,15 @@ linkorder_collect()
 
    local libpath
 
-   r_sde_locate_library "${is_standalone}" "${name}"
+   r_sde_locate_library "${librarytype}" "${requirement}" "${name}" ${aliases}
    libpath="${RVAL}"
-   [ -z "${libpath}" ] && fail "Did not find \"${name}\" library"
+   [ -z "${libpath}" ] && fail "Did not find \"${name}\" library.
+${C_INFO}The linkorder is available after dependencies have been built.
+${C_RESET_BOLD}   mulle-sde craft"
 
    log_fluff "Found library \"${name}\" at \"${libpath}\""
 
    r_concat "${libpath}" "${marks}" ";"
-
-#   local linklibrary_dir
-#   local linkinclude_dir
-#
-#   linklibrary_dir="${DEPENDENCY_DIR}/lib"
-#   linkinclude_dir="${DEPENDENCY_DIR}/include/${name}/link"
-#
-#
-#   if [ -d "${linkinclude_dir}" ]
-#   then
-#      log_fluff "Reading link information from \"${linkinclude_dir}\""
-#
-#      alibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/all-load-libraries.txt" `"
-#      dlibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/dependency-libraries.txt" `"
-#      olibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/optional-dependency-libraries.txt" `"
-#      oslibs="`exekutor egrep -s -v '^#' "${linkinclude_dir}/os-specific-libraries.txt" `"
-#
-#      if [ "${MULLE_FLAG_LOG_SETTINGS}" = "YES" ]
-#      then
-#         log_trace2 "all-loads    : ${alibs}"
-#         log_trace2 "dependencies : ${dlibs}"
-#         log_trace2 "optionals    : ${olibs}"  # wtf ?
-#         log_trace2 "os-specifics : ${oslibs}"
-#      fi
-#
-#      dlibs="`sed 's/$/;no-all-load/' <<< "${dlibs}" `"
-#      olibs="`sed 's/$/;no-all-load/' <<< "${olibs}" `"
-#      oslibs="`sed 's/$/;no-all-load/' <<< "${oslibs}" `"
-#
-#      r_add_unique_lines "${_dependency_libs}" "${dlibs}"
-#      _dependency_libs="${RVAL}"
-#      r_add_unique_lines "${_optional_dependency_libs}" "${olibs}"
-#      _optional_dependency_libs="${RVAL}"
-#      r_add_unique_lines "${_os_specific_libs}" "${oslibs}"
-#      _os_specific_libs="${RVAL}"
-#   else
-#      log_fluff "No link information in \"${linkinclude_dir}\""
-#   fi
 }
 
 
@@ -380,7 +349,7 @@ sde_linkorder_main()
 
             OPTION_OUTPUT_FORMAT="$1"
             case "${OPTION_OUTPUT_FORMAT}" in
-               csv|file|file_lf)
+               node|csv|file|file_lf)
                   collect_libraries='NO'
                ;;
 
@@ -414,17 +383,23 @@ sde_linkorder_main()
    #
    if [ -z "${MULLE_PLATFORM_LIBEXEC_DIR}" ]
    then
-      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`"
+      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`" || exit 1
    fi
 
    local nodes
    local name
-   local address
    local all_loads
    local normal_loads
    local collect
 
    nodes="`sde_linkorder_all_nodes`" || exit 1
+
+   if [ "${OPTION_OUTPUT_FORMAT}" = "node" ]
+   then
+      log_info "Nodes"
+      echo "${nodes}"
+      return 0
+   fi
 
    log_debug "nodes: ${nodes}"
 
@@ -436,9 +411,40 @@ sde_linkorder_main()
    do
       IFS="${DEFAULT_IFS}"; set +f
 
-      IFS=";" read address marks <<< "${node}"
+      local address
+      local marks
+      local raw_userinfo
 
-      if linkorder_collect "${address}" "${marks}"
+      IFS=";" read address marks raw_userinfo <<< "${node}"
+
+      local aliases
+      local userinfo
+
+      if [ ! -z "${raw_userinfo}" ]
+      then
+         [ -z "${MULLE_ARRAY_SH}" ] && \
+            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh"
+
+         # TODO: WRONG!! must base64 decode ?
+         case "${raw_userinfo}" in
+            base64:*)
+               userinfo="`base64 --decode <<< "${raw_userinfo:7}"`"
+               if [ "$?" -ne 0 ]
+               then
+                  internal_fail "userinfo could not be base64 decoded."
+               fi
+            ;;
+
+            *)
+               userinfo="${raw_userinfo}"
+            ;;
+         esac
+
+         aliases="`assoc_array_get "${userinfo}" "aliases"`"
+      fi
+
+      # TODO: could remove duplicates with awk
+      if linkorder_collect "${address}" "${marks}" "${aliases}"
       then
          r_add_unique_line "${dependency_libs}" "${RVAL}"
          dependency_libs="${RVAL}"

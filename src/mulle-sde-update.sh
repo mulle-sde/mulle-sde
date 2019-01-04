@@ -70,7 +70,6 @@ _callback_run()
 
    [ -z "${callback}" ] && internal_fail "callback is empty"
 
-   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_MONITOR_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
@@ -86,7 +85,6 @@ _task_run()
 
    [ -z "${task}" ] && internal_fail "task is empty"
 
-   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_MONITOR_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
@@ -98,7 +96,6 @@ _task_status()
 {
    log_entry "_task_status" "$@"
 
-   MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
                    task status "${task}"
@@ -149,7 +146,7 @@ _sde_update_task()
    task="`_callback_run "${name}"`"
    rval=$?
 
-   if [ ! -z "${statusfile}" ]
+   if [ ! -z "${statusfile}" -a $rval -ne 0 ]
    then
       redirect_append_exekutor "${statusfile}" echo $rval
    fi
@@ -158,7 +155,7 @@ _sde_update_task()
    then
       "${runner}" "${task}"
       rval=$?
-      if [ ! -z "${statusfile}" ]
+      if [ ! -z "${statusfile}" -a $rval -ne 0 ]
       then
          redirect_append_exekutor "${statusfile}" echo $rval
       fi
@@ -251,7 +248,9 @@ sde_update_worker()
       flags="${flags} -f"
    fi
 
+   #
    # can't handle failure here oh well
+   #
    local statusfile
 
    r_make_tmp "mulle-sde"
@@ -265,7 +264,7 @@ sde_update_worker()
    local rval
 
    rval=0
-   if rexekutor grep -v 0 -s -q "${statusfile}"
+   if [ ! -z "`cat "${statusfile}"`" ]
    then
       log_fluff "A project errored out"
       rval=1
@@ -326,7 +325,6 @@ sde_update_main()
    # gratuitous optimization ?
    export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
    export MULLE_SDE_LIBEXEC_DIR
-   export MULLE_SDE_DIR
 
    if [ $# -ne 0 ]
    then

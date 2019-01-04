@@ -51,8 +51,6 @@ load_plugin_if_needed()
 
    local plugin
    local libexedir
-   local RVAL
-
    plugin="$(eval echo "\${${varname}}" )"
    if [ -z "${plugin}" ]
    then

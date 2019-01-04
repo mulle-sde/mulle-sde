@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.34.0
+MULLE_EXECUTABLE_VERSION=0.35.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -240,7 +240,7 @@ r_determine_project_dir()
 
    while [ "${current}" != "/" ]
    do
-      if [ -d "${current}/.mulle-sde" ]
+      if [ -d "${current}/.mulle/share/sde" ]
       then
          RVAL="${current}"
          return 0
@@ -266,7 +266,7 @@ _exec_command_in_subshell()
 {
    local cmdline="$1"; shift
 
-   local RVAL
+
    local current
 
    current="`pwd -P`"
@@ -330,7 +330,7 @@ cd_virtual_root()
    if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
    then
       # quick check that we are not passing a "mulle-env" boundary
-      if [ -d "${PWD}/.mulle-env" ]
+      if [ -d "${PWD}/.mulle/share/env" ]
       then
          log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, as we are in a subshell already"
       fi
@@ -346,7 +346,7 @@ cd_virtual_root_assert_mulle_sde()
 {
    cd_virtual_root "$@"
 
-   [ ! -d "${MULLE_SDE_DIR}" ] && fail "There is no ${MULLE_SDE_DIR} here"
+   [ ! -d "${MULLE_SDE_SHARE_DIR}" ] && fail "There is no ${MULLE_SDE_SHARE_DIR} here"
 }
 
 
@@ -457,8 +457,8 @@ main()
             exit 0
          ;;
 
-         -N|--no-search)
-            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --no-search`"
+         -N|--search-nearest)
+            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --search-nearest`"
          ;;
 
          --list-flags)
@@ -561,8 +561,17 @@ libexec-dir|library-path|project-dir)
    cmd="$1"
    [ $# -ne 0 ] && shift
 
-   MULLE_SDE_DIR="${MULLE_VIRTUAL_ROOT}/.mulle-sde"
-   MULLE_SDE_ETC_DIR="${MULLE_SDE_ETC_DIR:-${MULLE_SDE_DIR}/etc}"
+   local mulledir
+
+   #
+   # think about having a second MULLE_VIRTUAL_ROOT so that the project can
+   # be read only and we keep the bookkeeping somewhere on the outside
+   #
+   mulledir="${MULLE_VIRTUAL_ROOT}/.mulle"
+
+   MULLE_SDE_ETC_DIR="${mulledir}/etc/sde"
+   MULLE_SDE_VAR_DIR="${mulledir}/var/sde"
+   MULLE_SDE_SHARE_DIR="${mulledir}/share/sde"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
@@ -604,7 +613,6 @@ libexec-dir|library-path|project-dir)
             fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
          fi
 
-         MULLE_MONITOR_DIR="${MULLE_SDE_MONITOR_DIR:-${MULLE_SDE_DIR}}" \
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_MONITOR:-mulle-monitor}" \
                            ${MULLE_TECHNICAL_FLAGS} \

@@ -21,9 +21,10 @@ DEPENDENCIES='${MULLE_NAT_TAP}mulle-bashfunctions
 ${MULLE_SDE_TAP}mulle-env
 ${MULLE_SDE_TAP}mulle-craft
 ${MULLE_SDE_TAP}mulle-monitor
+${MULLE_SDE_TAP}mulle-platform
 ${MULLE_SDE_TAP}mulle-sourcetree
 '
 
-DEBIAN_DEPENDENCIES="mulle-bashfunctions, mulle-env, mulle-craft, mulle-monitor, mulle-sourcetree"
+DEBIAN_DEPENDENCIES="mulle-bashfunctions, mulle-env, mulle-craft, mulle-monitor, mulle-platform, mulle-sourcetree"
 
 

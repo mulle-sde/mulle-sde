@@ -4,26 +4,28 @@ digraph G {
      node[ shape=folder ];
 
     { rank = same;  "project" };
-    { rank = same;  ".mulle-sde", "src" };
-    { rank = same;  "share" };
+    { rank = same;  ".mulle", "src" };
+    { rank = same;  "match", "monitor" };
     { rank = same;  "bin", "libexec" }
-    { rank = same;  "match.d" }
 
     "project"
-    "project" -> ".mulle-sde"
+    "project" -> ".mulle"
     "project" -> "src"
 
-    ".mulle-sde" -> "share"
+    ".mulle"  -> "share"
+    "share"   -> "monitor"
+    "share"   -> "match"
 
-    "share" -> "bin"
-    "share" -> "libexec"
+    "monitor" -> "bin"
+    "monitor" -> "libexec"
+    "bin"     -> "text-callback"
+    "libexec" -> "aspell-task.sh"
 
     "src"   -> "demo.txt"
-    "bin"   -> "text-callback"
-    "share" -> "match.d"
+
+    "match" -> "match.d"
     "match.d" -> "00-text--all"
 
-    "libexec"  -> "aspell-task.sh"
 
     "demo.txt"        [ shape="note", color="#3867d6", fontcolor="#3867d6" ]
     "00-text--all"    [ shape="note", color="#20bf6b", fontcolor="#20bf6b" ]

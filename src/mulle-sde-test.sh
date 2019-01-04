@@ -175,8 +175,6 @@ sde_test_main()
    cmd="${1:-run}"
    [ $# -ne 0 ] && shift
 
-   local RVAL
-
    case "${cmd}" in
       -*)
          sde_test_run run "${cmd}" "$@"

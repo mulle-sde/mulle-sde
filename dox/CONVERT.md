@@ -2,9 +2,9 @@
 
 1. Checkout the project
 2. Move old CMakeLists.txt away (but keep it for now)
-3. Find suitable extension with `mulle-sde extension show`
+3. Find suitable mulle-sde extension with `mulle-sde extension show`
 4. mulle-sde init with the existing option
-5. If something goes wrong during init, the easiest way to start a new is  `rm -rf .mulle-env .mulle-sde`
+5. If something goes wrong during init, the easiest way to start a new is  `rm -rf .mulle`
 
 Example:
 
@@ -52,7 +52,7 @@ resulting "value added" URL, for modification possibilities `mulle-sourcetree li
 
 ## Add patternfiles if so desired
 
-If you're not happy with he way `mulle-sde find` associates the files with
+If you're not happy with he way `mulle-sde list` associates the files with
 their type/category add a few more patternfiles.
 
 Example:
@@ -99,6 +99,7 @@ Clean old stuff from the `mulle-bootstrap` era:
 
 ```
 rm .CC
+rm -rf .mulle-*
 rm -rf .bootstrap.*
 ```
 

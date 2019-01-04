@@ -231,24 +231,6 @@ mulle-sde log cat
 mulle-sde log -p "MulleObjC" grep 'foo'
 ```
 
-## mulle-sde monitor
-
-*monitor* waits on changes to the filesystem and then calls the
-appropriate callback (see below) to rebuild and retest your project.
-
-![](dox/mulle-sde-monitor.png)
-
-
-Environment       | Default        | Description
-------------------|----------------|--------------------
-`MULLE_SDE_CRAFT` | `mulle-craft`  | Build tool to invoke
-`MULLE_SDE_TEST`  | `mulle-test`   | Test tool to invoke
-
-The monitor is a complex beast and has its own
-[project page](https://github.com/mulle-sde/mulle-monitor) and
-[Wiki](https://github.com/mulle-sde/mulle-monitor/wiki).
-
-
 ## mulle-sde patternfile
 
 ![](dox/mulle-sde-patternfile.png)

@@ -229,7 +229,7 @@ r_template_filename_replacement_command()
    #
    # get VENDOR_NAME for file replacement
    #
-   seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
+   seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
              rexekutor "${MULLE_ENV:-mulle-env}" -s \
                            ${MULLE_ENV_FLAGS} environment \
                                  get --output-sed VENDOR_NAME`"
@@ -279,7 +279,7 @@ r_template_contents_replacement_command()
    # get current environment (as maybe already set by an extensions)
    # or by the user
    #
-   seds="`MULLE_VIRTUAL_ROOT="${PWD}" \
+   seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
              rexekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}  \
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
@@ -307,8 +307,6 @@ copy_and_expand_template()
    local onlyfile="$5"
 
    local templatefile
-   local RVAL
-
    r_filepath_concat "${templatedir}" "${dstfile}"
    templatefile="${RVAL}"
 
@@ -613,6 +611,8 @@ _template_main()
       PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_EXTENSIONS}"`"
    fi
 
+   PHYSPWD="`pwd -P`"
+
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "PROJECT_DIALECT=${PROJECT_DIALECT}"
@@ -622,8 +622,6 @@ _template_main()
       log_trace2 "PROJECT_NAME=${PROJECT_NAME}"
       log_trace2 "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
    fi
-
-   local RVAL
 
    if [ -z "${TEMPLATE_DIR}" ]
    then

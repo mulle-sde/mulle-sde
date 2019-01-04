@@ -121,7 +121,7 @@ export MULLE_SOURCETREE_SYMLINK="YES"
 #
 # Use common folder for sharable projects
 #
-export MULLE_SOURCETREE_SHARE_DIR="\${MULLE_VIRTUAL_ROOT}/stash"
+export MULLE_SOURCETREE_STASH_DIRNAME="stash"
 
 #
 # Share dependency directory (absolute for ease of use)
@@ -151,7 +151,7 @@ print_mulle_include_environment_sh()
 # Keep these files (except environment-custom.sh) clean off manual edits so
 # that mulle-env can read and set environment variables.
 #
-# .mulle-env/etc                        | .mulle-env/share
+# .mulle/etc/env                        | .mulle/share/env
 # --------------------------------------|--------------------
 #                                       | environment-plugin.sh
 #                                       | environment-plugin-os-\${MULLE_UNAME}.sh
@@ -275,12 +275,15 @@ env_setup_mulle_tools()
 {
    log_entry "env_setup_mulle_tools" "$@"
 
-   local bindir="$1"
-   local libexecdir="$2"
+   local bindir="$1"; shift
+   local libexecdir="$1"; shift
 
-   env_setup_developer_tools "$@"
+   [ $# -eq 2 ] && internal_fail "API error"
 
-   [ -z "${directory}" ] && internal_fail "directory is empty"
+   bindir="${MULLE_VIRTUAL_ROOT}/.mulle/bin"
+   libexecdir="${MULLE_VIRTUAL_ROOT}/.mulle/libexec"
+
+   env_setup_developer_tools "${bindir}" "${libexecdir}"
 
    #
    # Since the PATH is restricted, we need a basic set of tools
@@ -289,14 +292,16 @@ env_setup_mulle_tools()
    # checked yet)
    #
    (
-      env_link_mulle_tool "mulle-craft"      "$@" &&
-      env_link_mulle_tool "mulle-dispense"   "$@" &&
-      env_link_mulle_tool "mulle-fetch"      "$@" &&
-      env_link_mulle_tool "mulle-make"       "$@" &&
-      env_link_mulle_tool "mulle-match"      "$@" &&
-      env_link_mulle_tool "mulle-monitor"    "$@" &&
-      env_link_mulle_tool "mulle-sde"        "$@" &&
-      env_link_mulle_tool "mulle-sourcetree" "$@"
+      env_link_mulle_tool "mulle-craft"      "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-dispense"   "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-fetch"      "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-make"       "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-match"      "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-monitor"    "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-platform"   "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-sde"        "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-sourcetree" "${bindir}" "${libexecdir}" "$@" &&
+      env_link_mulle_tool "mulle-test"       "${bindir}" "${libexecdir}" "$@" "optional"
    ) || return 1
 }
 
@@ -309,8 +314,9 @@ env_r_mulle_add_runpath()
    local directory="$1"
    local runpath="$2"
 
-   # prepend in reverse order, so dependencies is first
-   r_colon_concat "${directory}/addiction/bin" "${runpath}"
+   # reverse order of precedence
+   r_colon_concat "${MULLE_VIRTUAL_ROOT}/.mulle/bin" "${runpath}"
+   r_colon_concat "${directory}/addiction/bin" "${RVAL}"
    r_colon_concat "${directory}/dependency/bin" "${RVAL}"
 }
 

@@ -49,7 +49,7 @@ Commands:
    add        : add an extra extension to your project
    list       : list installed extensions
    meta       : print the installed meta extension
-   pimp       : pimp up your your project with a one shot extension
+   pimp       : pimp up your your project with a one-shot extension
    searchpath : show locations where extensions are searched
    show       : show available extensions
    upgrade    : upgrade project extensions to the latest version
@@ -160,7 +160,7 @@ Usage:
 
 Options:
    --list <type> : list installable project files by type
-   --info        : list installable files for .mulle-sde/share
+   --info        : list installable files for .mulle/share/sde
    --recurse     : show usage information of inherited extensions
 EOF
    exit 1
@@ -347,8 +347,6 @@ _extension_list_vendors()
    local s
    local i
 
-   local RVAL
-
    r_extension_get_searchpath
    searchpath="${RVAL}"
 
@@ -383,8 +381,6 @@ _extension_list_vendor_extensions()
    local vendor="$1"
 
    local searchpaths
-   local RVAL
-
    r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
    searchpaths="${RVAL}"
 
@@ -610,8 +606,6 @@ _extension_get_version()
    local name="$2"
 
    local directory
-   local RVAL
-
    r_find_extension "${vendor}" "${name}"
    directory="${RVAL}"
 
@@ -691,7 +685,7 @@ sde_extension_show_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_list_usage
+            sde_extension_show_usage
          ;;
 
          --version)
@@ -707,7 +701,7 @@ sde_extension_show_main()
          ;;
 
          -*)
-            sde_extension_list_usage "Unknown option \"$1\""
+            sde_extension_show_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -752,8 +746,6 @@ sde_extension_show_main()
 
    log_verbose "Available vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}" | sed 's/^/  /'`"
-
-   local RVAL
 
    set -o noglob ; IFS="
 "
@@ -881,20 +873,16 @@ doesn't work outside of the mulle-sde environment"
    local extension
    local filename
 
-   if [ ! -d "${MULLE_SDE_DIR}/share/version" ]
+   if [ ! -d "${MULLE_SDE_SHARE_DIR}/version" ]
    then
-      if [ ! -d "${MULLE_SDE_DIR}/share" ]
+      if [ ! -d "${MULLE_SDE_SHARE_DIR}" ]
       then
-         if [ ! -d "${MULLE_SDE_DIR}" ]
-         then
-            fail "\"${PWD}\" doesn't look like \
-a mulle-sde project"
-         fi
-
-         if [ -d "${MULLE_SDE_DIR}/share.old" ]
+         if [ -d "${MULLE_SDE_SHARE_DIR}.old" ]
          then
             fail "\"${PWD}\" looks like a borked extension upgrade"
          fi
+         fail "\"${PWD}\" doesn't look like \
+a mulle-sde project"
       fi
       log_warning "No extensions installed"
       return 0
@@ -905,7 +893,7 @@ a mulle-sde project"
    (
       IFS="
 "
-      for filename in `rexekutor find "${MULLE_SDE_DIR}/share/version" -type f -print`
+      for filename in `rexekutor find "${MULLE_SDE_SHARE_DIR}/version" -type f -print`
       do
          IFS="${DEFAULT_IFS}"
 
@@ -968,8 +956,6 @@ __set_extension_vars()
          extension="${extension##*/}"
       ;;
    esac
-
-   local RVAL
 
    r_find_extension "${vendor}" "${extension}" || fail "Unknown extension \"${vendor}/${extension}\""
    extensiondir="${RVAL}"
@@ -1416,9 +1402,9 @@ sde_extension_main()
 
          [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "Command must be run from inside subshell"
 
-         if [ -f "${MULLE_SDE_DIR}/share/extension" ]
+         if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
          then
-            meta="`egrep ';meta$' "${MULLE_SDE_DIR}/share/extension" | head -1 | cut -d';' -f 1`"
+            meta="`egrep ';meta$' "${MULLE_SDE_SHARE_DIR}/extension" | head -1 | cut -d';' -f 1`"
          fi
 
          if [ -z "${meta}" ]
@@ -1432,9 +1418,7 @@ sde_extension_main()
       searchpath)
          log_info "Extension searchpath"
 
-         local RVAL
-
-         r_extension_get_searchpath
+               r_extension_get_searchpath
          echo "${RVAL}"
       ;;
 
@@ -1442,9 +1426,7 @@ sde_extension_main()
          [ $# -eq 0 ] && sde_extension_usage "Missing vendor argument"
 
          log_info "Extension vendor path"
-         local RVAL
-
-         r_extension_get_vendor_path "$1"
+               r_extension_get_vendor_path "$1"
 
          echo "${RVAL}"
       ;;

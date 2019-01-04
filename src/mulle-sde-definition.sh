@@ -82,11 +82,11 @@ r_definition_scopes()
 
    RVAL=""
    shopt -s nullglob
-   for i in .mulle-make .mulle-make.*
+   for i in .mulle/etc/craft/definition .mulle/etc/craft/definition.*
    do
       case "$i" in
-         .mulle-make)
-				if [ -d .mulle-make ]
+         .mulle/etc/craft/definition)
+				if [ -d .mulle/etc/craft/definition ]
 				then
 	            if [ "${option}" != "no-global" ]
 	            then
@@ -96,7 +96,7 @@ r_definition_scopes()
          ;;
 
          *)
-            r_add_line "${RVAL}" "${i#.mulle-make.}"
+            r_add_line "${RVAL}" "${i#.mulle/etc/craft/definition.}"
          ;;
       esac
    done
@@ -109,8 +109,6 @@ sde_definition_scopes()
    log_entry "sde_definition_scopes" "$@"
 
    log_info "Defined Definition Scopes"
-
-   local RVAL
 
    r_definition_scopes
 
@@ -315,12 +313,12 @@ sde_definition_main()
 {
    log_entry "sde_definition_main" "$@"
 
-   local OPTION_DEFINITION_DIR=".mulle-make"
+   local OPTION_DEFINITION_DIR=".mulle/etc/craft/definition"
 
    local argument
    local flags
    local searchflags
-   local RVAL
+
    local scope="DEFAULT"
 
    while [ $# -ne 0 ]

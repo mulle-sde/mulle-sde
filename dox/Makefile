@@ -7,6 +7,7 @@ mulle-sde-environment.png \
 mulle-sde-extension.png \
 mulle-sde-library.png \
 mulle-sde-list.png \
+mulle-sde-log.png \
 mulle-sde-patternfile.png \
 mulle-sde-monitor.png \
 mulle-sde-overview.png \

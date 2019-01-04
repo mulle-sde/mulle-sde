@@ -1,3 +1,9 @@
+## 0.35.0
+
+* uses .mulle directory instead of .mulle-sde
+* adapted to changes in other mulle-sde tools
+
+
 ## 0.34.0
 
 * linkorder is simpler, because tests now are based on mulle-sde, which means we don't need the linkmanifest files anymore
@@ -9,7 +15,7 @@
 
 ### 0.33.14
 
-* make mulle-sde `<url>` happen, also don't clean .mulle-env/var
+* make mulle-sde `<url>` happen, also don't clean .mulle/var/env
 
 ### 0.33.13
 
@@ -451,7 +457,7 @@
 
 ## 0.14.0
 
-* simplify ignore by just looking into src and tests (and .mulle-sourcetree/etc)
+* simplify ignore by just looking into src and tests (and .mulle/etc/sourcetree)
 * extension add should work now well
 * dial back to `MULLE_VIRTUAL_ROOT` for a choice of commands
 * simplify upgrade

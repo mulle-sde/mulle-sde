@@ -53,7 +53,7 @@ EOF
 
 __get_buildorder_info()
 {
-   _cachedir="${MULLE_SDE_DIR}/var/${MULLE_HOSTNAME}/cache"
+   _cachedir="${MULLE_SDE_VAR_DIR}/${MULLE_HOSTNAME}/cache"
    _buildorderfile="${_cachedir}/buildorder"
 }
 
@@ -101,6 +101,7 @@ create_buildorder_file()
             ${MULLE_TECHNICAL_FLAGS} \
             ${MULLE_SOURCETREE_FLAGS} \
          buildorder \
+            --no-print-env \
             --output-marks \
             --callback "`declare -f append_mark_no_memo_to_subproject`" \
             "$@"
@@ -120,12 +121,13 @@ create_buildorder_file_if_needed()
 
    local sourcetreefile
    local buildorderfile
+
    #
    # our buildorder is specific to a host
    #
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
 
-   sourcetreefile="${MULLE_VIRTUAL_ROOT}/.mulle-sourcetree/etc/config"
+   sourcetreefile="${MULLE_VIRTUAL_ROOT}/.mulle/etc/sourcetree/config"
 
    #
    # produce a buildorderfile, if absent or old
