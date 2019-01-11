@@ -280,8 +280,11 @@ env_setup_mulle_tools()
 
    [ $# -eq 2 ] && internal_fail "API error"
 
-   bindir="${MULLE_VIRTUAL_ROOT}/.mulle/bin"
-   libexecdir="${MULLE_VIRTUAL_ROOT}/.mulle/libexec"
+   #
+   # avoid colliding with hosts names bin or libexec
+   #
+   bindir="${MULLE_VIRTUAL_ROOT}/.mulle/var/.bin"
+   libexecdir="${MULLE_VIRTUAL_ROOT}/.mulle/var/.libexec"
 
    env_setup_developer_tools "${bindir}" "${libexecdir}"
 
@@ -315,7 +318,7 @@ env_r_mulle_add_runpath()
    local runpath="$2"
 
    # reverse order of precedence
-   r_colon_concat "${MULLE_VIRTUAL_ROOT}/.mulle/bin" "${runpath}"
+   r_colon_concat "${MULLE_VIRTUAL_ROOT}/.mulle/var/.bin" "${runpath}"
    r_colon_concat "${directory}/addiction/bin" "${RVAL}"
    r_colon_concat "${directory}/dependency/bin" "${RVAL}"
 }

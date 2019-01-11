@@ -676,7 +676,7 @@ $1"
             shift
          done
 
-         log_fluff "Run command with mulle-env: -C \"${cmdline}\""
+         log_fluff "Run command with ${MULLE_ENV:-mulle-env}: -C \"${cmdline}\""
          exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} -C "${cmdline}" subenv "${SUBPROJECT}"
       ;;
 

@@ -53,26 +53,34 @@ EOF
 
 __get_buildorder_info()
 {
-   _cachedir="${MULLE_SDE_VAR_DIR}/${MULLE_HOSTNAME}/cache"
+   _cachedir="${MULLE_SDE_VAR_DIR}/cache"
    _buildorderfile="${_cachedir}/buildorder"
 }
 
 
-append_mark_no_memo_to_subproject()
+#
+# this function is injected into the sourcetree walker
+# it returns new marks in RVAL
+#
+r_append_mark_no_memo_to_subproject()
 {
-   if [ "${MULLE_NODETYPE}" != "local" -o "${MULLE_DATASOURCE}" != "/" ]
+   local datasource="$1"
+   local nodetype="$2"
+   local marks="$3"
+
+   if [ "${nodetype}" != "local" -o "${datasource}" != "/" ]
    then
-      return
+      return 1
    fi
 
-   case ",${MULLE_MARKS}," in
+   case ",${marks}," in
       *",no-dependency,"*)
-         return
+         return 1
       ;;
    esac
 
-   r_comma_concat "${MULLE_MARKS}" "no-memo"
-   MULLE_MARKS="${RVAL}"
+   r_comma_concat "${marks}" "no-memo"
+   return 0
 }
 
 
@@ -97,13 +105,12 @@ create_buildorder_file()
    mkdir_if_missing "${cachedir}"
    if ! redirect_exekutor "${buildorderfile}" \
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-            -V \
+            -V -s \
             ${MULLE_TECHNICAL_FLAGS} \
             ${MULLE_SOURCETREE_FLAGS} \
          buildorder \
             --no-print-env \
-            --output-marks \
-            --callback "`declare -f append_mark_no_memo_to_subproject`" \
+            --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
             "$@"
    then
       remove_file_if_present "${buildorderfile}"
@@ -145,14 +152,14 @@ show_buildorder()
 {
    log_entry "show_buildorder" "$@"
 
+   log_info "Buildorder"
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                     -V \
+                     -V -s \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_SOURCETREE_FLAGS} \
                   buildorder \
-                     --output-marks \
-                     --callback "`declare -f append_mark_no_memo_to_subproject`" \
+                     --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
                      "$@"
 }
 

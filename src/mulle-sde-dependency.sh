@@ -34,7 +34,7 @@ MULLE_SDE_DEPENDENCY_SH="included"
 
 DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
 DEPENDENCY_LIST_MARKS="dependency"
-DEPENDENCY_LIST_NODETYPES="no-none,no-local,ALL"
+DEPENDENCY_LIST_NODETYPES="ALL"
 
 
 sde_dependency_usage()
@@ -135,8 +135,8 @@ Options:
    --append    : append value instead of set
 
 Keys:
-   aliases     : alternate names of dependency, separated by comma
-   include     : alternative include filename instead of <name>.h
+   aliases     : names of library to search for, separated by comma
+   include     : include filename to use
    os-excludes : names of OSes to exclude, separated by comma
    tag         : tag or version to fetch
 EOF
@@ -159,8 +159,8 @@ Usage:
       ${MULLE_USAGE_NAME} dependency get pthreads aliases
 
 Keys:
-   aliases     : alternate names of dependency, separated by comma
-   include     : alternative include filename instead of <name>.h
+   aliases     : names of library to search for, separated by comma
+   include     : include filename to use
    os-excludes : names of OSes to exclude, separated by comma
 EOF
   exit 1
@@ -553,6 +553,16 @@ sde_dependency_add_main()
 
          --singlephase)
             OPTION_SINGLEPHASE='YES'
+         ;;
+
+         --mulle-c)
+            OPTION_SINGLEPHASE='NO'
+            OPTION_DIALECT='c'
+         ;;
+
+         --mulle-objc)
+            OPTION_SINGLEPHASE='NO'
+            OPTION_DIALECT='objc'
          ;;
 
          --github|--fake)

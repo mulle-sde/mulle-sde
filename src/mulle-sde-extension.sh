@@ -1366,7 +1366,7 @@ sde_extension_main()
       add|pimp)
          [ $# -eq 0 ] && sde_extension_${cmd}_usage
 
-         # shellcheck source=src/mulle-sde-upgrade.sh
+         # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          local option

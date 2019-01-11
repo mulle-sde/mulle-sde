@@ -457,7 +457,7 @@ main()
             exit 0
          ;;
 
-         -N|--search-nearest)
+         -N|--search-nearest|--no-search)  # --no-search is historic
             MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --search-nearest`"
          ;;
 
@@ -570,7 +570,7 @@ libexec-dir|library-path|project-dir)
    mulledir="${MULLE_VIRTUAL_ROOT}/.mulle"
 
    MULLE_SDE_ETC_DIR="${mulledir}/etc/sde"
-   MULLE_SDE_VAR_DIR="${mulledir}/var/sde"
+   MULLE_SDE_VAR_DIR="${mulledir}/var/${MULLE_HOSTNAME}/sde"
    MULLE_SDE_SHARE_DIR="${mulledir}/share/sde"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]

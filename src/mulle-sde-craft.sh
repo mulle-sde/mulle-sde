@@ -111,7 +111,7 @@ sde_perform_updates()
                  -s \
                   dbstatus
    dbrval="$?"
-   log_debug "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
+   log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
 
    #
    # Check if we need to update the sourcetree.

@@ -47,6 +47,7 @@ Usage:
 Command:
    init          : initialize a test directory
    build         : rebuild library
+   rebuild       : rebuild library and dependencies
    run           : run tests
 
 Environment:
@@ -180,7 +181,7 @@ sde_test_main()
          sde_test_run run "${cmd}" "$@"
       ;;
 
-      build|clean|run|test)
+      build|clean|rebuild|run|test)
          sde_test_run "${cmd}" "$@"
       ;;
 
@@ -192,11 +193,19 @@ sde_test_main()
       init)
          r_sde_test_githubname
 
+         local flag
+
+         if [ -f ${MULLE_VIRTUAL_ROOT}/cmake/share/StandaloneC.cmake ]
+         then
+            flag="--standalone"
+         fi
+
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_TEST_FLAGS} \
                      init \
-                        --github-name "${RVAL}"
+                        --github-name "${RVAL}" \
+                        ${flag} \
                         "$@"
       ;;
 

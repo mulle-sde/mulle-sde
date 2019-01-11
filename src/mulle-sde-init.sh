@@ -1847,7 +1847,7 @@ install_project()
    scopes="`rexekutor mulle-env -s environment scopes --all`"
    log_debug "scopes: ${scopes}"
 
-   if fgrep -q -x project <<< "${scopes}"
+   if find_line "${scopes}" "project"
    then
       has_project_scope='YES'
       # put these first, so extensions can draw on these in their definitions
@@ -2215,7 +2215,7 @@ _sde_init_main()
    local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV='YES'
-   local OPTION_ENV_STYLE="mulle/restrict"
+   local OPTION_ENV_STYLE="mulle/relax"
    local OPTION_BLURB='YES'
    local OPTION_TEMPLATE_FILES='YES'
    local OPTION_INIT_FLAGS
@@ -2521,7 +2521,7 @@ _sde_init_main()
 
    MULLE_SDE_ETC_DIR=".mulle/etc/sde"
    MULLE_SDE_SHARE_DIR=".mulle/share/sde"
-   MULLE_SDE_VAR_DIR=".mulle/var/sde"
+   MULLE_SDE_VAR_DIR=".mulle/var/${MULLE_HOSTNAME}/sde"
 
    if [ "${OPTION_ADD}" = 'YES' ]
    then
@@ -2607,8 +2607,8 @@ ${C_INFO}Use -f to use \"${PROJECT_TYPE}\""
 It looks like an init gone bad."
          fi
 
-         fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"$PWD\". \
-${C_INFO}In case you really wanted to upgrade it:
+         fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"$PWD\".
+${C_INFO}In case you wanted to upgrade it:
 ${C_RESET_BOLD}   mulle-sde upgrade"
       fi
    fi

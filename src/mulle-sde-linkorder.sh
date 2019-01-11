@@ -147,7 +147,6 @@ _emit_ld_output()
    [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
 
-
    local result
 
    if [ "${withldpath}" = 'YES' ]
@@ -191,7 +190,6 @@ emit_ld_lf_output()
 }
 
 
-
 emit_csv_output()
 {
    log_entry "emit_csv_output" "$@"
@@ -205,19 +203,101 @@ emit_csv_output()
 }
 
 
-
-sde_linkorder_all_nodes()
+#
+# If we are inside dynamic or standalone we just want to list the
+# libraries, but not the linked dependencies.
+#
+linkorder_will_recurse()
 {
-   log_entry "sde_linkorder_all_nodes" "$@"
+   log_entry "linkorder_will_recurse" "$@"
 
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
-               walk \
-                  --lenient \
-                  --buildorder-qualifier 'MATCHES link' \
-                  --permissions 'descend-symlink,descend-mark' \
-                  'echo "${MULLE_ADDRESS};${MULLE_MARKS};${MULLE_RAW_USERINFO}"'
+   if ! nodemarks_contain "${_marks}" "static-link"
+   then
+       INSIDE_DYNAMIC="${INSIDE_DYNAMIC}x"
+   fi
+
+   if nodemarks_contain "${_marks}" "only-standalone"
+   then
+       INSIDE_STANDALONE="${INSIDE_STANDALONE}x"
+   fi
+
+   return 0
+}
+
+
+linkorder_did_recurse()
+{
+   log_entry "linkorder_did_recurse" "$@"
+
+   if ! nodemarks_contain "${_marks}" "static-link"
+   then
+       INSIDE_DYNAMIC="${INSIDE_DYNAMIC%?}"
+   fi
+
+   if nodemarks_contain "${_marks}" "only-standalone"
+   then
+      INSIDE_STANDALONE="${INSIDE_STANDALONE%?}"
+   fi
+}
+
+
+# only callback as environment available
+#
+linkorder_callback()
+{
+   log_entry "linkorder_callback" "$@"
+
+   if [ ! -z "${INSIDE_STANDALONE}" -o ! -z "${INSIDE_DYNAMIC}"  ] && \
+      nodemarks_contain "${_marks}" "dependency"
+   then
+      # but hit me again later
+      walk_remove_from_visited "${_nodeline}"
+      log_debug "${_address}: skipped emit of dependency due to dynamic/standalone"
+      return
+   fi
+
+   r_add_line "${linkorder_collection}" "${_address};${_marks};${_raw_userinfo}"
+   linkorder_collection="${RVAL}"
+}
+
+
+r_sde_linkorder_all_nodes()
+{
+   log_entry "r_sde_linkorder_all_nodes" "$@"
+
+   if [ -z "${MULLE_SOURCETREE_WALK_SH}" ]
+   then
+      MULLE_SOURCETREE_LIBEXEC_DIR="`"${MULLE_SOURCETREE:-mulle-sourcetree}" libexec-dir`"
+
+      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-environment.sh"  || exit 1
+      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-walk.sh" || exit 1
+      [ -z "${MULLE_SOURCETREE_BUILDORDER_SH}" ] && \
+         . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-buildorder.sh"
+   fi
+
+   local linkorder_collection
+   local INSIDE_STANDALONE
+   local INSIDE_DYNAMIC
+
+   mode="`"${MULLE_SOURCETREE:-mulle-sourcetree}" mode`"
+
+   local rval
+
+   r_make_buildorder_qualifier 'MATCHES link'
+   qualifier="${RVAL}"
+
+   sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
+   sourcetree_walk_main --lenient \
+                        --visit-qualifier "${qualifier}" \
+                        --descend-qualifier "${qualifier}" \
+                        --pre-order \
+                        --no-eval-exekutor \
+                        --permissions 'descend-symlink' \
+                        --will-recurse-callback linkorder_will_recurse \
+                        --did-recurse-callback linkorder_did_recurse \
+                        linkorder_callback
+
+   RVAL="${linkorder_collection}"
 }
 
 
@@ -228,7 +308,7 @@ sde_linkorder_all_nodes()
 #
 linkorder_collect()
 {
-   log_entry "sde_linkorder_main" "$@"
+   log_entry "linkorder_collect" "$@"
 
    local address="$1"
    local marks="$2"
@@ -271,20 +351,27 @@ linkorder_collect()
          # os-library, ignore it unless we do 'ld'
          if [ "${collect_libraries}" = 'NO' ]
          then
-            return 1
+            return 2
          fi
 
          r_concat "${name}" "${marks}" ";"
-         return
+         return 0
       ;;
    esac
 
    local libpath
 
-   r_sde_locate_library "${librarytype}" "${requirement}" "${name}" ${aliases}
+   if [ -z "${aliases}" ]
+   then
+      aliases="${name}"
+   fi
+
+   r_sde_locate_library "${librarytype}" "${requirement}" ${aliases}
    libpath="${RVAL}"
-   [ -z "${libpath}" ] && fail "Did not find \"${name}\" library.
+
+   [ -z "${libpath}" ] && fail "Did not find a linkable \"${name}\" library.
 ${C_INFO}The linkorder is available after dependencies have been built.
+${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
 
    log_fluff "Found library \"${name}\" at \"${libpath}\""
@@ -298,13 +385,13 @@ sde_linkorder_main()
    log_entry "sde_linkorder_main" "$@"
 
    local OPTION_CONFIGURATION
-   local OPTION_OUTPUT_FORMAT="file_lf"
+   local OPTION_OUTPUT_FORMAT="ld_lf"
    local OPTION_LD_PATH='YES'
    local OPTION_RPATH='YES'
    local OPTION_FORCE_LOAD='NO'
-   local OPTION_WHOLE_ARCHIVE_FORMAT='whole-archive'
+   local OPTION_WHOLE_ARCHIVE_FORMAT='whole-archive-as-needed'
 
-   local collect_libraries='NO'
+   local collect_libraries='YES'
 
    while :
    do
@@ -336,6 +423,10 @@ sde_linkorder_main()
             OPTION_LD_PATH='NO'
          ;;
 
+         --no-libraries)
+            collect_libraries='NO'
+         ;;
+
          --whole-archive-format)
             [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
             shift
@@ -349,12 +440,11 @@ sde_linkorder_main()
 
             OPTION_OUTPUT_FORMAT="$1"
             case "${OPTION_OUTPUT_FORMAT}" in
-               node|csv|file|file_lf)
+               file|file_lf)
                   collect_libraries='NO'
                ;;
 
-               ld|ld_lf)
-                  collect_libraries='YES'
+               node|csv|ld|ld_lf)
                ;;
 
                *)
@@ -392,7 +482,8 @@ sde_linkorder_main()
    local normal_loads
    local collect
 
-   nodes="`sde_linkorder_all_nodes`" || exit 1
+   r_sde_linkorder_all_nodes
+   nodes="${RVAL}"
 
    if [ "${OPTION_OUTPUT_FORMAT}" = "node" ]
    then
@@ -404,6 +495,11 @@ sde_linkorder_main()
    log_debug "nodes: ${nodes}"
 
    local dependency_libs
+   local aliases
+   local userinfo
+   local address
+   local marks
+   local raw_userinfo
 
    IFS="
 " ; set -f
@@ -411,14 +507,11 @@ sde_linkorder_main()
    do
       IFS="${DEFAULT_IFS}"; set +f
 
-      local address
-      local marks
-      local raw_userinfo
 
       IFS=";" read address marks raw_userinfo <<< "${node}"
 
-      local aliases
-      local userinfo
+      aliases=
+      userinfo=
 
       if [ ! -z "${raw_userinfo}" ]
       then
@@ -444,7 +537,7 @@ sde_linkorder_main()
       fi
 
       # TODO: could remove duplicates with awk
-      if linkorder_collect "${address}" "${marks}" "${aliases}"
+      if linkorder_collect "${address%#*}" "${marks}" "${aliases}" "${collect_libraries}"
       then
          r_add_unique_line "${dependency_libs}" "${RVAL}"
          dependency_libs="${RVAL}"

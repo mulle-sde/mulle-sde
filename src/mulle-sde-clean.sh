@@ -204,8 +204,10 @@ sde_clean_buildordercache_main()
 {
    log_entry "sde_clean_buildordercache_main" "$@"
 
+   [ -z "${MULLE_SDE_VAR_DIR}" ] && internal_fail "MULLE_SDE_VAR_DIR not defined"
+
    log_verbose "Cleaning sde cache"
-   rmdir_safer ".mulle/var/sde/${MULLE_HOSTNAME}/cache"
+   rmdir_safer "${MULLE_SDE_VAR_DIR}/cache"
 }
 
 
@@ -223,12 +225,16 @@ sde_clean_cache_main()
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
+         log_verbose "Cleaning repository cache"
+
          rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
       fi
    fi
 
    if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
    then
+      log_verbose "Cleaning archive cache"
+
       rmdir_safer "${MULLE_FETCH_ARCHIVE_DIR}"
    fi
 }
@@ -267,6 +273,8 @@ sde_clean_db_main()
 {
    log_entry "sde_clean_db_main" "$@"
 
+   log_verbose "Cleaning sourcetree database"
+
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
                   ${MULLE_TECHNICAL_FLAGS} \
@@ -278,6 +286,8 @@ sde_clean_db_main()
 sde_clean_sourcetree_main()
 {
    log_entry "sde_clean_sourcetree_main" "$@"
+
+   log_verbose "Cleaning sourcetree"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
@@ -291,6 +301,8 @@ sde_clean_patternfile_main()
 {
    log_entry "sde_clean_patternfile_main" "$@"
 
+   log_verbose "Cleaning patternfiles"
+
    rexekutor "${MULLE_MATCH:-mulle-match}" \
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_MONITOR_FLAGS} \
@@ -301,6 +313,8 @@ sde_clean_patternfile_main()
 sde_clean_monitor_main()
 {
    log_entry "sde_clean_monitor_main" "$@"
+
+   log_verbose "Cleaning monitor files"
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       rexekutor "${MULLE_MONITOR:-mulle-monitor}" \
@@ -313,6 +327,8 @@ sde_clean_monitor_main()
 sde_clean_graveyard_main()
 {
    log_entry "sde_clean_graveyard_main" "$@"
+
+   log_verbose "Cleaning graveyard"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
@@ -430,11 +446,14 @@ tidy"
             local escaped_dependency
             local targets
             local found
-                     r_escaped_grep_pattern "$1"
+
+            r_escaped_grep_pattern "$1"
             escaped_dependency="${RVAL}"
 
-            targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V buildorder | \
-                    sed 's|^.*/||'`"
+            targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                                       -V \
+                                    buildorder \
+                                       --no-output-marks | sed 's|^.*/||'`"
             found="`grep -x "${escaped_dependency}" <<< "${targets}" `"
 
             if [ -z "${found}" ]

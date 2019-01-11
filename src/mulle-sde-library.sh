@@ -36,11 +36,12 @@ MULLE_SDE_LIBRARY_SH="included"
 # and will end up in dependency/
 # no-update,no-delete: does not participate in mulle-sourcetree update
 # no-all-load: not expected to contain ObjC code
+# no-cmakeinherit: not expected to publish cmake find_library calls
 #
+LIBRARY_INIT_MARKS="no-fs,no-dependency,no-build,no-update,no-delete,no-cmakeinherit"
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
-
-LIBRARY_LIST_MARKS="no-dependency"
-LIBRARY_LIST_NODETYPES="none"
+LIBRARY_FILTER_MARKS="no-dependency"
+LIBRARY_FILTER_NODETYPES="none"
 
 #
 # This puts some additional stuff into userinfo of the sourcetree
@@ -167,7 +168,7 @@ sde_library_add_main()
 {
    log_entry "sde_library_add_main" "$@"
 
-   local marks="${LIBRARY_MARKS}"
+   local marks="${LIBRARY_INIT_MARKS}"
 
    local OPTION_DIALECT="c"
    local OPTION_PRIVATE='NO'
@@ -233,7 +234,7 @@ sde_library_add_main()
 
    case "${OPTION_DIALECT}" in
       c)
-         r_comma_concat "${marks}" "no-import,no-all-load"
+         r_comma_concat "${marks}" "no-import,no-all-load,no-cmakeinherit"
          marks="${RVAL}"
       ;;
    esac
@@ -257,7 +258,6 @@ sde_library_add_main()
                                        --marks "${marks}" \
                                        "${libname}"
 }
-
 
 
 sde_library_set_main()
@@ -312,7 +312,7 @@ sde_library_set_main()
       os-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
-                                     "${LIBRARY_MARKS}" \
+                                     "${LIBRARY_INIT_MARKS}" \
                                      "${OPTION_APPEND}"
       ;;
 
@@ -379,7 +379,7 @@ sde_library_list_main()
 
    local marks
 
-   marks="${LIBRARY_MARKS}"
+   marks="${LIBRARY_FILTER_MARKS}"
 
    while :
    do
@@ -416,12 +416,16 @@ sde_library_list_main()
 
    log_fluff "Just pass through to mulle-sourcetree"
 
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
-      --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
-      --marks "${marks}" \
-      --nodetypes "${LIBRARY_LIST_NODETYPES}" \
-      --output-no-marks "${LIBRARY_MARKS}" \
-       "$@"
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                -V -s \
+                ${MULLE_TECHNICAL_FLAGS} \
+                ${MULLE_SOURCETREE_FLAGS} \
+               list \
+                  --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
+                  --marks "${marks}" \
+                  --nodetypes "${LIBRARY_FILTER_NODETYPES}" \
+                  --output-no-marks "${LIBRARY_MARKS}" \
+                  "$@"
 }
 
 
