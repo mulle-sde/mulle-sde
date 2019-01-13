@@ -288,11 +288,11 @@ r_sde_linkorder_all_nodes()
 
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
    sourcetree_walk_main --lenient \
-                        --visit-qualifier "${qualifier}" \
-                        --descend-qualifier "${qualifier}" \
+                        --no-eval \
                         --pre-order \
-                        --no-eval-exekutor \
                         --permissions 'descend-symlink' \
+                        --visit-qualifier "${qualifier}" \
+                        --prune \
                         --will-recurse-callback linkorder_will_recurse \
                         --did-recurse-callback linkorder_did_recurse \
                         linkorder_callback

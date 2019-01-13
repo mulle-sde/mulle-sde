@@ -99,7 +99,8 @@ sde_upgrade_main()
    done
 
    # shellcheck source=src/mulle-sde-init.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+   [ -z "${MULLE_SDE_INIT_SH}" ] && \
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    case "$*" in
       *--project-file*)

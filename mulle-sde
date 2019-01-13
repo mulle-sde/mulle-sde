@@ -516,7 +516,7 @@ main()
          case "${cmd}" in
             buildorder|buildstatus|callback|clean|craft|dependency|definition|\
 environment|fetch|find|library|linkorder|list|log|mark|match|monitor|patternfile|\
-subproject|style|task|test|template|tool|treestatus|unmark|update|upgrade)
+subproject|style|task|test|template|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
             ;;
 
@@ -536,8 +536,8 @@ subproject|style|task|test|template|tool|treestatus|unmark|update|upgrade)
                _exec_command_in_subshell "$@"
             ;;
 
-            bash-completion|commands|extension|init|init-and-enter|reinit|uname|show|version\
-libexec-dir|library-path|project-dir)
+            bash-completion|commands|extension|init|init-and-enter|reinit|\
+uname|upgrade|show|version|libexec-dir|library-path|project-dir)
             ;;
 
             enter)
@@ -669,6 +669,7 @@ tool
 treestatus
 uname
 update
+upgrade
 version"
          exit 0
       ;;
@@ -971,10 +972,25 @@ version"
       ;;
 
       upgrade)
-         # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+         # shellcheck source=src/mulle-sde-upgrade.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
 
-         sde_extension_main upgrade "$@"
+         sde_upgrade_main "$@" || exit 1
+
+         MULLE_SDE_TEST_PATH="`mulle-sde environment get MULLE_SDE_TEST_PATH`"
+
+         IFS=":"
+         for i in ${MULLE_SDE_TEST_PATH:-test}
+         do
+            IFS="${DEFAULT_IFS}"
+            if [ -d "${i}" ]
+            then
+               log_info "Upgrade test ${C_RESET_BOLD}${i}"
+               ( cd "${i}"; mulle-sde upgrade ) || exit 1
+            fi
+         done
+         IFS="${DEFAULT_IFS}"
+         return 0
       ;;
 
       version)

@@ -1212,8 +1212,8 @@ ${C_INFO}Possibly ways to fix this:
             log_debug "${extensiondir}/environment not installed because project type is \"none\""
          fi
 
-         add_to_tools "${extensiondir}/tool"
-         add_to_tools "${extensiondir}/optionaltool" "--optional"
+         add_to_tools "${extensiondir}/tool" "--share"
+         add_to_tools "${extensiondir}/optionaltool" "--optional --share"
 
          _copy_env_extension_dir "${extensiondir}/env" ||
             fail "Could not copy \"${extensiondir}/env\""
@@ -2491,7 +2491,7 @@ _sde_init_main()
 #      OPTION_INIT_ENV='NO'
 #   fi
 
-   if [ "${OPTION_UPGRADE}" = 'YES' -o "${OPTION_ADD}" = 'YES' ]
+   if [ "${OPTION_ADD}" = 'YES' ]
    then
       # todo: make this nicer
       if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -2557,8 +2557,7 @@ This may hurt, but you have to init again."
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment \
-                           upgrade || exit 1
+                     upgrade || exit 1
       fi
    else
       [ $# -eq 0 ] && sde_init_usage "Missing project type"

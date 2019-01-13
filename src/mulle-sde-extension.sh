@@ -43,7 +43,7 @@ Usage:
    ${MULLE_USAGE_NAME} extension <command>
 
    Maintain mulle-sde extensions in your project after you ran
-   mulle-sde init.
+   mulle-sde init. Upgrade all extensions with separate "upgrade" command.
 
 Commands:
    add        : add an extra extension to your project
@@ -52,7 +52,6 @@ Commands:
    pimp       : pimp up your your project with a one-shot extension
    searchpath : show locations where extensions are searched
    show       : show available extensions
-   upgrade    : upgrade project extensions to the latest version
    usage      : show usage information for an extension
 EOF
    exit 1
@@ -1429,19 +1428,6 @@ sde_extension_main()
                r_extension_get_vendor_path "$1"
 
          echo "${RVAL}"
-      ;;
-
-      upgrade)
-         # shellcheck source=src/mulle-sde-upgrade.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
-
-         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-         then
-            exec_command_in_subshell extension upgrade "$@"
-         fi
-
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} add" \
-            sde_upgrade_main "$@"
       ;;
 
       usage)
