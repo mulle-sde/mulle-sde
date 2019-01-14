@@ -131,17 +131,6 @@ sde_upgrade_main()
       flags="${flags} -f"
    fi
 
-   local statusfile
-   local rval
-
-   r_make_tmp "mulle-sde"
-   statusfile="${RVAL}"
-
-   sde_subproject_map 'Upgrading' 'NO' 'YES' "${statusfile}" \
+   sde_subproject_map 'Upgrading' 'NO' 'YES' \
                            "mulle-sde ${flags} extension upgrade"
-   rval=$?
-
-   # TODO should check statusfile for fails ?
-   remove_file_if_present "${statusfile}"
-   return $rval
 }

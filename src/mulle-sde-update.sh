@@ -72,7 +72,8 @@ _callback_run()
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_MONITOR_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
-      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
+      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
+                                                 ${MULLE_MONITOR_FLAGS} \
                      callback run "${callback}"
 }
 
@@ -87,7 +88,8 @@ _task_run()
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_MONITOR_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
-      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
+      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
+                                                 ${MULLE_MONITOR_FLAGS} \
                   task run "${task}"
 }
 
@@ -97,7 +99,8 @@ _task_status()
    log_entry "_task_status" "$@"
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MONITOR_FLAGS} \
+      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
+                                                 ${MULLE_MONITOR_FLAGS} \
                    task status "${task}"
 }
 
@@ -137,8 +140,8 @@ _sde_update_task()
    log_entry "_sde_update_task" "$@"
 
    local runner="$1"
-   local statusfile="$2"
-   local name="$3"
+   local name="$2"
+   local statusfile="$3"
 
    local task
    local rval
@@ -148,16 +151,17 @@ _sde_update_task()
 
    if [ ! -z "${statusfile}" -a $rval -ne 0 ]
    then
-      redirect_append_exekutor "${statusfile}" echo $rval
+      redirect_append_exekutor "${statusfile}" echo "${name};$rval"
    fi
 
    if [ ! -z "${task}" ]
    then
       "${runner}" "${task}"
       rval=$?
+
       if [ ! -z "${statusfile}" -a $rval -ne 0 ]
       then
-         redirect_append_exekutor "${statusfile}" echo $rval
+         redirect_append_exekutor "${statusfile}" echo "${name};$rval"
       fi
    fi
 
@@ -170,26 +174,46 @@ _sde_update_main()
    log_entry "_sde_update_main" "$@"
 
    local runner="$1" ; shift
-   local statusfile="$1"; shift
 
    local task
    local name
 
    if [ $# -eq 1 ]
    then
-      _sde_update_task "${runner}" "${statusfile}" "${name}"
+      _sde_update_task "${runner}" "$1"
       return $?
    fi
+
+   local statusfile
+
+   _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}"
+   statusfile="${RVAL}"
 
    for name in "$@"
    do
       if [ ! -z "${name}" ]
       then
-         _sde_update_task "${runner}" "${statusfile}" "${name}" &
+         _sde_update_task "${runner}" "${name}" "${statusfile}"  &
       fi
    done
 
    wait
+
+   local rval
+   local errors
+
+
+   rval=0
+   errors="`cat "${statusfile}"`"
+   if [ ! -z "${errors}" ]
+   then
+      log_error "A project errored out: `cat "${statusfile}"` "
+      rval=1
+   fi
+
+   remove_file_if_present "${statusfile}"
+
+   return $rval
 }
 
 
@@ -204,7 +228,7 @@ sde_update_worker()
 
    if [ "${recurse}" = 'NO' ]
    then
-      _sde_update_main "${runner}" "" "$@"
+      _sde_update_main "${runner}" "$@"
       return $?
    fi
 
@@ -248,31 +272,13 @@ sde_update_worker()
       flags="${flags} -f"
    fi
 
-   #
-   # can't handle failure here oh well
-   #
-   local statusfile
-
-   r_make_tmp "mulle-sde"
-   statusfile="${RVAL}"
-
-   sde_subproject_map 'Updating' 'NO' 'YES' "${statusfile}" "mulle-sde ${flags} update ${options} $*"
-   _sde_update_main "${runner}" "${statusfile}" "$@"
-
-   wait
-
-   local rval
-
-   rval=0
-   if [ ! -z "`cat "${statusfile}"`" ]
+   if ! sde_subproject_map 'Updating' 'NO' 'YES' "mulle-sde ${flags} update ${options} $*"
    then
-      log_fluff "A project errored out"
-      rval=1
+      return 1
    fi
 
-   remove_file_if_present "${statusfile}"
-
-   return $rval
+   _sde_update_main "${runner}" "$@"
+   return $?
 }
 
 
@@ -328,7 +334,7 @@ sde_update_main()
 
    if [ $# -ne 0 ]
    then
-      sde_update_worker "${runner}" "'${OPTION_RECURSE}'" "$@"
+      sde_update_worker "${runner}" "${OPTION_RECURSE}" "$@"
       return $?
    fi
 
@@ -340,5 +346,6 @@ sde_update_main()
       log_fluff "Nothing to do as no tasks are configured by MULLE_SDE_UPDATE_CALLBACKS"
       return 0
    fi
+
    eval sde_update_worker "'${runner}'" "'${OPTION_RECURSE}'" "${tasks}"
 }

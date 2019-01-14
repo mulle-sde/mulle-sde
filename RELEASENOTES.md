@@ -1,3 +1,10 @@
+### 0.35.1
+
+* adapt to new and improved mulle-sourcetree
+* adapt to newer mulle-sde test
+* uses .mulle directory instead of .mulle-sde
+* adapted to changes in other mulle-sde tools
+
 ## 0.35.0
 
 * uses .mulle directory instead of .mulle-sde

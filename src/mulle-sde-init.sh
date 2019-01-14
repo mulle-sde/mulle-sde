@@ -139,7 +139,7 @@ _copy_extension_dir()
 
    if [ -d "${destination}" ]
    then
-      find "${destination}/${name}" -type f -exec chmod ug+w {} \;
+      rexekutor find "${destination}/${name}" -type f -exec chmod ug+w {} \;
    fi
 
    # need L flag since homebrew creates relative links
@@ -150,7 +150,7 @@ _copy_extension_dir()
       # for git its not nice to write protect directories like share,
       # in case you checkout an old version. So just protect single files
       #
-      find "${destination}/${name}" -type f -exec chmod ugo-w {} \;
+      rexekutor find "${destination}/${name}" -type f -exec chmod ugo-w {} \;
    fi
 }
 
@@ -1410,15 +1410,16 @@ install_extension()
       local CONTENTS_SED
       local FILENAME_SED
 
+      log_debug "TEMPLATE_DIRECTORIES: ${TEMPLATE_DIRECTORIES}"
+
       set -o noglob ; IFS="
 "
       for arguments in ${TEMPLATE_DIRECTORIES}
       do
-         IFS="${DEFAULT_IFS}"; shopt -u nullglob
+         IFS="${DEFAULT_IFS}"; set +o noglob
 
          if [ ! -z "${arguments}" ]
          then
-            set +o noglob
             eval _template_main "${arguments}" || exit 1
          fi
       done

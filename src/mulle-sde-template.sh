@@ -61,6 +61,56 @@ EOF
    exit 1
 }
 
+template_rexekutor()
+{
+   local old
+
+   old="${MULLE_FLAG_LOG_EXEKUTOR}"
+   MULLE_FLAG_LOG_EXEKUTOR="${MULLE_FLAG_TEMPLATE_LOG_EXECUTOR}"
+
+   local rval
+
+   rexekutor "$@"
+   rval=$?
+
+   MULLE_FLAG_LOG_EXEKUTOR="${old}"
+   return $rval
+}
+
+
+template_eval_exekutor()
+{
+   local old
+
+   old="${MULLE_FLAG_LOG_EXEKUTOR}"
+   MULLE_FLAG_LOG_EXEKUTOR="${MULLE_FLAG_TEMPLATE_LOG_EXECUTOR}"
+
+   local rval
+
+   eval_exekutor "$@"
+   rval=$?
+
+   MULLE_FLAG_LOG_EXEKUTOR="${old}"
+   return $rval
+}
+
+
+template_redirect_exekutor()
+{
+   local old
+
+   old="${MULLE_FLAG_LOG_EXEKUTOR}"
+   MULLE_FLAG_LOG_EXEKUTOR="${MULLE_FLAG_TEMPLATE_LOG_EXECUTOR}"
+
+   local rval
+
+   redirect_exekutor "$@"
+   rval=$?
+
+   MULLE_FLAG_LOG_EXEKUTOR="${old}"
+   return $rval
+}
+
 
 r_projectname_seds()
 {
@@ -230,7 +280,7 @@ r_template_filename_replacement_command()
    # get VENDOR_NAME for file replacement
    #
    seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
-             rexekutor "${MULLE_ENV:-mulle-env}" -s \
+             template_rexekutor "${MULLE_ENV:-mulle-env}" -s \
                            ${MULLE_ENV_FLAGS} environment \
                                  get --output-sed VENDOR_NAME`"
 
@@ -280,7 +330,7 @@ r_template_contents_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
-             rexekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}  \
+             template_rexekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}  \
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
                                    --sed-key-suffix '|>'`" || exit 1
@@ -314,7 +364,7 @@ copy_and_expand_template()
 
    local expanded_dstfile
 
-   expanded_dstfile="`LC_ALL=C eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
+   expanded_dstfile="`LC_ALL=C template_eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
 
    if [ "${expanded_dstfile}" != "${dstfile}" ]
    then
@@ -352,17 +402,18 @@ copy_and_expand_template()
    local text
 
    log_debug "Generating text from template \"${templatefile}\""
-   text="`LC_ALL=C eval_exekutor "${template_sed}" < "${templatefile}" `"
+   text="`LC_ALL=C template_eval_exekutor "${template_sed}" < "${templatefile}" `"
 
    log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 
-   redirect_exekutor "${expanded_dstfile}" echo "${text}"
+   template_redirect_exekutor "${expanded_dstfile}" echo "${text}"
 
    local permissions
 
    permissions="`lso "${templatefile}"`"
    chmod "${permissions}" "${expanded_dstfile}"
 }
+
 
 default_template_setup()
 {

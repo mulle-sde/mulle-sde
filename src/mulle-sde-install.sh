@@ -150,8 +150,7 @@ Use -f flag to clobber."
    exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                              -N ${MULLE_TECHNICAL_FLAGS} \
                              buildorder \
-                                --no-print-env \
-                                --output-marks > buildorder || return 1
+                                --no-print-env > buildorder || return 1
 
    eval_exekutor "${environment}" mulle-craft \
                                        ${MULLE_CRAFT_FLAGS} \

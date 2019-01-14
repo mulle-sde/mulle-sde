@@ -380,6 +380,11 @@ sde_subproject_init_main()
       fail "\"${directory}\" is already present and initialized"
    fi
 
+   [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+   [ -z "${MULLE_FILE_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+
+   mkdir_if_missing "${directory}"
+
    if [ -z "${meta}" ]
    then
       if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
@@ -398,9 +403,6 @@ sde_subproject_init_main()
    then
       style="`mulle-env style`"
    fi
-
-   [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-   [ -z "${MULLE_FILE_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
    # get this error early
    sde_subproject_main "add" "${directory}" || exit 1
@@ -483,7 +485,6 @@ sde_subproject_map()
    local verb="${1:-Updating}" ; shift
    local lenient="${1:-NO}" ; shift
    local parallel="${1:-NO}" ; shift
-   local statusfile="$1" ; shift
 
    local subprojects
 
@@ -496,9 +497,17 @@ sde_subproject_map()
       return
    fi
 
-   if [ "${parallel}" = 'YES' -a "${lenient}" = "YES" ]
+   local statusfile
+
+   if [ "${parallel}" = 'YES' ]
    then
-      internal_fail "Can't have parallel and lenient together"
+      if [ "${lenient}" = "YES" ]
+      then
+         internal_fail "Can't have parallel and lenient together"
+      fi
+
+      _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}"
+      statusfile="${RVAL}"
    fi
 
    (
@@ -533,7 +542,7 @@ sde_subproject_map()
 
                if [ $rval -ne 0 ]
                then
-                  redirect_append_exekutor "${statusfile}" echo $rval
+                  redirect_append_exekutor "${statusfile}" echo "${subproject};$rval"
                fi
             ) &
          else
@@ -553,8 +562,23 @@ sde_subproject_map()
       if [ "${parallel}" = 'YES' ]
       then
          wait
+
+         local errors
+
+         errors="`cat "${statusfile}"`"
+         if [ ! -z "${errors}" ]
+         then
+            log_error "Subproject errored out: ${errors}"
+
+            remove_file_if_present "${statusfile}"
+            exit 1
+         fi
       fi
-   )
+
+      :
+   ) || exit 1
+
+   return 0
 }
 
 
@@ -730,7 +754,7 @@ $1"
       ;;
 
       map)
-         sde_subproject_map 'Executing' 'NO' 'NO' 'egal' "$@"
+         sde_subproject_map 'Executing' 'NO' 'NO' "$@"
       ;;
 
       set)
