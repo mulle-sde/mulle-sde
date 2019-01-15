@@ -1,3 +1,7 @@
+### 0.35.2
+
+* fix mulle-test being mandatory
+
 ### 0.35.1
 
 * adapt to new and improved mulle-sourcetree

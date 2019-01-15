@@ -278,7 +278,6 @@ env_setup_mulle_tools()
    local bindir="$1"; shift
    local libexecdir="$1"; shift
 
-   [ $# -eq 2 ] && internal_fail "API error"
 
    #
    # avoid colliding with hosts names bin or libexec
@@ -294,17 +293,24 @@ env_setup_mulle_tools()
    # (We'd also need in PATH: git, tar, sed, tr, gzip, zip. But that's not
    # checked yet)
    #
+   # parameters to pass:
+   #
+   # local toolname="$1"
+   # local dstbindir="$2"
+   # local dstlibexecdir="$3"
+   # local copystyle="${4:-tool}"
+   # local optional="$5"
    (
-      env_link_mulle_tool "mulle-craft"      "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-dispense"   "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-fetch"      "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-make"       "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-match"      "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-monitor"    "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-platform"   "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-sde"        "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-sourcetree" "${bindir}" "${libexecdir}" "$@" &&
-      env_link_mulle_tool "mulle-test"       "${bindir}" "${libexecdir}" "$@" "optional"
+      env_link_mulle_tool "mulle-craft"      "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-dispense"   "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-fetch"      "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-make"       "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-match"      "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-monitor"    "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-platform"   "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-sde"        "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-sourcetree" "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-test"       "${bindir}" "${libexecdir}" "tool" "optional"
    ) || return 1
 }
 
