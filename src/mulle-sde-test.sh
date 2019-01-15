@@ -46,8 +46,8 @@ Usage:
 
 Command:
    init          : initialize a test directory
-   build         : rebuild library
-   rebuild       : rebuild library and dependencies
+   craft         : craft library
+   recraft       : re-craft library and dependencies
    run           : run tests
 
 Environment:
@@ -181,7 +181,7 @@ sde_test_main()
          sde_test_run run "${cmd}" "$@"
       ;;
 
-      build|clean|rebuild|run|test)
+      build|craft|clean|rebuild|recraft|run|test)
          sde_test_run "${cmd}" "$@"
       ;;
 

@@ -137,7 +137,7 @@ _copy_extension_dir()
       ;;
    esac
 
-   if [ -d "${destination}" ]
+   if [ -d "${destination}/${name}" ]
    then
       rexekutor find "${destination}/${name}" -type f -exec chmod ug+w {} \;
    fi
@@ -799,19 +799,19 @@ install_sourcetree_files()
    local marks="$4"
 
    if ! is_file_disabled_by_marks "${marks}" \
-                                  "${extensiondir}/dependency" \
+                                  "${extensiondir}/dependencies" \
                                   "no-sourcetree" \
                                   "no-sourcetree-${vendor}-${extname}"
    then
-      add_to_dependencies "${extensiondir}/dependency"
+      add_to_dependencies "${extensiondir}/dependencies"
    fi
 
    if ! is_file_disabled_by_marks "${marks}" \
-                                  "${extensiondir}/library" \
+                                  "${extensiondir}/libraries" \
                                   "no-sourcetree" \
                                   "no-sourcetree-${vendor}-${extname}"
    then
-      add_to_libraries "${extensiondir}/library"
+      add_to_libraries "${extensiondir}/libraries"
    fi
 }
 
@@ -1037,7 +1037,6 @@ _install_extension()
    fi
 
    local extensiondir
-
    local searchpath
 
    if ! r_find_get_quoted_searchpath "${vendor}"
@@ -1140,6 +1139,7 @@ ${C_INFO}Possibly ways to fix this:
 
       filename="${extensiondir}/inheritmarks"
       inheritmarks="${marks}"
+
       if ! is_disabled_by_marks "${marks}" "${filename}" \
                                            "no-inheritmarks" \
                                            "no-inheritmarks/${vendor}/${extname}"
@@ -2535,6 +2535,14 @@ _sde_init_main()
 
    if [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ]
    then
+      if [ -z "${OPTION_PROJECT_FILE}" ]
+      then
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                     upgrade || exit 1
+      fi
+
       [ ! -d "${MULLE_SDE_SHARE_DIR}" ] && \
          fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
 
@@ -2551,14 +2559,6 @@ _sde_init_main()
 
          fail "Could not retrieve previous extension information.
 This may hurt, but you have to init again."
-      fi
-
-      if [ -z "${OPTION_PROJECT_FILE}" ]
-      then
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
-                     upgrade || exit 1
       fi
    else
       [ $# -eq 0 ] && sde_init_usage "Missing project type"

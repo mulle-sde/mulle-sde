@@ -1,3 +1,7 @@
+### 0.35.3
+
+* rename mulle-test build to mulle-test craft for consistency, also file dependency to dependencies
+
 ### 0.35.2
 
 * fix mulle-test being mandatory
