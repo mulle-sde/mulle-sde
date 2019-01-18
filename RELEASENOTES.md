@@ -1,3 +1,7 @@
+### 0.35.4
+
+* install gains --standalone flag and builds Release by default. init unprotects/protects files with `MULLE_SDE_PROTECT_PATH` now
+
 ### 0.35.3
 
 * rename mulle-test build to mulle-test craft for consistency, also file dependency to dependencies

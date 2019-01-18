@@ -49,11 +49,12 @@ Usage:
    project as a dependency.
 
 Examples:
-   mulle-sde install --prefix /tmp/yyyy \
+   mulle-sde install --standalone --prefix /tmp/yyyy \
 https://github.com/MulleFoundation/Foundation/archive/latest.zip
 
       Grab project from github and place it into a temporary folder. Fetch all
-      dependencies into this temporary folder. Build in \`/tmp/bar\`.
+      dependencies into this temporary folder. Build a standalone shared
+      Foundation library in \`/tmp/bar\`.
       Install into \`/tmp/yyy\`. Remove the temporary folder.
 
    mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
@@ -63,10 +64,12 @@ https://github.com/MulleFoundation/Foundation/archive/latest.zip
       Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`.
 
 Options:
-   -d <dir>          : directory to fetch into (\$PWD)
-   --prefix <prefix> : installation prefix (\$PWD)
    -b <dir>          : build directory (\$PWD/build)
+   -d <dir>          : directory to fetch into (\$PWD)
+   --debug           : install as debug instead of release
+   --prefix <prefix> : installation prefix (\$PWD)
    --keep-tmp        : don't delete temporary directory
+   --standalone      : create a whole-archive shared library is supported
 
 Environment:
    MULLE_FETCH_SEARCH_PATH : specify places to search local projects
@@ -101,7 +104,9 @@ install_in_tmp()
 
    local url="$1"
    local directory="$2"
-   local arguments="$3"
+   local marks="$3"
+   local configuration="$4"
+   local arguments="$5"
 
    exekutor mkdir -p "${directory}" 2> /dev/null
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
@@ -131,7 +136,9 @@ Use -f flag to clobber."
 
          exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS}  \
-                                   add --nodetype git "${url}"  || return 1
+                                   add --nodetype git \
+                                       --marks "${marks}" \
+                                       "${url}"  || return 1
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
                            mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                             -N ${MULLE_TECHNICAL_FLAGS}  \
@@ -139,7 +146,9 @@ Use -f flag to clobber."
       else
          exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS} \
-                                   add "${url}"  || return 1
+                                   add \
+                                       --marks "${marks}" \
+                                       "${url}"  || return 1
 
          exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS} \
@@ -158,6 +167,7 @@ Use -f flag to clobber."
                                        --buildorder-file buildorder \
                                     buildorder \
                                        --no-protect \
+                                       --configuration "${configuration}"
                                        "${arguments}" || return 1
 }
 
@@ -168,6 +178,8 @@ sde_install_main()
 
    local OPTION_PROJECT_DIR
    local OPTION_KEEP_TMP='NO'
+   local OPTION_MARKS=''
+   local OPTION_CONFIGURATION='Release'
 
    while [ $# -ne 0 ]
    do
@@ -199,6 +211,25 @@ sde_install_main()
 
          --keep-tmp)
             OPTION_KEEP_TMP='YES'
+         ;;
+
+         --standalone)
+            OPTION_MARKS='only-standalone'
+         ;;
+
+         --configuration)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_CONFIGURATION="$1"
+         ;;
+
+         --debug)
+            OPTION_CONFIGURATION='Debug'
+         ;;
+
+         --release)
+            OPTION_CONFIGURATION='Release'
          ;;
 
          --)
@@ -285,7 +316,11 @@ sde_install_main()
 
    local rval
 
-   install_in_tmp "${URL}" "${PROJECT_DIR}" "${arguments}"
+   install_in_tmp "${URL}" \
+                  "${PROJECT_DIR}" \
+                  "${OPTION_MARKS}" \
+                  "${OPTION_CONFIGURATION}" \
+                  "${arguments}"
    rval=$?
 
    if [ ${rval} -eq 0 ]

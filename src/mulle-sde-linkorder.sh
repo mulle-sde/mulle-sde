@@ -295,6 +295,7 @@ r_sde_linkorder_all_nodes()
                         --prune \
                         --will-recurse-callback linkorder_will_recurse \
                         --did-recurse-callback linkorder_did_recurse \
+                        --no-callback-trace \
                         linkorder_callback
 
    RVAL="${linkorder_collection}"
