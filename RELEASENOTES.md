@@ -1,3 +1,9 @@
+## 0.36.0
+
+* no more tool/optionaltool distinction
+* installs all tool.osspecific files properly now
+
+
 ### 0.35.4
 
 * install gains --standalone flag and builds Release by default. init unprotects/protects files with `MULLE_SDE_PROTECT_PATH` now

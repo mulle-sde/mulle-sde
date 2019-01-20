@@ -296,7 +296,6 @@ ${TEMPLATE_DIRECTORIES}"
 }
 
 
-
 install_inheritfile()
 {
    log_entry "install_inheritfile" "$@"
@@ -605,25 +604,19 @@ add_to_environment()
                            -s \
                            "${MULLE_TECHNICAL_FLAGS}" \
                            "${MULLE_ENV_FLAGS}" \
+                           --no-protect \
                         environment \
                            --scope extension \
                            mset "${environment}" || exit 1
 }
 
 
-add_to_tools()
+_add_to_tools()
 {
-   log_entry "add_to_tools" "$@"
+   log_entry "_add_to_tools" "$@"
 
-   local filename="$1"
-   local tooloption="$2"
-
-   if _check_file "${filename}.${MULLE_UNAME}"
-   then
-      filename="${filename}.${MULLE_UNAME}"
-   else
-      _check_file "${filename}" || return 0
-   fi
+   local filename="$1"; shift
+   local os="$1"; shift
 
    local line
 
@@ -641,15 +634,42 @@ add_to_tools()
                            --search-nearest \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                           tool ${tooloption} \
-                              add "${line}"
+                           --no-protect \
+                        tool \
+                           --os "${os:-DEFAULT}" \
+                           "$@" \
+                           add \
+                              --no-compile-link \
+                              --csv \
+                              "${line}"
          if [ $? -eq 1 ] # only 1 is error, 2 is ok
          then
-         	fail "Addition of tool \"${line}\" failed"
+            fail "Addition of tool \"${line}\" failed"
          fi
       fi
    done
    IFS="${DEFAULT_IFS}"
+}
+
+
+add_to_tools()
+{
+   log_entry "add_to_tools" "$@"
+
+   local filename="$1"; shift
+
+   local os
+   local file
+
+   for file in "${filename}" "${filename}".*
+   do
+      if _check_file "${file}"
+      then
+         r_path_extension "${file}"
+         os="${RVAL}"
+         _add_to_tools "${file}" "${os}" "$@"
+      fi
+   done
 }
 
 
@@ -733,7 +753,7 @@ is_disabled_by_marks()
          ;;
       esac
 
-      log_debug "\"${description}\" not disabled by \"$1\""
+      # log_debug "\"${description}\" not disabled by \"$1\""
       shift
    done
 
@@ -1181,7 +1201,7 @@ ${C_INFO}Possibly ways to fix this:
       #
       # mulle-env stuff
       #
-      if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment|tool|optionaltool" \
+      if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment|tool" \
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
@@ -1193,7 +1213,6 @@ ${C_INFO}Possibly ways to fix this:
          fi
 
          add_to_tools "${extensiondir}/tool" "--share"
-         add_to_tools "${extensiondir}/optionaltool" "--optional --share"
 
          _copy_env_extension_dir "${extensiondir}/env" ||
             fail "Could not copy \"${extensiondir}/env\""
@@ -1533,6 +1552,7 @@ recall_installed_extensions()
                               --search-nearest \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_ENV_FLAGS} \
+                              --no-protect \
                            environment \
                               --scope extension \
                               get MULLE_SDE_INSTALLED_EXTENSIONS`"
@@ -1575,6 +1595,7 @@ env_set_var()
                      -s \
                      ${MULLE_ENV_FLAGS} \
                      ${MULLE_TECHNICAL_FLAGS} \
+                     --no-protect \
                   environment \
                      --scope "${scope}" \
                      set "${key}" "${value}" || internal_fail "failed env set"
@@ -1924,17 +1945,21 @@ changes into your subshell"
                            --search-nearest \
                            "${MULLE_ENV_FLAGS}" \
                            "${MULLE_TECHNICAL_FLAGS}" \
+                           --no-protect \
                         environment \
                            --scope extension \
-                              mset "${defines}" || exit 1
+                           mset "${defines}" || exit 1
 }
 
 
 __sde_init_add()
 {
-   log_entry "_sde_init_add" "$@"
+   log_entry "__sde_init_add" "$@"
 
    [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
+
+   [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ] && \
+      fail "--add and --reinit/--upgrade exclude each other"
 
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" ]
    then
@@ -2107,6 +2132,8 @@ remove_from_marks()
 #
 read_project_environment()
 {
+   log_entry "read_project_environment" "$@"
+
    if [ -f ".mulle/share/env/environment-project.sh" ]
    then
       log_fluff "Reading project settings"
@@ -2188,15 +2215,6 @@ __sde_init_main()
 {
    log_entry "__sde_init_main" "$@"
 
-   if [ "${OPTION_ADD}" = 'YES' ]
-   then
-      [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ] && \
-         fail "--add and --reinit/--upgrade exclude each other"
-
-      __sde_init_add "$@"
-      return $?
-   fi
-
    if [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ]
    then
       if [ -z "${OPTION_PROJECT_FILE}" ]
@@ -2204,7 +2222,8 @@ __sde_init_main()
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                     upgrade || exit 1
+                           --no-protect \
+                           upgrade || exit 1
       fi
 
       if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
@@ -2296,6 +2315,7 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_ENV_FLAGS} \
                      ${flags} \
+                     --no-protect \
                      --style "${OPTION_ENV_STYLE}" \
                   init \
                      --no-blurb
@@ -2311,18 +2331,28 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
             exit 1
          ;;
       esac
+   else
+      if [ "${OPTION_UPGRADE}" = 'YES' -a -z "${OPTION_PROJECT_FILE}" ]
+      then
+         log_fluff "Erasing contents to be overwritten by upgrade anew"
+         # on upgrade blow previous contents away
+         # should be part of mulle-env to clear a scope
+         remove_file_if_present ".mulle/share/env/environment-extension.sh"
+
+         local file
+
+         for file in ".mulle/share/env/tool" ".mulle/share/env/tool".*
+         do
+            remove_file_if_present "${file}"
+         done
+      else
+         log_debug "Not touching files as OPTION_UPGRADE is ${OPTION_UPGRADE} and OPTION_PROJECT_FILE is ${OPTION_PROJECT_FILE}"
+      fi
    fi
 
    local purge_sde_on_error='NO'
    local purge_env_on_error='NO'
    local purge_sourcetree_on_error='NO'
-
-   if [ "${OPTION_UPGRADE}" = 'YES' -a -z "${OPTION_PROJECT_FILE}" ]
-   then
-      # on upgrade blow previous contents away
-      # should be part of mulle-env to clear a scope
-      remove_file_if_present ".mulle/share/env/environment-extension.sh"
-   fi
 
    add_environment_variables "${OPTION_DEFINES}"
 
@@ -2366,15 +2396,16 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
                                 "${MULLE_FLAG_MAGNUM_FORCE}"
       )
       then
-         if [ -d "${MULLE_SDE_SHARE_DIR}.old" ]
+         if [ ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
          then
-            log_info "The upgrade failed. Restoring old configuration."
-            rmdir_safer "${MULLE_SDE_SHARE_DIR}"
-            exekutor mv "${MULLE_SDE_SHARE_DIR}.old" "${MULLE_SDE_SHARE_DIR}"
-            remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
-         else
             fail "Things went really bad, can't restore old configuration"
          fi
+
+         log_info "The upgrade failed. Restoring old configuration."
+         rmdir_safer "${MULLE_SDE_SHARE_DIR}"
+         exekutor mv "${MULLE_SDE_SHARE_DIR}.old" "${MULLE_SDE_SHARE_DIR}"
+         remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+         exit 1
       fi
 
       # upgrade identifiers if missing
@@ -2444,6 +2475,7 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          exekutor "${MULLE_ENV:-mulle-env}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_ENV_FLAGS} \
+                        --no-protect \
                      tweak \
                         climb
       fi
@@ -2815,7 +2847,12 @@ _sde_init_main()
    IFS="${DEFAULT_IFS}"
 
    (
-      __sde_init_main "$@"
+      if [ "${OPTION_ADD}" = 'YES' ]
+      then
+         __sde_init_add "$@"
+      else
+         __sde_init_main "$@"
+      fi
    )
    rval=$?
 

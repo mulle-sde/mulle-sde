@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.35.4
+MULLE_EXECUTABLE_VERSION=0.36.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -977,7 +977,7 @@ version"
 
          sde_upgrade_main "$@" || exit 1
 
-         MULLE_SDE_TEST_PATH="`mulle-sde environment get MULLE_SDE_TEST_PATH`"
+         MULLE_SDE_TEST_PATH="`mulle-env ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} environment get MULLE_SDE_TEST_PATH`"
 
          IFS=":"
          for i in ${MULLE_SDE_TEST_PATH:-test}
@@ -986,7 +986,7 @@ version"
             if [ -d "${i}" ]
             then
                log_info "Upgrade test ${C_RESET_BOLD}${i}"
-               ( cd "${i}"; mulle-sde upgrade ) || exit 1
+               ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} ${MULLE_SDE_FLAGS} upgrade ) || exit 1
             fi
          done
          IFS="${DEFAULT_IFS}"

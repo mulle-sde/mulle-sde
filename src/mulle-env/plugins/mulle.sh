@@ -254,15 +254,6 @@ print_mulle_tools_sh()
 }
 
 
-
-print_mulle_optional_tools_sh()
-{
-   log_entry "print_mulle_optional_tools_sh" "$@"
-
-   print_developer_optional_tools_sh "$@"
-}
-
-
 print_mulle_auxscopes_sh()
 {
    log_entry "print_mulle_auxscopes_sh" "$@"
@@ -278,7 +269,6 @@ env_setup_mulle_tools()
 
    local bindir="$1"; shift
    local libexecdir="$1"; shift
-
 
    #
    # avoid colliding with hosts names bin or libexec

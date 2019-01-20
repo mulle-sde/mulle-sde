@@ -102,15 +102,6 @@ sde_upgrade_main()
    [ -z "${MULLE_SDE_INIT_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   case "$*" in
-      *--project-file*)
-      ;;
-
-      *)
-         log_info "Upgrading ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
-      ;;
-   esac
-
    eval_exekutor sde_init_main --upgrade "$@" || return 1
 
    if [ "${OPTION_RECURSE}" = 'NO' ]
