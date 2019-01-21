@@ -254,9 +254,9 @@ print_mulle_tools_sh()
 }
 
 
-print_mulle_auxscopes_sh()
+print_mulle_auxscope_sh()
 {
-   log_entry "print_mulle_auxscopes_sh" "$@"
+   log_entry "print_mulle_auxscope_sh" "$@"
 
    echo "project
 extension"

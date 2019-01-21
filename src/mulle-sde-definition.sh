@@ -181,7 +181,7 @@ sde_definition_set_remove()
       ;;
    esac
 
-   sde_call_definition $"{cmd}" "${flags}" "${directory}" "$@"
+   sde_call_definition "${cmd}" "${flags}" "${directory}" "$@"
 }
 
 

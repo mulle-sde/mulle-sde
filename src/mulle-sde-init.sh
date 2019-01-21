@@ -615,8 +615,8 @@ _add_to_tools()
 {
    log_entry "_add_to_tools" "$@"
 
-   local filename="$1"; shift
-   local os="$1"; shift
+   local filename="$1"
+   local os="$2"
 
    local line
 
@@ -637,9 +637,10 @@ _add_to_tools()
                            --no-protect \
                         tool \
                            --os "${os:-DEFAULT}" \
-                           "$@" \
+                           --extension \
                            add \
                               --no-compile-link \
+                              --if-missing \
                               --csv \
                               "${line}"
          if [ $? -eq 1 ] # only 1 is error, 2 is ok
@@ -656,7 +657,7 @@ add_to_tools()
 {
    log_entry "add_to_tools" "$@"
 
-   local filename="$1"; shift
+   local filename="$1"
 
    local os
    local file
@@ -667,7 +668,7 @@ add_to_tools()
       then
          r_path_extension "${file}"
          os="${RVAL}"
-         _add_to_tools "${file}" "${os}" "$@"
+         _add_to_tools "${file}" "${os}"
       fi
    done
 }
@@ -1212,7 +1213,7 @@ ${C_INFO}Possibly ways to fix this:
             log_debug "${extensiondir}/environment not installed because project type is \"none\""
          fi
 
-         add_to_tools "${extensiondir}/tool" "--share"
+         add_to_tools "${extensiondir}/tool"
 
          _copy_env_extension_dir "${extensiondir}/env" ||
             fail "Could not copy \"${extensiondir}/env\""
