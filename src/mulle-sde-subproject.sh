@@ -486,6 +486,9 @@ sde_subproject_map()
    local lenient="${1:-NO}" ; shift
    local parallel="${1:-NO}" ; shift
 
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT undefined"
+   [ -z "${MULLE_SDE_VAR_DIR}" ]  && internal_fail "MULLE_SDE_VAR_DIR undefined"
+
    local subprojects
 
    [ $# -eq 0 ] && internal_fail "missing commandline"
@@ -505,6 +508,9 @@ sde_subproject_map()
       then
          internal_fail "Can't have parallel and lenient together"
       fi
+
+      [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+      [ -z "${MULLE_FILE_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
       _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}"
       statusfile="${RVAL}"
@@ -526,9 +532,18 @@ sde_subproject_map()
       do
          set +o noglob; IFS="${DEFAULT_IFS}"
 
-         if [ ! -d "${MULLE_VIRTUAL_ROOT}/${subproject}/.mulle/share/sde" ]
+         local expanded_subproject
+
+         r_filepath_concat "${MULLE_VIRTUAL_ROOT}" "${subproject}"
+         expanded_subproject="${RVAL}"
+
+         local sdefolder
+
+         sdefolder="${expanded_subproject}/.mulle/share/sde"
+         if [ ! -d "${sdefolder}" ]
          then
-            log_fluff "Don't update subproject \"${subproject}\" as it has no .mulle/share/sde folder"
+            log_fluff "${verb} subproject \"${subproject}\" skipped, as it \
+has no \"${sdefolder}\" folder"
             continue
          fi
 
@@ -537,7 +552,7 @@ sde_subproject_map()
          if [ "${parallel}" = 'YES' ]
          then
             (
-               exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
+               exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
                rval=$?
 
                if [ $rval -ne 0 ]
@@ -546,7 +561,7 @@ sde_subproject_map()
                fi
             ) &
          else
-            exekutor mulle-env -c "${command}" subenv "${MULLE_VIRTUAL_ROOT}/${subproject}"
+            exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
             rval=$?
             if [ ${rval} -ne 0 ]
             then

@@ -1,3 +1,7 @@
+### 0.37.2
+
+* improved upgrade with subprojects
+
 ### 0.37.1
 
 * fix tool upgrade by erasing proper prior files

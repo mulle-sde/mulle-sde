@@ -44,14 +44,19 @@ sde_upgrade_usage()
 Usage:
    ${UPGRADE_USAGE_NAME:-${MULLE_USAGE_NAME}} upgrade [project]
 
-   Upgrade to a newer mulle-sde version. The default is to upgrade the non
+   Upgrade to a newer mulle-sde version. The default is to upgrade the non-
    project files only. Upgrading project files is usually not a good idea,
    as you could lose changes. Only environment variables in the "share" scope
    will be affected by an extension upgrade.
 
+   E.g. .mulle/share and cmake/share will be affected, but CMakeLists.txt
+        will not.
+
 Options:
-   --no-init     : do not run init again
-   --no-recurse  : do not upgrade subprojects
+   --no-project      : do not upgrade the project
+   --no-subprojects  : do not upgrade subprojects
+   --no-test         : do not upgrade a test folder if it exists
+
 Commands:
 EOF
 
@@ -73,41 +78,24 @@ EOF
 ###
 ### parameters and environment variables
 ###
-sde_upgrade_main()
+sde_upgrade_project()
 {
-   log_entry "sde_upgrade_main" "$@"
-
-   local OPTION_RECURSE='YES'
-
-   while :
-   do
-      case "$1" in
-         -h*|--help|help)
-            sde_upgrade_usage
-         ;;
-
-         --no-recurse)
-            OPTION_RECURSE='NO'
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
+   log_entry "sde_upgrade_project" "$@"
 
    # shellcheck source=src/mulle-sde-init.sh
    [ -z "${MULLE_SDE_INIT_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
    eval_exekutor sde_init_main --upgrade "$@" || return 1
+}
 
-   if [ "${OPTION_RECURSE}" = 'NO' ]
-   then
-      return 0
-   fi
+
+###
+sde_upgrade_subprojects()
+{
+   log_entry "sde_upgrade_subprojects" "$@"
+
+   local parallel="$1"
 
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
@@ -122,6 +110,101 @@ sde_upgrade_main()
       flags="${flags} -f"
    fi
 
-   sde_subproject_map 'Upgrading' 'NO' 'YES' \
-                           "mulle-sde ${flags} extension upgrade"
+   # a subproject when upgraded "feels" like a main project
+   # unfortunately we can't pass parameters down wards
+
+   sde_subproject_map 'Upgrading' 'NO' "${parallel}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
 }
+
+
+sde_upgrade_test()
+{
+   log_entry "sde_upgrade_test" "$@"
+
+   MULLE_SDE_TEST_PATH="`mulle-env ${MULLE_TECHNICAL_FLAGS} \
+                                   ${MULLE_ENV_FLAGS} \
+                           environment \
+                              get MULLE_SDE_TEST_PATH`"
+
+   IFS=":"
+   for i in ${MULLE_SDE_TEST_PATH:-test}
+   do
+      IFS="${DEFAULT_IFS}"
+      if [ -d "${i}" ]
+      then
+         log_info "Upgrade test ${C_RESET_BOLD}${i}"
+         ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} ${MULLE_SDE_FLAGS} upgrade ) || exit 1
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+sde_upgrade_main()
+{
+   log_entry "sde_upgrade_main" "$@"
+
+   local OPTION_PARALLEL='YES'
+   local OPTION_PROJECT='YES'
+   local OPTION_SUBPROJECTS='YES'
+   local OPTION_TEST='YES'
+
+   while :
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_upgrade_usage
+         ;;
+
+         --no-parallel)
+            OPTION_PARALLEL='NO'
+         ;;
+
+         --no-project)
+            OPTION_PROJECT='NO'
+         ;;
+
+         --no-recurse|--no-subprojects)
+            OPTION_SUBPROJECTS='NO'
+         ;;
+
+         --no-test)
+            OPTION_TEST='NO'
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ "${OPTION_PROJECT}" = 'YES' ]
+   then
+      (
+         sde_upgrade_project "$@"
+      ) || exit 1
+   fi
+
+   if [ "${OPTION_SUBPROJECTS}" = 'YES' ]
+   then
+      (
+         MULLE_VIRTUAL_ROOT="`pwd -P`"
+         export MULLE_VIRTUAL_ROOT
+
+         MULLE_SDE_VAR_DIR="${MULLE_VIRTUAL_ROOT}/.mulle/var/${MULLE_HOSTNAME}/sde"
+
+         sde_upgrade_subprojects "${OPTION_PARALLEL}"
+      ) || exit 1
+   fi
+
+   if [ "${OPTION_TEST}" = 'YES' ]
+   then
+      (
+         sde_upgrade_test "$@"
+      ) || exit 1
+   fi
+}
+
+
