@@ -1,3 +1,7 @@
+### 0.37.1
+
+* fix tool upgrade by erasing proper prior files
+
 ## 0.37.0
 
 * adapt to mulle-env changes

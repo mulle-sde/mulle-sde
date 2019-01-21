@@ -628,7 +628,7 @@ _add_to_tools()
 
       if [ ! -z "${line}" ]
       then
-         log_verbose "Adding \"${line}\" to tool"
+         log_verbose "Tool: \"${line}\"${os:+ (}${os}${os:+)}"
          MULLE_VIRTUAL_ROOT="`pwd -P`" \
             exekutor "${MULLE_ENV:-mulle-env}" \
                            --search-nearest \
@@ -1115,11 +1115,6 @@ ${C_INFO}Possibly ways to fix this:
       verb="Upgrading"
    fi
 
-   if [ -z "${onlyfilename}" ]
-   then
-      log_verbose "${verb} dependencies for ${exttype} extension \"${vendor}/${extname}\""
-   fi
-
    #
    # file is called inherit, so .gitignoring dependencies doesn't kill it
    #
@@ -1147,6 +1142,8 @@ ${C_INFO}Possibly ways to fix this:
       then
          if _check_file "${filename}"
          then
+            log_fluff "${verb} dependencies for ${exttype} extension \"${vendor}/${extname}\""
+
             IFS="
 "
             for line in `egrep -v '^#' "${filename}"`
@@ -1171,6 +1168,11 @@ ${C_INFO}Possibly ways to fix this:
                           "$@"
    fi
 
+
+   if [ -z "${onlyfilename}" ]
+   then
+      log_verbose "${verb} \"${vendor}/${extname}\""
+   fi
 
    local verb
 
@@ -1202,7 +1204,7 @@ ${C_INFO}Possibly ways to fix this:
       #
       # mulle-env stuff
       #
-      if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment|tool" \
+      if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment" \
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
@@ -1589,7 +1591,7 @@ env_set_var()
    local value="$2"
    local scope="${3:-extension}"
 
-   log_verbose "Environment: key=\"${value}\""
+   log_verbose "Environment: ${key}=\"${value}\""
 
    exekutor "${MULLE_ENV:-mulle-env}" \
                      --search-nearest \
@@ -2335,17 +2337,23 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
    else
       if [ "${OPTION_UPGRADE}" = 'YES' -a -z "${OPTION_PROJECT_FILE}" ]
       then
-         log_fluff "Erasing contents to be overwritten by upgrade anew"
-         # on upgrade blow previous contents away
-         # should be part of mulle-env to clear a scope
-         remove_file_if_present ".mulle/share/env/environment-extension.sh"
+         log_fluff "Erasing share/env contents to be written by upgrade anew"
 
-         local file
+         if ! is_disabled_by_marks "${marks}" "no-env"
+         then
+            # should be part of mulle-env to clear a scope
+            remove_file_if_present ".mulle/share/env/environment-extension.sh"
 
-         for file in ".mulle/share/env/tool" ".mulle/share/env/tool".*
-         do
-            remove_file_if_present "${file}"
-         done
+            local file
+
+            shopt -s nullglob
+            for file in ".mulle/share/env/tool-extension" ".mulle/share/env/tool-extension".*
+            do
+               shopt -u nullglob
+               remove_file_if_present "${file}"
+            done
+            shopt -u nullglob
+         fi
       else
          log_debug "Not touching files as OPTION_UPGRADE is ${OPTION_UPGRADE} and OPTION_PROJECT_FILE is ${OPTION_PROJECT_FILE}"
       fi

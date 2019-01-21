@@ -94,7 +94,7 @@ sde_perform_updates()
 
    #
    # Make a quick estimate if this is a virgin checkout scenario, by checking
-   # the buildorder file exisz
+   # the buildorder file exist
    # If yes, then lets update once. If there is no buildorder file, let's
    # do it
    #
