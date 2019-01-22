@@ -27,6 +27,7 @@ mulle-fetch;${MULLE_FETCH_VERSION}
 mulle-make;${MULLE_MAKE_VERSION}
 mulle-match;${MULLE_MATCH_VERSION}
 mulle-monitor;${MULLE_MONITOR_VERSION}
+mulle-platform;${MULLE_PLATFORM_VERSION}
 mulle-sde;${MULLE_SDE_VERSION}
 mulle-sourcetree;${MULLE_SOURCETREE_VERSION}
 "

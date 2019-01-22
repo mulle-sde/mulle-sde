@@ -1,3 +1,7 @@
+### 0.37.3
+
+* add platform to bin/installer-all
+
 ### 0.37.2
 
 * improved upgrade with subprojects
