@@ -132,8 +132,13 @@ sde_upgrade_test()
       IFS="${DEFAULT_IFS}"
       if [ -d "${i}" ]
       then
-         log_info "Upgrade test ${C_RESET_BOLD}${i}"
-         ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} ${MULLE_SDE_FLAGS} upgrade ) || exit 1
+         if [ -d "${i}/.mulle" -o -d "${i}/.mulle-env" ]
+         then
+            log_info "Upgrade test ${C_RESET_BOLD}${i}"
+            ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} ${MULLE_SDE_FLAGS} upgrade ) || exit 1
+         else
+            log_verbose "Test diretory \"$i\" doesn't look like a mulle-sde project"
+         fi
       fi
    done
    IFS="${DEFAULT_IFS}"

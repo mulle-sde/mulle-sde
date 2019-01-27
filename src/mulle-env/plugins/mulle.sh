@@ -251,6 +251,24 @@ print_mulle_tools_sh()
    log_entry "print_mulle_tools_sh" "$@"
 
    print_developer_tools_sh "$@"
+
+   #
+   # for people doing mulle-sde init none
+   # have an assortment of tools ready so one can at least fetch stuff
+   # and build stuff
+   #
+   MULLE_SDE_BINARIES="\
+column;optional
+curl;optional
+make;optional
+ninja;optional
+wget;optional
+sw_vers;optional
+xcrun;optional
+xcodebuild;optional"
+
+   echo "${MULLE_SDE_BINARIES}"
+
 }
 
 

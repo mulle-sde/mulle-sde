@@ -466,8 +466,20 @@ _sde_enhance_url()
             *github.com/*)
                last="${url##*/}"         # basename
                leading="${url%${last}}"  # dirname
-               branch="${last%%.*}"
-               extension="${last#*.}"   # dirname
+               branch="${last%%.tar*}"
+               if [ "${branch}" = "${last}" ]
+               then
+                  branch="${last%%.zip*}"
+               fi
+               if [ "${branch}" = "${last}" ]
+               then
+                  branch="${last%%.*.*}"
+               fi
+               if [ "${branch}" = "${last}" ]
+               then
+                  branch="${last%%.*}"
+               fi
+               extension="${last#${branch}.}"    # dirname
 
                url="${leading}\${${upcaseid}_BRANCH:-${branch}}.${extension}"
             ;;

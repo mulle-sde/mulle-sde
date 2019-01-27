@@ -167,7 +167,7 @@ Use -f flag to clobber."
                                        --buildorder-file buildorder \
                                     buildorder \
                                        --no-protect \
-                                       --configuration "${configuration}"
+                                       --configuration "${configuration}" \
                                        "${arguments}" || return 1
 }
 

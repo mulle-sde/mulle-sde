@@ -1,3 +1,7 @@
+### 0.37.4
+
+* added hostname ans status commands
+
 ### 0.37.3
 
 * add platform to bin/installer-all

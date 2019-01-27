@@ -246,6 +246,17 @@ See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
 information on this command.
 
 
+## mulle-sde status
+
+![](dox/mulle-sde-status.png)
+
+Get a quick description about the state of the mulle-sde project.
+
+```
+mulle-sde status
+```
+
+
 ## mulle-sde tool
 
 ![](dox/mulle-sde-tool.png)

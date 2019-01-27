@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.37.3
+MULLE_EXECUTABLE_VERSION=0.37.4
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -49,17 +49,18 @@ print_commands()
    then
       SHOWN_COMMANDS="\
    bash-completion: get bash completion with \`. \$(mulle-sde bash-completion)\`
+   init           : create a new project
    show           : show available language and buildtool extensions
-   init           : create a new project"
+   status         : show information about the current directory"
 
       HIDDEN_COMMANDS="\
    environment    : manage environment variables (project settings)
+   init-and-enter : create a new project then immediately start a subshell
    install        : install a remote mulle-sde project
    libexec-dir    : print path to mulle-sde libexec
    run            : run a command in a subshell
    style          : show environment style
-   uname          : mulle-sdes simplified uname(1)
-   init-and-enter : create a new project then immediately start a subshell"
+   uname          : mulle-sdes simplified uname(1)"
 
    else
       SHOWN_COMMANDS="\
@@ -72,6 +73,7 @@ print_commands()
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (filed that match patternfiles)
+   status         : show information about the current project
    update         : update project makefiles and sources"
 
       HIDDEN_COMMANDS="\
@@ -537,7 +539,7 @@ subproject|style|task|test|template|tool|treestatus|unmark|update)
             ;;
 
             bash-completion|commands|extension|init|init-and-enter|reinit|\
-uname|upgrade|show|version|libexec-dir|library-path|project-dir)
+status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
             ;;
 
             enter)
@@ -732,6 +734,10 @@ version"
          sde_fetch_main "$@"
       ;;
 
+      hostname)
+         rexekutor echo "${MULLE_HOSTNAME}"
+      ;;
+
       init)
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
@@ -886,6 +892,13 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
          sde_extension_main show "$@"
+      ;;
+
+      status)
+         # shellcheck source=src/mulle-sde-status.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-status.sh"
+
+         sde_status_main "$@"
       ;;
 
       style)

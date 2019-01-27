@@ -42,12 +42,13 @@ Usage:
 
    Fetch all dependencies and ensure the already fetched dependencies are the
    the correct versions (else refetch them).
+   This is the same as calling \`mulle-sourcetree sync\`.
 
 Options:
-   --recurse|flat|share : specify mode to update sourcetree with
+   --recurse|flat|share    : specify mode to sync sourcetree with
 
 Environment:
-   MULLE_FETCH_ARCHIVE_DIR   : local cache of archives
+   MULLE_FETCH_ARCHIVE_DIR : local cache of archives
    MULLE_FETCH_MIRROR_DIR  : local mirror of git repositories
    MULLE_FETCH_SEARCH_PATH : specify local directories to search, : separated
 
@@ -56,9 +57,9 @@ EOF
 }
 
 
-do_update_sourcetree()
+do_sync_sourcetree()
 {
-   log_entry "do_update_sourcetree" "$@"
+   log_entry "do_sync_sourcetree" "$@"
 
    if [ "${MULLE_SDE_FETCH}" = 'NO' ]
    then
@@ -67,8 +68,10 @@ do_update_sourcetree()
    fi
 
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                     "${MULLE_SOURCETREE_FLAGS}" ${MULLE_TECHNICAL_FLAGS} "${OPTION_MODE}" \
-                     "update" "$@"
+                        "${MULLE_SOURCETREE_FLAGS}" \
+                        "${MULLE_TECHNICAL_FLAGS}" \
+                        "${OPTION_MODE}" \
+                     "sync" "$@"
 }
 
 
@@ -131,7 +134,7 @@ sde_fetch_main()
 
    if [ "${do_update}" = 'YES' ]
    then
-      do_update_sourcetree "$@"
+      do_sync_sourcetree "$@"
       return $?
    else
       log_verbose "Nothing to do"
