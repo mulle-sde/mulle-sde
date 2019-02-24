@@ -52,10 +52,13 @@ Usage:
    E.g. .mulle/share and cmake/share will be affected, but CMakeLists.txt
         will not.
 
+   To update CMakeLists.txt run upgrade again with --project-file CMakeLists.txt
+
 Options:
-   --no-project      : do not upgrade the project
-   --no-subprojects  : do not upgrade subprojects
-   --no-test         : do not upgrade a test folder if it exists
+   --project-file <file> : update a single project file to newest verion
+   --no-project          : do not upgrade the project
+   --no-subprojects      : do not upgrade subprojects
+   --no-test             : do not upgrade a test folder if it exists
 
 Commands:
 EOF

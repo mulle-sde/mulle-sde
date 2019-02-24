@@ -156,8 +156,7 @@ sde_definition_set_remove()
 
       local i
 
-      set -f; IFS="
-"
+      set -f; IFS=$'\n'
       for i in ${RVAL}
       do
          set +f; IFS="${DEFAULT_IFS}"
@@ -293,8 +292,7 @@ sde_definition_list()
 
    local i
 
-   set -f; IFS="
-"
+   set -f; IFS=$'\n'
    for i in ${RVAL}
    do
       set +f; IFS="${DEFAULT_IFS}"

@@ -270,8 +270,7 @@ emit_ignore_patternfile()
 
    local subproject
 
-   set -o noglob;  IFS="
-"
+   set -o noglob;  IFS=$'\n'
    for subproject in ${subprojects}
    do
       echo "${subproject}/"
@@ -526,8 +525,7 @@ sde_subproject_map()
 
       rval=0
 
-      set -o noglob;  IFS="
-"
+      set -o noglob;  IFS=$'\n'
       for subproject in ${subprojects}
       do
          set +o noglob; IFS="${DEFAULT_IFS}"

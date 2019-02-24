@@ -32,7 +32,6 @@
 MULLE_SDE_LINKORDER_SH="included"
 
 
-
 sde_linkorder_usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
@@ -63,11 +62,29 @@ r_sde_locate_library()
 
    local libstyle="$1"; shift
    local require="$1"; shift
+   local configuration="$1"; shift
 
    [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
 
-   r_platform_search "${DEPENDENCY_DIR}:${ADDICTION_DIR}" \
+   local searchpath
+
+   searchpath="`rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} \
+                                      ${MULLE_CRAFT_FLAGS} \
+                                      -s \
+                                      searchpath \
+                                      --if-exists \
+                                      --prefix-only \
+                                      --configuration "${configuration}" \
+                                      library`"
+   if [ -z "${searchpath}" ]
+   then
+      fail "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
+   fi
+
+   log_fluff "Library searchpath is: ${searchpath}"
+
+   r_platform_search "${searchpath}" \
                      "lib" \
                      "${libstyle}" \
                      "static" \
@@ -88,8 +105,7 @@ _emit_file_output()
    local marks
    local csv
 
-   IFS="
-" ; set -f
+   IFS=$'\n' ; set -f
    for csv in "$@"
    do
       IFS="${DEFAULT_IFS}"; set +f
@@ -184,8 +200,7 @@ emit_ld_lf_output()
 {
    log_entry "_emit_ld_output" "$@"
 
-   local sep="
-"
+   local sep=$'\n'
    _emit_ld_output "${sep}" "$@"
 }
 
@@ -251,7 +266,7 @@ linkorder_callback()
       nodemarks_contain "${_marks}" "dependency"
    then
       # but hit me again later
-      walk_remove_from_visited "${_nodeline}"
+      walk_remove_from_visited
       log_debug "${_address}: skipped emit of dependency due to dynamic/standalone"
       return
    fi
@@ -315,6 +330,7 @@ linkorder_collect()
    local marks="$2"
    local aliases="$3"
    local collect_libraries="$4"
+   local configuration="$5"
 
    local name
 
@@ -346,7 +362,6 @@ linkorder_collect()
       ;;
    esac
 
-
    case ",${marks},*" in
       *,no-dependency,*)
          # os-library, ignore it unless we do 'ld'
@@ -367,7 +382,7 @@ linkorder_collect()
       aliases="${name}"
    fi
 
-   r_sde_locate_library "${librarytype}" "${requirement}" ${aliases}
+   r_sde_locate_library "${librarytype}" "${requirement}" "${configuration}" ${aliases}
    libpath="${RVAL}"
 
    [ -z "${libpath}" ] && fail "Did not find a linkable \"${name}\" library.
@@ -385,7 +400,7 @@ sde_linkorder_main()
 {
    log_entry "sde_linkorder_main" "$@"
 
-   local OPTION_CONFIGURATION
+   local OPTION_CONFIGURATION="${CONFIGURATIONS%%:*}"
    local OPTION_OUTPUT_FORMAT="ld_lf"
    local OPTION_LD_PATH='YES'
    local OPTION_RPATH='YES'
@@ -502,8 +517,7 @@ sde_linkorder_main()
    local marks
    local raw_userinfo
 
-   IFS="
-" ; set -f
+   IFS=$'\n' ; set -f
    for node in ${nodes}
    do
       IFS="${DEFAULT_IFS}"; set +f
@@ -538,7 +552,11 @@ sde_linkorder_main()
       fi
 
       # TODO: could remove duplicates with awk
-      if linkorder_collect "${address%#*}" "${marks}" "${aliases}" "${collect_libraries}"
+      if linkorder_collect "${address%#*}" \
+                           "${marks}" \
+                           "${aliases}" \
+                           "${collect_libraries}" \
+                           "${OPTION_CONFIGURATION:-Release}"
       then
          r_add_unique_line "${dependency_libs}" "${RVAL}"
          dependency_libs="${RVAL}"

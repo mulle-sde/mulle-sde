@@ -42,6 +42,7 @@ sde_init_usage()
 
    COMMON_OPTIONS="\
    --existing         : skip demo file installation.
+   --no-sourcetree    : do not add dependencies and libraries to project
    -d <dir>           : directory to populate (working directory)
    -D <key>=<val>     : specify an environment variable
    -e <extra>         : specify extra extensions. Multiple uses are possible
@@ -52,7 +53,6 @@ sde_init_usage()
    HIDDEN_OPTIONS="\
    --allow-<name>     : reenable specific pieces of initialization (see source)
    --no-<name>        : turn off specific pieces of initialization (see source)
-   --no-sourcetree    : do not add dependencies and libraries to project
    -b <buildtool>     : specify the buildtool extension to use
    -r <runtime>       : specify runtime extension to use
    -v <vendor>        : extension vendor to use (mulle-sde)
@@ -321,8 +321,7 @@ install_inheritfile()
    local line
    local depmarks
 
-   IFS="
-"
+   IFS=$'\n'
    while read -r line
    do
       local extension
@@ -388,8 +387,7 @@ extension (\"${inheritfilename}\")"
                          "${onlyfilename}" \
                          "${force}" \
                          "$@"
-      IFS="
-"
+      IFS=$'\n'
     done <<< "${text}"
 
    IFS="${DEFAULT_IFS}"
@@ -406,8 +404,7 @@ environment_mset_log()
    local key
    local value
 
-   IFS="
-"
+   IFS=$'\n'
    while read -r line
    do
       log_debug "line: ${line}"
@@ -444,8 +441,7 @@ environmenttext_to_mset()
    local line
    local comment
 
-   IFS="
-"
+   IFS=$'\n'
    while read -r line
    do
       line="`tr -d '\0015' <<< "${line}"`"
@@ -514,8 +510,7 @@ add_to_libraries()
 
    local line
 
-   IFS="
-"
+   IFS=$'\n'
    for line in `egrep -v '^#' "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
@@ -549,8 +544,7 @@ add_to_dependencies()
 
    local line
 
-   IFS="
-"
+   IFS=$'\n'
    for line in `egrep -v '^#' "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
@@ -620,8 +614,7 @@ _add_to_tools()
 
    local line
 
-   IFS="
-"
+   IFS=$'\n'
    for line in `egrep -v '^#' "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
@@ -927,10 +920,10 @@ _delete_leaf_files_or_directories()
    local i
 
    # https://stackoverflow.com/questions/1574403/list-all-leaf-subdirectories-in-linux
-   IFS="
-"
-   for i in `find "${directory}" -mindepth 1 \
-                                 -execdir sh -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
+   IFS=$'\n'
+   for i in `rexekutor find "${directory}" -mindepth 1 \
+                                           -execdir sh \
+                                           -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
    do
       IFS="${DEFAULT_IFS}"
 
@@ -1144,8 +1137,7 @@ ${C_INFO}Possibly ways to fix this:
          then
             log_fluff "${verb} dependencies for ${exttype} extension \"${vendor}/${extname}\""
 
-            IFS="
-"
+            IFS=$'\n'
             for line in `egrep -v '^#' "${filename}"`
             do
                IFS="${DEFAULT_IFS}"
@@ -1414,8 +1406,7 @@ install_extension()
 
       log_debug "TEMPLATE_DIRECTORIES: ${TEMPLATE_DIRECTORIES}"
 
-      set -o noglob ; IFS="
-"
+      set -o noglob ; IFS=$'\n'
       for arguments in ${TEMPLATE_DIRECTORIES}
       do
          IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1474,8 +1465,7 @@ _install_simple_extension()
    local extra_vendor
    local extra_name
 
-   IFS="
-"; set -o noglob
+   IFS=$'\n'; set -o noglob
    for extra in ${extras}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1643,7 +1633,9 @@ install_extensions()
 
    [ -z "${PROJECT_TYPE}" ] && internal_fail "missing PROJECT_TYPE"
    [ -z "${PROJECT_NAME}" ] && internal_fail "missing PROJECT_NAME"
-   [ -z "${PROJECT_SOURCE_DIR}" ] && internal_fail "missing PROJECT_SOURCE_DIR"
+
+   # this is OK for none
+   # [ -z "${PROJECT_SOURCE_DIR}" ] && log "missing PROJECT_SOURCE_DIR"
 
    # set to src as default for older projects
 
@@ -2056,8 +2048,7 @@ __get_installed_extensions()
 
    local extension
 
-   IFS="
-"; set -o noglob
+   IFS=$'\n'; set -o noglob
    for extension in ${extensions}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
@@ -2301,6 +2292,13 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
       fi
    fi
 
+   local purge_mulle_on_error='NO'
+
+   if [ ! -d ".mulle" ]
+   then
+      purge_mulle_on_error='YES'
+   fi
+
    #
    # if we init env now, then extensions can add environment
    # variables and tools
@@ -2331,6 +2329,10 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          ;;
 
          *)
+            if [ "${purge_mulle_on_error}" = 'YES' -a -d .mulle ]
+            then
+               internal_fail "mulle-env should have cleaned up after itself after init failure"
+            fi
             exit 1
          ;;
       esac
@@ -2446,20 +2448,25 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
       then
          log_error "Cleaning up after error"
 
-         if [ "${purge_sde_on_error}" = 'YES' ]
+         if [ "${purge_mulle_on_error}" = 'YES' ]
          then
-            rmdir_safer "${MULLE_SDE_SHARE_DIR}"
-            rmdir_safer "${MULLE_SDE_ETC_DIR}"
-         fi
-         if [ "${purge_env_on_error}" = 'YES' ]
-         then
-            rmdir_safer ".mulle/share/env"
-            rmdir_safer ".mulle/etc/env"
-         fi
-         if [ "${purge_sourcetree_on_error}" = 'YES' ]
-         then
-            rmdir_safer ".mulle/share/sourcetree"
-            rmdir_safer ".mulle/etc/sourcetree"
+            rmdir_safer ".mulle"
+         else
+            if [ "${purge_sde_on_error}" = 'YES' ]
+            then
+               rmdir_safer "${MULLE_SDE_SHARE_DIR}"
+               rmdir_safer "${MULLE_SDE_ETC_DIR}"
+            fi
+            if [ "${purge_env_on_error}" = 'YES' ]
+            then
+               rmdir_safer ".mulle/share/env"
+               rmdir_safer ".mulle/etc/env"
+            fi
+            if [ "${purge_sourcetree_on_error}" = 'YES' ]
+            then
+               rmdir_safer ".mulle/share/sourcetree"
+               rmdir_safer ".mulle/etc/sourcetree"
+            fi
          fi
          if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
          then

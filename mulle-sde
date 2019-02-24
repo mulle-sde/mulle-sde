@@ -224,8 +224,7 @@ set_custom_environment()
 
    local i
 
-   set -f; IFS="
-"
+   set -f; IFS=$'\n'
    for i in ${defines}
    do
       set +f; IFS="${DEFAULT_IFS}"
@@ -268,19 +267,26 @@ _exec_command_in_subshell()
 {
    local cmdline="$1"; shift
 
-
    local current
 
    current="`pwd -P`"
 
    if ! r_determine_project_dir "${current}"
    then
-       fail "There is no mulle-sde project here ($current)"
+      if [ -d ".mulle-sde" ]
+      then
+         fail "There is only an old mulle-sde project here ($current).
+${C_INFO}It should be upgradable with:
+${C_RESET_BOLD}   mulle-sde upgrade
+${C_RESET_BOLD}   mulle-sde clean all"
+      fi
+      fail "There is no mulle-sde project here ($current)"
    fi
 
    if [ "${current}" != "${RVAL}" ]
    then
-      cd "${RVAL}"
+      [ -z "${MULLE_USER_PWD}" ] && internal_fail "MULLE_USER_PWD not set"
+      exekutor cd "${RVAL}"
    fi
 
    local flag
@@ -548,7 +554,13 @@ status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
             ;;
 
             "")
-               exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS}
+               # special treatment for empty, show usage
+               if ! exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}
+               then
+                  log_warning "No mulle-sde project found"
+                  usage
+               fi
+               exit 0
             ;;
 
             *)
@@ -583,6 +595,16 @@ status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
    if [ ! -z "${defines}" ]
    then
       set_custom_environment "${defines}"
+   fi
+
+   local hook
+
+   if [ "${BASH_VERSINFO[0]}" -ge 4 ]
+   then
+      hook="MULLE_SDE_${cmd^^}_PRELUDE"
+
+      # run hook if environment variable is set
+      eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\"" >&2
    fi
 
    case "${cmd}" in
@@ -988,7 +1010,7 @@ version"
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
 
-         sde_upgrade_main "$@" || exit 1
+         sde_upgrade_main "$@"
       ;;
 
       version)
@@ -1010,6 +1032,22 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
          usage "${MULLE_TRACE}"
       ;;
    esac
+
+   rval=$?
+   if [ "${BASH_VERSINFO[0]}" -ge 4 ]
+   then
+      if [ $rval -eq 0 ]
+      then
+         hook="MULLE_SDE_${cmd^^}_OK"
+      else
+         hook="MULLE_SDE_${cmd^^}_FAIL"
+      fi
+
+      # run hook if environment variable is set
+      eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\"" >&2
+   fi
+
+   return $rval
 }
 
 
@@ -1035,7 +1073,7 @@ _init()
       then
          if [ -z "`command -v "${executablepath}"`" ]
          then
-             echo "Fatal Error: Could not find mulle-bashfunctions-env in PATH (not installed ?)" >&2
+            echo "Fatal Error: Could not find mulle-bashfunctions-env in PATH ($PATH) - mulle-bashfunctions not installed ?" >&2
          else
             echo "Fatal Error: Could not find libexec of mulle-bashfunctions-env ($PWD)" >&2
          fi

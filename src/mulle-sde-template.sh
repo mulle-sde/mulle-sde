@@ -126,15 +126,15 @@ r_projectname_seds()
 
    local cmdline
 
-   r_escaped_sed_pattern "${PROJECT_NAME}"
+   r_escaped_sed_replacement "${PROJECT_NAME}"
    cmdline="-e 's/${o}PROJECT_NAME${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${PROJECT_IDENTIFIER}"
+   r_escaped_sed_replacement "${PROJECT_IDENTIFIER}"
    cmdline="${cmdline} -e 's/${o}PROJECT_IDENTIFIER${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${PROJECT_DOWNCASE_IDENTIFIER}"
+   r_escaped_sed_replacement "${PROJECT_DOWNCASE_IDENTIFIER}"
    cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_IDENTIFIER${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${PROJECT_UPCASE_IDENTIFIER}"
+   r_escaped_sed_replacement "${PROJECT_UPCASE_IDENTIFIER}"
    cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_IDENTIFIER${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${PROJECT_SOURCE_DIR}"
+   r_escaped_sed_replacement "${PROJECT_SOURCE_DIR}"
    cmdline="${cmdline} -e 's/${o}PROJECT_SOURCE_DIR${c}/${RVAL}/g'"
 
    RVAL="${cmdline}"
@@ -158,11 +158,11 @@ r_projectlanguage_seds()
 
    local cmdline
 
-   r_escaped_sed_pattern "${PROJECT_LANGUAGE}"
+   r_escaped_sed_replacement "${PROJECT_LANGUAGE}"
    cmdline="-e 's/${o}PROJECT_LANGUAGE${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${project_upcase_language}"
+   r_escaped_sed_replacement "${project_upcase_language}"
    cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_LANGUAGE${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${project_downcase_language}"
+   r_escaped_sed_replacement "${project_downcase_language}"
    cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_LANGUAGE${c}/${RVAL}/g'"
 
    RVAL="${cmdline}"
@@ -186,11 +186,11 @@ r_projectdialect_seds()
 
    local cmdline
 
-   r_escaped_sed_pattern "${PROJECT_DIALECT}"
+   r_escaped_sed_replacement "${PROJECT_DIALECT}"
    cmdline="-e 's/${o}PROJECT_DIALECT${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${project_upcase_dialect}"
+   r_escaped_sed_replacement "${project_upcase_dialect}"
    cmdline="${cmdline} -e 's/${o}PROJECT_UPCASE_DIALECT${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${project_downcase_dialect}"
+   r_escaped_sed_replacement "${project_downcase_dialect}"
    cmdline="${cmdline} -e 's/${o}PROJECT_DOWNCASE_DIALECT${c}/${RVAL}/g'"
 
    #
@@ -200,7 +200,7 @@ r_projectdialect_seds()
    local escaped_de
 
    extensions="${PROJECT_EXTENSIONS:-${project_downcase_dialect}}"
-   r_escaped_sed_pattern "${extensions%%:*}"
+   r_escaped_sed_replacement "${extensions%%:*}"
    cmdline="${cmdline} -e 's/${o}PROJECT_EXTENSION${c}/${RVAL}/g'"
 
    case "${PROJECT_DIALECT}" in
@@ -234,20 +234,20 @@ r_author_date_seds()
 
    local cmdline
 
-   r_escaped_sed_pattern "${AUTHOR:-${USER}}"
+   r_escaped_sed_replacement "${AUTHOR:-${USER}}"
    cmdline="-e 's/${o}AUTHOR${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${nowdate}"
+   r_escaped_sed_replacement "${nowdate}"
    cmdline="${cmdline} -e 's/${o}DATE${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${ORGANIZATION}"
+   r_escaped_sed_replacement "${ORGANIZATION}"
    cmdline="${cmdline} -e 's/${o}ORGANIZATION${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${nowtime}"
+   r_escaped_sed_replacement "${nowtime}"
    cmdline="${cmdline} -e 's/${o}TIME${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${USER}"
+   r_escaped_sed_replacement "${USER}"
    cmdline="${cmdline} -e 's/${o}USER${c}/${RVAL}/g'"
-   r_escaped_sed_pattern "${nowyear}"
+   r_escaped_sed_replacement "${nowyear}"
    cmdline="${cmdline} -e 's/${o}YEAR${c}/${RVAL}/g'"
 
-   r_escaped_sed_pattern "${ONESHOT_NAME}"
+   r_escaped_sed_replacement "${ONESHOT_NAME}"
    cmdline="${cmdline} -e 's/${o}ONESHOT_NAME${c}/${RVAL}/g'"
 
    RVAL="${cmdline}"
@@ -291,11 +291,8 @@ r_template_filename_replacement_command()
    # get ONESHOT_NAME from environment for file replacement. Name is used by
    # oneshot extensions...it's a shabby hack
    #
-   local escaped
-
-   r_escaped_sed_pattern "${ONESHOT_NAME:-ONESHOT_NAME}"
-   escaped="${RVAL}"
-   cmdline="${cmdline} -e 's/ONESHOT_NAME/${escaped}/g'"
+   r_escaped_sed_replacement "${ONESHOT_NAME:-ONESHOT_NAME}"
+   cmdline="${cmdline} -e 's/ONESHOT_NAME/${RVAL}/g'"
 
    log_debug "${cmdline}"
 
@@ -443,8 +440,7 @@ default_template_setup()
 
    # too funny, IFS="" is wrong IFS="\n" is also wrong. Only hardcoded LF works
 
-   IFS="
-"
+   IFS=$'\n'
    for filename in `( cd "${templatedir}" ; find -L . -type f -print )`
    do
       IFS="${DEFAULT_IFS}"
@@ -455,8 +451,7 @@ default_template_setup()
       case "${filename}" in
          *.DS_Store)
             log_debug "Suppressed ugly \"${filename}\""
-            IFS="
-"
+            IFS=$'\n'
             continue
          ;;
       esac
@@ -472,8 +467,7 @@ default_template_setup()
          exit 1
       fi
 
-      IFS="
-"
+      IFS=$'\n'
    done
    IFS="${DEFAULT_IFS}"
 

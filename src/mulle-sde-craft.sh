@@ -47,20 +47,20 @@ Usage:
    The dependency folder is built in order of \`mulle-sde buildorder\`.
 
 Options:
-   -h         : show this usage
-   -q         : skip uptodate checks
-   --clean    : clean before crafting (see: mulle-sde clean)
-   --clean-domain <domain> : clean specific domain before casting (s.a)
+   -h                      : show this usage
+   -q                      : skip uptodate checks
+   --clean                 : clean before crafting (see: mulle-sde clean)
+   --clean-domain <domain> : clean specific domain before crafting (s.a)
 
 Targets:
-   all        : build dependency folder first, then the project (default)
-   buildorder : build dependency folder
-   <name>     : name of a single entry in the buildorder
-   project    : build the project
+   all                     : build dependency folder, then project (default)
+   buildorder              : build dependency folder
+   <name>                  : name of a single entry in the buildorder
+   project                 : build the project
 
 Environment:
    MULLE_SDE_CRAFT_TARGET        : default craft target (${target})
-   MULLE_SDE_MAKE_FLAGS          : flags to be passed to mulle-make (via craft)
+   MULLE_CRAFT_MAKE_FLAGS        : flags to be passed to mulle-make (via craft)
    MULLE_SDE_UPDATE_CALLBACKS    : callback called during update
    MULLE_SDE_UPDATE_BEFORE_CRAFT : force update before craft (${MULLE_SDE_UPDATE_BEFORE_CRAFT:-NO})
 EOF
@@ -333,7 +333,7 @@ sde_craft_main()
       shift
    done
 
-   if [ ! -z "${MULLE_SDE_MAKE_FLAGS}" ]
+   if [ ! -z "${MULLE_CRAFT_MAKE_FLAGS}" ]
    then
       if [ "${need_dashdash}" = 'YES' ]
       then
@@ -343,7 +343,7 @@ sde_craft_main()
       local i
 
       shopt -s nullglob
-      for i in ${MULLE_SDE_MAKE_FLAGS}
+      for i in ${MULLE_CRAFT_MAKE_FLAGS}
       do
          arguments="${arguments} '$i'"
       done

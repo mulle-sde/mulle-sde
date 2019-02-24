@@ -55,15 +55,15 @@ Usage:
 
 Commands:
    add        : add a dependency to the sourcetree
-   craftinfo  : change build options for the dependency
-   get        : retrieve dependency sourcetree settings
-   list       : list dependencies (default)
-   mark       : add marks to a dependency
-   move       : reorder dependencies
-   remove     : remove a dependency
-   set        : change dependency settings
+   craftinfo  : change build options for a dependency
+   get        : retrieve a dependency settings from the sourcetree
+   list       : list dependencies in the sourcetree (default)
+   mark       : add marks to a dependency in the sourcetree
+   move       : reorder dependencies in the sourcetree
+   remove     : remove a dependency from the sourcetree
+   set        : change a dependency settings in the sourcetree
    source-dir : find the source location of a dependency
-   unmark     : remove marks from a dependency
+   unmark     : remove marks from a dependency in the sourcetree
          (use <command> -h for more help about commands)
 EOF
    exit 1
@@ -296,7 +296,7 @@ sde_dependency_list_main()
    local marks
    local formatstring
 
-   formatstring="%a;%m;%i={aliases,,-------}"
+   formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
    marks="${DEPENDENCY_MARKS}"
 
    local OPTION_OUTPUT_COMMAND='NO'
@@ -449,17 +449,15 @@ _sde_enhance_url()
    local extension
 
    case "${nodetype}" in
-      git)
-         if [ ! -z "${branch}" ]
-         then
-            _branch="\${${upcaseid}_BRANCH:-${branch}}"
-         else
-            _branch="\${${upcaseid}_BRANCH}"
-         fi
-      ;;
-
       tar|zip)
-         [ ! -z "${branch}" ] && fail "The branch must be specified in the URL for archives."
+         case "${url}" in
+            *\$\{MULLE_BRANCH\}*|*\$\{MULLE_TAG\}*)
+            ;;
+
+            *)
+               [ ! -z "${branch}" ] && fail "The branch must be specified in the URL for archives."
+            ;;
+         esac
 
          case "${url}" in
             # format .../branch.tar.gz or so
@@ -481,7 +479,7 @@ _sde_enhance_url()
                fi
                extension="${last#${branch}.}"    # dirname
 
-               url="${leading}\${${upcaseid}_BRANCH:-${branch}}.${extension}"
+               url="${leading}\${MULLE_BRANCH}.${extension}"
             ;;
 
             # format .../branch
@@ -490,11 +488,18 @@ _sde_enhance_url()
                leading="${url%${last}}"  # dirname
                branch="${last%%.*}"
 
-               url="${leading}\${${upcaseid}_BRANCH:-${branch}}"
+               url="${leading}\${MULLE_BRANCH}"
             ;;
          esac
       ;;
    esac
+
+   if [ ! -z "${branch}" ]
+   then
+      _branch="\${${upcaseid}_BRANCH:-${branch}}"
+   else
+      _branch="\${${upcaseid}_BRANCH}"
+   fi
 
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"

@@ -485,8 +485,7 @@ r_extensionnames_from_vendorextensions()
    local foundtype
    local directory
 
-   IFS="
-" ; set -o noglob
+   IFS=$'\n' ; set -o noglob
    for line in ${vendorextensions}
    do
       foundtype="${line#*;}"
@@ -527,8 +526,7 @@ r_collect_vendorextensions()
    local vendorextensions
 
 #     log_debug "$directory: ${directory}"
-   IFS="
-" ; set -o noglob
+   IFS=$'\n' ; set -o noglob
    for extensiondir in `eval_exekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print`
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
@@ -652,8 +650,7 @@ emit_extension()
 
    log_info "Available ${extensiontype} extensions ${comment}:"
 
-   IFS="
-"
+   IFS=$'\n'
    for extension in `sort -u <<< "${result}"`
    do
       IFS="${DEFAULT_IFS}"
@@ -746,8 +743,7 @@ sde_extension_show_main()
    log_verbose "Available vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}" | sed 's/^/  /'`"
 
-   set -o noglob ; IFS="
-"
+   set -o noglob ; IFS=$'\n'
    for vendor in ${all_vendors}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
@@ -890,8 +886,7 @@ a mulle-sde project"
    log_info "Installed Extensions"
 
    (
-      IFS="
-"
+      IFS=$'\n'
       for filename in `rexekutor find "${MULLE_SDE_SHARE_DIR}/version" -type f -print`
       do
          IFS="${DEFAULT_IFS}"
@@ -927,8 +922,7 @@ collect_file_info()
 
    local directory
 
-   set -o noglob ; IFS="
-"
+   set -o noglob ; IFS=$'\n'
    for directory in ${extensiondirs}
    do
       set +o noglob ; IFS="${DEFAULT_IFS}"
@@ -1039,8 +1033,7 @@ __emit_extension_usage()
       local dependency
 
 
-      IFS="
-"
+      IFS=$'\n'
       for dependency in `sed 's/^\([^;]*\).*/\1/' <<< "${inherit_text}"`
       do
          mulle-sde extension usage --usage-only "${dependency}" | \
@@ -1189,8 +1182,7 @@ emit_extension_usage()
 
       __set_extension_vars
 
-      set -o noglob ; IFS="
-"
+      set -o noglob ; IFS=$'\n'
       for dependency in `collect_extension_inherits "${extensiondir}"`
       do
          set +o noglob ; IFS="${DEFAULT_IFS}"

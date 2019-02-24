@@ -44,7 +44,7 @@ MULLE_SDE_CLEAN_SH="included"
 # -----------|---------------|---------------|---------------|---------------|
 # craft      |    project    |     build     |  build,dep    |  build,dep    |
 # -----------|---------------|---------------|---------------|---------------|
-# fetch      |               |               |               |    cache      |
+# fetch      |               |               |               |    archive    |
 # -----------|---------------|---------------|---------------|---------------|
 # make       |      N/A      |      N/A      |      N/A      |      N/A      |
 # -----------|---------------|---------------|---------------|---------------|
@@ -90,10 +90,11 @@ EOF
    cat <<EOF >&2
 Domains:
    all         : clean buildorder, project. Remove folder "`fast_basename "${DEPENDENCY_DIR}"`"
-   cache       : clean the archive cache
+   archive     : clean the archive cache
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
    project     : clean project, keep dependencies
+   repository  : clean the repository mirror
    subprojects : clean subprojects
    tidy        : clean everything and remove fetched dependencies. It's slow!
 EOF
@@ -182,8 +183,7 @@ sde_clean_subproject_main()
    fi
 
    local name
-   set -o noglob; IFS="
-"
+   set -o noglob; IFS=$'\n'
    for subproject in ${subprojects}
    do
       r_fast_basename "${subproject}"
@@ -216,20 +216,9 @@ sde_clean_buildordercache_main()
 # also wipe archive cache. Does not wipe git mirror cache unless -f is given
 # because thats supposed to be harmless
 #
-sde_clean_cache_main()
+sde_clean_archive_main()
 {
-   log_entry "sde_clean_cache_main" "$@"
-
-
-   if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
-   then
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
-      then
-         log_verbose "Cleaning repository cache"
-
-         rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
-      fi
-   fi
+   log_entry "sde_clean_archive_main" "$@"
 
    if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
    then
@@ -240,15 +229,30 @@ sde_clean_cache_main()
 }
 
 
+sde_clean_repository_main()
+{
+   log_entry "sde_clean_repository_main" "$@"
+
+   if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
+   then
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         log_verbose "Cleaning repository cache"
+
+         rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
+      fi
+   fi
+}
+
+
 sde_clean_var_main()
 {
    log_entry "sde_clean_var_main" "$@"
 
    log_verbose "Cleaning var folders"
 
-   IFS="
-"
-   for directory in `find . -name "var" -type d -print`
+   IFS=$'\n'
+   for directory in `rexekutor find . -name "var" -type d -print`
    do
       IFS="${DEFAULT_IFS}"
       case "${directory}" in
@@ -388,12 +392,14 @@ sde_clean_main()
       'domains')
          echo "\
 all
+archive
 buildorder
 cache
 default
 dependency
 fetch
 project
+repository
 subprojects
 tidy"
          exit 0
@@ -403,8 +409,8 @@ tidy"
          domains="builddir dependencydir buildordercache"
       ;;
 
-      cache)
-         domains="cache"
+      archive)
+         domains="archive"
       ;;
 
       buildorder)
@@ -413,6 +419,10 @@ tidy"
                         ${MULLE_CRAFT_FLAGS} \
                      clean \
                         buildorder
+      ;;
+
+      cache)
+         domains="archive repository"
       ;;
 
       default)
@@ -429,11 +439,15 @@ tidy"
       ;;
 
       fetch)
-         domains="sourcetree buildordercache output var db monitor patternfile cache"
+         domains="sourcetree buildordercache output var db monitor patternfile archive"
       ;;
 
       subproject|subprojects)
          domains="subproject"
+      ;;
+
+      repository)
+         domains="repository"
       ;;
 
       tidy)
@@ -452,6 +466,7 @@ tidy"
 
             targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                                        -V \
+                                       -s \
                                     buildorder \
                                        --no-output-marks | sed 's|^.*/||'`"
             found="`grep -x "${escaped_dependency}" <<< "${targets}" `"
