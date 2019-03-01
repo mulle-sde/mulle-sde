@@ -129,8 +129,7 @@ emit_file_output()
    shift
    shift
 
-   local sep=" "
-   _emit_file_output "${sep}" "$@"
+   _emit_file_output " " "$@"
 }
 
 
@@ -142,9 +141,7 @@ emit_file_lf_output()
    shift
    shift
 
-   local sep="
-"
-   _emit_file_output "${sep}" "$@"
+   _emit_file_output '$\n' "$@"
 }
 
 
@@ -191,8 +188,7 @@ emit_ld_output()
 {
    log_entry "_emit_ld_output" "$@"
 
-   local sep=" "
-   _emit_ld_output "${sep}" "$@"
+   _emit_ld_output " " "$@"
 }
 
 
@@ -200,8 +196,7 @@ emit_ld_lf_output()
 {
    log_entry "_emit_ld_output" "$@"
 
-   local sep=$'\n'
-   _emit_ld_output "${sep}" "$@"
+   _emit_ld_output $'\n' "$@"
 }
 
 
@@ -246,17 +241,18 @@ linkorder_did_recurse()
 
    if ! nodemarks_contain "${_marks}" "static-link"
    then
-       INSIDE_DYNAMIC="${INSIDE_DYNAMIC%?}"
+       INSIDE_DYNAMIC="${INSIDE_DYNAMIC%x}"
    fi
 
    if nodemarks_contain "${_marks}" "only-standalone"
    then
-      INSIDE_STANDALONE="${INSIDE_STANDALONE%?}"
+      INSIDE_STANDALONE="${INSIDE_STANDALONE%x}"
    fi
 }
 
 
-# only callback as environment available
+#
+# only "callback as environment" available
 #
 linkorder_callback()
 {
@@ -271,7 +267,10 @@ linkorder_callback()
       return
    fi
 
-   r_add_line "${linkorder_collection}" "${_address};${_marks};${_raw_userinfo}"
+   log_fluff "Found \"${_address}\""
+
+   # reverse order so stuff that gets built first gets linked last
+   r_add_line "${_address};${_marks};${_raw_userinfo}" "${linkorder_collection}"
    linkorder_collection="${RVAL}"
 }
 
@@ -304,7 +303,8 @@ r_sde_linkorder_all_nodes()
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
    sourcetree_walk_main --lenient \
                         --no-eval \
-                        --pre-order \
+                        --in-order \
+                        --dedupe-mode 'address-filename' \
                         --permissions 'descend-symlink' \
                         --visit-qualifier "${qualifier}" \
                         --prune \
@@ -521,7 +521,6 @@ sde_linkorder_main()
    for node in ${nodes}
    do
       IFS="${DEFAULT_IFS}"; set +f
-
 
       IFS=";" read address marks raw_userinfo <<< "${node}"
 
