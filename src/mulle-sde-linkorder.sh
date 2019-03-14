@@ -44,7 +44,8 @@ Usage:
    current platform. The dependencies must have been built in order for this
    to work.
 
-   This command is useful for compiling and linking single sourcefiles.
+   This command is for example useful for compiling and linking on the
+   commandline.
 
    The linkorder command may produce incorrect link names, if the aliases
    feature is used.
@@ -60,29 +61,9 @@ r_sde_locate_library()
 {
    log_entry "r_sde_locate_library" "$@"
 
+   local searchpath="$1"; shift
    local libstyle="$1"; shift
    local require="$1"; shift
-   local configuration="$1"; shift
-
-   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
-
-   local searchpath
-
-   searchpath="`rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} \
-                                      ${MULLE_CRAFT_FLAGS} \
-                                      -s \
-                                      searchpath \
-                                      --if-exists \
-                                      --prefix-only \
-                                      --configuration "${configuration}" \
-                                      library`"
-   if [ -z "${searchpath}" ]
-   then
-      fail "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
-   fi
-
-   log_fluff "Library searchpath is: ${searchpath}"
 
    r_platform_search "${searchpath}" \
                      "lib" \
@@ -186,7 +167,7 @@ _emit_ld_output()
 
 emit_ld_output()
 {
-   log_entry "_emit_ld_output" "$@"
+   log_entry "emit_ld_output" "$@"
 
    _emit_ld_output " " "$@"
 }
@@ -194,7 +175,7 @@ emit_ld_output()
 
 emit_ld_lf_output()
 {
-   log_entry "_emit_ld_output" "$@"
+   log_entry "emit_ld_lf_output" "$@"
 
    _emit_ld_output $'\n' "$@"
 }
@@ -207,10 +188,27 @@ emit_csv_output()
    shift
    shift
    shift
-   shift
 
    printf "%s" "$@"
 }
+
+
+emit_node_output()
+{
+   log_entry "emit_node_output" "$@"
+
+   shift
+   shift
+   shift
+
+   local line
+
+   for line in "$@"
+   do
+      echo "${line}"
+   done
+}
+
 
 
 #
@@ -251,27 +249,27 @@ linkorder_did_recurse()
 }
 
 
-#
-# only "callback as environment" available
-#
+
 linkorder_callback()
 {
-   log_entry "linkorder_callback" "$@"
+   log_entry "linkorder_callback (${INSIDE_STANDALONE} ${INSIDE_DYNAMIC})" "$@"
 
+   #
+   # collect libraries not marked as dependencies
+   #
    if [ ! -z "${INSIDE_STANDALONE}" -o ! -z "${INSIDE_DYNAMIC}"  ] && \
       nodemarks_contain "${_marks}" "dependency"
    then
       # but hit me again later
-      walk_remove_from_visited
+      walk_remove_from_visited "${MULLE_MODE}"
+      # walk_remove_from_deduped "${MULLE_DATASOURCE}"
       log_debug "${_address}: skipped emit of dependency due to dynamic/standalone"
       return
    fi
 
-   log_fluff "Found \"${_address}\""
+   log_verbose "Add \"${_address}\" to linkorder "
 
-   # reverse order so stuff that gets built first gets linked last
-   r_add_line "${_address};${_marks};${_raw_userinfo}" "${linkorder_collection}"
-   linkorder_collection="${RVAL}"
+   echo "${_address};${_marks};${_raw_userinfo}"
 }
 
 
@@ -289,31 +287,28 @@ r_sde_linkorder_all_nodes()
          . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-buildorder.sh"
    fi
 
-   local linkorder_collection
    local INSIDE_STANDALONE
    local INSIDE_DYNAMIC
 
    mode="`"${MULLE_SOURCETREE:-mulle-sourcetree}" mode`"
 
-   local rval
-
    r_make_buildorder_qualifier 'MATCHES link'
    qualifier="${RVAL}"
 
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
-   sourcetree_walk_main --lenient \
-                        --no-eval \
-                        --in-order \
-                        --dedupe-mode 'address-filename' \
-                        --permissions 'descend-symlink' \
-                        --visit-qualifier "${qualifier}" \
-                        --prune \
-                        --will-recurse-callback linkorder_will_recurse \
-                        --did-recurse-callback linkorder_did_recurse \
-                        --no-callback-trace \
-                        linkorder_callback
 
-   RVAL="${linkorder_collection}"
+   RVAL="`sourcetree_walk_main --lenient \
+                               --no-eval \
+                               --pre-order \
+                               --no-dedupe \
+                               --callback-qualifier "${qualifier}" \
+                               --descend-qualifier "${qualifier}" \
+                               --will-recurse-callback linkorder_will_recurse \
+                               --did-recurse-callback linkorder_did_recurse \
+                               --no-callback-trace \
+                               linkorder_callback `"
+
+   r_remove_leading_duplicate_nodes "${RVAL}"
 }
 
 
@@ -322,15 +317,15 @@ r_sde_linkorder_all_nodes()
 # local _optional_dependency_libs
 # local _os_specific_libs
 #
-linkorder_collect()
+r_linkorder_collect()
 {
-   log_entry "linkorder_collect" "$@"
+   log_entry "r_linkorder_collect" "$@"
 
    local address="$1"
    local marks="$2"
    local aliases="$3"
    local collect_libraries="$4"
-   local configuration="$5"
+   local searchpath="$5"
 
    local name
 
@@ -370,6 +365,7 @@ linkorder_collect()
             return 2
          fi
 
+         log_fluff "Use OS library \"${name}\""
          r_concat "${name}" "${marks}" ";"
          return 0
       ;;
@@ -382,10 +378,10 @@ linkorder_collect()
       aliases="${name}"
    fi
 
-   r_sde_locate_library "${librarytype}" "${requirement}" "${configuration}" ${aliases}
+   r_sde_locate_library "${searchpath}" "${librarytype}" "${requirement}" ${aliases}
    libpath="${RVAL}"
 
-   [ -z "${libpath}" ] && fail "Did not find a linkable \"${name}\" library.
+   [ -z "${libpath}" ] && fail "Did not find a linkable \"${aliases}\" library in \"${searchpath}\".
 ${C_INFO}The linkorder is available after dependencies have been built.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
@@ -396,6 +392,168 @@ ${C_RESET_BOLD}   mulle-sde craft"
 }
 
 
+r_library_searchpath()
+{
+   log_entry "r_library_searchpath" "$@"
+
+   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
+      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+
+   local searchpath
+   local configuration
+
+   configuration="${OPTION_CONFIGURATION:-Release}"
+   searchpath="`rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} \
+                                      ${MULLE_CRAFT_FLAGS} \
+                                      -s \
+                                      searchpath \
+                                      --if-exists \
+                                      --prefix-only \
+                                      --configuration "${configuration}" \
+                                      library`"
+   if [ -z "${searchpath}" ]
+   then
+      fail "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
+   fi
+
+   log_fluff "Library searchpath is: ${searchpath}"
+   RVAL="${searchpath}"
+}
+
+
+r_get_emission_lib()
+{
+   log_entry "r_get_emission_lib" "$@"
+
+   local address="$1"
+   local marks="$2"
+   local raw_userinfo="$3"
+   local searchpath="$4"
+   local collect_libraries="$5"
+
+   local aliases
+   local userinfo
+
+   aliases=
+   userinfo=
+
+   if [ ! -z "${raw_userinfo}" ]
+   then
+      [ -z "${MULLE_ARRAY_SH}" ] && \
+         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh"
+
+      # TODO: WRONG!! must base64 decode ?
+      case "${raw_userinfo}" in
+         base64:*)
+            userinfo="`base64 --decode <<< "${raw_userinfo:7}"`"
+            if [ "$?" -ne 0 ]
+            then
+               internal_fail "userinfo could not be base64 decoded."
+            fi
+         ;;
+
+         *)
+            userinfo="${raw_userinfo}"
+         ;;
+      esac
+
+      aliases="`assoc_array_get "${userinfo}" "aliases"`"
+   fi
+
+   # TODO: could remove duplicates with awk
+   r_linkorder_collect "${address%#*}" \
+                       "${marks}" \
+                       "${aliases}" \
+                       "${collect_libraries}" \
+                       "${searchpath}"
+}
+
+
+r_remove_leading_duplicate_nodes()
+{
+   local nodes="$1"
+
+   RVAL=
+
+   IFS=$'\n' ; set -f
+   for node in ${nodes}
+   do
+      r_remove_line "${RVAL}" "${node}"
+      r_add_line "${RVAL}" "${node}"
+   done
+   IFS="${DEFAULT_IFS}"; set +f
+}
+
+
+r_collect_emission_libs()
+{
+   log_entry "r_collect_emission_libs" "$@"
+
+   local nodes="$1"
+   local searchpath="$2"
+   local collect_libraries="$3"
+
+   local dependency_libs
+
+   local address
+   local marks
+   local raw_userinfo
+
+   local node
+
+   IFS=$'\n' ; set -f
+   for node in ${nodes}
+   do
+      IFS="${DEFAULT_IFS}"; set +f
+
+      IFS=";" read address marks raw_userinfo <<< "${node}"
+
+      if [ "${OPTION_OUTPUT_FORMAT}" = "node" ]
+      then
+         line="${address}"
+      else
+         if ! r_get_emission_lib "${address}" \
+                                 "${marks}" \
+                                 "${raw_userinfo}" \
+                                 "${searchpath}" \
+                                 "${collect_libraries}"
+         then
+            continue
+         fi
+         line="${RVAL}"
+      fi
+
+      RVAL="${dependency_libs}"
+      r_remove_line "${RVAL}" "${line}"
+      r_add_line "${RVAL}" "${line}"
+      dependency_libs="${RVAL}"
+   done
+   IFS="${DEFAULT_IFS}"; set +f
+
+   if [ "${OPTION_REVERSE}" = 'YES' ]
+   then
+      r_reverse_lines "${dependency_libs}"
+      dependency_libs="${RVAL}"
+   fi
+
+   RVAL=${dependency_libs}
+}
+
+
+#
+# linkorder is really complicated! First the dependencies have a specific
+# order, which we must respect. Then we want to move common links as far
+# down as possible
+# So for a -> b -> c
+#        d -> e
+#        f -> c
+#
+# We need to emit:
+#        a, b, d, e, f, c
+#
+# Basically its like a buildorder in reverse, but with the dependencies
+# of the non-static libraries removed... ugh
+#
 sde_linkorder_main()
 {
    log_entry "sde_linkorder_main" "$@"
@@ -403,6 +561,7 @@ sde_linkorder_main()
    local OPTION_CONFIGURATION="${CONFIGURATIONS%%:*}"
    local OPTION_OUTPUT_FORMAT="ld_lf"
    local OPTION_LD_PATH='YES'
+   local OPTION_REVERSE='DEFAULT'
    local OPTION_RPATH='YES'
    local OPTION_FORCE_LOAD='NO'
    local OPTION_WHOLE_ARCHIVE_FORMAT='whole-archive-as-needed'
@@ -443,6 +602,14 @@ sde_linkorder_main()
             collect_libraries='NO'
          ;;
 
+         --reverse)
+            OPTION_REVERSE="YES"
+         ;;
+
+         --no-reverse)
+            OPTION_REVERSE="NO"
+         ;;
+
          --whole-archive-format)
             [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
             shift
@@ -460,7 +627,7 @@ sde_linkorder_main()
                   collect_libraries='NO'
                ;;
 
-               node|csv|ld|ld_lf)
+               debug|node|csv|ld|ld_lf)
                ;;
 
                *)
@@ -501,67 +668,24 @@ sde_linkorder_main()
    r_sde_linkorder_all_nodes
    nodes="${RVAL}"
 
-   if [ "${OPTION_OUTPUT_FORMAT}" = "node" ]
+   if [ "${OPTION_OUTPUT_FORMAT}" = "debug" ]
    then
-      log_info "Nodes"
-      echo "${nodes}"
+      echo "${RVAL}"
       return 0
    fi
 
    log_debug "nodes: ${nodes}"
 
-   local dependency_libs
-   local aliases
-   local userinfo
-   local address
-   local marks
-   local raw_userinfo
+   local searchpath
 
-   IFS=$'\n' ; set -f
-   for node in ${nodes}
-   do
-      IFS="${DEFAULT_IFS}"; set +f
+   if [ "${OPTION_OUTPUT_FORMAT}" != "node" ]
+   then
+      r_library_searchpath
+      searchpath="${RVAL}"
+   fi
 
-      IFS=";" read address marks raw_userinfo <<< "${node}"
-
-      aliases=
-      userinfo=
-
-      if [ ! -z "${raw_userinfo}" ]
-      then
-         [ -z "${MULLE_ARRAY_SH}" ] && \
-            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh"
-
-         # TODO: WRONG!! must base64 decode ?
-         case "${raw_userinfo}" in
-            base64:*)
-               userinfo="`base64 --decode <<< "${raw_userinfo:7}"`"
-               if [ "$?" -ne 0 ]
-               then
-                  internal_fail "userinfo could not be base64 decoded."
-               fi
-            ;;
-
-            *)
-               userinfo="${raw_userinfo}"
-            ;;
-         esac
-
-         aliases="`assoc_array_get "${userinfo}" "aliases"`"
-      fi
-
-      # TODO: could remove duplicates with awk
-      if linkorder_collect "${address%#*}" \
-                           "${marks}" \
-                           "${aliases}" \
-                           "${collect_libraries}" \
-                           "${OPTION_CONFIGURATION:-Release}"
-      then
-         r_add_unique_line "${dependency_libs}" "${RVAL}"
-         dependency_libs="${RVAL}"
-      fi
-   done
-   IFS="${DEFAULT_IFS}"; set +f
+   r_collect_emission_libs "${nodes}" "${searchpath}" "${collect_libraries}"
+   dependency_libs="${RVAL}"
 
    emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \
                                        "${OPTION_RPATH}" \
