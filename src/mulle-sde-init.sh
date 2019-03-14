@@ -613,36 +613,39 @@ _add_to_tools()
    local os="$2"
 
    local line
+   local quoted_args
 
    IFS=$'\n'
    for line in `egrep -v '^#' "${filename}"`
    do
-      IFS="${DEFAULT_IFS}"
+      r_concat "${quoted_args}" "'${line}'"
+      quoted_args="${RVAL}"
+   done
+   IFS="${DEFAULT_IFS}"
 
-      if [ ! -z "${line}" ]
-      then
-         log_verbose "Tool: \"${line}\"${os:+ (}${os}${os:+)}"
-         MULLE_VIRTUAL_ROOT="`pwd -P`" \
-            exekutor "${MULLE_ENV:-mulle-env}" \
+   [ -z "${quoted_args}" ] && return
+
+   log_verbose "Tools: \"${quoted_args}\" ${os:+ (}${os}${os:+)}"
+
+   MULLE_VIRTUAL_ROOT="`pwd -P`" \
+      eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
                            --search-nearest \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
+                           "${MULLE_TECHNICAL_FLAGS}" \
+                           "${MULLE_ENV_FLAGS}" \
                            --no-protect \
                         tool \
-                           --os "${os:-DEFAULT}" \
+                           --os "'${os:-DEFAULT}'" \
                            --extension \
                            add \
                               --no-compile-link \
                               --if-missing \
                               --csv \
-                              "${line}"
-         if [ $? -eq 1 ] # only 1 is error, 2 is ok
-         then
-            fail "Addition of tool \"${line}\" failed"
-         fi
-      fi
-   done
-   IFS="${DEFAULT_IFS}"
+                              ${quoted_args}
+
+   if [ $? -eq 1 ] # only 1 is error, 2 is ok
+   then
+      fail "Addition of tools \"${quoted_args}\" failed"
+   fi
 }
 
 
@@ -1043,7 +1046,10 @@ _install_extension()
    then
       fail "Could not find extension \"${extname}\" (vendor \"${vendor}\") in
 ${searchpath}
-${C_INFO}Possibly ways to fix this:
+${C_INFO}Show available extensions with:
+   ${C_RESET}${C_BOLD}mulle-sde extension show all
+
+${C_INFO}Possible ways to fix this:
    ${C_VERBOSE}Either download the required extension from vendor \"${vendor}\" or edit
       ${C_RESET}${C_BOLD}.mulle/share/sde/extension
    ${C_INFO}if the extension has been renamed or is unavailable."
@@ -1223,15 +1229,15 @@ ${C_INFO}Possibly ways to fix this:
    #  no-project
    #  no-clobber
    #
-   if [ "${projecttype}" != 'none' ]
+   if [ "${projecttype}" != 'none' -o "${exttype}" = 'extra' ]
    then
       if [ -z "${onlyfilename}" ]
       then
          # part of project really
          if ! is_directory_disabled_by_marks "${marks}" \
                                              "${extensiondir}/delete" \
-                                             "no-project" \
-                                             "no-project/${vendor}/${extname}"
+                                             "no-delete" \
+                                             "no-delete/${vendor}/${extname}"
          then
             _delete_extension_template_directory "${extensiondir}" \
                                                  "delete" \
@@ -1292,7 +1298,7 @@ ${C_INFO}Possibly ways to fix this:
                                             "$@"
       fi
    else
-      log_fluff "Not installing project or demo files, as project type is \"none\""
+      log_warning "Not installing project or demo files, as project type is \"none\""
    fi
 
    if [ -z "${onlyfilename}" ]
@@ -1459,7 +1465,6 @@ _install_simple_extension()
    # f.e. a "git" extension could auto-init the project and create
    # a .gitignore file
    #
-   # Extra extensions must be fully qualified.
    #
    local extra
    local extra_vendor
@@ -1472,7 +1477,6 @@ _install_simple_extension()
 
       case "${extra}" in
          "")
-            continue
          ;;
 
          */*)
@@ -1481,7 +1485,10 @@ _install_simple_extension()
          ;;
 
          *)
-            fail "Extension \"${extra}\" must be fully qualified <vendor>/<extension>"
+            log_fluff "Use default vendor \"mulle-sde\""
+
+            extra_vendor="mulle-sde"
+            extra_name="${extra}"
          ;;
       esac
 
@@ -2230,7 +2237,7 @@ __sde_init_main()
       if ! __get_installed_extensions
       then
          case "${PROJECT_TYPE}" in
-            "none"|"empty")
+            "none")
                log_info "Nothing to upgrade, as no extensions have been installed."
                return 0
             ;;
@@ -2265,7 +2272,6 @@ This may hurt, but you have to init again."
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
          then
             fail "\"${PROJECT_TYPE}\" is not a standard project type.
-Some files may be missing and the project may not be craftable.
 ${C_INFO}Use -f to use \"${PROJECT_TYPE}\""
          fi
       ;;
