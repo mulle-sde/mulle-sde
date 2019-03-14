@@ -237,7 +237,7 @@ sde_add_craftinfo_subproject_if_needed()
       ptype="${PROJECT_TYPE}"
       if [ "${ptype}" = 'none' ]
       then
-         ptype='empty'
+         ptype='unknown'
       fi
 
       sde_extension_main pimp --project-type "${ptype}" \

@@ -388,7 +388,6 @@ _sde_enhance_url()
    local nodetype="$3"
    local address="$4"
 
-
    if [ -z "${nodetype}" ]
    then
       nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
@@ -696,6 +695,12 @@ sde_dependency_add_main()
       esac
    fi
 
+   # is a good idea for test though
+   # if [ "${address}" = "${PROJECT_NAME}" ]
+   # then
+   #    fail "Adding your own project as a dependency is not a good idea"
+   # fi
+
    case "${OPTION_DIALECT}" in
       c)
          r_comma_concat "${marks}" "no-import,no-all-load"
@@ -742,7 +747,7 @@ sde_dependency_add_main()
       options="${RVAL}"
    fi
 
-   log_verbose "Dependency: ${url}"
+   log_verbose "URL: ${url}"
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
                      "${MULLE_TECHNICAL_FLAGS}"\
                      "${MULLE_SOURCETREE_FLAGS}" \

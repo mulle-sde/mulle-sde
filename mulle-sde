@@ -598,13 +598,19 @@ status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
    fi
 
    local hook
+   local cmdidentifier
+
+   # problem here is that cmdidentifier is not validate to be sane
 
    if [ "${BASH_VERSINFO[0]}" -ge 4 ]
    then
-      hook="MULLE_SDE_${cmd^^}_PRELUDE"
+      cmdidentifier="${cmd^^}"
+      cmdidentifier="${cmdidentifier//-/_}"
+
+      hook="MULLE_SDE_${cmdidentifier}_PRELUDE"
 
       # run hook if environment variable is set
-      eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\"" >&2
+      eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\" >&2" >&2
    fi
 
    case "${cmd}" in
@@ -995,11 +1001,6 @@ version"
          # must allow NO for subenv updates
          cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
-         if [ "${PROJECT_TYPE}" = 'none' ]
-         then
-            fail "PROJECT_TYPE is 'none', nothing to update"
-         fi
-
          # shellcheck source=src/mulle-sde-update.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
 
@@ -1034,13 +1035,13 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
    esac
 
    rval=$?
-   if [ "${BASH_VERSINFO[0]}" -ge 4 ]
+   if [ ! -z "${cmdidentifier}" ]
    then
       if [ $rval -eq 0 ]
       then
-         hook="MULLE_SDE_${cmd^^}_OK"
+         hook="MULLE_SDE_${cmdidentifier}_OK"
       else
-         hook="MULLE_SDE_${cmd^^}_FAIL"
+         hook="MULLE_SDE_${cmdidentifier}_FAIL"
       fi
 
       # run hook if environment variable is set

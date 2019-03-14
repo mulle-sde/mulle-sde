@@ -282,3 +282,20 @@ An *update* reflects changes made in the filesystem back into the buildsystem
 
 ![](dox/mulle-sde-update.png)
 
+
+## mulle-sde linkorder
+
+The *linkorder* command outputs clang/gcc-style link commands that you can
+use to link your dependencies outside of *mulle-sde*:
+
+
+e.g.
+
+```
+mulle-sde linkorder --output-format ld
+
+-Wl,--whole-archive -Wl,--no-as-needed -lMulleObjC -Wl,--as-needed -Wl,--no-whole-archive -ldl -lmulle-container -Wl,--whole-archive -Wl,--no-as-needed -lmulle-objc-runtime -Wl,--as-needed -Wl,--no-whole-archive -lmulle-stacktrace -lmulle-vararg -lmulle-concurrent -lmulle-aba -lmulle-thread -lpthread -lmulle-allocator
+```
+
+
+
