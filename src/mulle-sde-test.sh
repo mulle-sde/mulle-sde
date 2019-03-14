@@ -45,10 +45,10 @@ Usage:
    and everytime you change the tests.
 
 Command:
-   init          : initialize a test directory
-   craft         : craft library
-   recraft       : re-craft library and dependencies
-   run           : run tests
+   init    : initialize a test directory
+   craft   : craft library
+   recraft : re-craft library and dependencies
+   run     : run tests
 
 Environment:
    MULLE_SDE_TEST_PATH : test directories to run (test)

@@ -96,6 +96,7 @@ Domains:
    project     : clean project, keep dependencies
    repository  : clean the repository mirror
    subprojects : clean subprojects
+   test        : clean tests
    tidy        : clean everything and remove fetched dependencies. It's slow!
 EOF
    exit 1
@@ -343,6 +344,19 @@ sde_clean_graveyard_main()
 
 
 
+sde_clean_test_main()
+{
+   log_entry "sde_clean_test_main" "$@"
+
+   log_verbose "Cleaning test"
+
+   rexekutor "${MULLE_TEST:-mulle-test}" \
+                  -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+               clean
+}
+
 
 sde_clean_main()
 {
@@ -448,6 +462,10 @@ tidy"
 
       repository)
          domains="repository"
+      ;;
+
+      test)
+         domains="test"
       ;;
 
       tidy)
