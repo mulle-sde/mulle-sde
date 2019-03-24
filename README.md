@@ -194,7 +194,7 @@ information about adding and writing extensions.
 
 ![](dox/mulle-sde-list.png)
 
-List project files and their types.
+List files and dependencies/libraries known to your project.
 
 ```
 mulle-sde list

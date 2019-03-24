@@ -807,19 +807,12 @@ version"
       ;;
 
       list)
-         cd_virtual_root "${cmd}" 'NO'
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
-         if [ "${PROJECT_TYPE}" = 'none' ]
-         then
-            fail "PROJECT_TYPE is 'none', nothing to list"
-         fi
+         # shellcheck source=src/mulle-sde-dependency.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_MATCH_FLAGS} \
-                        list \
-                           --format "%t/%c: %f\\n" "$@"
+         sde_list_main "$@"
       ;;
 
       log)
