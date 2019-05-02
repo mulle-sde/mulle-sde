@@ -173,6 +173,8 @@ sde_library_add_main()
    local OPTION_DIALECT="c"
    local OPTION_PRIVATE='NO'
    local OPTION_OPTIONAL='NO'
+   local OPTION_IF_MISSING='NO'
+   local options
 
    while :
    do
@@ -205,9 +207,21 @@ sde_library_add_main()
             OPTION_OPTIONAL='YES'
          ;;
 
+         --marks)
+            [ "$#" -eq 1 ] && sde_library_add_usage "Missing argument to \"$1\""
+            shift
+
+            r_comma_concat "${marks}" "$1"
+            marks="${RVAL}"
+         ;;
+
+         --if-missing)
+            r_concat "${options}" "--if-missing"
+            options="${RVAL}"
+         ;;
+
          -*)
-            log_error "Unknown option \"$1\""
-            sde_library_add_usage
+            sde_library_add_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -218,7 +232,7 @@ sde_library_add_main()
       shift
    done
 
-   [ "$#" -ne 1 ] && sde_library_add_usage
+   [ "$#" -ne 1 ] && sde_library_add_usage "Missing arguments"
 
    local libname="$1"
 
@@ -253,10 +267,14 @@ sde_library_add_main()
 
    log_verbose "Adding \"${libname}\" to libraries"
 
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V add \
-                                       --nodetype none \
-                                       --marks "${marks}" \
-                                       "${libname}"
+   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+                     "${MULLE_TECHNICAL_FLAGS}"\
+                     "${MULLE_SOURCETREE_FLAGS}" \
+                        add \
+                           --nodetype none \
+                           --marks "'${marks}'" \
+                           "${options}" \
+                           "'${libname}'"
 }
 
 
@@ -289,14 +307,14 @@ sde_library_set_main()
       shift
    done
 
-   [ "$#" -lt 2 ] && sde_library_add_usage
+   [ "$#" -lt 2 ] && sde_library_add_usage "Missing arguments"
 
    local address="$1"
-   [ -z "${address}" ] && log_error "missing address" && sde_library_set_usage
+   [ -z "${address}" ] && sde_library_set_usage "Missing address"
    shift
 
    local field="$1"
-   [ -z "${field}" ] && log_error "missing field" && sde_library_set_usage
+   [ -z "${field}" ]  && sde_library_set_usage "Missing field"
    shift
 
    local value="$1"
@@ -317,8 +335,7 @@ sde_library_set_main()
       ;;
 
       *)
-         log_error "unknown field name \"${field}\""
-         sde_library_set_usage
+         sde_library_set_usage "Unknown field name \"${field}\""
       ;;
    esac
 }
@@ -348,11 +365,11 @@ sde_library_get_main()
    done
 
    local address="$1"
-   [ -z "${address}" ] && log_error "missing address" && sde_library_get_usage
+   [ -z "${address}" ] && sde_library_get_usage "Missing address"
    shift
 
    local field="$1"
-   [ -z "${field}" ] && log_error "missing field" && sde_library_get_usage
+   [ -z "${field}" ] && sde_library_get_usage "Missing field"
    shift
 
    case "${field}" in
@@ -366,8 +383,7 @@ sde_library_get_main()
       ;;
 
       *)
-         log_error "unknown field name \"${field}\""
-         sde_library_get_usage
+         sde_library_get_usage "Unknown field name \"${field}\""
       ;;
    esac
 }
@@ -389,7 +405,7 @@ sde_library_list_main()
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde_library_list_usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${marks}" "$1"

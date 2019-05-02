@@ -88,8 +88,8 @@ Usage:
    default. Those are usually the candidates to select.
 
 Options:
-   --version     : show version of the extensions
-   --output-raw  : show locations and type of extensions as CSV
+   --version            : show version of the extensions
+   --output-format raw  : show locations and type of extensions as CSV
 
 Types:
    all       : list all available extensions
@@ -582,8 +582,7 @@ collect_extension_inherits()
    local dependency
    local exttype
 
-   IFS=";"
-   while read -r dependency exttype
+   while IFS=";" read -r dependency exttype
    do
       if [ -z "${dependency}" ]
       then
@@ -692,7 +691,8 @@ sde_extension_show_main()
             OPTION_VERSION='NO'
          ;;
 
-         --output-raw)
+         --output-format)
+            shift
             OPTION_OUTPUT_RAW='YES'
          ;;
 

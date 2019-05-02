@@ -324,7 +324,8 @@ sde_dependency_list_main()
             marks="${RVAL}"
          ;;
 
-         --output-cmd|--output-command|--command)
+         --output-format)
+            shift
             OPTION_OUTPUT_COMMAND='YES'
          ;;
 
@@ -353,7 +354,7 @@ sde_dependency_list_main()
             --marks "${DEPENDENCY_LIST_MARKS}" \
             --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
             --output-eval \
-            --output-cmd2 \
+            --output-format cmd2 \
             --output-no-url \
             --output-no-column \
             --output-no-header \
@@ -478,7 +479,7 @@ _sde_enhance_url()
                fi
                extension="${last#${branch}.}"    # dirname
 
-               url="${leading}\${MULLE_BRANCH}.${extension}"
+               url="${leading}\${NODE_BRANCH}.${extension}"
             ;;
 
             # format .../branch
@@ -487,7 +488,7 @@ _sde_enhance_url()
                leading="${url%${last}}"  # dirname
                branch="${last%%.*}"
 
-               url="${leading}\${MULLE_BRANCH}"
+               url="${leading}\${NODE_BRANCH}"
             ;;
          esac
       ;;
@@ -826,7 +827,7 @@ sde_dependency_source_dir_main()
                   walk \
                      --lenient \
                      --qualifier 'MATCHES dependency' \
-                     '[ "${MULLE_ADDRESS}" = "'${escaped}'" ] && echo "${MULLE_FILENAME}"'
+                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && echo "${NODE_FILENAME}"'
 
 }
 

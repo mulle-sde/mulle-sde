@@ -321,8 +321,7 @@ install_inheritfile()
    local line
    local depmarks
 
-   IFS=$'\n'
-   while read -r line
+   while IFS=$'\n' read -r line
    do
       local extension
       local exttype
@@ -347,8 +346,6 @@ install_inheritfile()
             exttype=
          ;;
       esac
-
-      IFS="${DEFAULT_IFS}"
 
       local extname
       local vendor
@@ -387,10 +384,7 @@ extension (\"${inheritfilename}\")"
                          "${onlyfilename}" \
                          "${force}" \
                          "$@"
-      IFS=$'\n'
-    done <<< "${text}"
-
-   IFS="${DEFAULT_IFS}"
+   done <<< "${text}"
 }
 
 
@@ -404,8 +398,7 @@ environment_mset_log()
    local key
    local value
 
-   IFS=$'\n'
-   while read -r line
+   while IFS=$'\n' read -r line
    do
       log_debug "line: ${line}"
 
@@ -501,11 +494,17 @@ add_to_libraries()
    log_entry "add_to_libraries" "$@"
 
    local filename="$1"
+   local projecttype="$2"
 
    if [ -z "${MULLE_SDE_LIBRARY_SH}" ]
    then
       # shellcheck source=src/mulle-sde-library.sh
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
+   fi
+
+   if [ -e "${projecttype}-${filename}" ]
+   then
+      filename="${projecttype}-${filename}"
    fi
 
    local line
@@ -535,11 +534,17 @@ add_to_dependencies()
    log_entry "add_to_dependencies" "$@"
 
    local filename="$1"
+   local projecttype="$2"
 
    if [ -z "${MULLE_SDE_DEPENDENCY_SH}" ]
    then
       # shellcheck source=src/mulle-sde-dependency.sh
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+   fi
+
+   if [ -e "${projecttype}-${filename}" ]
+   then
+      filename="${projecttype}-${filename}"
    fi
 
    local line
@@ -578,7 +583,7 @@ add_to_environment()
    log_debug "Environment: `cat "${filename}"`"
 
    # add an empty linefeed for read
-   text="`cat "${filename}"`"
+   text="`cat "${filename}" `"
    environment="`environmenttext_to_mset "${text}"`" || exit 1
    if [ -z "${environment}" ]
    then
@@ -786,6 +791,28 @@ is_file_disabled_by_marks()
 }
 
 
+is_sourcetree_file_disabled_by_marks()
+{
+   local marks="$1"
+   local filename="$2"
+   local projecttype="$3"
+
+   if ! _check_file "${filename}"
+   then
+      if ! _check_file "${projecttype}-${filename}"
+      then
+         return 0 # disabled
+      fi
+   fi
+
+   is_disabled_by_marks "$@"
+}
+
+
+#
+# sourcetree files can be different for libary projects
+# and executable projects
+#
 install_sourcetree_files()
 {
    log_entry "install_sourcetree_files" "$@"
@@ -794,21 +821,24 @@ install_sourcetree_files()
    local vendor="$2"
    local extname="$3"
    local marks="$4"
+   local projecttype="$5"
 
-   if ! is_file_disabled_by_marks "${marks}" \
-                                  "${extensiondir}/dependencies" \
-                                  "no-sourcetree" \
-                                  "no-sourcetree-${vendor}-${extname}"
+   if ! is_sourcetree_file_disabled_by_marks "${marks}" \
+                                             "${extensiondir}/dependencies" \
+                                             "no-sourcetree" \
+                                             "no-sourcetree-${vendor}-${extname}" \
+                                             "${projecttype}"
    then
-      add_to_dependencies "${extensiondir}/dependencies"
+      add_to_dependencies "${extensiondir}/dependencies" "${projecttype}"
    fi
 
-   if ! is_file_disabled_by_marks "${marks}" \
-                                  "${extensiondir}/libraries" \
-                                  "no-sourcetree" \
-                                  "no-sourcetree-${vendor}-${extname}"
+   if ! is_sourcetree_file_disabled_by_marks "${marks}" \
+                                             "${extensiondir}/libraries" \
+                                             "no-sourcetree" \
+                                             "no-sourcetree-${vendor}-${extname}" \
+                                             "${projecttype}"
    then
-      add_to_libraries "${extensiondir}/libraries"
+      add_to_libraries "${extensiondir}/libraries" "${projecttype}"
    fi
 }
 
@@ -1310,7 +1340,8 @@ ${C_INFO}Possible ways to fix this:
       install_sourcetree_files "${extensiondir}" \
                                "${vendor}" \
                                "${extname}" \
-                               "${marks}"
+                               "${marks}" \
+                               "${projecttype}"
    fi
 
 
@@ -1334,6 +1365,16 @@ ${C_INFO}Possible ways to fix this:
    then
       _copy_extension_dir "${extensiondir}/share" 'YES' 'YES' ||
          fail "Could not copy \"${extensiondir}/share\""
+   fi
+
+   #
+   # etc is also disabled by no-share
+   #
+   if ! is_directory_disabled_by_marks "${marks}" \
+                                       "${extensiondir}/etc" \
+                                       "no-share" \
+                                       "no-share/${vendor}/${extname}"
+   then
       _copy_extension_dir "${extensiondir}/etc" 'YES' 'NO' ||
          fail "Could not copy \"${extensiondir}/etc\""
    fi
@@ -1369,7 +1410,7 @@ ${C_INFO}Possible ways to fix this:
                                "${force}"
    fi
 
-   log_verbose "${verb} ${exttype} extension \"${vendor}/${extname}\""
+   log_verbose "${C_RESET_BOLD}${verb} ${exttype} extension \"${vendor}/${extname}\""
 }
 
 
@@ -1533,13 +1574,22 @@ recall_installed_extensions()
 {
    log_entry "recall_installed_extensions" "$@"
 
+   local EGREP
+
+   # can sometimes happen, bail early then.
+   EGREP="`command -v egrep`"
+   if [ -z "${EGREP}" ]
+   then
+      fail "egrep not in PATH: ${PATH}"
+   fi
+
    #
    # also read old format
    # use mulle-env so we can get at it from the outside
    #
    if _check_file "${OPTION_EXTENSION_FILE}"
    then
-      exekutor egrep -v '^#' < "${OPTION_EXTENSION_FILE}"
+      exekutor "${EGREP}" -v '^#' < "${OPTION_EXTENSION_FILE}"
       return $?
    fi
 
@@ -1910,8 +1960,9 @@ add more with:
 
          local motd
 
-         motd="`printf "%b" "${C_INFO}Ready to build with:${C_RESET}${C_BOLD}
-   craft${C_RESET}" `"
+         motd="`printf "%b\n%b" \
+                       "${C_INFO}Run external commands with ${C_RESET_BOLD}mudo" \
+                       "${C_INFO}Project is ready to ${C_RESET_BOLD}craft"`"
 
          if [ -z "${_MOTD}" ]
          then
@@ -1986,7 +2037,7 @@ __sde_init_add()
 
    local _INSTALLED_EXTENSIONS
 
-   _INSTALLED_EXTENSIONS="`recall_installed_extensions`"
+   _INSTALLED_EXTENSIONS="`recall_installed_extensions`" || exit 1
    log_debug "Installed extensions: ${_INSTALLED_EXTENSIONS}"
 
    if ! install_extra_extensions "${OPTION_EXTRAS}" \
@@ -2044,7 +2095,7 @@ __get_installed_extensions()
       rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
    fi
 
-   extensions="`recall_installed_extensions`"
+   extensions="`recall_installed_extensions`" || exit 1
    if [ -z "${extensions}" ]
    then
       log_fluff "No extensions found"
@@ -2238,7 +2289,12 @@ __sde_init_main()
       then
          case "${PROJECT_TYPE}" in
             "none")
-               log_info "Nothing to upgrade, as no extensions have been installed."
+               if [ "${PWD}" != "${MULLE_USER_PWD}" ]
+               then
+                  log_verbose "Nothing to upgrade in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
+               else
+                  log_verbose "Nothing to upgrade, as no extensions have been installed."
+               fi
                return 0
             ;;
          esac

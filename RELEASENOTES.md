@@ -118,7 +118,7 @@
 
 ## 0.33.0
 
-* clean has two new domains buildorder and dependency
+* clean has two new domains craftorder and dependency
 * the craft command doesn't support clean anymore (use clean for that)
 * new --github option for dependency add command
 * --multiphase mulle-make support
@@ -275,11 +275,11 @@
 
 ### 0.23.4
 
-* rename tests to test, fix some bugs, add new clean target buildorder
+* rename tests to test, fix some bugs, add new clean target craftorder
 
 ### 0.23.3
 
-* dont be so harsh if buildorderfile doesnt exist
+* dont be so harsh if craftorderfile doesnt exist
 
 ### 0.23.2
 

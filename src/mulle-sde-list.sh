@@ -32,13 +32,8 @@
 MULLE_SDE_LIST_SH="included"
 
 
-sde_list_main()
+sde_list_files()
 {
-   if [ "${PROJECT_TYPE}" = 'none' ]
-   then
-      fail "PROJECT_TYPE is 'none', nothing to list"
-   fi
-
    local text
 
    text="`
@@ -54,10 +49,8 @@ sde_list_main()
    local types
    local subtext
    local categories
-
    local type
    local category
-   local filename
    local seperator
 
    seperator=''
@@ -80,6 +73,14 @@ sde_list_main()
          rexekutor sed -n "s|^${category}: |      |p" <<< "${subtext}"
       done
    done
+}
+
+
+sde_list_dependencies()
+{
+   local text
+
+   local seperator
 
    text="`
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -112,4 +113,14 @@ sde_list_main()
       log_info "${C_MAGENTA}${C_BOLD}Libraries"
       sed 's|^|   |' <<< "${text}"
    fi
+}
+
+
+sde_list_main()
+{
+   if [ "${PROJECT_TYPE}" != 'none' ]
+   then
+      sde_list_files
+   fi
+   sde_list_dependencies
 }

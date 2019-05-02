@@ -42,9 +42,9 @@ Usage:
 
    Build the dependency folder and/or the project according to target. The
    remaining arguments after target are passed to mulle-craft. See
-   \`mulle-craft project|buildorder> help\` for all the options available.
+   \`mulle-craft project|craftorder> help\` for all the options available.
 
-   The dependency folder is built in order of \`mulle-sde buildorder\`.
+   The dependency folder is built in order of \`mulle-sde craftorder\`.
 
 Options:
    -h                      : show this usage
@@ -54,8 +54,8 @@ Options:
 
 Targets:
    all                     : build dependency folder, then project (default)
-   buildorder              : build dependency folder
-   <name>                  : name of a single entry in the buildorder
+   craftorder              : build dependency folder
+   <name>                  : name of a single entry in the craftorder
    project                 : build the project
 
 Environment:
@@ -73,7 +73,7 @@ sde_perform_updates()
    log_entry "sde_pre_update" "$@"
 
    local target="$1"
-   local buildorderfile="$2"
+   local craftorderfile="$2"
    local cachedir="$3"
    local OPTION_UPDATE="$4"
 
@@ -94,8 +94,8 @@ sde_perform_updates()
 
    #
    # Make a quick estimate if this is a virgin checkout scenario, by checking
-   # the buildorder file exist
-   # If yes, then lets update once. If there is no buildorder file, let's
+   # the craftorder file exist
+   # If yes, then lets update once. If there is no craftorder file, let's
    # do it
    #
    if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" = 'YES' ]
@@ -167,15 +167,15 @@ sde_perform_updates()
    fi
 
    #
-   # Possibly build a new buildorder file for sourcetree changes
+   # Possibly build a new craftorder file for sourcetree changes
    #
    case ${dbrval} in
       0)
-         create_buildorder_file_if_needed "${buildorderfile}" "${cachedir}"
+         create_craftorder_file_if_needed "${craftorderfile}" "${cachedir}"
       ;;
 
       2)
-         create_buildorder_file "${buildorderfile}" "${cachedir}"
+         create_craftorder_file "${craftorderfile}" "${cachedir}"
       ;;
    esac
 }
@@ -197,7 +197,7 @@ sde_craft_main()
    then
       if [ -z "${target}" ]
       then
-         target="buildorder"
+         target="craftorder"
          OPTION_UPDATE='NO'
       fi
    fi
@@ -264,46 +264,49 @@ sde_craft_main()
 
 
    #
-   # our buildorder is specific to a host
+   # our craftorder is specific to a host
    #
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
-   [ -z "${MULLE_SDE_BUILDORDER_SH}" ] && \
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-buildorder.sh"
+   [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
-   local _buildorderfile
+   local _craftorderfile
    local _cachedir
 
-   __get_buildorder_info
+   __get_craftorder_info
 
    #
    # Things to do:
    #
    #  1. possibly sync the sourcetree db/fs/config if needed
    #  2. possibly run a mulle-sde update if needed
-   #  3. possibly create a new buildorder file
+   #  3. possibly create a new craftorder file
    #  4. possibly clean build
    #
    sde_perform_updates "${target}" \
-                       "${_buildorderfile}" \
+                       "${_craftorderfile}" \
                        "${_cachedir}" \
                        "${OPTION_UPDATE}"
 
    #
-   # by default, we don't want to see the buildorder verbosity
+   # by default, we don't want to see the craftorder verbosity
    # but do like to see project verbosity
    #
-   local buildorder_cmdline
+   local craftorder_cmdline
    local project_cmdline
    local flags
    r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
    flags="${RVAL}"
 
-   buildorder_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
+   craftorder_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
 
-   if [ -z "${flags}" -a "${MULLE_FLAG_LOG_TERSE}" != 'YES' ]
-   then
-      flags="-v"
-   fi
+#
+# no more since the warning grepper exists now
+#
+#   if [ -z "${flags}" -a "${MULLE_FLAG_LOG_TERSE}" != 'YES' ]
+#   then
+#      flags="-v"
+#   fi
 
    project_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
    if [ "${OPTION_MOTD}" = 'YES' ]
@@ -354,29 +357,29 @@ sde_craft_main()
 
    case "${target}" in
       'all')
-         if [ -f "${_buildorderfile}" ]
+         if [ -f "${_craftorderfile}" ]
          then
-            eval_exekutor "${buildorder_cmdline}" \
-                                 --buildorder-file "'${_buildorderfile}'" \
-                              buildorder \
+            eval_exekutor "${craftorder_cmdline}" \
+                                 --craftorder-file "'${_craftorderfile}'" \
+                              craftorder \
                                  --no-memo-makeflags "'${flags}'" \
                                  "${arguments}" || return 1
          else
-            log_fluff "No buildorderfile so skipping buildorder craft step"
+            log_fluff "No craftorderfile so skipping craftorder craft step"
          fi
       ;;
 
-      'buildorder')
-         if [ -f "${_buildorderfile}" ]
+      'craftorder')
+         if [ -f "${_craftorderfile}" ]
          then
-            eval_exekutor "${buildorder_cmdline}" \
-                                 --buildorder-file "'${_buildorderfile}'" \
-                              buildorder \
+            eval_exekutor "${craftorder_cmdline}" \
+                                 --craftorder-file "'${_craftorderfile}'" \
+                              craftorder \
                                  --no-memo-makeflags "'${flags}'" \
                                  "${arguments}" || return 1
          else
             log_info "There are no dependencies or libraries to build"
-            log_fluff "${_buildorderfile} does not exist"
+            log_fluff "${_craftorderfile} does not exist"
          fi
       ;;
 
@@ -385,16 +388,16 @@ sde_craft_main()
       ;;
 
       *)
-         if [ -f "${_buildorderfile}" ]
+         if [ -f "${_craftorderfile}" ]
          then
-            eval_exekutor "${buildorder_cmdline}" \
-                                 --buildorder-file "'${_buildorderfile}'" \
+            eval_exekutor "${craftorder_cmdline}" \
+                                 --craftorder-file "'${_craftorderfile}'" \
                               "${target}" \
                                  --no-memo-makeflags "'${flags}'" \
                                  "${arguments}" || return 1
          else
             log_info "There are no dependencies or libraries to build"
-            log_fluff "${_buildorderfile} does not exist"
+            log_fluff "${_craftorderfile} does not exist"
          fi
       ;;
    esac
@@ -412,16 +415,16 @@ sde_buildstatus_main()
 {
    log_entry "sde_buildstatus_main" "$@"
 
-   local _buildorderfile
+   local _craftorderfile
    local _cachedir
 
-   __get_buildorder_info
+   __get_craftorder_info
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_CRAFT:-mulle-craft}" \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_CRAFT_FLAGS} \
                   status \
-                     -f "${_buildorderfile}" \
+                     -f "${_craftorderfile}" \
                      "$@"
 }

@@ -158,14 +158,14 @@ Use -f flag to clobber."
 
    exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                              -N ${MULLE_TECHNICAL_FLAGS} \
-                             buildorder \
-                                --no-print-env > buildorder || return 1
+                             craftorder \
+                                --no-print-env > craftorder || return 1
 
    eval_exekutor "${environment}" mulle-craft \
                                        ${MULLE_CRAFT_FLAGS} \
                                        ${MULLE_TECHNICAL_FLAGS} \
-                                       --buildorder-file buildorder \
-                                    buildorder \
+                                       --craftorder-file craftorder \
+                                    craftorder \
                                        --no-protect \
                                        --configuration "${configuration}" \
                                        "${arguments}" || return 1
@@ -230,6 +230,10 @@ sde_install_main()
 
          --release)
             OPTION_CONFIGURATION='Release'
+         ;;
+
+         --test)
+            OPTION_CONFIGURATION='Test'
          ;;
 
          --)

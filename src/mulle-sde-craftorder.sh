@@ -29,32 +29,33 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_BUILDORDER_SH="included"
+MULLE_SDE_CRAFTORDER_SH="included"
 
 
-sde_buildorder_usage()
+sde_craftorder_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} buildorder [options]
+   ${MULLE_USAGE_NAME} craftorder [options]
 
-   Show the buildorder of the dependencies.
+   Show the craftorder of the dependencies.
 
 Options:
-   -h           : show this usage
-   --cached     : show the cached buildorder contents
-   --remaining  : show the part of the buildorder still needed to be built
+   -h              : show this usage
+   --cached        : show the cached craftorder contents
+   --remaining     : show the part of the craftorder still needed to be built
+   --remove-cached : remove cached craftorder contents
 EOF
    exit 1
 }
 
 
-__get_buildorder_info()
+__get_craftorder_info()
 {
    _cachedir="${MULLE_SDE_VAR_DIR}/cache"
-   _buildorderfile="${_cachedir}/buildorder"
+   _craftorderfile="${_cachedir}/craftorder"
 }
 
 
@@ -88,11 +89,11 @@ r_append_mark_no_memo_to_subproject()
 # This should be another task so that it can run in parallel to the other
 # updates
 #
-create_buildorder_file()
+create_craftorder_file()
 {
-   log_entry "create_buildorder_file" "$@"
+   log_entry "create_craftorder_file" "$@"
 
-   local buildorderfile="$1"; shift
+   local craftorderfile="$1"; shift
    local cachedir="$1"; shift
 
    [ -z "${MULLE_PATH_SH}" ] && \
@@ -100,75 +101,77 @@ create_buildorder_file()
    [ -z "${MULLE_FILE_SH}" ] && \
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
-   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} buildorder"
+   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} craftorder"
 
    mkdir_if_missing "${cachedir}"
-   if ! redirect_exekutor "${buildorderfile}" \
+   if ! redirect_exekutor "${craftorderfile}" \
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
             -V -s \
             ${MULLE_TECHNICAL_FLAGS} \
             ${MULLE_SOURCETREE_FLAGS} \
-         buildorder \
+         craftorder \
             --no-print-env \
             --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
             "$@"
    then
-      remove_file_if_present "${buildorderfile}"
+      remove_file_if_present "${craftorderfile}"
       exit 1
    fi
 }
 
 
-create_buildorder_file_if_needed()
+create_craftorder_file_if_needed()
 {
-   log_entry "create_buildorder_file_if_needed" "$@"
+   log_entry "create_craftorder_file_if_needed" "$@"
 
-   local buildorderfile="$1"; shift
+   local craftorderfile="$1"; shift
    local cachedir="$1"; shift
 
    local sourcetreefile
-   local buildorderfile
+   local craftorderfile
 
    #
-   # our buildorder is specific to a host
+   # our craftorder is specific to a host
    #
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
 
    sourcetreefile="${MULLE_VIRTUAL_ROOT}/.mulle/etc/sourcetree/config"
 
    #
-   # produce a buildorderfile, if absent or old
+   # produce a craftorderfile, if absent or old
    #
-   if [ "${sourcetreefile}" -nt "${buildorderfile}" ]
+   if [ "${sourcetreefile}" -nt "${craftorderfile}" ]
    then
-      create_buildorder_file "${buildorderfile}" "${cachedir}"
+      create_craftorder_file "${craftorderfile}" "${cachedir}"
    else
-      log_fluff "Buildorder file \"${buildorderfile}\" is up-to-date"
+      log_fluff "Craftorder file \"${craftorderfile}\" is up-to-date"
    fi
 }
 
 
-show_buildorder()
+show_craftorder()
 {
-   log_entry "show_buildorder" "$@"
+   log_entry "show_craftorder" "$@"
 
-   log_info "Buildorder"
+   log_info "Craftorder"
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      -V -s \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_SOURCETREE_FLAGS} \
-                  buildorder \
+                  craftorder \
                      --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
                      "$@"
 }
 
 
-sde_buildorder_main()
+sde_craftorder_main()
 {
-   log_entry "sde_buildorder_main" "$@"
+   log_entry "sde_craftorder_main" "$@"
 
    local OPTION_CACHED='NO'
+   local OPTION_REMOVE_CACHED='NO'
+   local OPTION_CREATE='NO'
    local OPTION_REMAINING='NO'
 
    #
@@ -178,11 +181,19 @@ sde_buildorder_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_buildorder_usage
+            sde_craftorder_usage
+         ;;
+
+         --create)
+            OPTION_CREATE='YES'
          ;;
 
          --cached)
             OPTION_CACHED='YES'
+         ;;
+
+         --remove-cached)
+            OPTION_REMOVE_CACHED='YES'
          ;;
 
          --remaining)
@@ -190,7 +201,7 @@ sde_buildorder_main()
          ;;
 
          -*)
-            sde_buildorder_usage "Unknown option \"$1\""
+            sde_craftorder_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -206,42 +217,62 @@ sde_buildorder_main()
       fail "You can not specify --build and --cached at the same time"
    fi
 
+   local _craftorderfile
+   local _cachedir
+
+   __get_craftorder_info
+
+   if [ "${OPTION_REMOVE_CACHED}" = 'YES'  ]
+   then
+     if [ -z "${MULLE_PATH_SH}" ]
+     then
+        . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+     fi
+     if [ -z "${MULLE_FILE_SH}" ]
+     then
+        . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+     fi
+
+      remove_file_if_present "${_craftorderfile}"
+      return 0
+   fi
+
+   if [ "${OPTION_CREATE}" = 'YES'  ]
+   then
+      create_craftorder_file "${_craftorderfile}" "${_cachedir}"
+   fi
+
    if [ "${OPTION_REMAINING}" = 'NO' -a "${OPTION_CACHED}" = 'NO' ]
    then
-      show_buildorder
+      show_craftorder
       return $?
    fi
 
-   local _buildorderfile
-   local _cachedir
 
-   __get_buildorder_info
-
-   log_verbose "Cached buildorder ${C_RESET_BOLD}${_buildorderfile}"
+   log_verbose "Cached craftorder ${C_RESET_BOLD}${_craftorderfile}"
 
    if [ "${OPTION_REMAINING}" = 'YES' ]
    then
-      if [ ! -f "${_buildorderfile}" ]
+      if [ ! -f "${_craftorderfile}" ]
       then
-         show_buildorder
+         show_craftorder
       else
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_CRAFT_FLAGS} \
-                           --buildorder-file "${_buildorderfile}" \
+                           --craftorder-file "${_craftorderfile}" \
                         list
       fi
       return $?
    fi
 
-   if [ ! -f "${_buildorderfile}" ]
+   if [ ! -f "${_craftorderfile}" ]
    then
-      log_warning "There is no cached buildorder file"
+      log_warning "There is no cached craftorder file"
       return 0
    fi
 
-
-   cat "${_buildorderfile}"
+   cat "${_craftorderfile}"
    return 0
 }

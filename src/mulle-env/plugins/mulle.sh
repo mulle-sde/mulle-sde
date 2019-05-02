@@ -52,7 +52,7 @@ case "\${MULLE_SHELL_MODE}" in
    *INTERACTIVE*)
       if [ -z "${MULLE_SDE_NO_ALIAS}" ]
       then
-         alias buildorder="mulle-sde buildorder"
+         alias craftorder="mulle-sde craftorder"
          alias clean="mulle-sde clean"
          alias craft="mulle-sde craft"
          alias dependency="mulle-sde dependency"
@@ -68,6 +68,19 @@ case "\${MULLE_SHELL_MODE}" in
          alias patternfile="mulle-sde patternfile"
          alias subproject="mulle-sde subproject"
          alias update="mulle-sde update"
+      fi
+
+      if [ -z "${MULLE_SDE_NO_QUICK_ALIAS}" ]
+      then
+         alias c="mulle-sde craft"
+         alias C="mulle-sde clean; mulle-sde craft"
+         alias CC="mulle-sde clean all; mulle-sde craft"
+         alias t="mulle-sde test rerun --serial"
+         alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
+         alias T="mulle-sde test craft ; mulle-sde test"
+         alias TT="mulle-sde test clean ; mulle-sde test"
+         alias u="mulle-sde update"
+         alias l="mulle-sde list"
       fi
    ;;
 esac

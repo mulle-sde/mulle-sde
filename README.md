@@ -298,4 +298,35 @@ mulle-sde linkorder --output-format ld
 ```
 
 
+# Quick Commands
 
+Inside the **mulle-sde** subshell, you have a few aliases defined to save
+you typework. These are
+
+Command         | Description
+----------------|--------------------------------
+c               | craft project
+C               | clean and craft project
+CC              | clean project and dependencies, then craft
+t               | run tests that haven't run yet or failed one by one
+tt              | craft project, then run tests like 't'
+T               | clean and craft project, then run tests in parallel
+TT              | clean project and dependencies, then craft, then test
+l               | list files and dependencies
+u               | update project
+
+
+To have the same functionality without entering the subshell, define these
+aliases in your `.bashrc`:
+
+```
+alias c="mulle-sde craft"
+alias C="mulle-sde clean; mulle-sde craft"
+alias CC="mulle-sde clean all; mulle-sde craft"
+alias t="mulle-sde test rerun --serial"
+alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
+alias T="mulle-sde test craft ; mulle-sde test"
+alias TT="mulle-sde test clean ; mulle-sde test"
+alias u="mulle-sde update"
+alias l="mulle-sde list"
+```

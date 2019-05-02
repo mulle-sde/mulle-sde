@@ -45,10 +45,12 @@ Usage:
    and everytime you change the tests.
 
 Command:
-   init    : initialize a test directory
-   craft   : craft library
-   recraft : re-craft library and dependencies
-   run     : run tests
+   init     : initialize a test directory
+   generate : generate some simple test files (Objective-C only)
+   craft    : craft library
+   recraft  : re-craft library and dependencies
+   run      : run tests
+   rerun    : rerun failed tests
 
 Environment:
    MULLE_SDE_TEST_PATH : test directories to run (test)
@@ -83,11 +85,15 @@ sde_test_run()
       if ! (
          log_info "Tests ${C_MAGENTA}${C_BOLD}${cmd}${C_INFO} (${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
 
+         #
+         # execute with mudo to use regular path and not pickup stuff
+         # from parent.
+         #
          MULLE_VIRTUAL_ROOT=""
          exekutor cd "${directory}" &&
-         exekutor mulle-test ${MULLE_TECHNICAL_FLAGS} \
-                             ${MULLE_TEST_FLAGS} \
-                             "$@"
+         exekutor mudo mulle-test ${MULLE_TECHNICAL_FLAGS} \
+                                  ${MULLE_TEST_FLAGS} \
+                                  "$@"
       )
       then
          return 1
@@ -151,7 +157,51 @@ r_sde_test_githubname()
    return
 }
 
+sde_test_generate()
+{
+   log_entry "sde_test_run" "$@"
 
+   local cmd="$1"
+   local flags
+
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+   then
+      flags="-f"
+   fi
+
+   MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
+
+   IFS=":"
+   for directory in ${MULLE_SDE_TEST_PATH}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      if [ ! -d "${directory}" ]
+      then
+         fail "Test directory \"${directory}\" is missing"
+      fi
+
+      exekutor mulle-objc-testgenerator \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_TESTGENERATOR_FLAGS} \
+                        ${flags} \
+                     -d "${directory}" \
+                     "$@"
+      return $?
+   done
+   IFS="${DEFAULT_IFS}"
+}
+
+
+#
+# Problem: if you start mulle-sde test inside the project folder
+#          it will pickup the environment there including PATH and
+#          the tests inherits it. If you start the test in the test
+#          folder, it only has its own environment.
+#          Need a solution to cleanly exit from one environment and
+#          move to next in a script. Or make test environments
+#          very restrictive.
+#
 sde_test_main()
 {
    log_entry "sde_test_main" "$@"
@@ -173,16 +223,37 @@ sde_test_main()
       shift
    done
 
-   cmd="${1:-run}"
-   [ $# -ne 0 ] && shift
+   cmd="$1"
+   case "${cmd}" in
+      ""|/*|.*)
+         cmd="run"
+      ;;
+
+      craft|build|recraft|rebuild|clean|init|run|libexec-dir|test-dir|version)
+         shift;
+      ;;
+      *)
+         if [ -e "${MULLE_USER_PWD}/${cmd}" ]
+         then
+            cmd="run"
+         else
+            shift
+         fi
+      ;;
+   esac
+
 
    case "${cmd}" in
       -*)
          sde_test_run run "${cmd}" "$@"
       ;;
 
-      build|craft|clean|rebuild|recraft|run|test)
+      build|craft|clean|rebuild|recraft|rerun|run|test)
          sde_test_run "${cmd}" "$@"
+      ;;
+
+      generate)
+         sde_test_generate "$@"
       ;;
 
       github-name)

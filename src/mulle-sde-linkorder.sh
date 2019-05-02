@@ -44,14 +44,14 @@ Usage:
    current platform. The dependencies must have been built in order for this
    to work.
 
-   This command is for example useful for compiling and linking on the
-   commandline.
-
    The linkorder command may produce incorrect link names, if the aliases
-   feature is used.
+   feature is used in a depencency.
+
+   ${MULLE_USAGE_NAME} linkorder -ld
 
 Options:
    --output-format <format>  : specify node,file,file_lf or ld, ld_lf
+   --output-omit <library>   : do not emit link commands for library
 EOF
    exit 1
 }
@@ -79,6 +79,7 @@ _emit_file_output()
    log_entry "_emit_file_output" "$@"
 
    local sep="${1: }"; shift
+   local quote="${1: }"; shift
 
    local cmdline
    local filename
@@ -93,7 +94,7 @@ _emit_file_output()
 
       filename="${csv%%;*}"
 
-      r_concat "${cmdline}" "${filename}" "${sep}"
+      r_quoted_concat "${result}" "${RVAL}" "${sep}" "${quote}"
       cmdline="${RVAL}"
    done
    IFS="${DEFAULT_IFS}"; set +f
@@ -110,7 +111,7 @@ emit_file_output()
    shift
    shift
 
-   _emit_file_output " " "$@"
+   _emit_file_output " " "" "$@"
 }
 
 
@@ -122,7 +123,7 @@ emit_file_lf_output()
    shift
    shift
 
-   _emit_file_output '$\n' "$@"
+   _emit_file_output '$\n' "" "$@"
 }
 
 
@@ -130,33 +131,28 @@ _emit_ld_output()
 {
    log_entry "_emit_ld_output" "$@"
 
-   local sep="${1: }"; shift
+   local sep="$1"; shift
+   local quote="$1"; shift
    local withldpath="$1"; shift
    local withrpath="$1"; shift
    local wholearchiveformat="$1"; shift
-
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-
-   [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
 
    local result
 
    if [ "${withldpath}" = 'YES' ]
    then
-      r_platform_translate "ldpath" "-L" "${sep}" "${wholearchiveformat}" "$@" || exit 1
+      r_platform_translate "ldpath" "-L" "${sep}" "${quote}" "${wholearchiveformat}" "$@" || exit 1
       r_concat "${result}" "${RVAL}" "${sep}"
       result="${RVAL}"
    fi
 
-   r_platform_translate "ld" "-l" "${sep}" "${wholearchiveformat}" "$@" || exit 1
+   r_platform_translate "ld" "-l" "${sep}" "${quote}" "${wholearchiveformat}" "$@" || exit 1
    r_concat "${result}" "${RVAL}" "${sep}"
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
    then
-      r_platform_translate "rpath" "-Wl,-rpath -Wl," "${sep}" "${wholearchiveformat}" "$@" || exit 1
+      r_platform_translate "rpath" "-Wl,-rpath -Wl," "${sep}" "${quote}" "${wholearchiveformat}" "$@" || exit 1
       r_concat "${result}" "${RVAL}" "${sep}"
       result="${RVAL}"
    fi
@@ -169,7 +165,7 @@ emit_ld_output()
 {
    log_entry "emit_ld_output" "$@"
 
-   _emit_ld_output " " "$@"
+   _emit_ld_output " " "" "$@"
 }
 
 
@@ -177,7 +173,33 @@ emit_ld_lf_output()
 {
    log_entry "emit_ld_lf_output" "$@"
 
-   _emit_ld_output $'\n' "$@"
+   _emit_ld_output $'\n' "" "$@"
+}
+
+
+emit_cmake_output()
+{
+   log_entry "emit_cmake_output" "$@"
+
+   local withldpath="$1"; shift
+   local withrpath="$1"; shift
+   local wholearchiveformat="$1"; shift
+
+   local line
+   local delim
+
+   delim=""
+   for line in "$@"
+   do
+      option="`_emit_ld_output ";" \
+                               "" \
+                               "${withldpath}" \
+                               "${withrpath}" \
+                               "${wholearchiveformat}" \
+                               "${line}" `"
+      printf "${delim}%s" "${option}"
+      delim=";"
+   done
 }
 
 
@@ -249,7 +271,6 @@ linkorder_did_recurse()
 }
 
 
-
 linkorder_callback()
 {
    log_entry "linkorder_callback (${INSIDE_STANDALONE} ${INSIDE_DYNAMIC})" "$@"
@@ -261,7 +282,7 @@ linkorder_callback()
       nodemarks_contain "${_marks}" "dependency"
    then
       # but hit me again later
-      walk_remove_from_visited "${MULLE_MODE}"
+      walk_remove_from_visited "${WALK_MODE}"
       # walk_remove_from_deduped "${MULLE_DATASOURCE}"
       log_debug "${_address}: skipped emit of dependency due to dynamic/standalone"
       return
@@ -283,8 +304,8 @@ r_sde_linkorder_all_nodes()
 
       . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-environment.sh"  || exit 1
       . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-walk.sh" || exit 1
-      [ -z "${MULLE_SOURCETREE_BUILDORDER_SH}" ] && \
-         . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-buildorder.sh"
+      [ -z "${MULLE_SOURCETREE_CRAFTORDER_SH}" ] && \
+         . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-craftorder.sh"
    fi
 
    local INSIDE_STANDALONE
@@ -292,15 +313,17 @@ r_sde_linkorder_all_nodes()
 
    mode="`"${MULLE_SOURCETREE:-mulle-sourcetree}" mode`"
 
-   r_make_buildorder_qualifier 'MATCHES link'
+   r_make_craftorder_qualifier 'MATCHES link'
    qualifier="${RVAL}"
 
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
 
    RVAL="`sourcetree_walk_main --lenient \
                                --no-eval \
-                               --pre-order \
-                               --no-dedupe \
+                               --post-order \
+                               --backwards \
+                               --configuration "Release" \
+                               --dedupe "linkorder" \
                                --callback-qualifier "${qualifier}" \
                                --descend-qualifier "${qualifier}" \
                                --will-recurse-callback linkorder_will_recurse \
@@ -308,7 +331,9 @@ r_sde_linkorder_all_nodes()
                                --no-callback-trace \
                                linkorder_callback `"
 
-   r_remove_leading_duplicate_nodes "${RVAL}"
+   log_verbose "Reversing lines"
+   r_reverse_lines "${RVAL}"
+#   r_remove_leading_duplicate_nodes "${RVAL}"
 }
 
 
@@ -340,12 +365,20 @@ r_linkorder_collect()
    # find dependency lib and
    case ",${marks}," in
       *,only-standalone,*)
-         [ -z "${standalone_load}" ] || \
-            fail "Nodes \"${name}\" and \"${standalone_load}\" both marked as only-standalone"
-         standalone_load="${name}"
+         [ -z "${_standalone_load}" ] || \
+            fail "Nodes \"${name}\" and \"${_standalone_load}\" both marked as only-standalone"
+         _standalone_load="${name}"
 
          librarytype="standalone"
          log_debug "${name} is a standalone library"
+      ;;
+
+      *,only-startup,*)
+         [ -z "${_startup_load}" ] || \
+            fail "Nodes \"${name}\" and \"${_startup_load%%;*}\" both marked as only-startup"
+         _startup_load="${name};${marks}"
+         log_debug "${name} is a startup library"
+         return 2
       ;;
 
       *,no-dynamic-link,*)
@@ -457,7 +490,12 @@ r_get_emission_lib()
          ;;
       esac
 
-      aliases="`assoc_array_get "${userinfo}" "aliases"`"
+      case "${userinfo}" in
+         *aliases*)
+            r_assoc_array_get "${userinfo}" "aliases"
+            aliases="${RVAL}"
+         ;;
+      esac
    fi
 
    # TODO: could remove duplicates with awk
@@ -492,12 +530,17 @@ r_collect_emission_libs()
    local nodes="$1"
    local searchpath="$2"
    local collect_libraries="$3"
+   local omit="$4"
 
    local dependency_libs
 
    local address
    local marks
    local raw_userinfo
+   local raw_userinfo
+
+   local _startup_load
+   local _standalone_load
 
    local node
 
@@ -507,6 +550,12 @@ r_collect_emission_libs()
       IFS="${DEFAULT_IFS}"; set +f
 
       IFS=";" read address marks raw_userinfo <<< "${node}"
+
+      case ",${omit}," in
+         *,${address},*)
+            continue
+         ;;
+      esac
 
       if [ "${OPTION_OUTPUT_FORMAT}" = "node" ]
       then
@@ -530,6 +579,14 @@ r_collect_emission_libs()
    done
    IFS="${DEFAULT_IFS}"; set +f
 
+   if [ "${_startup_load}" ]
+   then
+      RVAL="${dependency_libs}"
+      r_remove_line "${RVAL}" "${_startup_load}"
+      r_add_line "${RVAL}" "${_startup_load}"
+      dependency_libs="${RVAL}"
+   fi
+
    if [ "${OPTION_REVERSE}" = 'YES' ]
    then
       r_reverse_lines "${dependency_libs}"
@@ -551,7 +608,7 @@ r_collect_emission_libs()
 # We need to emit:
 #        a, b, d, e, f, c
 #
-# Basically its like a buildorder in reverse, but with the dependencies
+# Basically its like a craftorder in reverse, but with the dependencies
 # of the non-static libraries removed... ugh
 #
 sde_linkorder_main()
@@ -564,9 +621,28 @@ sde_linkorder_main()
    local OPTION_REVERSE='DEFAULT'
    local OPTION_RPATH='YES'
    local OPTION_FORCE_LOAD='NO'
-   local OPTION_WHOLE_ARCHIVE_FORMAT='whole-archive-as-needed'
+   local OPTION_WHOLE_ARCHIVE_FORMAT
+   local OPTION_OUTPUT_OMIT
 
    local collect_libraries='YES'
+
+   #
+   # load mulle-platform as library, since we would be calling the executable
+   # repeatedly
+   #
+   if [ -z "${MULLE_PLATFORM_LIBEXEC_DIR}" ]
+   then
+      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`" || exit 1
+   fi
+
+   [ -z "${MULLE_PATH_SH}" ] && \
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+
+   [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
+      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
+
+   r_platform_default_whole_archive_format
+   OPTION_WHOLE_ARCHIVE_FORMAT="${RVAL}"
 
    while :
    do
@@ -598,6 +674,14 @@ sde_linkorder_main()
             OPTION_LD_PATH='NO'
          ;;
 
+         --output-omit)
+            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            shift
+
+            r_comma_concat "${OPTION_OUTPUT_OMIT}" "$1"
+            OPTION_OUTPUT_OMIT="${RVAL}"
+         ;;
+
          --no-libraries)
             collect_libraries='NO'
          ;;
@@ -627,11 +711,11 @@ sde_linkorder_main()
                   collect_libraries='NO'
                ;;
 
-               debug|node|csv|ld|ld_lf)
+               debug|node|cmake|csv|ld|ld_lf)
                ;;
 
                *)
-                  sde_linkorder_usage "Unknown format value \"${OPTION_TYPE}\""
+                  sde_linkorder_usage "Unknown format value \"${OPTION_OUTPUT_FORMAT}\""
                ;;
             esac
          ;;
@@ -650,14 +734,6 @@ sde_linkorder_main()
 
    [ -z "${DEPENDENCY_DIR}" ] && internal_fail "DEPENDENCY_DIR not defined"
 
-   #
-   # load mulle-platform as library, since we would be calling the executable
-   # repeatedly
-   #
-   if [ -z "${MULLE_PLATFORM_LIBEXEC_DIR}" ]
-   then
-      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`" || exit 1
-   fi
 
    local nodes
    local name
@@ -684,7 +760,7 @@ sde_linkorder_main()
       searchpath="${RVAL}"
    fi
 
-   r_collect_emission_libs "${nodes}" "${searchpath}" "${collect_libraries}"
+   r_collect_emission_libs "${nodes}" "${searchpath}" "${collect_libraries}" "${OPTION_OUTPUT_OMIT}"
    dependency_libs="${RVAL}"
 
    emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \

@@ -58,7 +58,7 @@ MULLE_SDE_CLEAN_SH="included"
 # -----------|---------------|---------------|---------------|---------------|
 #
 #
-# craft:       project, buildorder, built, individual build, build, dependency
+# craft:       project, craftorder, built, individual build, build, dependency
 # fetch:       archive cache, repository cache
 # make:        nothing
 # match:       patternfiles in var
@@ -89,7 +89,7 @@ EOF
    fi
    cat <<EOF >&2
 Domains:
-   all         : clean buildorder, project. Remove folder "`fast_basename "${DEPENDENCY_DIR}"`"
+   all         : clean craftorder, project. Remove folder "`fast_basename "${DEPENDENCY_DIR}"`"
    archive     : clean the archive cache
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
@@ -201,9 +201,9 @@ sde_clean_subproject_main()
 }
 
 
-sde_clean_buildordercache_main()
+sde_clean_craftordercache_main()
 {
-   log_entry "sde_clean_buildordercache_main" "$@"
+   log_entry "sde_clean_craftordercache_main" "$@"
 
    [ -z "${MULLE_SDE_VAR_DIR}" ] && internal_fail "MULLE_SDE_VAR_DIR not defined"
 
@@ -213,7 +213,7 @@ sde_clean_buildordercache_main()
 
 
 #
-# this will destroy the buildorder
+# this will destroy the craftorder
 # also wipe archive cache. Does not wipe git mirror cache unless -f is given
 # because thats supposed to be harmless
 #
@@ -250,27 +250,9 @@ sde_clean_var_main()
 {
    log_entry "sde_clean_var_main" "$@"
 
-   log_verbose "Cleaning var folders"
+   log_verbose "Cleaning sde var folder"
 
-   IFS=$'\n'
-   for directory in `rexekutor find . -name "var" -type d -print`
-   do
-      IFS="${DEFAULT_IFS}"
-      case "${directory}" in
-         */.mulle/var/env)
-            # not that it has the bin dir
-         ;;
-
-         */.mulle/var/sourcetree)
-            # wipe database separately
-         ;;
-
-         */.mulle-*/var)
-            rmdir_safer "${directory}"
-         ;;
-      esac
-   done
-   IFS="${DEFAULT_IFS}"
+   rmdir_safer "${MULLE_SDE_VAR_DIR}"
 }
 
 
@@ -407,7 +389,7 @@ sde_clean_main()
          echo "\
 all
 archive
-buildorder
+craftorder
 cache
 default
 dependency
@@ -420,19 +402,19 @@ tidy"
       ;;
 
       all)
-         domains="builddir dependencydir buildordercache"
+         domains="builddir dependencydir craftordercache"
       ;;
 
       archive)
          domains="archive"
       ;;
 
-      buildorder)
+      craftorder)
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_CRAFT_FLAGS} \
                      clean \
-                        buildorder
+                        craftorder
       ;;
 
       cache)
@@ -453,7 +435,7 @@ tidy"
       ;;
 
       fetch)
-         domains="sourcetree buildordercache output var db monitor patternfile archive"
+         domains="sourcetree craftordercache output var db monitor patternfile archive"
       ;;
 
       subproject|subprojects)
@@ -469,7 +451,7 @@ tidy"
       ;;
 
       tidy)
-         domains="sourcetree buildordercache graveyard output var db monitor patternfile"
+         domains="sourcetree craftordercache graveyard output var db monitor patternfile"
       ;;
 
       *)
@@ -485,7 +467,7 @@ tidy"
             targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                                        -V \
                                        -s \
-                                    buildorder \
+                                    craftorder \
                                        --no-output-marks | sed 's|^.*/||'`"
             found="`grep -x "${escaped_dependency}" <<< "${targets}" `"
 
@@ -494,7 +476,7 @@ tidy"
                fail "Unknown clean target \"$1\".
 ${C_VERBOSE}Known dependencies:
 ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
-}"
+"
             fi
          fi
 

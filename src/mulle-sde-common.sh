@@ -247,8 +247,12 @@ sourcetree_get_os_excludes_by_url()
 
    local marks
 
-   marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
-              get "${address}" "marks" `"
+   marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS} \
+                           ${mode} \
+                        get "${address}" "marks" `"
    [ $? -eq 0 ] || return 1
 
    os_excludes_print "${marks}"
@@ -286,14 +290,19 @@ _sourcetree_set_userinfo_field()
 
    if [ "${append}" = 'YES' ]
    then
-      list="`assoc_array_get "${userinfo}" "${field}" `"
+      r_assoc_array_get "${userinfo}" "${field}"
+      list="${RVAL}"
       r_commalist_add "${list}" "${value}"
       value="${RVAL}"
    fi
 
-   userinfo="`assoc_array_set "${userinfo}" "${field}" "${value}" `"
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} \
-      set "${address}" "userinfo" "${userinfo}"
+   r_assoc_array_set "${userinfo}" "${field}" "${value}"
+   userinfo="${RVAL}"
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                   -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+                  set "${address}" "userinfo" "${userinfo}"
 }
 
 
@@ -343,10 +352,8 @@ sourcetree_get_userinfo_field()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
    fi
 
-   local list
-
-   list="`assoc_array_get "${userinfo}" "${field}"`"
-   commalist_print "${list}"
+   r_assoc_array_get "${userinfo}" "${field}"
+   commalist_print "${RVAL}"
 }
 
 

@@ -64,28 +64,27 @@ print_commands()
 
    else
       SHOWN_COMMANDS="\
-   buildorder     : show buildorder of dependencies
+   craftorder     : show craftorder of dependencies
    clean          : clean various parts of the project
-   craft          : build the project using mulle-craft
+   craft          : craft the project using mulle-craft
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
-   file           : manage files in the project
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
-   list           : list project files (filed that match patternfiles)
+   list           : list project files (files matching patternfiles)
    status         : show information about the current project
    update         : update project makefiles and sources"
 
       HIDDEN_COMMANDS="\
-   buildstatus    : show the build status of the dependencies
-   definition     : change projects build options like CFLAGS (experimental)
+   craftstatus    : show the craft status of the dependencies
+   definition     : change projects craft options like CFLAGS (experimental)
    callback       : manage update callbacks
    extension      : show available language and buildtool extensions
    fetch          : fetch the sourcetree
    init           : create a new project
    linkorder      : show linkorder of built dependencies
    match          : experiment with patternfiles
-   monitor        : monitor project files, run update and build
+   monitor        : monitor project files, run update and craft
    patternfile    : manage patternfiles
    subproject     : manage local subprojects
    task           : manage update tasks
@@ -110,7 +109,7 @@ print_flags()
 
    echo "   -e   ${delimiter}bypass mulle-env check"
    echo "   -f   ${delimiter}force operation"
-   echo "   -S   ${delimiter}search for enclosing environment"
+   echo "   -N   ${delimiter}do not search for enclosing environment"
    echo "   -DKEY=VALUE    : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -144,7 +143,7 @@ EOF
       cat <<EOF
    To start development edit source files in '${PROJECT_SOURCE_DIR}'. When you
    add or delete a source file run \`mulle-sde update\`. Use \`mulle-sde craft\`
-   to build your project.
+   to craft your project.
    Add binary libraries with \`mulle-sde library\` and source code libraries
    with \`mulle-sde dependency\`.
 
@@ -438,26 +437,31 @@ main()
 
          -f|--force)
             MULLE_FLAG_MAGNUM_FORCE='YES'
-            MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
+            r_concat "${MULLE_FWD_FLAGS}" "$1"
+            MULLE_FWD_FLAGS="${RVAL}"
          ;;
 
          --git-terminal-prompt)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
-            MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
+            r_concat "${MULLE_FWD_FLAGS}" "$1"
+            MULLE_FWD_FLAGS="${RVAL}"
             shift
 
             GIT_TERMINAL_PROMPT="$1"
             export GIT_TERMINAL_PROMPT
 
-            MULLE_FWD_FLAGS="`concat "${MULLE_FWD_FLAGS}" "$1" `"
+            r_concat "${MULLE_FWD_FLAGS}" "$1"
+            MULLE_FWD_FLAGS="${RVAL}"
          ;;
 
          --style)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
-            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1" `"
+            r_concat "${MULLE_ENV_FLAGS}" "$1"
+            MULLE_ENV_FLAGS="${RVAL}"
             shift
 
-            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1" `"
+            r_concat "${MULLE_ENV_FLAGS}" "$1"
+            MULLE_ENV_FLAGS="${RVAL}"
          ;;
 
          --version)
@@ -466,7 +470,8 @@ main()
          ;;
 
          -N|--search-nearest|--no-search)  # --no-search is historic
-            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" --search-nearest`"
+            r_concat "${MULLE_ENV_FLAGS}" "--search-nearest"
+            MULLE_ENV_FLAGS="${RVAL}"
          ;;
 
          --list-flags)
@@ -485,9 +490,11 @@ main()
 
 
          -D*)
-            MULLE_ENV_FLAGS="`concat "${MULLE_ENV_FLAGS}" "$1"`"
+            r_concat "${MULLE_ENV_FLAGS}" "$1"
+            MULLE_ENV_FLAGS="${RVAL}"
 
-            defines="`add_line "${defines}" "$1" `"
+            r_add_line "${defines}" "$1"
+            defines="${RVAL}"
          ;;
 
          -*)
@@ -515,14 +522,13 @@ main()
       # a "convenient" ? shortcut to do projects w/o having to enter
       # a subshell. Starts a subshell every time though....
       #
+      local cmd="$1"
+
       if [ -z "${MULLE_VIRTUAL_ROOT}" ]
       then
-         local cmd="$1"
-
          # commands where we want to start a subshell
-
          case "${cmd}" in
-            buildorder|buildstatus|callback|clean|craft|dependency|definition|\
+            craftorder|buildstatus|callback|clean|craft|dependency|definition|\
 environment|fetch|find|library|linkorder|list|log|mark|match|monitor|patternfile|\
 subproject|style|task|test|template|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
@@ -545,7 +551,7 @@ subproject|style|task|test|template|tool|treestatus|unmark|update)
             ;;
 
             bash-completion|commands|extension|init|init-and-enter|reinit|\
-status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
+status|hostname|uname|show|version|libexec-dir|library-path|project-dir|upgrade)
             ;;
 
             enter)
@@ -565,6 +571,13 @@ status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
 
             *)
                try_to_enter_or_download "$@"
+            ;;
+         esac
+      else
+         # commands where we cant be in the subshell
+         case "${cmd}" in
+            upgrade)
+               fail "upgrade must run outside the subshell"
             ;;
          esac
       fi
@@ -618,13 +631,13 @@ status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
       ;;
 
-      buildorder)
+      craftorder)
          cd_virtual_root_assert_mulle_sde "${cmd}"
 
-         # shellcheck source=src/mulle-sde-buildorder.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-buildorder.sh"
+         # shellcheck source=src/mulle-sde-craftorder.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
-         sde_buildorder_main "$@"
+         sde_craftorder_main "$@"
       ;;
 
       buildstatus)
@@ -663,7 +676,7 @@ status|hostname|uname|upgrade|show|version|libexec-dir|library-path|project-dir)
       commands)
          echo "
 bash-completion
-buildorder
+craftorder
 buildstatus
 callback
 clean

@@ -62,7 +62,7 @@ Commands:
    enter           : open a subshell for subproject
    init            : create a subproject
    remove          : remove a subproject
-   move            : change buildorder of subproject
+   move            : change craftorder of subproject
    list            : list subprojects (default)
          (use <command> -h for more help about commands)
 EOF
@@ -472,7 +472,7 @@ sde_subproject_get_addresses()
         --marks "${SUBPROJECT_LIST_MARKS}" \
         --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
         --no-output-header \
-        --output-raw \
+        --output-format raw \
         --format '%a\n'
 }
 
