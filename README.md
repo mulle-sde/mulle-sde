@@ -12,9 +12,10 @@ mulle-sde reflect the changed filesystem back to the "Makefile".
 An important aspect of a mulle-sde project is, that your project
 can still be built without mulle-sde being installed.
 
-See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for
+As mulle-sde is a bunch of scripts, a positive side effect is, that
+it is inherently scriptable. See the 
+[mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for
 a more indepth introduction on what **mulle-sde** is.
-
 
 ![](dox/mulle-sde-overview.png)
 
