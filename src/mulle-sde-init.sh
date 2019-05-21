@@ -197,7 +197,6 @@ _copy_env_extension_dir()
 }
 
 
-
 _append_to_motd()
 {
    log_entry "_append_to_motd" "$@"
@@ -1962,7 +1961,7 @@ add more with:
 
          motd="`printf "%b\n%b" \
                        "${C_INFO}Run external commands with ${C_RESET_BOLD}mudo" \
-                       "${C_INFO}Project is ready to ${C_RESET_BOLD}craft"`"
+                       "${C_INFO}Project is ready to ${C_RESET_BOLD}craft${C_RESET}"`"
 
          if [ -z "${_MOTD}" ]
          then

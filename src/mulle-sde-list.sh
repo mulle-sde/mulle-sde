@@ -121,6 +121,7 @@ sde_list_main()
    if [ "${PROJECT_TYPE}" != 'none' ]
    then
       sde_list_files
+      echo
    fi
    sde_list_dependencies
 }

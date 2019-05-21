@@ -71,6 +71,19 @@ sde_status_main()
 
    [ $# -eq 0 ] || sde_status_usage "Superflous arguments \"$*\""
 
+   if [ -z "${MULLE_STRING_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-string.sh" || return 1
+   fi
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
+   fi
+
    local rval
    local projectdir
    local parentdir
@@ -137,13 +150,11 @@ commands are executed here"
       ;;
 
       inproject)
-         log_info "mulle-sde commands are executed in the project directory
-${C_RESET_BOLD}${projectdir}"
+         log_info "mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir}"
       ;;
 
       inparent)
-         log_info "mulle-sde commands are deferred to the parent project directory
-${C_RESET_BOLD}${parentdir}"
+         log_info "mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir}"
       ;;
    esac
 
@@ -171,6 +182,40 @@ ${C_RESET_BOLD}${parentdir}"
       else
          log_info "Dependencies need to be fetched"
          log_verbose "${C_RESET_BOLD}   mulle-sde fetch"
+      fi
+
+      if [ -d "${MULLE_SOURCETREE_STASH_DIRNAME:-stash}" ]
+      then
+         local file
+         local hassymlinks
+         local hasdirs
+         local stashdir
+
+         stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
+         for file in "${stashdir}"/*
+         do
+            if [ -L "${file}" ]
+            then
+               r_resolve_symlinks "${file}"
+               if [ -z "${RVAL}" -o ! -e "${RVAL}" ]
+               then
+                  log_error "${C_ERROR}Symlink ${C_RESET_BOLD}${file}${C_ERROR} is broken"
+               fi
+               hassymlinks='YES'
+            else
+               # sometimes we'd prefer this to be a symlink, but mistaken fetch
+               # placed a real folder here. Hard to check though
+               if [ -d "${file}" ]
+               then
+                  hasdirs='YES'
+               fi
+            fi
+         done
+
+         if [ "${hasdirs}" = 'YES' -a "${hassymlinks}" = 'YES' ]
+         then
+            log_info "\"${stashdir}\" contains a mix of symlinks and directories"
+         fi
       fi
 
       DEPENDENCY_DIR="${DEPENDENCY_DIR:-dependency}"
@@ -207,6 +252,14 @@ ${C_RESET_BOLD}${parentdir}"
       fi
       log_verbose "${C_RESET_BOLD}   mulle-sourcetree clean --all-graveyards"
    fi
+
+   log_verbose "Treestatus"
+
+   mulle-sde ${MULLE_TECHNICAL_FLAGS} treestatus
+
+   log_verbose "Craftstatus"
+
+   mulle-sde ${MULLE_TECHNICAL_FLAGS} craftstatus
 
    return $rval
 }

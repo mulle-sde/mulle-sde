@@ -143,9 +143,9 @@ sde_definition_set_remove()
 {
    log_entry "sde_definition_set_remove" "$@"
 
-   local cmd="$1"   ; [ $# -ne 0 ] && shift
-   local scope="$1" ; [ $# -ne 0 ] && shift
-   local flags="$1" ; [ $# -ne 0 ] && shift
+   local cmd="$1"           ; [ $# -ne 0 ] && shift
+   local scope="$1"         ; [ $# -ne 0 ] && shift
+   local flags="$1"         ; [ $# -ne 0 ] && shift
    local definitiondir="$1" ; [ $# -ne 0 ] && shift
 
    local key="$1"
@@ -376,7 +376,7 @@ sde_definition_main()
                            ${MULLE_TECHNICAL_FLAGS} \
                         search \
                            ${searchflags} \
-                              "$@"
+                           "$@"
       ;;
 
       scopes)

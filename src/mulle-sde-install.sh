@@ -63,8 +63,10 @@ https://github.com/MulleFoundation/Foundation/archive/latest.zip
       preferring local projects. Build in \`/tmp/foo\`.
       Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`.
 
+      Set MULLE_FETCH_SEARCH_PATH so that local projects are found.
+
 Options:
-   -b <dir>          : build directory (\$PWD/build)
+   -k <dir>          : kitchen directory (\$PWD/kitchen)
    -d <dir>          : directory to fetch into (\$PWD)
    --debug           : install as debug instead of release
    --prefix <prefix> : installation prefix (\$PWD)
@@ -106,7 +108,8 @@ install_in_tmp()
    local directory="$2"
    local marks="$3"
    local configuration="$4"
-   local arguments="$5"
+   local serial="$5"
+   local arguments="$6"
 
    exekutor mkdir -p "${directory}" 2> /dev/null
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
@@ -161,12 +164,19 @@ Use -f flag to clobber."
                              craftorder \
                                 --no-print-env > craftorder || return 1
 
+   if [ "${serial}" = 'YES' ]
+   then
+      serial="--serial"
+   else
+      serial=""
+   fi
    eval_exekutor "${environment}" mulle-craft \
                                        ${MULLE_CRAFT_FLAGS} \
                                        ${MULLE_TECHNICAL_FLAGS} \
                                        --craftorder-file craftorder \
                                     craftorder \
                                        --no-protect \
+                                       ${serial} \
                                        --configuration "${configuration}" \
                                        "${arguments}" || return 1
 }
@@ -178,6 +188,7 @@ sde_install_main()
 
    local OPTION_PROJECT_DIR
    local OPTION_KEEP_TMP='NO'
+   local OPTION_SERIAL='NO'
    local OPTION_MARKS=''
    local OPTION_CONFIGURATION='Release'
 
@@ -195,11 +206,11 @@ sde_install_main()
             OPTION_PROJECT_DIR="$1"
          ;;
 
-         -b|--build-dir)
+         -b|--build-dir|-k|--kitchen-dir)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            BUILD_DIR="$1"
+            KITCHEN_DIR="$1"
          ;;
 
          --prefix)
@@ -211,6 +222,10 @@ sde_install_main()
 
          --keep-tmp)
             OPTION_KEEP_TMP='YES'
+         ;;
+
+         --serial)
+            OPTION_SERIAL='YES'
          ;;
 
          --standalone)
@@ -287,24 +302,26 @@ sde_install_main()
    log_verbose "Directory: \"${PROJECT_DIR}\""
 
    DEPENDENCY_DIR="${DEPENDENCY_DIR:-${PROJECT_DIR}/dependency}"
-   BUILD_DIR="${BUILD_DIR:-${PROJECT_DIR}/build}"
+   KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
+   KITCHEN_DIR="${KITCHEN_DIR:-${PROJECT_DIR}/kitchen}"
 
    local environment
 
    environment="DEPENDENCY_DIR='${DEPENDENCY_DIR}'"
-   environment="${environment} BUILD_DIR='${BUILD_DIR}'"
+   environment="${environment} KITCHEN_DIR='${KITCHEN_DIR}'"
    environment="${environment} PATH='${DEPENDENCY_DIR}/bin:$PATH'"
    environment="${environment} MULLE_VIRTUAL_ROOT='${PROJECT_DIR}'"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
-      log_trace2 "BUILD_DIR=${BUILD_DIR}"
+      log_trace2 "KITCHEN_DIR=${KITCHEN_DIR}"
       log_trace2 "DEPENDENCY_DIR=${DEPENDENCY_DIR}"
       log_trace2 "MULLE_VIRTUAL_ROOT=${PROJECT_DIR}"
       log_trace2 "PATH=${DEPENDENCY_DIR}/bin:$PATH"
       log_trace2 "PROJECT_DIR=${PROJECT_DIR}"
    fi
 
+   # remaining arguments are passed to mulle-make (and not mulle-craft)
    local arguments
 
    while [ $# -ne 0  ]
@@ -324,6 +341,7 @@ sde_install_main()
                   "${PROJECT_DIR}" \
                   "${OPTION_MARKS}" \
                   "${OPTION_CONFIGURATION}" \
+                  "${OPTION_SERIAL}" \
                   "${arguments}"
    rval=$?
 

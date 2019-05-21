@@ -44,7 +44,7 @@ Usage:
    remaining arguments after target are passed to mulle-craft. See
    \`mulle-craft project|craftorder> help\` for all the options available.
 
-   The dependency folder is built in order of \`mulle-sde craftorder\`.
+   The dependency folder is crafted in order of \`mulle-sde craftorder\`.
 
 Options:
    -h                      : show this usage
@@ -411,20 +411,29 @@ sde_craft_main()
 
 
 
-sde_buildstatus_main()
+sde_craftstatus_main()
 {
-   log_entry "sde_buildstatus_main" "$@"
+   log_entry "sde_craftstatus_main" "$@"
 
    local _craftorderfile
    local _cachedir
 
+   [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
+
    __get_craftorder_info
+
+   if [ ! -f "${_craftorderfile}" ]
+   then
+      log_info "There is no craftinfo yet. I will be available after the next craft"
+      return 1
+   fi
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_CRAFT:-mulle-craft}" \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_CRAFT_FLAGS} \
+                     --craftorder-file "${_craftorderfile}" \
                   status \
-                     -f "${_craftorderfile}" \
                      "$@"
 }

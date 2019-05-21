@@ -157,6 +157,7 @@ r_sde_test_githubname()
    return
 }
 
+
 sde_test_generate()
 {
    log_entry "sde_test_run" "$@"
@@ -181,12 +182,36 @@ sde_test_generate()
          fail "Test directory \"${directory}\" is missing"
       fi
 
-      exekutor mulle-objc-testgenerator \
+      exekutor mulle-testgen \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_TESTGENERATOR_FLAGS} \
                         ${flags} \
-                     -d "${directory}" \
-                     "$@"
+                     -d "${directory}/00_noleak" \
+                     "$@" &&
+      exekutor mulle-testgen \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_TESTGENERATOR_FLAGS} \
+                        ${flags} \
+                     -d "${directory}/10_init" \
+                     -1 \
+                     -s \
+                     -m
+      exekutor mulle-testgen \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_TESTGENERATOR_FLAGS} \
+                        ${flags} \
+                     -d "${directory}/20_property" \
+                     -1 \
+                     -s \
+                     -p &&
+      exekutor mulle-testgen \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_TESTGENERATOR_FLAGS} \
+                        ${flags} \
+                     -d "${directory}/20_method" \
+                     -1 \
+                     -s \
+                     -m
       return $?
    done
    IFS="${DEFAULT_IFS}"
@@ -264,19 +289,11 @@ sde_test_main()
       init)
          r_sde_test_githubname
 
-         local flag
-
-         if [ -f ${MULLE_VIRTUAL_ROOT}/cmake/share/StandaloneC.cmake ]
-         then
-            flag="--standalone"
-         fi
-
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_TEST_FLAGS} \
                      init \
                         --github-name "${RVAL}" \
-                        ${flag} \
                         "$@"
       ;;
 

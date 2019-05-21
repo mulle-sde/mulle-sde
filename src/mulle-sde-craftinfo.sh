@@ -47,7 +47,7 @@ sde_dependency_craftinfo_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo [option] <command>
 
-   Manage build settings of a dependency. Thy will be stored in a subproject
+   Manage craft settings of a dependency. Thy will be stored in a subproject
    in your project inside a mulle-sde created folder "craftinfo". This is done
    for you automatically on the first setting add.
 
@@ -283,6 +283,7 @@ __sde_craftinfo_vars_with_url_or_address()
 
    local url="$1"
    local extension="$2"
+   local emptyok="${3:-YES}"
 
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               -V \
@@ -293,6 +294,10 @@ __sde_craftinfo_vars_with_url_or_address()
                               "${url}"`"
    if [ -z "${_address}" ]
    then
+      if [ "${emptyok}" != 'YES' ]
+      then
+         fail "Dependency \"${url}\" is unknown"
+      fi
       _address="${url}"
    fi
 
@@ -368,7 +373,7 @@ sde_dependency_craftinfo_set_main()
    local _subprojectdir
    local _folder
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
+   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
 
    sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                           "${_name}" \

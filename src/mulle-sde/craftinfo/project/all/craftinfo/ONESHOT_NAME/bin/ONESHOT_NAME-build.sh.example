@@ -82,7 +82,7 @@ build_main()
 {
    log_entry "build_main" "$@"
 
-   # get make to use BUILD_DIR (optional), PREFIX (maybe), CONFIGURATION, SDK
+   # get make to use KITCHEN_DIR (optional), PREFIX (maybe), CONFIGURATION, SDK
    #
    # Tips:
    #
@@ -109,7 +109,7 @@ install_main()
    # It's probably not a bad idea to use mulle-dispense for that.
    # But you could also just use a set of copy commands.
    #
-   # exekutor mulle-dispense dispense "${BUILD_DIR}" "${PREFIX}"
+   # exekutor mulle-dispense dispense "${KITCHEN_DIR}" "${PREFIX}"
    #
 }
 
@@ -119,7 +119,7 @@ main()
    local CONFIGURATION="Debug"
    local SDK=""
    local PREFIX="/tmp"
-   local BUILD_DIR="build"
+   local KITCHEN_DIR="kitchen"
 
    while [ "$#" -ne 0 ]
    do
@@ -148,11 +148,11 @@ main()
             CONFIGURATION="$1"
          ;;
 
-         --build-dir)
+         --kitchen-dir|--build-dir)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
             shift
 
-            BUILD_DIR="$1"
+            KITCHEN_DIR="$1"
          ;;
 
          --prefix|--install-dir)

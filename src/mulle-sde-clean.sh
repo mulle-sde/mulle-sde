@@ -113,19 +113,25 @@ sde_clean_output_main()
 
    log_verbose "Cleaning addiction directory"
    [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
-   log_verbose "Cleaning build directory"
-   [ ! -z "${BUILD_DIR}" ] && rmdir_safer "${BUILD_DIR}"
-   log_verbose "Cleaning dependency directory"
-   [ ! -z "${DEPENDENCY_DIR}" ] && rmdir_safer "${DEPENDENCY_DIR}"
+
+   sde_clean_kitchendir_main "$@"
+   sde_clean_dependencydir_main "$@"
 }
 
 
-sde_clean_builddir_main()
+sde_clean_kitchendir_main()
 {
-   log_entry "sde_clean_builddir_main" "$@"
+   log_entry "sde_clean_kitchendir_main" "$@"
 
-   log_verbose "Cleaning \"build\" directory"
-   [ ! -z "${BUILD_DIR}" ] && rmdir_safer "${BUILD_DIR}"
+   KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
+
+   if [ ! -z "${KITCHEN_DIR}" ]
+   then
+      log_verbose "Cleaning \"kitchen\" directory"
+      rmdir_safer "${KITCHEN_DIR}"
+   else
+      log_fluff "KITCHEN_DIR unknown, so don't clean"
+   fi
 }
 
 
@@ -133,8 +139,13 @@ sde_clean_dependencydir_main()
 {
    log_entry "sde_clean_dependencydir_main" "$@"
 
-   log_verbose "Cleaning \"dependency\" directory"
-   [ ! -z "${DEPENDENCY_DIR}" ] && rmdir_safer "${DEPENDENCY_DIR}"
+   if [ ! -z "${DEPENDENCY_DIR}" ]
+   then
+      log_verbose "Cleaning \"dependency\" directory"
+      rmdir_safer "${DEPENDENCY_DIR}"
+   else
+      log_fluff "DEPENDENCY_DIR unknown, so don't clean"
+   fi
 }
 
 
@@ -402,7 +413,7 @@ tidy"
       ;;
 
       all)
-         domains="builddir dependencydir craftordercache"
+         domains="kitchendir dependencydir craftordercache"
       ;;
 
       archive)

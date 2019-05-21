@@ -53,6 +53,9 @@ Usage:
    See the \`set\` command if you have problems finding dependencies header
    or libraries.
 
+   Use \`mulle-sde dependency list -- --output-format cmd\` for copying
+   single entries between projects.
+
 Commands:
    add        : add a dependency to the sourcetree
    craftinfo  : change build options for a dependency
@@ -99,12 +102,12 @@ Options:
    --headerless    : has no headerfile
    --headeronly    : has no library
    --if-missing    : if a node with the same address is present, do nothing
-   --multiphase    : the dependency can be built in three phases
+   --multiphase    : the dependency can be crafted in three phases
    --objc          : used for Objective-C dependencies
    --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
-   --singlephase   : the dependency must be built in one phase (default)
+   --singlephase   : the dependency must be crafted in one phase (default)
       (see: mulle-sourcetree -v add -h for more add options)
 EOF
   exit 1
@@ -177,8 +180,11 @@ Usage:
 
    List dependencies of this project.
 
+   Use \`mulle-sde dependency list -- --output-format cmd\` for copying
+   single entries between projects.
+
 Options:
-   --command : list dependencies as mulle-sourcetree commands
+   --        : pass remaining arguments to mulle-sourcetree list
    --url     : show URL
 EOF
    exit 1
@@ -209,12 +215,21 @@ sde_dependency_set_main()
    log_entry "sde_dependency_set_main" "$@"
 
    local OPTION_APPEND='NO'
+   local OPTION_DIALECT=''
 
    while :
    do
       case "$1" in
          -a|--append)
             OPTION_APPEND='YES'
+         ;;
+
+         -c|--c)
+            OPTION_DIALECT='c'
+         ;;
+
+         -m|--objc)
+            OPTION_DIALECT='objc'
          ;;
 
          -*)
@@ -234,10 +249,47 @@ sde_dependency_set_main()
    shift
 
    local field="$1"
-   [ -z "${field}" ] && sde_dependency_set_usage "missing field"
-   shift
+
+   if [ -z "${field}" ]
+   then
+      if [ -z "${OPTION_DIALECT}" ]
+      then
+         sde_dependency_set_usage "missing field"
+      fi
+   else
+      if [ ! -z "${OPTION_DIALECT}" ]
+      then
+         sde_dependency_set_usage "superflous field"
+      fi
+      shift
+   fi
 
    local value="$1"
+   local cmd
+
+   if [ ! -z "${OPTION_DIALECT}" ]
+   then
+      cmd="mark"
+      case "${OPTION_DIALECT}"  in
+         c)
+            cmd="unmark"
+         ;;
+      esac
+
+
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                       ${MULLE_TECHNICAL_FLAGS} \
+                       ${MULLE_SOURCETREE_FLAGS} \
+                   "${cmd}" "${address}" "all-load" &&
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                       ${MULLE_TECHNICAL_FLAGS} \
+                       ${MULLE_SOURCETREE_FLAGS} \
+                   "${cmd}" "${address}" "import"
+      return $?
+   fi
+
 
    case "${field}" in
       os-excludes)
@@ -479,7 +531,7 @@ _sde_enhance_url()
                fi
                extension="${last#${branch}.}"    # dirname
 
-               url="${leading}\${NODE_BRANCH}.${extension}"
+               url="${leading}\${MULLE_BRANCH}.${extension}"
             ;;
 
             # format .../branch
@@ -488,7 +540,7 @@ _sde_enhance_url()
                leading="${url%${last}}"  # dirname
                branch="${last%%.*}"
 
-               url="${leading}\${NODE_BRANCH}"
+               url="${leading}\${MULLE_BRANCH}"
             ;;
          esac
       ;;
@@ -656,10 +708,14 @@ sde_dependency_add_main()
 
    local url="$1"
 
+   local originalurl
+
    [ -z "${url}" ] && sde_dependency_add_usage "URL argument is missing ($*)"
    shift
 
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
+
+   originalurl="${url}"
 
    if [ ! -z "${OPTION_FAKE_GITHUB}" ]
    then
@@ -820,7 +876,7 @@ sde_dependency_source_dir_main()
 
    local escaped
 
-   r_escaped_shellstring "${address}"
+   r_escaped_shell_string "${address}"
    escaped="${RVAL}"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \

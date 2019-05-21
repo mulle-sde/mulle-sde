@@ -156,9 +156,16 @@ sde_library_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} library list
+   ${MULLE_USAGE_NAME} library list [options]
 
    List libraries of this project.
+
+   Use \`mulle-sde library list -- --output-format cmd\` for copying
+   single entries between projects.
+
+Options:
+   --       : pass remaining arguments to mulle-sourcetree list
+
 EOF
   exit 1
 }

@@ -94,7 +94,7 @@ _emit_file_output()
 
       filename="${csv%%;*}"
 
-      r_quoted_concat "${result}" "${RVAL}" "${sep}" "${quote}"
+      r_concat "${result}" "${RVAL}" "${sep}"
       cmdline="${RVAL}"
    done
    IFS="${DEFAULT_IFS}"; set +f
@@ -141,23 +141,46 @@ _emit_ld_output()
 
    if [ "${withldpath}" = 'YES' ]
    then
-      r_platform_translate "ldpath" "-L" "${sep}" "${quote}" "${wholearchiveformat}" "$@" || exit 1
-      r_concat "${result}" "${RVAL}" "${sep}"
+      r_platform_translate_lines "ldpath" "-L" "${wholearchiveformat}" "$@" || exit 1
+      r_add_line "${result}" "${RVAL}"
       result="${RVAL}"
    fi
 
-   r_platform_translate "ld" "-l" "${sep}" "${quote}" "${wholearchiveformat}" "$@" || exit 1
-   r_concat "${result}" "${RVAL}" "${sep}"
+   r_platform_translate_lines "ld" "-l" "${wholearchiveformat}" "$@" || exit 1
+   r_add_line "${result}" "${RVAL}"
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
    then
-      r_platform_translate "rpath" "-Wl,-rpath -Wl," "${sep}" "${quote}" "${wholearchiveformat}" "$@" || exit 1
-      r_concat "${result}" "${RVAL}" "${sep}"
+      r_platform_translate_lines "rpath" "-Wl,-rpath -Wl," "${wholearchiveformat}" "$@" || exit 1
+      r_add_line "${result}" "${RVAL}"
       result="${RVAL}"
    fi
 
-   [ ! -z "${result}" ] && rexekutor echo "${result}"
+   if [ "${OPTION_SIMPLIFY}" = 'YES' ]
+   then
+      r_platform_simplify_wholearchive "${result}" "${wholearchiveformat}"
+      result="${RVAL}"
+   fi
+
+   if [ "${sep}" != $'\n' ]
+   then
+      local line
+
+      RVAL=
+      IFS=$'\n'; set -f
+      for line in ${result}
+      do
+         IFS="${DEFAULT_IFS}"; set +f
+         r_concat "${RVAL}" "${line}" "${sep}"
+      done
+      IFS="${DEFAULT_IFS}"; set +f
+
+      result="${RVAL}"
+   fi
+
+   # omit trailing linefeed for cmake
+   printf "%s" "${result}"
 }
 
 
@@ -181,25 +204,7 @@ emit_cmake_output()
 {
    log_entry "emit_cmake_output" "$@"
 
-   local withldpath="$1"; shift
-   local withrpath="$1"; shift
-   local wholearchiveformat="$1"; shift
-
-   local line
-   local delim
-
-   delim=""
-   for line in "$@"
-   do
-      option="`_emit_ld_output ";" \
-                               "" \
-                               "${withldpath}" \
-                               "${withrpath}" \
-                               "${wholearchiveformat}" \
-                               "${line}" `"
-      printf "${delim}%s" "${option}"
-      delim=";"
-   done
+   _emit_ld_output ";" " " "$@"
 }
 
 
@@ -374,11 +379,19 @@ r_linkorder_collect()
       ;;
 
       *,only-startup,*)
-         [ -z "${_startup_load}" ] || \
-            fail "Nodes \"${name}\" and \"${_startup_load%%;*}\" both marked as only-startup"
-         _startup_load="${name};${marks}"
-         log_debug "${name} is a startup library"
-         return 2
+         if [ "${OPTION_STARTUP}" = 'NO' ]
+         then
+            return 2
+         fi
+
+         log_info "STARTUP LIBRARY: $*"
+         if [ "${OPTION_LINK_STARTUP_LAST}" = 'YES' ]
+         then
+            r_add_line "${_startup_load}" "${name};${marks}"
+            _startup_load="${RVAL}"
+            log_debug "${name} is a startup library"
+            return 2
+         fi
       ;;
 
       *,no-dynamic-link,*)
@@ -411,13 +424,30 @@ r_linkorder_collect()
       aliases="${name}"
    fi
 
-   r_sde_locate_library "${searchpath}" "${librarytype}" "${requirement}" ${aliases}
+   local aliasargs
+   local aliasfail
+   local alias
+
+   IFS=","; set -f
+   for alias in ${aliases}
+   do
+      r_concat "${aliasfail}" "'${alias}'" " or "
+      aliasfail="${RVAL}"
+      r_concat "${aliasargs}" "'${alias}'"
+      aliasargs="${RVAL}"
+   done
+   set +f; IFS="${DEFAULT_IFS}"
+
+   eval r_sde_locate_library "'${searchpath}'" "'${librarytype}'" "'${requirement}'" "${aliasargs}"
    libpath="${RVAL}"
 
-   [ -z "${libpath}" ] && fail "Did not find a linkable \"${aliases}\" library in \"${searchpath}\".
-${C_INFO}The linkorder is available after dependencies have been built.
+   if [ -z "${libpath}" ]
+   then
+      fail "Did not find a linkable ${aliasfail} library in \"${searchpath}\".
+${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
+   fi
 
    log_fluff "Found library \"${name}\" at \"${libpath}\""
 
@@ -436,14 +466,15 @@ r_library_searchpath()
    local configuration
 
    configuration="${OPTION_CONFIGURATION:-Release}"
-   searchpath="`rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} \
-                                      ${MULLE_CRAFT_FLAGS} \
-                                      -s \
-                                      searchpath \
-                                      --if-exists \
-                                      --prefix-only \
-                                      --configuration "${configuration}" \
-                                      library`"
+   searchpath="`rexekutor mulle-craft \
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_CRAFT_FLAGS} \
+                                 -s \
+                              searchpath \
+                                 --if-exists \
+                                 --prefix-only \
+                                 --configuration "${configuration}" \
+                                 library`"
    if [ -z "${searchpath}" ]
    then
       fail "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
@@ -523,6 +554,36 @@ r_remove_leading_duplicate_nodes()
 }
 
 
+
+r_remove_line_by_first_field()
+{
+   local lines="$1"
+   local search="$2"
+
+   local line
+
+   local delim
+
+   RVAL=
+   set -o noglob ; IFS=$'\n'
+   for line in ${lines}
+   do
+      case "${line}" in
+         ${search}|${search}\;*)
+            # ignore this
+         ;;
+
+         *)
+            RVAL="${RVAL}${delim}${line}"
+            delim=$'\n'
+         ;;
+      esac
+   done
+   IFS="${DEFAULT_IFS}" ; set +o noglob
+}
+
+
+
 r_collect_emission_libs()
 {
    log_entry "r_collect_emission_libs" "$@"
@@ -579,11 +640,30 @@ r_collect_emission_libs()
    done
    IFS="${DEFAULT_IFS}"; set +f
 
-   if [ "${_startup_load}" ]
+   #
+   # move startup code as the very last library to be linked
+   # because previous libraries need the symbol to
+   # __register_mulle_objc_universe resolved, and on linux
+   # this has to be after the needy libraries. Since startup code
+   # may be dependent on other libraries, mark these as startup
+   # as well, they will be moved along
+   #
+   if [ ! -z "${_startup_load}" ]
    then
       RVAL="${dependency_libs}"
-      r_remove_line "${RVAL}" "${_startup_load}"
-      r_add_line "${RVAL}" "${_startup_load}"
+
+      IFS=$'\n' ; set -f
+      for node in ${_startup_load}
+      do
+         IFS="${DEFAULT_IFS}"; set +f
+
+         # node will contain marks, but we want to remove all by name now
+         # so need something better than r_remove_line
+         r_remove_line_by_first_field "${RVAL}" "${node%%;*}"
+         r_add_line "${RVAL}" "${node}"
+      done
+      IFS="${DEFAULT_IFS}"; set +f
+
       dependency_libs="${RVAL}"
    fi
 
@@ -620,9 +700,12 @@ sde_linkorder_main()
    local OPTION_LD_PATH='YES'
    local OPTION_REVERSE='DEFAULT'
    local OPTION_RPATH='YES'
+   local OPTION_SIMPLIFY='NO'
    local OPTION_FORCE_LOAD='NO'
+   local OPTION_LINK_STARTUP_LAST='YES'
    local OPTION_WHOLE_ARCHIVE_FORMAT
    local OPTION_OUTPUT_OMIT
+   local OPTION_STARTUP='YES'
 
    local collect_libraries='YES'
 
@@ -687,11 +770,23 @@ sde_linkorder_main()
          ;;
 
          --reverse)
-            OPTION_REVERSE="YES"
+            OPTION_REVERSE='YES'
          ;;
 
          --no-reverse)
-            OPTION_REVERSE="NO"
+            OPTION_REVERSE='NO'
+         ;;
+
+         --no-startup)
+            OPTION_STARTUP='NO'
+         ;;
+
+         --no-link-startup-last)
+            OPTION_LINK_STARTUP_LAST='NO'
+         ;;
+
+         --simplify)
+            OPTION_SIMPLIFY='YES'
          ;;
 
          --whole-archive-format)

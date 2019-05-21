@@ -319,6 +319,7 @@ cd_virtual_root()
 {
    local cmd="$1"
    local subenvcheck="${2:-YES}"
+   local subenvwarn="${3:-YES}"
 
    if [ "${subenvcheck}" = 'YES' ]
    then
@@ -334,12 +335,19 @@ cd_virtual_root()
       fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
    fi
 
+   #
+   # this check can hit us, if we get a linkorder request in cmake for example
+   # but we don't really want to warn then. subenvwarn is a hack
+   # to suppress this.
+   #
    if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
    then
       # quick check that we are not passing a "mulle-env" boundary
-      if [ -d "${PWD}/.mulle/share/env" ]
+      if [ -d "${PWD}/.mulle/share/env"  -a "${subenvwarn}" = 'YES' ]
       then
-         log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, as we are in a subshell already"
+         log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are in a subshell already ($PWD)"
+      else
+         MULLE_VIRTUAL_ROOT="${PWD}"
       fi
 
       exekutor cd "${MULLE_VIRTUAL_ROOT}" ||
@@ -474,6 +482,7 @@ main()
             MULLE_ENV_FLAGS="${RVAL}"
          ;;
 
+
          --list-flags)
             (
                echo "\
@@ -528,8 +537,9 @@ main()
       then
          # commands where we want to start a subshell
          case "${cmd}" in
-            craftorder|buildstatus|callback|clean|craft|dependency|definition|\
-environment|fetch|find|library|linkorder|list|log|mark|match|monitor|patternfile|\
+            callback|clean|craft|craftinfo|craftorder|craftstatus|doctor|\
+dependency|definition|environment|fetch|find|library|linkorder|list|log|\
+mark|match|monitor|patternfile|\
 subproject|style|task|test|template|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
             ;;
@@ -631,21 +641,12 @@ status|hostname|uname|show|version|libexec-dir|library-path|project-dir|upgrade)
          echo "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
       ;;
 
-      craftorder)
-         cd_virtual_root_assert_mulle_sde "${cmd}"
-
-         # shellcheck source=src/mulle-sde-craftorder.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
-
-         sde_craftorder_main "$@"
-      ;;
-
-      buildstatus)
+      craftstatus)
          cd_virtual_root_assert_mulle_sde "${cmd}"
 
          # shellcheck source=src/mulle-sde-craft.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
-         sde_buildstatus_main "$@"
+         sde_craftstatus_main "$@"
       ;;
 
       callback|task)
@@ -682,6 +683,8 @@ callback
 clean
 commands
 craft
+craftinfo
+craftorder
 definition
 dependency
 environment
@@ -723,6 +726,24 @@ version"
          # shellcheck source=src/mulle-sde-craft.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
          sde_craft_main "$@"
+      ;;
+
+      craftinfo)
+         cd_virtual_root_assert_mulle_sde "${cmd}"
+
+         # shellcheck source=src/mulle-sde-craftinfo.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+
+         sde_dependency_craftinfo_main "$@"
+      ;;
+
+      craftorder)
+         cd_virtual_root_assert_mulle_sde "${cmd}"
+
+         # shellcheck source=src/mulle-sde-craftorder.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
+
+         sde_craftorder_main "$@"
       ;;
 
       definition)
@@ -811,7 +832,7 @@ version"
       ;;
 
       linkorder)
-         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
 
          # shellcheck source=src/mulle-sde-dependency.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-linkorder.sh"
@@ -928,7 +949,7 @@ version"
          sde_extension_main show "$@"
       ;;
 
-      status)
+      status|doctor)
          # shellcheck source=src/mulle-sde-status.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-status.sh"
 

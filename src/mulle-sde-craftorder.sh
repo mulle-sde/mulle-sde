@@ -45,7 +45,7 @@ Usage:
 Options:
    -h              : show this usage
    --cached        : show the cached craftorder contents
-   --remaining     : show the part of the craftorder still needed to be built
+   --remaining     : show the part of the craftorder still needed to be crafted
    --remove-cached : remove cached craftorder contents
 EOF
    exit 1
@@ -66,8 +66,9 @@ __get_craftorder_info()
 r_append_mark_no_memo_to_subproject()
 {
    local datasource="$1"
-   local nodetype="$2"
-   local marks="$3"
+   local address="$2"
+   local nodetype="$3"
+   local marks="$4"
 
    if [ "${nodetype}" != "local" -o "${datasource}" != "/" ]
    then
@@ -75,7 +76,13 @@ r_append_mark_no_memo_to_subproject()
    fi
 
    case ",${marks}," in
-      *",no-dependency,"*)
+      *',no-dependency',*)
+         return 1
+      ;;
+
+      # this is to differentiate craftinfos from subprojects its
+      # a hack
+      *',no-link,'*)
          return 1
       ;;
    esac
@@ -115,7 +122,7 @@ create_craftorder_file()
             "$@"
    then
       remove_file_if_present "${craftorderfile}"
-      exit 1
+      fail "Failed to create craftorderfile"
    fi
 }
 
@@ -214,7 +221,7 @@ sde_craftorder_main()
 
    if [ "${OPTION_REMAINING}" = 'YES' -a "${OPTION_CACHED}" = 'YES' ]
    then
-      fail "You can not specify --build and --cached at the same time"
+      fail "You can not specify --remaining and --cached at the same time"
    fi
 
    local _craftorderfile

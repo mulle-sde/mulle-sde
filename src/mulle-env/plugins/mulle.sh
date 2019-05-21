@@ -150,7 +150,7 @@ export ADDICTION_DIR="\${MULLE_VIRTUAL_ROOT}/addiction"
 #
 # Use common build directory
 #
-export BUILD_DIR="\${MULLE_VIRTUAL_ROOT}/build"
+export KITCHEN_DIR="\${MULLE_VIRTUAL_ROOT}/kitchen"
 
 EOF
 }
@@ -278,8 +278,9 @@ ninja;optional
 wget;optional
 sw_vers;optional
 xcrun;optional
-xcodebuild;optional"
-
+xcodebuild;optional
+autoconf;optional
+autoreconf;optional"
    echo "${MULLE_SDE_BINARIES}"
 
 }
