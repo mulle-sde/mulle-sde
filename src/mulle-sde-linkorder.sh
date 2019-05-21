@@ -381,10 +381,10 @@ r_linkorder_collect()
       *,only-startup,*)
          if [ "${OPTION_STARTUP}" = 'NO' ]
          then
+            log_debug "Ignore ${name} as its a startup library"
             return 2
          fi
 
-         log_info "STARTUP LIBRARY: $*"
          if [ "${OPTION_LINK_STARTUP_LAST}" = 'YES' ]
          then
             r_add_line "${_startup_load}" "${name};${marks}"

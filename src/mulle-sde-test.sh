@@ -45,12 +45,13 @@ Usage:
    and everytime you change the tests.
 
 Command:
-   init     : initialize a test directory
-   generate : generate some simple test files (Objective-C only)
-   craft    : craft library
-   recraft  : re-craft library and dependencies
-   run      : run tests
-   rerun    : rerun failed tests
+   init      : initialize a test directory
+   craft     : craft library
+   generate  : generate some simple test files (Objective-C only)
+   recraft   : re-craft library and dependencies
+   run       : run tests
+   linkorder : show library command for linking test executable
+   rerun     : rerun failed tests
 
 Environment:
    MULLE_SDE_TEST_PATH : test directories to run (test)
@@ -273,7 +274,7 @@ sde_test_main()
          sde_test_run run "${cmd}" "$@"
       ;;
 
-      build|craft|clean|rebuild|recraft|rerun|run|test)
+      build|craft|clean|linkorder|rebuild|recraft|rerun|run|test)
          sde_test_run "${cmd}" "$@"
       ;;
 

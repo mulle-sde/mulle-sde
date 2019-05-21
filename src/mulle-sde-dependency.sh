@@ -760,7 +760,8 @@ sde_dependency_add_main()
 
    case "${OPTION_DIALECT}" in
       c)
-         r_comma_concat "${marks}" "no-import,no-all-load"
+         # prepend is better in this case
+         r_comma_concat "no-import,no-all-load" "${marks}"
          marks="${RVAL}"
       ;;
    esac

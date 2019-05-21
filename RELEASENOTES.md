@@ -1,3 +1,30 @@
+## 0.38.0
+
+* improved mulle-sde test (init/linkorder)
+* renamed command buildstatus to craftstatus for orthogonality
+* added craftinfo shortcut for dependency craftinfo
+* added craftorder command
+* status can now show more interesting information and check for some problems
+* improved linkorder generation and made it more flexible
+* test will be setup to use shared libraries and not a standalone libary anymore
+* added support for the test generator
+* renamed buildorder to craftorder mainly for the benefit of shortcuts ‚c‘ ‚CC‘ ‚cc‘
+* with error/warning grepper in place, we don’t craft the main project with -v by default anymore
+* allow different sourcetree init depending on projecttype (experimental, could go away)
+* library add gains -—marks and —-ifmissing
+* improved linkorder emission with own —-dedupe, support for only-startup mark
+* experimental support for test generation
+* improved list commands, now shows everything much nicer including libraries and dependencies
+* use default vendor mulle-sde
+* use new mulle-env tools feature to add additional tools more quickly
+* allow "empty" projects to be upgraded
+* redid linkorder, which is now slower but more correct
+* fix performance and order of linkorder
+* on a failed init, mulle-sde will now try to remove everything it created until then
+* the dependency archive URL branch information can now be set with the branch field
+* fixes in the clean code (as usual)
+
+
 ### 0.37.4
 
 * added hostname ans status commands

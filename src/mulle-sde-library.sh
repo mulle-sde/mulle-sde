@@ -182,6 +182,7 @@ sde_library_add_main()
    local OPTION_OPTIONAL='NO'
    local OPTION_IF_MISSING='NO'
    local options
+   local userinfo
 
    while :
    do
@@ -220,6 +221,13 @@ sde_library_add_main()
 
             r_comma_concat "${marks}" "$1"
             marks="${RVAL}"
+         ;;
+
+        --userinfo)
+            [ "$#" -eq 1 ] && sde_library_add_usage "Missing argument to \"$1\""
+            shift
+
+            userinfo="--userinfo '$1'"
          ;;
 
          --if-missing)
@@ -280,6 +288,7 @@ sde_library_add_main()
                         add \
                            --nodetype none \
                            --marks "'${marks}'" \
+                           "${userinfo}" \
                            "${options}" \
                            "'${libname}'"
 }
