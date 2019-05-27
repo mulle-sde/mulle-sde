@@ -234,19 +234,18 @@ r_author_date_seds()
 
    local cmdline
 
-   r_escaped_sed_replacement "${AUTHOR:-${USER}}"
+   r_escaped_sed_replacement "${AUTHOR:-${USER:-USER}}"
    cmdline="-e 's/${o}AUTHOR${c}/${RVAL}/g'"
    r_escaped_sed_replacement "${nowdate}"
    cmdline="${cmdline} -e 's/${o}DATE${c}/${RVAL}/g'"
-   r_escaped_sed_replacement "${ORGANIZATION}"
+   r_escaped_sed_replacement "${ORGANIZATION:-ORGANIZATION}"
    cmdline="${cmdline} -e 's/${o}ORGANIZATION${c}/${RVAL}/g'"
    r_escaped_sed_replacement "${nowtime}"
    cmdline="${cmdline} -e 's/${o}TIME${c}/${RVAL}/g'"
-   r_escaped_sed_replacement "${USER}"
+   r_escaped_sed_replacement "${USER:-USER}"
    cmdline="${cmdline} -e 's/${o}USER${c}/${RVAL}/g'"
    r_escaped_sed_replacement "${nowyear}"
    cmdline="${cmdline} -e 's/${o}YEAR${c}/${RVAL}/g'"
-
    r_escaped_sed_replacement "${ONESHOT_NAME}"
    cmdline="${cmdline} -e 's/${o}ONESHOT_NAME${c}/${RVAL}/g'"
 

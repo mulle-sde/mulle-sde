@@ -1,3 +1,7 @@
+### 0.38.1
+
+* add mulle-test to dependencies, improve template output if variables are undefined
+
 ## 0.38.0
 
 * improved mulle-sde test (init/linkorder)
