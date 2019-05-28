@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.38.1
+MULLE_EXECUTABLE_VERSION=0.38.2
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -342,7 +342,9 @@ cd_virtual_root()
    #
    if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
    then
+      #
       # quick check that we are not passing a "mulle-env" boundary
+      #
       if [ -d "${PWD}/.mulle/share/env"  -a "${subenvwarn}" = 'YES' ]
       then
          log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are in a subshell already ($PWD)"
@@ -776,6 +778,7 @@ version"
             exekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
+                           -N \
                         "${cmd}" \
                            "$@"
       ;;
@@ -1016,6 +1019,7 @@ version"
             exekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
+                           -N \
                         "${cmd}" \
                            "$@"
       ;;

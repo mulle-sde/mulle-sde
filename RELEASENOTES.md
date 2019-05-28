@@ -1,3 +1,7 @@
+### 0.38.2
+
+* use subenv environment for tool and environment commands
+
 ### 0.38.1
 
 * add mulle-test to dependencies, improve template output if variables are undefined
