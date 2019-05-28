@@ -111,7 +111,7 @@ sde_clean_output_main()
 {
    log_entry "sde_clean_output_main" "$@"
 
-   log_verbose "Cleaning addiction directory"
+   log_verbose "Cleaning \"addiction\" directory"
    [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
 
    sde_clean_kitchendir_main "$@"
@@ -261,7 +261,7 @@ sde_clean_var_main()
 {
    log_entry "sde_clean_var_main" "$@"
 
-   log_verbose "Cleaning sde var folder"
+   log_verbose "Cleaning \".mulle-sde/var\" folder"
 
    rmdir_safer "${MULLE_SDE_VAR_DIR}"
 }
@@ -292,6 +292,20 @@ sde_clean_sourcetree_main()
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS} \
                clean
+}
+
+
+sde_clean_sourcetree_share_main()
+{
+   log_entry "sde_clean_sourcetree_share_main" "$@"
+
+   log_verbose "Cleaning sourcetree and stash"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+               clean --share
 }
 
 
@@ -462,7 +476,7 @@ tidy"
       ;;
 
       tidy)
-         domains="sourcetree craftordercache graveyard output var db monitor patternfile"
+         domains="sourcetree_share craftordercache graveyard output var db monitor patternfile"
       ;;
 
       *)
