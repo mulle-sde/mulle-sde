@@ -1,3 +1,7 @@
+### 0.38.4
+
+* remove accidental duplicate `sde_add_craftinfo_subproject_if_needed`
+
 ### 0.38.3
 
 * let tidy clean stash

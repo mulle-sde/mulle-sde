@@ -813,39 +813,6 @@ sde_dependency_add_main()
 }
 
 
-sde_add_craftinfo_subproject_if_needed()
-{
-   log_entry "sde_add_craftinfo_subproject_if_needed" "$@"
-
-   local subprojectdir="$1"
-   local name="$2"
-
-   if [ -d "${subprojectdir}" ]
-   then
-      return 0
-   fi
-  # shellcheck source=src/mulle-sde-common.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
-
-
-   (
-      sde_extension_main pimp --project-type "${PROJECT_TYPE}" \
-                              --oneshot-name "${name}" \
-                              mulle-sde/craftinfo
-   ) || return 1
-
-   [ -d "${subprojectdir}" ] || \
-      internal_fail "did not produce \"${subprojectdir}\""
-
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} add --if-missing \
-         --marks "no-update,no-delete,no-share,no-header,no-link" \
-         --nodetype "local" \
-         "${subprojectdir}"  || return 1
-
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V ${MULLE_SOURCETREE_FLAGS} move "${subprojectdir}" top || return 1
-}
-
-
 sde_dependency_source_dir_main()
 {
    log_entry "sde_dependency_source_dir_main" "$@"
