@@ -325,7 +325,7 @@ r_sde_linkorder_all_nodes()
 
    RVAL="`sourcetree_walk_main --lenient \
                                --no-eval \
-                               --post-order \
+                               --in-order \
                                --backwards \
                                --configuration "Release" \
                                --dedupe "linkorder" \
