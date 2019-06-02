@@ -1,3 +1,7 @@
+### 0.38.6
+
+* do not fail on linkorder emission for no-require dependencies that are absent
+
 ### 0.38.5
 
 * use in-order for linkorder walk

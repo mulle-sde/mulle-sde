@@ -443,6 +443,13 @@ r_linkorder_collect()
 
    if [ -z "${libpath}" ]
    then
+      case ",${marks},*" in
+         *,no-require,*)
+            log_fluff "\"${libpath}\" is not found, but it is not required"
+            return 2
+         ;;
+      esac
+
       fail "Did not find a linkable ${aliasfail} library in \"${searchpath}\".
 ${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
