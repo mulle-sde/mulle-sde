@@ -32,19 +32,47 @@
 MULLE_SDE_LIST_SH="included"
 
 
+sde_list_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} list [options]
+
+   List definitions,environment,files,dependencies to give an overview of
+   your project.
+
+Options:
+   --files            : list only files
+   --no-dependencies  : do not list dependencies
+   --no-files         : do not list files
+   --no-definitions   : do not list definitions
+   --no-environment   : do not list environmnt
+
+EOF
+  exit 1
+}
+
+
+
 sde_list_files()
 {
+   log_entry "sde_list_files" "$@"
+
    local text
 
    text="`
+   # MULLE_TECHNICAL_FLAGS on match is just too much
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MATCH:-mulle-match}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_MATCH_FLAGS} \
                   list \
                      --format "%t/%c: %f\\n" "$@"
 
    `"
+
+   log_debug "text: ${text}"
 
    local types
    local subtext
@@ -55,6 +83,8 @@ sde_list_files()
 
    seperator=''
    types="`rexekutor sed 's|^\([^/]*\).*|\1|' <<< "${text}" | sort -u`"
+
+   log_debug "types: ${types}"
    for type in ${types}
    do
       printf "%s" "${seperator}"
@@ -63,8 +93,11 @@ sde_list_files()
       # https://stackoverflow.com/questions/12487424/uppercase-first-character-in-a-variable-with-bash
       log_info "${C_MAGENTA}${C_BOLD}$(tr '[:lower:]' '[:upper:]' <<< ${type:0:1})${type:1}"
       subtext="`rexekutor sed -n "s|^${type}/||p" <<< "${text}" `"
+      log_debug "subtext: ${subtext}"
 
       categories="`rexekutor sed 's|^\([^:]*\).*|\1|' <<< "${subtext}" | sort -u`"
+      log_debug "categories: ${categories}"
+
       for category in ${categories}
       do
          printf "%s" "${seperator}"
@@ -78,8 +111,9 @@ sde_list_files()
 
 sde_list_dependencies()
 {
-   local text
+   log_entry "sde_list_dependencies" "$@"
 
+   local text
    local seperator
 
    text="`
@@ -116,12 +150,127 @@ sde_list_dependencies()
 }
 
 
+sde_list_definitions()
+{
+   log_entry "sde_list_definitions" "$@"
+
+   if [ -z "${MULLE_SDE_DEFINITION_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-definition.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-definition.sh"
+   fi
+
+   local text
+
+   text="`sde_definition_main --terse --os "${MULLE_UNAME}" list`"
+   if [ ! -z "${text}" ]
+   then
+      log_info "${C_MAGENTA}${C_BOLD}Definitions"
+      sed 's|^||' <<< "${text}"
+   else
+      text="`sde_definition_main --terse --global list`"
+      if [ ! -z "${text}" ]
+      then
+         log_info "${C_MAGENTA}${C_BOLD}Definitions"
+         sed 's|^||' <<< "${text}"
+      fi
+   fi
+}
+
+
+sde_list_environment()
+{
+   log_entry "sde_list_environment" "$@"
+
+   local text
+
+   text="`mulle-env -s environment list --output-eval `"
+   if [ ! -z "${text}" ]
+   then
+      log_info "${C_MAGENTA}${C_BOLD}Environment"
+      sed 's|^|   |' <<< "${text}"
+   fi
+}
+
+
 sde_list_main()
 {
-   if [ "${PROJECT_TYPE}" != 'none' ]
+   log_entry "sde_list_main" "$@"
+
+   local OPTION_LIST_DEPENDENCIES='YES'
+   local OPTION_LIST_FILES='YES'
+   local OPTION_LIST_DEFINITIONS='YES'
+   local OPTION_LIST_ENVIRONMENT='YES'
+   local spacer
+
+   spacer=":"  # nop
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_fetch_usage
+         ;;
+
+         --no-dependencies)
+            OPTION_LIST_DEPENDENCIES='NO'
+         ;;
+
+         --files)
+            OPTION_LIST_FILES='YES'
+            OPTION_LIST_DEFINITIONS='NO'
+            OPTION_LIST_ENVIRONMENT='NO'
+            OPTION_LIST_DEPENDENCIES='NO'
+         ;;
+
+         --no-files)
+            OPTION_LIST_FILES='NO'
+         ;;
+
+         --no-definitions)
+            OPTION_LIST_DEFINITIONS='NO'
+         ;;
+
+         --no-environment)
+            OPTION_LIST_ENVIRONMENT='NO'
+         ;;
+
+         -*)
+            sde_list_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ "${OPTION_LIST_FILES}" = 'YES' -a "${PROJECT_TYPE}" != 'none' ]
    then
       sde_list_files
-      echo
+      spacer="echo"
    fi
-   sde_list_dependencies
+
+   if [ "${OPTION_LIST_DEPENDENCIES}" = 'YES' ]
+   then
+      eval "${spacer}"
+      sde_list_dependencies
+      spacer="echo"
+   fi
+
+   if [ "${OPTION_LIST_ENVIRONMENT}" = 'YES' ]
+   then
+      eval "${spacer}"
+      sde_list_environment
+      spacer="echo"
+   fi
+
+   if [ "${OPTION_LIST_DEFINITIONS}" = 'YES' ]
+   then
+      eval "${spacer}"
+      sde_list_definitions
+      spacer="echo"
+   fi
 }

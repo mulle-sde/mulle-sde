@@ -51,6 +51,7 @@ Options:
    -q                      : skip uptodate checks
    --clean                 : clean before crafting (see: mulle-sde clean)
    --clean-domain <domain> : clean specific domain before crafting (s.a)
+   --run                   : attempt to run produced executable
 
 Targets:
    all                     : build dependency folder, then project (default)
@@ -132,6 +133,10 @@ sde_perform_updates()
                               "${MULLE_TECHNICAL_FLAGS}" \
                               "${MULLE_SOURCETREE_FLAGS}" \
                            "update" || exit 1
+
+         # run this quickly, because incomplete previous fetches trip me
+         # up too often
+         exekutor mulle-sde status --stash-only
       fi
       updateflags='' # db "force" update
    fi
@@ -191,6 +196,7 @@ sde_craft_main()
    local target
    local OPTION_UPDATE='YES'
    local OPTION_MOTD='YES'
+   local OPTION_RUN='NO'
 
    target="${MULLE_SDE_CRAFT_TARGET}"
    if [ "${PROJECT_TYPE}" = "none" ]
@@ -244,6 +250,10 @@ sde_craft_main()
             OPTION_MOTD='NO'
          ;;
 
+         --run)
+            OPTION_RUN='YES'
+         ;;
+
          -V)
             # old flag silently ignored
          ;;
@@ -295,6 +305,7 @@ sde_craft_main()
    local craftorder_cmdline
    local project_cmdline
    local flags
+
    r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
    flags="${RVAL}"
 
@@ -322,6 +333,8 @@ sde_craft_main()
    fi
 
    local mulle_make_flags
+   local buildstyle
+   local runstyle
    local need_dashdash='YES'
    local i
 
@@ -331,6 +344,12 @@ sde_craft_main()
       then
          need_dashdash='NO'
       fi
+
+      case "$1" in
+         --release|--debug|--test)
+            buildstyle="${1:2}"
+         ;;
+      esac
 
       arguments="${arguments} '$1'"
       shift
@@ -352,6 +371,27 @@ sde_craft_main()
       done
       shopt -u nullglob
    fi
+
+   buildstyle="${buildstyle:-${MULLE_SDE_DEFAULT_CRAFT_STYLE}}"
+   case "${buildstyle}" in
+      [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+         runstyle="Release"
+         arguments=" --release ${arguments}"
+      ;;
+
+      [Dd][Ee][Bb][Uu][Gg])
+         runstyle="Debug"
+         arguments=" --debug ${arguments}"
+      ;;
+
+      [Tt][Ee][Ss][Tt])
+         arguments="--test --library-style dynamic ${arguments}"
+      ;;
+
+      *)
+         runstyle="" # erase unknown buildstyle
+      ;;
+   esac
 
 #   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
@@ -407,6 +447,25 @@ sde_craft_main()
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
             eval_exekutor "${project_cmdline}" project "${arguments}" || return 1
    esac
+
+   log_verbose "Craft was successful"
+   if [ "${OPTION_RUN}" = 'YES' ]
+   then
+      local executable
+
+      #
+      # should ask cmake or someone else for the executable name
+      # should check environment for EXECUTABLE_DEBUG or EXECUTABLE_RELEASE
+      # and so on
+      #
+      executable="${KITCHEN_DIR:-kitchen}/${runstyle:-Debug}/${PROJECT_NAME}"
+      if [ -x "${executable}" ]
+      then
+         exekutor "${executable}"
+      else
+         fail "Can't find executable to run (${executable})"
+      fi
+   fi
 }
 
 
@@ -425,7 +484,7 @@ sde_craftstatus_main()
 
    if [ ! -f "${_craftorderfile}" ]
    then
-      log_info "There is no craftinfo yet. I will be available after the next craft"
+      log_info "There is no craftinfo yet. It will be available after the next craft"
       return 1
    fi
 

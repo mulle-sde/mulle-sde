@@ -273,7 +273,7 @@ emit_ignore_patternfile()
    set -o noglob;  IFS=$'\n'
    for subproject in ${subprojects}
    do
-      echo "${subproject}/"
+      printf "%s\n" "${subproject}/"
    done
    set +o noglob; IFS="${DEFAULT_IFS}"
 }
@@ -305,7 +305,7 @@ update_ignore_patternfile()
       exekutor chmod ug+w "${sharefile}"
    fi
 
-   redirect_exekutor "${sharefile}" echo "${contents}"
+   redirect_exekutor "${sharefile}" printf "%s\n" "${contents}"
    exekutor chmod ug-w "${sharefile}"
 
    local etcfile
@@ -324,7 +324,7 @@ update_ignore_patternfile()
       fail "User edits in \"${etcfile}\" are not allowed"
    fi
 
-   redirect_exekutor "${etcfile}" echo "${contents}"
+   redirect_exekutor "${etcfile}" printf "%s\n" "${contents}"
 }
 
 
@@ -555,7 +555,7 @@ has no \"${sdefolder}\" folder"
 
                if [ $rval -ne 0 ]
                then
-                  redirect_append_exekutor "${statusfile}" echo "${subproject};$rval"
+                  redirect_append_exekutor "${statusfile}" printf "%s\n" "${subproject};$rval"
                fi
             ) &
          else

@@ -281,7 +281,7 @@ xcrun;optional
 xcodebuild;optional
 autoconf;optional
 autoreconf;optional"
-   echo "${MULLE_SDE_BINARIES}"
+   printf "%s\n" "${MULLE_SDE_BINARIES}"
 
 }
 

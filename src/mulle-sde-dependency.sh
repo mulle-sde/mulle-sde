@@ -97,17 +97,18 @@ Usage:
 
 Options:
    --c             : used for C dependencies (default)
+   --clean         : delete all previous dependencies and libraries
    --embedded      : the dependency becomes part of the local project
    --github <name> : create an URL for a - possibly fictitious - github name
    --headerless    : has no headerfile
    --headeronly    : has no library
    --if-missing    : if a node with the same address is present, do nothing
-   --multiphase    : the dependency can be crafted in three phases
+   --multiphase    : the dependency can be crafted in three phases (default)
    --objc          : used for Objective-C dependencies
    --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
-   --singlephase   : the dependency must be crafted in one phase (default)
+   --singlephase   : the dependency must be crafted in one phase
       (see: mulle-sourcetree -v add -h for more add options)
 EOF
   exit 1
@@ -431,6 +432,7 @@ sde_dependency_list_main()
 #    _address
 #    _nodetype
 #    _address
+#    _marks
 #
 _sde_enhance_url()
 {
@@ -440,6 +442,7 @@ _sde_enhance_url()
    local branch="$2"
    local nodetype="$3"
    local address="$4"
+   local marks="$5"
 
    if [ -z "${nodetype}" ]
    then
@@ -468,6 +471,7 @@ _sde_enhance_url()
    _url=""
    _branch=""
    _address=""
+   _marks=""
    _nodetype=""
 
    #
@@ -482,19 +486,8 @@ _sde_enhance_url()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
-   r_tweaked_de_camel_case "${address}"
-   upcaseid="`printf "%s" "${RVAL}" | tr -c 'a-zA-Z0-9' '_'`"
-   upcaseid="`tr 'a-z' 'A-Z' <<< "${upcaseid}"`"
-
-   # ensure its a shell identifier
-   case "${upcaseid}" in
-      [A-Za-z_]*)
-      ;;
-
-      *)
-         upcaseid="_${upcaseid}"
-      ;;
-   esac
+   r_de_camel_case_upcase_identifier "${address}"
+   upcaseid="${RVAL}"
 
    local last
    local leading
@@ -555,7 +548,16 @@ _sde_enhance_url()
 
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"
-   _nodetype="${nodetype}"
+   _marks="${marks}"
+   # THIS DOESN'T WORK SINCE the marks adding code bails
+   #
+   # remedy: autogenerate let sourcetree autogenerate environment checks
+   #         for MULLE_URL, MULLE_MARKS etc.
+   #
+   #  Maybe also allow changes based on UUID ?
+   #
+   # _marks="\${${upcaseid}_MARKS:-${marks}}"
+   _nodetype="\${${upcaseid}_NODETYPE:-${nodetype}}"
    _address="${address}"
 }
 
@@ -575,8 +577,10 @@ sde_dependency_add_main()
    local OPTION_PRIVATE='NO'
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
-   local OPTION_SINGLEPHASE='YES' # safe default
+   local OPTION_SINGLEPHASE='NO' # more common default for me :)
    local OPTION_FAKE_GITHUB
+   local OPTION_CLEAN='NO'
+
    #
    # grab options for mulle-sourcetree
    # interpret sde options
@@ -606,6 +610,20 @@ sde_dependency_add_main()
          --embedded)
             r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
             marks="${RVAL}"
+         ;;
+
+         --executable)
+            r_comma_concat "${marks}" "no-link,no-header,no-bequeath"
+            marks="${RVAL}"
+         ;;
+
+         --startup)
+            r_comma_concat "${marks}" "no-intermediate-link,no-dynamic-link,no-header"
+            marks="${RVAL}"
+         ;;
+
+         --clean)
+            OPTION_CLEAN='YES'
          ;;
 
          -c|--c)
@@ -742,12 +760,13 @@ sde_dependency_add_main()
          ;;
 
          *)
-            _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}"
+            _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}" "${marks}"
 
             url="${_url}"
             branch="${_branch}"
             nodetype="${_nodetype}"
             address="${_address}"
+            marks="${_marks}"
          ;;
       esac
    fi
@@ -805,6 +824,14 @@ sde_dependency_add_main()
       options="${RVAL}"
    fi
 
+   if [ "${OPTION_CLEAN}" = 'YES' ]
+   then
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+                     "${MULLE_TECHNICAL_FLAGS}"\
+                     "${MULLE_SOURCETREE_FLAGS}" \
+                  clean --config
+   fi
+
    log_verbose "URL: ${url}"
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
                      "${MULLE_TECHNICAL_FLAGS}"\
@@ -851,7 +878,7 @@ sde_dependency_source_dir_main()
                   walk \
                      --lenient \
                      --qualifier 'MATCHES dependency' \
-                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && echo "${NODE_FILENAME}"'
+                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && printf "%s\n" "${NODE_FILENAME}"'
 
 }
 

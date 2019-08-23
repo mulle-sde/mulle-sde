@@ -106,7 +106,7 @@ Usage:
       mulle-sde dependency craftinfo --global set --append nng CPPFLAGS "-DX=0"
 
 Options:
-   --append : value will be appended to CPPFLAGS
+   --append : value will be appended to key instead (e.g. CPPFLAGS += )
 
 EOF
   exit 1
@@ -157,7 +157,7 @@ sde_dependency_craftinfo_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo <dep>
+   ${MULLE_USAGE_NAME} dependency craftinfo list [dep]
 
    List build settings of a dependency. By default the global settings and
    those for the current platform are listed. To see other platform settings
@@ -303,6 +303,20 @@ __sde_craftinfo_vars_with_url_or_address()
 
    [ -z "${_address}" ] && fail "Empty url or address"
 
+   local marks 
+
+   marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           -s \
+                           ${MULLE_SOURCETREE_FLAGS} \
+                           get "${_address}" marks`"
+   case ",${marks}," in
+      *,no-build,*|*,no-fs,*)
+         log_warning "${_address} is not built directly"
+         return 1
+      ;;
+   esac 
+
    r_fast_basename "${_address}"
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}"
@@ -373,8 +387,10 @@ sde_dependency_craftinfo_set_main()
    local _subprojectdir
    local _folder
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
-
+   if ! __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
+   then
+      return 1
+   fi
    sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                           "${_name}" \
                                           "${OPTION_COPY}" || exit 1
@@ -440,6 +456,7 @@ sde_dependency_craftinfo_get_main()
    if [ "${extension}" = "DEFAULT" ]
    then
       __sde_craftinfo_vars_with_url_or_address "${url}" ""
+
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_MAKE_FLAGS} \
@@ -476,36 +493,12 @@ sde_dependency_craftinfo_get_main()
 }
 
 
-sde_dependency_craftinfo_list_main()
+_sde_dependency_craftinfo_list_main()
 {
-   log_entry "sde_dependency_craftinfo_list_main" "$@"
+   log_entry "_sde_dependency_craftinfo_list_main" "$@"
 
-   local extension="$1"; shift
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde_dependency_craftinfo_list_usage
-         ;;
-
-         -*)
-            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ $# -eq 0 ] && \
-      sde_dependency_craftinfo_list_usage "Missing url or address argument"
-
-   local url="$1"
-   shift
+   local url="$1"; shift
+   local indent="$1"; shift
 
    local _address
    local _name
@@ -514,21 +507,80 @@ sde_dependency_craftinfo_list_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      __sde_craftinfo_vars_with_url_or_address "${url}" ""
-      log_info "Global"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --definition-dir "${_folder}" list "$@"
-      log_info "${MULLE_UNAME}"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@"
+      if  __sde_craftinfo_vars_with_url_or_address "${url}" ""
+      then
+         log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
+         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+            definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"
+         log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
+         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+            definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@"  | \
+               sed "s/^/   ${indent}/"
+      fi
       return
    fi
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
+   if __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
+   then
+      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-Global}"
+      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+         definition --definition-dir "${_folder}" list "$@"  | sed "s/^/   ${indent}/"
+   fi
+}
 
-   log_info "${extension:-Global}"
-   exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-      definition --definition-dir "${_folder}" list "$@"
+
+sde_dependency_craftinfo_list_main()
+{
+   log_entry "sde_dependency_craftinfo_list_main" "$@"
+
+   local extension="$1"; shift
+   local url
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_list_usage
+         ;;
+
+         --)
+            shift
+            break
+         ;;
+
+         -*)
+            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            url="$1"
+            shift
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ -z "${url}" ]
+   then
+      set -f ; IFS=$'\n'
+      for url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
+      do
+         set +f ; IFS="${DEFAULT_IFS}"
+         case "${url}" in
+            craftinfo/*)
+               continue
+            ;;
+         esac
+
+         log_info "${url}"
+         _sde_dependency_craftinfo_list_main "${url}" "   "
+      done
+      set +f ; IFS="${DEFAULT_IFS}"
+   else
+      _sde_dependency_craftinfo_list_main "${url}" ""
+   fi
 }
 
 
@@ -583,9 +635,14 @@ sde_dependency_craftinfo_main()
       [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
    fi
 
+
    case "${subcmd:-list}" in
       set|get|list)
-         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@"
+         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@" || return 1
+         if [ "${subcmd}" = "set" ]
+         then
+            log_info "Your edits will be used after clean all"
+         fi
       ;;
 
       *)

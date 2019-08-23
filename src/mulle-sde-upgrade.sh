@@ -64,10 +64,10 @@ Commands:
 EOF
 
    (
-      echo "${SHOWN_COMMANDS}"
+      printf "%s\n" "${SHOWN_COMMANDS}"
       if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
       then
-         echo "${HIDDEN_COMMANDS}"
+         printf "%s\n" "${HIDDEN_COMMANDS}"
       fi
    ) | sed '/^$/d' | LC_ALL=C sort >&2
 

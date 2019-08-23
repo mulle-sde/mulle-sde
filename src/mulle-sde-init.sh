@@ -42,7 +42,7 @@ sde_init_usage()
 
    COMMON_OPTIONS="\
    --existing         : skip demo file installation.
-   --no-sourcetree    : do not add dependencies and libraries to project
+   --no-sourcetree    : do not add sourcetree to project
    -d <dir>           : directory to populate (working directory)
    -D <key>=<val>     : specify an environment variable
    -e <extra>         : specify extra extensions. Multiple uses are possible
@@ -62,9 +62,10 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   List available extensions with \`mulle-sde extension show\`. Pick a meta
-   extension to install. Choose a project type like "library", "executable"
-   or "none".
+   List available meta extensions with \`mulle-sde init show\`. Pick a meta
+   extension to install with \`-m\`. Choose a project type like "library",
+   "executable" or "none". Optionally choose a directory to create and install
+   into with the \'-d\':
 
    Example:
 
@@ -76,10 +77,10 @@ Usage:
 Options:
 EOF
    (
-      echo "${COMMON_OPTIONS}"
+      printf "%s\n" "${COMMON_OPTIONS}"
       if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
       then
-         echo "${HIDDEN_OPTIONS}"
+         printf "%s\n" "${HIDDEN_OPTIONS}"
       fi
    ) | LC_ALL=C sort
 
@@ -480,7 +481,8 @@ environmenttext_to_mset()
       then
          echo "'${line}'"
       else
-         echo "'${line}##${comment}'"
+         r_escaped_singlequotes "${comment}"
+         echo "'${line}##${RVAL}'"
          comment=
       fi
    done <<< "${text}"
@@ -488,80 +490,131 @@ environmenttext_to_mset()
 }
 
 
-add_to_libraries()
+r_sde_test_githubname()
 {
-   log_entry "add_to_libraries" "$@"
+   log_entry "r_sde_test_githubname" "$@"
 
-   local filename="$1"
-   local projecttype="$2"
-
-   if [ -z "${MULLE_SDE_LIBRARY_SH}" ]
+   if [ ! -z "${PROJECT_GITHUB_NAME}" ]
    then
-      # shellcheck source=src/mulle-sde-library.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
+      RVAL="${PROJECT_GITHUB_NAME}"
+      return
    fi
 
-   if [ -e "${projecttype}-${filename}" ]
+   #
+   # assume structure is mulle-c/mulle-allocator and we are
+   # right in mulle-allocator, use mulle-c as github name,
+   # unless its prefixed with "src"
+   #
+   local name
+   local filtered
+   local directory
+
+   # clumsy fix if called from test directory
+   directory="${PWD}"
+   r_fast_basename "${directory}"
+   case "${RVAL}" in
+      test*)
+         r_fast_dirname "${directory}"
+         directory="${RVAL}"
+      ;;
+   esac
+
+   r_fast_dirname "${directory}"
+   r_fast_basename "${RVAL}"
+   name="${RVAL}"
+
+   # github don't like underscores, so we adapt here
+   name="`tr '_' '-' <<< "${name}"`"
+
+   # is it a github identifier (engl.) ?
+   filtered="`tr -d -c 'A-Z0-9a-z-' <<< "${name}"`"
+   if [ "${filtered}" = "${name}" ]
    then
-      filename="${projecttype}-${filename}"
+      case "${name}" in
+         ""|tmp*|temp*|src*|-*|*-)
+         ;;
+
+         *)
+         RVAL="${name}"
+         return
+      esac
    fi
 
-   local line
-
-   IFS=$'\n'
-   for line in `egrep -v '^#' "${filename}"`
-   do
-      IFS="${DEFAULT_IFS}"
-
-      #
-      # we "eval" the line so that install time environment variables
-      # can be picked up
-      #
-      if [ ! -z "${line}" ]
-      then
-         MULLE_VIRTUAL_ROOT="${PWD}" \
-         MULLE_SOURCETREE_FLAGS="-N ${MULLE_SOURCETREE_FLAGS}" \
-            eval sde_library_add_main --if-missing ${line} || exit 1
-      fi
-   done
-   IFS="${DEFAULT_IFS}"
+   RVAL="${LOGNAME:-unknown}"
+   return
 }
 
 
-add_to_dependencies()
+#
+# expensive
+#
+read_template_expanded_file()
 {
-   log_entry "add_to_dependencies" "$@"
+   log_entry "read_template_expanded_file" "$@"
+
+   local filename="$1"
+
+   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
+   fi
+
+   #
+   # CLUMSY HACKS:
+   # for the benefit of test we have to define some stuff now
+   #
+   local PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY:-Foundation-startup}"
+   local PROJECT_GITHUB_NAME="${PROJECT_GITHUB_NAME}"
+
+   r_sde_test_githubname
+   PROJECT_GITHUB_NAME="${RVAL}"
+
+   local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
+
+   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="`tr '[a-z]' '[A-Z]' <<< "${PREFERRED_STARTUP_LIBRARY}"`"
+   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER//-/_}"
+
+   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
+   PROJECT_GITHUB_NAME="${PROJECT_GITHUB_NAME}" \
+   PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
+   PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
+      r_template_contents_replacement_command
+
+   eval_rexekutor "${RVAL}" "${filename}" | egrep -v '^#'
+}
+
+
+add_to_sourcetree()
+{
+   log_entry "add_to_sourcetree" "$@"
 
    local filename="$1"
    local projecttype="$2"
 
-   if [ -z "${MULLE_SDE_DEPENDENCY_SH}" ]
+   #
+   # specialty for sourcetree, could expand this in general to
+   # other files
+   #
+   if [ -e "${filename}-${projecttype}" ]
    then
-      # shellcheck source=src/mulle-sde-dependency.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
-   fi
-
-   if [ -e "${projecttype}-${filename}" ]
-   then
-      filename="${projecttype}-${filename}"
+      filename="${filename}-${projecttype}"
    fi
 
    local line
 
    IFS=$'\n'
-   for line in `egrep -v '^#' "${filename}"`
+   for line in `read_template_expanded_file "${filename}"`
    do
       IFS="${DEFAULT_IFS}"
 
-      #
-      # we "eval" the line so that install time environment variables
-      # can be picked up
-      #
       if [ ! -z "${line}" ]
       then
-         MULLE_VIRTUAL_ROOT="`pwd -P`" \
-         MULLE_SOURCETREE_FLAGS="-N ${MULLE_SOURCETREE_FLAGS}" \
-            eval sde_dependency_add_main --if-missing ${line} || exit 1
+         MULLE_VIRTUAL_ROOT="${PWD}" \
+            eval_exekutor mulle-sourcetree -N \
+                        "${MULLE_TECHNICAL_FLAGS}" \
+                        "${MULLE_SOURCETREE_FLAGS}" \
+                      add \
+                        "${line}" || exit 1
       fi
    done
    IFS="${DEFAULT_IFS}"
@@ -696,6 +749,7 @@ run_init()
 
    local flags
    local escaped
+
    # i need this for testing sometimes
    case "${OPTION_INIT_FLAGS}" in
       *,${vendor}/${extname}=*|${vendor}/${extname}=*)
@@ -729,10 +783,13 @@ run_init()
                  PROJECT_NAME="${PROJECT_NAME}" \
                  PROJECT_TYPE="${PROJECT_TYPE}" \
                  MULLE_VIRTUAL_ROOT="`pwd -P`" \
-                     "${executable}" "${INIT_FLAGS}" "${flags}" \
-                                                 "${auxflags}" \
-                                                 --marks "'${marks}'" \
-                                                 "${projecttype}" ||
+                     "${executable}" \
+                           "${INIT_FLAGS}" \
+                           "${MULLE_TECHNICAL_FLAGS}" \
+                           "${flags}" \
+                           "${auxflags}" \
+                        --marks "'${marks}'" \
+                               "${projecttype}" ||
       fail "init script \"${RVAL}\" failed"
 }
 
@@ -798,7 +855,7 @@ is_sourcetree_file_disabled_by_marks()
 
    if ! _check_file "${filename}"
    then
-      if ! _check_file "${projecttype}-${filename}"
+      if ! _check_file "${filename}-${projecttype}"
       then
          return 0 # disabled
       fi
@@ -823,21 +880,12 @@ install_sourcetree_files()
    local projecttype="$5"
 
    if ! is_sourcetree_file_disabled_by_marks "${marks}" \
-                                             "${extensiondir}/dependencies" \
+                                             "${extensiondir}/sourcetree" \
                                              "no-sourcetree" \
                                              "no-sourcetree-${vendor}-${extname}" \
                                              "${projecttype}"
    then
-      add_to_dependencies "${extensiondir}/dependencies" "${projecttype}"
-   fi
-
-   if ! is_sourcetree_file_disabled_by_marks "${marks}" \
-                                             "${extensiondir}/libraries" \
-                                             "no-sourcetree" \
-                                             "no-sourcetree-${vendor}-${extname}" \
-                                             "${projecttype}"
-   then
-      add_to_libraries "${extensiondir}/libraries" "${projecttype}"
+      add_to_sourcetree "${extensiondir}/sourcetree" "${projecttype}"
    fi
 }
 
@@ -1144,7 +1192,7 @@ ${C_INFO}Possible ways to fix this:
    fi
 
    #
-   # file is called inherit, so .gitignoring dependencies doesn't kill it
+   # file is called inherit,
    #
    if ! is_file_disabled_by_marks "${marks}" \
                                   "${extensiondir}/inherit" \
@@ -1235,12 +1283,8 @@ ${C_INFO}Possible ways to fix this:
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
-         if [ "${projecttype}" != 'none' ]
-         then
-            add_to_environment "${extensiondir}/environment"
-         else
-            log_debug "${extensiondir}/environment not installed because project type is \"none\""
-         fi
+         add_to_environment "${extensiondir}/environment-${projecttype}"
+         add_to_environment "${extensiondir}/environment"
 
          add_to_tools "${extensiondir}/tool"
 
@@ -1327,7 +1371,7 @@ ${C_INFO}Possible ways to fix this:
                                             "$@"
       fi
    else
-      log_warning "Not installing project or demo files, as project type is \"none\""
+      log_warning "Not installing project or demo files for \"${extname}\", as project-type is \"none\""
    fi
 
    if [ -z "${onlyfilename}" ]
@@ -1485,7 +1529,7 @@ install_motd()
 
    directory=".mulle/share/env"
    remove_file_if_present "${motdfile}"
-   redirect_exekutor "${motdfile}" echo "${text}"
+   redirect_exekutor "${motdfile}" printf "%s\n" "${text}"
 }
 
 
@@ -1609,7 +1653,7 @@ recall_installed_extensions()
 
    if [ ! -z "${value}" ]
    then
-      echo "${value}" \
+      printf "%s\n" "${value}" \
          | sed -e "s/--\\([a-z]*\\)\\ '\\([^']*\\)'/\\2;\\1,/g" \
          | tr ',' '\n'
    fi
@@ -1627,7 +1671,7 @@ memorize_installed_extensions()
    filename="${MULLE_SDE_SHARE_DIR}/extension"
 
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
-   redirect_exekutor "${filename}" echo "${extensions}" || exit 1
+   redirect_exekutor "${filename}" printf "%s\n" "${extensions}" || exit 1
 }
 
 
@@ -2070,11 +2114,11 @@ mset_quoted_env_line()
 
    case "${value}" in
       \"*\")
-         echo "${line}"
+         printf "%s\n" "${line}"
       ;;
 
       *)
-         echo "${key}=\"${value}\""
+         printf "%s\n" "${key}=\"${value}\""
       ;;
    esac
 }
@@ -2174,7 +2218,7 @@ remove_from_marks()
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 
-   echo "${newmarks}"
+   printf "%s\n" "${newmarks}"
 }
 
 

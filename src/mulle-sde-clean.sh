@@ -54,7 +54,7 @@ MULLE_SDE_CLEAN_SH="included"
 # -----------|---------------|---------------|---------------|---------------|
 # sde        |      N/A      |      N/A      |      N/A      |      N/A      |
 # -----------|---------------|---------------|---------------|---------------|
-# sourcetree |               |               |  cln/rst/grv  |               |
+# sourcetree |               |               |  cln/rst      |               |
 # -----------|---------------|---------------|---------------|---------------|
 #
 #
@@ -64,7 +64,7 @@ MULLE_SDE_CLEAN_SH="included"
 # match:       patternfiles in var
 # monitor:     locks and status files in var
 # sde:         N/A
-# sourcetree:  touch, clean, reset, graveyard
+# sourcetree:  touch, clean, reset  (do not clear graveyards,)
 #
 sde_clean_usage()
 {
@@ -93,11 +93,12 @@ Domains:
    archive     : clean the archive cache
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
+   graveyard   : clean graveyard (which can become quite large)
    project     : clean project, keep dependencies
    repository  : clean the repository mirror
    subprojects : clean subprojects
    test        : clean tests
-   tidy        : clean everything and remove fetched dependencies. It's slow!
+   tidy        : clean everything (except archive and graveyard). It's slow!
 EOF
    exit 1
 }
@@ -358,11 +359,25 @@ sde_clean_test_main()
    log_verbose "Cleaning test"
 
    rexekutor "${MULLE_TEST:-mulle-test}" \
-                  -V \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_TEST_FLAGS} \
                clean
 }
+
+
+
+sde_clean_testall_main()
+{
+   log_entry "sde_clean_testall_main" "$@"
+
+   log_verbose "Cleaning all test"
+
+   rexekutor "${MULLE_TEST:-mulle-test}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_TEST_FLAGS} \
+               clean all
+}
+
 
 
 sde_clean_main()
@@ -413,21 +428,28 @@ sde_clean_main()
       'domains')
          echo "\
 all
+alltestall
 archive
 craftorder
 cache
 default
 dependency
 fetch
+graveyard
 project
 repository
 subprojects
-tidy"
+tidy
+test"
          exit 0
       ;;
 
       all)
          domains="kitchendir dependencydir craftordercache"
+      ;;
+
+      alltestall)
+         domains="kitchendir dependencydir craftordercache testall"
       ;;
 
       archive)
@@ -463,6 +485,10 @@ tidy"
          domains="sourcetree craftordercache output var db monitor patternfile archive"
       ;;
 
+      graveyard)
+         domains="graveyard"
+      ;;
+
       subproject|subprojects)
          domains="subproject"
       ;;
@@ -476,7 +502,7 @@ tidy"
       ;;
 
       tidy)
-         domains="sourcetree_share craftordercache graveyard output var db monitor patternfile"
+         domains="sourcetree_share craftordercache output var db monitor patternfile"
       ;;
 
       *)
@@ -510,6 +536,7 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
                         ${MULLE_CRAFT_FLAGS} \
                      clean \
                         "$1"
+         return $?
       ;;
    esac
 

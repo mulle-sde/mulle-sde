@@ -85,7 +85,7 @@ commalist_print()
    set -o noglob; IFS=","
    for i in ${list}
    do
-      echo "$i"
+      printf "%s\n" "$i"
    done
 
    IFS="${DEFAULT_IFS}"; set +o noglob
@@ -155,7 +155,7 @@ os_excludes_add()
 
    IFS="${DEFAULT_IFS}"; set +o noglob
 
-   echo "${list}"
+   printf "%s\n" "${list}"
 }
 
 

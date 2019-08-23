@@ -151,7 +151,7 @@ _sde_update_task()
 
    if [ ! -z "${statusfile}" -a $rval -ne 0 ]
    then
-      redirect_append_exekutor "${statusfile}" echo "${name};$rval"
+      redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
    fi
 
    if [ ! -z "${task}" ]
@@ -161,7 +161,7 @@ _sde_update_task()
 
       if [ ! -z "${statusfile}" -a $rval -ne 0 ]
       then
-         redirect_append_exekutor "${statusfile}" echo "${name};$rval"
+         redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
       fi
    fi
 

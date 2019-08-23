@@ -71,7 +71,7 @@ Options:
    --debug           : install as debug instead of release
    --prefix <prefix> : installation prefix (\$PWD)
    --keep-tmp        : don't delete temporary directory
-   --standalone      : create a whole-archive shared library is supported
+   --standalone      : create a whole-archive shared library if supported
 
 Environment:
    MULLE_FETCH_SEARCH_PATH : specify places to search local projects

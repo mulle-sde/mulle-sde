@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_MAKEINFO_SH="included"
+MULLE_SDE_DEFINITION_SH="included"
 
 
 sde_definition_usage()
@@ -114,7 +114,7 @@ sde_definition_scopes()
 
    if [ ! -z "${RVAL}" ]
    then
-      echo "${RVAL}" | sed 's/^/   /'
+      printf "%s\n" "${RVAL}" | sed 's/^/   /'
    fi
 }
 
@@ -316,7 +316,7 @@ sde_definition_main()
    local argument
    local flags
    local searchflags
-
+   local terse="${MULLE_FLAG_LOG_TERSE}"
    local scope="DEFAULT"
 
    while [ $# -ne 0 ]
@@ -353,6 +353,10 @@ sde_definition_main()
             searchflags="${RVAL}"
          ;;
 
+         --terse)
+            terse='YES'
+         ;;
+
          -*)
             sde_definition_usage "Unknown definition option \"$1\""
          ;;
@@ -372,6 +376,7 @@ sde_definition_main()
    case "${cmd}" in
       search)
          MULLE_USAGE_NAME="mulle-sde" \
+         MULLE_FLAG_LOG_TERSE="${terse}" \
             rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                         search \
@@ -380,27 +385,31 @@ sde_definition_main()
       ;;
 
       scopes)
-         sde_definition_scopes "$@"
+         MULLE_FLAG_LOG_TERSE="${terse}" \
+            sde_definition_scopes "$@"
       ;;
 
 
       keys)
-         sde_call_definition "keys"
+         MULLE_FLAG_LOG_TERSE="${terse}" \
+            sde_call_definition "keys"
       ;;
 
       get|keys|list)
-         sde_definition_${cmd} "${scope}" \
-                               "${flags}" \
-                               "${OPTION_DEFINITION_DIR}" \
-                               "$@"
+         MULLE_FLAG_LOG_TERSE="${terse}" \
+            sde_definition_${cmd} "${scope}" \
+                                  "${flags}" \
+                                  "${OPTION_DEFINITION_DIR}" \
+                                  "$@"
       ;;
 
       remove|set)
-         sde_definition_set_remove "${cmd}" \
-                                   "${scope}" \
-                                   "${flags}" \
-                                   "${OPTION_DEFINITION_DIR}" \
-                                   "$@"
+         MULLE_FLAG_LOG_TERSE="${terse}" \
+            sde_definition_set_remove "${cmd}" \
+                                      "${scope}" \
+                                      "${flags}" \
+                                      "${OPTION_DEFINITION_DIR}" \
+                                      "$@"
       ;;
 
       '')
