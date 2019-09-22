@@ -434,8 +434,8 @@ environmenttext_to_mset()
    local line
    local comment
 
-   IFS=$'\n'
-   while read -r line
+
+   while IFS=$'\n' read -r line
    do
       line="`tr -d '\0015' <<< "${line}"`"
 
@@ -486,7 +486,6 @@ environmenttext_to_mset()
          comment=
       fi
    done <<< "${text}"
-   IFS="${DEFAULT_IFS}"
 }
 
 

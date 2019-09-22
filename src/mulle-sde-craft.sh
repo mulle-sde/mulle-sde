@@ -52,6 +52,7 @@ Options:
    --clean                 : clean before crafting (see: mulle-sde clean)
    --clean-domain <domain> : clean specific domain before crafting (s.a)
    --run                   : attempt to run produced executable
+   --analyze               : run clang analyzer when crafting the project
 
 Targets:
    all                     : build dependency folder, then project (default)
@@ -60,7 +61,8 @@ Targets:
    project                 : build the project
 
 Environment:
-   MULLE_SDE_CRAFT_TARGET        : default craft target (${target})
+   MULLE_SCAN_BUILD              : tool to use for --analyze (mulle-scan-build)
+   MULLE_SCAN_BUILD_DIR          : output directory ($KITCHEN_DIR/analyzer)        : default craft target (${target})
    MULLE_CRAFT_MAKE_FLAGS        : flags to be passed to mulle-make (via craft)
    MULLE_SDE_UPDATE_CALLBACKS    : callback called during update
    MULLE_SDE_UPDATE_BEFORE_CRAFT : force update before craft (${MULLE_SDE_UPDATE_BEFORE_CRAFT:-NO})
@@ -135,8 +137,8 @@ sde_perform_updates()
                            "update" || exit 1
 
          # run this quickly, because incomplete previous fetches trip me
-         # up too often
-         exekutor mulle-sde status --stash-only
+         # up too often (not doing this since mulle-sde doctor is OK now)
+         # exekutor mulle-sde status --stash-only
       fi
       updateflags='' # db "force" update
    fi
@@ -197,6 +199,7 @@ sde_craft_main()
    local OPTION_UPDATE='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
+   local OPTION_ANALYZE='NO'
 
    target="${MULLE_SDE_CRAFT_TARGET}"
    if [ "${PROJECT_TYPE}" = "none" ]
@@ -228,6 +231,17 @@ sde_craft_main()
 
          -q|--quick|no-update)
             OPTION_UPDATE='NO'
+         ;;
+
+         --analyze)
+            OPTION_ANALYZE=YES
+         ;;
+
+         --analyze-dir)
+            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SCAN_BUILD_DIR="$1"
          ;;
 
          --clean)
@@ -323,6 +337,19 @@ sde_craft_main()
    if [ "${OPTION_MOTD}" = 'YES' ]
    then
       project_cmdline="${project_cmdline} '--motd'"
+   fi
+
+   if [ "${OPTION_ANALYZE}" = 'YES' ]
+   then
+      case "${PROJECT_DIALECT}" in
+         objc)
+            project_cmdline="${MULLE_SCAN_BUILD:-mulle-scan-build} ${MULLE_SCAN_BUILD_OPTIONS} -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' ${project_cmdline}"
+         ;;
+
+         *)
+            project_cmdline="${MULLE_SCAN_BUILD:-scan-build} ${MULLE_SCAN_BUILD_OPTIONS} -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' ${project_cmdline}"
+         ;;
+      esac
    fi
 
    local arguments

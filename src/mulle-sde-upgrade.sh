@@ -114,9 +114,15 @@ sde_upgrade_subprojects()
    fi
 
    # a subproject when upgraded "feels" like a main project
-   # unfortunately we can't pass parameters down wards
+   # unfortunately we can't pass parameters down ards
+   local mode
 
-   sde_subproject_map 'Upgrading' 'NO' "${parallel}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
+   mode="no-env"
+   if [ "${parallel}" = "mode" ]
+   then
+      mode="${mode},parallel"
+   fi
+   sde_subproject_map 'Upgrading' "${mode}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
 }
 
 

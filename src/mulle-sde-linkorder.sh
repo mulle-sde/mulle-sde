@@ -42,17 +42,21 @@ Usage:
 
    Emit a string suitable for linking all dependencies and libraries on the
    current platform. The dependencies must have been built in order for this
-   to work. There is a linkorder that includes all libraries marked as
-   \`no-intermediate-link\` and a second one that excludes them.
+   to work. There is a linkorder for executables that includes all
+   startup libraries marked as \`no-intermediate-link\` and a second one that
+   excludes them for linking shared libraries.
 
    The linkorder command may produce incorrect link names, if the aliases
-   feature is used in a depencency.
+   feature is used by a dependency entry.
 
-   ${MULLE_USAGE_NAME} linkorder -ld
+   \`${MULLE_USAGE_NAME} linkorder --output-format ld\` emits arguments for
+   gcc or clang.
 
 Options:
    --output-format <format>  : specify node,file,file_lf or ld, ld_lf
    --output-omit <library>   : do not emit link commands for library
+   --startup                 : include startup libraries (default)
+   --no-startup              : exclude startup libraries
 EOF
    exit 1
 }
@@ -454,7 +458,7 @@ r_linkorder_collect()
          ;;
       esac
 
-      fail "Did not find a linkable ${aliasfail} library in \"${searchpath}\".
+      fail "Did not find a linkable ${aliasfail} ${requirement} ${librarytype} in \"${searchpath}\".
 ${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
@@ -689,7 +693,7 @@ sde_linkorder_main()
    local OPTION_BEQUEATH='YES'
    local OPTION_WHOLE_ARCHIVE_FORMAT
    local OPTION_OUTPUT_OMIT
-   local OPTION_STARTUP='NO'  # default executable link
+   local OPTION_STARTUP='YES'           # default executable link
    local OPTION_OUTPUT_FINAL_LF='YES'
 
    local collect_libraries='YES'

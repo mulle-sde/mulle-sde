@@ -210,7 +210,7 @@ sde_status_main()
                   then
                      log_info "${indent}Nothing needs to be fetched"
                   else
-                     log_info "${indent}Dependencies need to be fetched"
+                     log_info "${indent}Dependencies will be fetched/refreshed"
                      log_verbose "${indent}${C_RESET_BOLD}   mulle-sde fetch"
                   fi
                ;;
@@ -220,39 +220,65 @@ sde_status_main()
                *,stash,*)
                   log_verbose "Stash status:"
 
-                  if [ -d "${MULLE_SOURCETREE_STASH_DIRNAME:-stash}" ]
+                  local stashdir
+
+                  stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
+                  if [ -d "${stashdir}" ]
                   then
                      local file
                      local hassymlinks
                      local hasdirs
-                     local stashdir
+                     local state
+                     local color
 
-                     stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
+                     shopt -s nullglob
                      for file in "${stashdir}"/*
                      do
+                        state="missing"
                         if [ -L "${file}" ]
                         then
                            r_resolve_symlinks "${file}"
+                           state="symlink"
                            if [ -z "${RVAL}" -o ! -e "${RVAL}" ]
                            then
+                              state="broken"
                               log_error "${indent}${C_ERROR}Symlink ${C_RESET_BOLD}${file}${C_ERROR} is broken"
                            fi
-                           hassymlinks='YES'
                         else
                            # sometimes we'd prefer this to be a symlink, but mistaken fetch
                            # placed a real folder here. Hard to check though
                            if [ -d "${file}" ]
                            then
-                              hasdirs='YES'
+                              state="directory"
+                           else
+                              if [ -f "${file}" ]
+                              then
+                                 state="file"
+                              fi
                            fi
                         fi
-                     done
 
-                     if [ "${hasdirs}" = 'YES' -a "${hassymlinks}" = 'YES' ]
-                     then
-                        log_warning "${indent}\"${stashdir}\" contains a mix of symlinks and directories"
-                     fi
+                        case "${state}" in
+                           broken)
+                              color="${C_RED}"
+                           ;;
+                           missing)
+                              color="${C_RED}"
+                           ;;
+                           symlink)
+                              color="${C_GREEN}"
+                           ;;
+                           directory)
+                              color="${C_BLUE}"
+                           ;;
+                           file)
+                              color="${C_MAGENTA}"
+                           ;;
+                        esac
+                        printf "   %b\n" "${color}${file}${C_RESET}"
+                     done
                   fi
+                  shopt -u nullglob
                ;;
             esac
 
@@ -298,15 +324,15 @@ sde_status_main()
 
          if [ -d  "${graveyard}" ]
          then
-            DF="`command -v df`"
-            if [ -z "${DF}" ]
+            DU="`command -v du`"
+            if [ ! -z "${DU}" ]
             then
-               size="`df -kh "${graveyard}" | awk '{ print $1 }'`"
-               log_info "${indent}There is sourcetree grayeyard of ${size} size here"
+               size="`${DU} -kh -d0 "${graveyard}" | awk '{ print $1 }'`"
+               log_info "${indent}There is a sourcetree grayeyard of ${size} size here"
             else
-               log_info "${indent}There is sourcetree grayeyard here"
+               log_info "${indent}There is a sourcetree grayeyard here"
             fi
-            log_verbose "${indent}${C_RESET_BOLD}   mulle-sourcetree clean --all-graveyards"
+            log_verbose "${indent}${C_RESET_BOLD}   mulle-sde clean graveyard"
          fi
       ;;
    esac
@@ -315,7 +341,7 @@ sde_status_main()
       *,craftstatus,*)
          log_verbose "Craft status:"
 
-         mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check craftstatus | sed -e "s/^/${indent}/"
+         mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check craftstatus
       ;;
    esac
 
