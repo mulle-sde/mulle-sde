@@ -46,15 +46,12 @@ Usage:
    ${MULLE_USAGE_NAME} dependency [command]
 
    A dependency is a third party package, that is fetched via an URL.
-   It will be built along with your project. Dependencies are managed with
-   mulle-sourcetree. The build definitions for a dependency are managed with
-   mulle-make.
+   It will be built ahead of your project to provide headers to include and
+   libraries to link against.
 
-   See the \`set\` command if you have problems finding dependencies header
-   or libraries.
-
-   Use \`mulle-sde dependency list -- --output-format cmd\` for copying
-   single entries between projects.
+   See the \`set\` command if the project has problems locating the header
+   or library. Use \`mulle-sde dependency list -- --output-format cmd\` for
+   copying single entries between projects.
 
 Commands:
    add        : add a dependency to the sourcetree
@@ -92,8 +89,14 @@ Usage:
 
    You should also specify the language if the dependency is Objective-C.
 
-   Example:
-      ${MULLE_USAGE_NAME} dependency add --multiphase --github nat foobar
+Examples:
+   Add a github repository as a dependency:
+
+      ${MULLE_USAGE_NAME} dependency add --github madler --scm git zlib
+
+   Add a tar archive as a dependency:
+
+      -${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
 
 Options:
    --c             : used for C dependencies (default)
@@ -109,6 +112,7 @@ Options:
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
    --singlephase   : the dependency must be crafted in one phase
+   --startup       : dependency is a ObjC startup library
       (see: mulle-sourcetree -v add -h for more add options)
 EOF
   exit 1
@@ -592,19 +596,26 @@ sde_dependency_add_main()
             sde_dependency_add_usage
          ;;
 
-         --if-missing)
-            r_concat "${options}" "--if-missing"
-            options="${RVAL}"
+         --address)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            address="$1"
          ;;
 
-         --header-less|--headerless)
-            r_comma_concat "${marks}" "no-header"
-            marks="${RVAL}"
+         --branch)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            branch="$1"
          ;;
 
-         --header-only|--headeronly)
-            r_comma_concat "${marks}" "no-link"
-            marks="${RVAL}"
+         --clean)
+            OPTION_CLEAN='YES'
+         ;;
+
+         -c|--c)
+            OPTION_DIALECT='c'
          ;;
 
          --embedded)
@@ -617,21 +628,39 @@ sde_dependency_add_main()
             marks="${RVAL}"
          ;;
 
-         --startup)
-            r_comma_concat "${marks}" "no-intermediate-link,no-dynamic-link,no-header"
+         --github|--fake)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_FAKE_GITHUB="$1"
+         ;;
+
+         --header-less|--headerless)
+            r_comma_concat "${marks}" "no-header"
             marks="${RVAL}"
          ;;
 
-         --clean)
-            OPTION_CLEAN='YES'
+         --header-only|--headeronly)
+            r_comma_concat "${marks}" "no-link"
+            marks="${RVAL}"
          ;;
 
-         -c|--c)
-            OPTION_DIALECT='c'
+         --if-missing)
+            r_concat "${options}" "--if-missing"
+            options="${RVAL}"
          ;;
 
-         -m|--objc)
-            OPTION_DIALECT='objc'
+         --marks)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            r_comma_concat "${marks}" "$1"
+            marks="${RVAL}"
+         ;;
+
+         --startup)
+            r_comma_concat "${marks}" "no-intermediate-link,no-dynamic-link,no-header"
+            marks="${RVAL}"
          ;;
 
          --multiphase)
@@ -652,11 +681,19 @@ sde_dependency_add_main()
             OPTION_DIALECT='objc'
          ;;
 
-         --github|--fake)
+         --nodetype|--scm)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_FAKE_GITHUB="$1"
+            nodetype="$1"
+         ;;
+
+        --objc|-m)
+            OPTION_DIALECT='objc'
+         ;;
+
+         --optional)
+            OPTION_OPTIONAL='YES'
          ;;
 
          --plain)
@@ -669,39 +706,6 @@ sde_dependency_add_main()
 
          --public)
             OPTION_PRIVATE='NO'
-         ;;
-
-         --optional)
-            OPTION_OPTIONAL='YES'
-         ;;
-
-         --branch)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            branch="$1"
-         ;;
-
-        --nodetype|--scm)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            nodetype="$1"
-         ;;
-
-         --address)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            address="$1"
-         ;;
-
-         --marks)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            r_comma_concat "${marks}" "$1"
-            marks="${RVAL}"
          ;;
 
          --url)

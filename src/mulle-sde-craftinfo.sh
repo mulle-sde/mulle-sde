@@ -52,7 +52,8 @@ Usage:
    for you automatically on the first setting add.
 
    mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
-   subproject.
+   subproject. This extension also simplifies the use of build scripts. See
+   the \`craftinfo set\` command for more.
 
    The dependency can be specified by URL or by its address.
 
@@ -102,11 +103,42 @@ Usage:
    See \`mulle-make definition help\` for more info about manipulating
    craftinfo settings.
 
-   Example:
-      mulle-sde dependency craftinfo --global set --append nng CPPFLAGS "-DX=0"
+#
+#
+# Enable scripts with:
+#    mulle-sde environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
+
+   Examples:
+      Set preprocessor flag -DX=0 for all platforms on dependency "nng":
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --global set --append nng CPPFLAGS "-DX=0"
+
+      Use a build script to build a dependency for the current platform on
+      dependency "xyz". The build script will be expected to reside in
+      "craftinfo/async.h/bin":
+
+      ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
 
 Options:
    --append : value will be appended to key instead (e.g. CPPFLAGS += )
+
+EOF
+  exit 1
+}
+
+
+sde_dependency_craftinfo_create_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo create <dep>
+
+   Create an empty craftinfo for the given dependency.
+
+   Example:
+      mulle-sde dependency craftinfo create nng
 
 EOF
   exit 1
@@ -303,7 +335,7 @@ __sde_craftinfo_vars_with_url_or_address()
 
    [ -z "${_address}" ] && fail "Empty url or address"
 
-   local marks 
+   local marks
 
    marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
@@ -315,7 +347,7 @@ __sde_craftinfo_vars_with_url_or_address()
          log_warning "${_address} is not built directly"
          return 1
       ;;
-   esac 
+   esac
 
    r_fast_basename "${_address}"
    _name="${RVAL}"
@@ -329,6 +361,56 @@ __sde_craftinfo_vars_with_url_or_address()
       log_trace2 "_subprojectdir: ${_subprojectdir}"
       log_trace2 "_folder:        ${_folder}"
    fi
+}
+
+
+sde_dependency_craftinfo_create_main()
+{
+   log_entry "sde_dependency_craftinfo_create_main" "$@"
+
+   local extension="$1"; shift
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_set_usage
+         ;;
+
+         -*)
+            sde_dependency_craftinfo_set_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -ne 0 ] && sde_dependency_craftinfo_set_usage "Missing url or address argument"
+   [ "$#" -ne 1 ] && sde_dependency_craftinfo_set_usage "Superflous arguments \"$*\""
+
+   local url="$1"
+
+   if [ "${extension}" = "DEFAULT" ]
+   then
+      extension=""
+   fi
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+
+   if ! __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
+   then
+      return 1
+   fi
+   sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
+                                          "${_name}" \
+                                          "${OPTION_COPY}" || exit 1
 }
 
 
@@ -637,7 +719,7 @@ sde_dependency_craftinfo_main()
 
 
    case "${subcmd:-list}" in
-      set|get|list)
+      create|set|get|list)
          sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" ]
          then

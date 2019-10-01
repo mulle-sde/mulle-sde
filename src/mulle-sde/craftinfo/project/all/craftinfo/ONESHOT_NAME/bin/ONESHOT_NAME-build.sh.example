@@ -97,7 +97,7 @@ install_main()
 {
    log_entry "install_main" "$@"
 
-   if build_main "$@"
+   if ! build_main "$@"
    then
       return 1
    fi
@@ -107,10 +107,13 @@ install_main()
    # does not support PREFIX.
    #
    # It's probably not a bad idea to use mulle-dispense for that.
-   # But you could also just use a set of copy commands.
    #
    # exekutor mulle-dispense dispense "${KITCHEN_DIR}" "${PREFIX}"
    #
+   # But you could also just use a set of copy commands.
+   #
+   # mkdir -p "${PREFIX}/include/async"
+   # exekutor cp async/async*.h "${PREFIX}/include/async"
 }
 
 
@@ -155,6 +158,13 @@ main()
             KITCHEN_DIR="$1"
          ;;
 
+         --platform)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+
+            PLATFORM="$1"
+         ;;
+
          --prefix|--install-dir)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
             shift
@@ -163,7 +173,7 @@ main()
          ;;
 
          -*)
-            usage "Unknown flag \"${argument}\""
+            usage "Unknown flag \"$1\""
          ;;
 
          *)
@@ -175,6 +185,17 @@ main()
    done
 
    options_setup_trace "${MULLE_TRACE}"
+
+   # see with -ls
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+   then
+      log_trace2 "CONFIGURATION = \"${CONFIGURATION}\""
+      log_trace2 "KITCHEN_DIR   = \"${KITCHEN_DIR}\""
+      log_trace2 "PLATFORM      = \"${PLATFORM}\""
+      log_trace2 "PREFIX        = \"${PREFIX}\""
+      log_trace2 "PWD           = \"${PWD}\""
+      log_trace2 "SDK           = \"${SDK}\""
+   fi
 
    local cmd
 
@@ -223,7 +244,7 @@ _init()
    fi
 
       # shellcheck source=../mulle-bashfunctions/src/mulle-string.sh
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" ||
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" ||
       fail "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
 
    set -o pipefail
