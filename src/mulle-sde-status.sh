@@ -238,7 +238,7 @@ commands are executed here"
 
    local graveyard
 
-   graveyard=".mulle/var/${MULLE_HOSTNAME}/sourcetree/graveyard"
+   graveyard="`mulle-env var-dir sourcetree`/graveyard"
 
    if [ -d  "${graveyard}" ]
    then

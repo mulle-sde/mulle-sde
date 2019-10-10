@@ -2896,9 +2896,8 @@ _sde_init_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
    fi
 
-   MULLE_SDE_ETC_DIR=".mulle/etc/sde"
-   MULLE_SDE_SHARE_DIR=".mulle/share/sde"
-   MULLE_SDE_VAR_DIR=".mulle/var/${MULLE_HOSTNAME}/sde"
+
+   eval `mulle-env mulle-tool-env sde`
 
    MULLE_SDE_PROTECT_PATH="`mulle-env environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
 

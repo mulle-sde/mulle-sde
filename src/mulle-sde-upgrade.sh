@@ -201,7 +201,7 @@ sde_upgrade_main()
          MULLE_VIRTUAL_ROOT="`pwd -P`"
          export MULLE_VIRTUAL_ROOT
 
-         MULLE_SDE_VAR_DIR="${MULLE_VIRTUAL_ROOT}/.mulle/var/${MULLE_HOSTNAME}/sde"
+         MULLE_SDE_VAR_DIR="`mulle-env var-dir sde`/sde"
 
          sde_upgrade_subprojects "${OPTION_PARALLEL}"
       ) || exit 1

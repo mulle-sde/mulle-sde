@@ -302,11 +302,13 @@ env_setup_mulle_tools()
    local bindir="$1"; shift
    local libexecdir="$1"; shift
 
+   [ -z "${MULLE_ENV_VAR_DIR}" ] && internal_fail "MULLE_ENV_VAR_DIR not set"
+
    #
    # avoid colliding with hosts names bin or libexec
    #
-   bindir="${MULLE_VIRTUAL_ROOT}/.mulle/var/.env/bin"
-   libexecdir="${MULLE_VIRTUAL_ROOT}/.mulle/var/.env/libexec"
+   bindir="${MULLE_ENV_VAR_DIR}/.env/bin"
+   libexecdir="${MULLE_ENV_VAR_DIR}/.env/libexec"
 
    env_setup_developer_tools "${bindir}" "${libexecdir}"
 
@@ -346,8 +348,10 @@ env_r_mulle_add_runpath()
    local directory="$1"
    local runpath="$2"
 
+   [ -z "${MULLE_ENV_VAR_DIR}" ] && internal_fail "MULLE_ENV_VAR_DIR not set"
+
    # reverse order of precedence
-   r_colon_concat "${MULLE_VIRTUAL_ROOT}/.mulle/var/.env/bin" "${runpath}"
+   r_colon_concat "${MULLE_ENV_VAR_DIR}/.env/bin" "${runpath}"
    r_colon_concat "${directory}/addiction/bin" "${RVAL}"
    r_colon_concat "${directory}/dependency/bin" "${RVAL}"
 }

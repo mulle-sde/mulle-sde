@@ -600,17 +600,13 @@ status|hostname|uname|show|version|libexec-dir|library-path|project-dir|upgrade)
    cmd="$1"
    [ $# -ne 0 ] && shift
 
-   local mulledir
 
    #
    # think about having a second MULLE_VIRTUAL_ROOT so that the project can
    # be read only and we keep the bookkeeping somewhere on the outside
    #
-   mulledir="${MULLE_VIRTUAL_ROOT}/.mulle"
 
-   MULLE_SDE_ETC_DIR="${mulledir}/etc/sde"
-   MULLE_SDE_VAR_DIR="${mulledir}/var/${MULLE_HOSTNAME}/sde"
-   MULLE_SDE_SHARE_DIR="${mulledir}/share/sde"
+   eval `mulle-env mulle-tool-env sde`
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
