@@ -52,7 +52,8 @@ Usage:
    for you automatically on the first setting add.
 
    mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
-   subproject.
+   subproject. This extension also simplifies the use of build scripts. See
+   the \`craftinfo set\` command for more.
 
    The dependency can be specified by URL or by its address.
 
@@ -74,14 +75,20 @@ EOF
 
       cat <<EOF >&2
 Commands:
-   get               : retrieve a build setting for dependency
-   list              : list builds settings
-   remove            : remove a build setting
-   set               : set a build setting
+   create            : create an empty craftinfo for a dependency
+   exists            : check if a craftinfo is available from CRAFTINFO_REPOS
+   fetch             : fetch craftinfo from CRAFTINFO_REPOS
+   get               : retrieve a build setting of a dependency
+   list              : list builds settings of a dependency
+   remove            : remove a build setting of a dependency
+   set               : set a build setting of a dependency
 
 Options:
    --global          : use global settings instead of current platform settings
    --platform <name> : specify settings for a specific platform
+
+Environment:
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfos)
 
 EOF
   exit 1
@@ -102,11 +109,97 @@ Usage:
    See \`mulle-make definition help\` for more info about manipulating
    craftinfo settings.
 
-   Example:
-      mulle-sde dependency craftinfo --global set --append nng CPPFLAGS "-DX=0"
+#
+#
+# Enable scripts with:
+#    mulle-sde environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
+
+   Examples:
+      Set preprocessor flag -DX=0 for all platforms on dependency "nng":
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --global set --append nng CPPFLAGS "-DX=0"
+
+      Use a build script to build a dependency for the current platform on
+      dependency "xyz". The build script will be expected to reside in
+      "craftinfo/async.h/bin":
+
+      ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
 
 Options:
-   --append : value will be appended to CPPFLAGS
+   --append : value will be appended to key instead (e.g. CPPFLAGS += )
+
+EOF
+  exit 1
+}
+
+
+sde_dependency_craftinfo_exists_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo exists <dep>
+
+   For a popular third party library there is a chance, that a pre-made
+   craftinfo is available from https://github.com/craftinfos. This command
+   checks if there is any.
+
+   Example:
+      mulle-sde dependency craftinfo exists async.h
+
+Environment:
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfos)
+
+EOF
+  exit 1
+}
+
+
+sde_dependency_craftinfo_fetch_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo fetch [options] <dep>
+
+   For a popular third party library there is a chance, that a pre-made
+   craftinfo is available from https://github.com/craftinfos. Instead of
+   manually downloading it, you can let mulle-sde do it for you.
+
+   The downloaded craftinfo may contain build scripts! Better check them
+   before executing. If a craftinfo already exists locally, it will not be
+   overwritten by default.
+
+   Example:
+      mulle-sde dependency craftinfo fetch async.h
+
+Options:
+   --clobber         : Remove an existing craftinfo of the same name
+   --no-clobber      : Keep an existing craftinfo of the same name
+   --keep-history    : Do not remove git history from craftinfo
+
+Environment:
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfos)
+
+EOF
+  exit 1
+}
+
+
+sde_dependency_craftinfo_create_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo create <dep>
+
+   Create an empty craftinfo for the given dependency.
+
+   Example:
+      mulle-sde dependency craftinfo create nng
 
 EOF
   exit 1
@@ -157,7 +250,7 @@ sde_dependency_craftinfo_list_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo <dep>
+   ${MULLE_USAGE_NAME} dependency craftinfo list [dep]
 
    List build settings of a dependency. By default the global settings and
    those for the current platform are listed. To see other platform settings
@@ -219,38 +312,49 @@ sde_add_craftinfo_subproject_if_needed()
    local subprojectdir="$1"
    local name="$2"
    local copy="$3"
+   local clobber="$4"
 
    [ -z "${subprojectdir}" ] && internal_fail "empty subprojectdir"
-   [ -z "${name}" ] && internal_fail "empty name"
+   [ -z "${name}" ]          && internal_fail "empty name"
+   [ -z "${clobber}" ]       && internal_fail "empty clobber"
 
    if [ -d "${subprojectdir}" ]
    then
-      return 0
+      if [ "${clobber}" = "DEFAULT" ]
+      then
+         return 2
+      fi
+      if [ "${clobber}" = "YES" ]
+      then
+         remove_dir_safer "${subprojectdir}"
+      fi
    fi
 
-   # shellcheck source=src/mulle-sde-common.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
-
-   (
-      local ptype
-
-      ptype="${PROJECT_TYPE}"
-      if [ "${ptype}" = 'none' ]
-      then
-         ptype='unknown'
-      fi
-
-      sde_extension_main pimp --project-type "${ptype}" \
-                              --oneshot-name "${name}" \
-                              mulle-sde/craftinfo
-   ) || return 1
-
-   [ -d "${subprojectdir}" ] || \
-      internal_fail "did not produce \"${subprojectdir}\""
-
-   if [ "${copy}" = 'YES' ]
+   if [ ! -d "${subprojectdir}" ]
    then
-      copy_mulle_make_definitions "${name}"
+      (
+         local ptype
+
+         # shellcheck source=src/mulle-sde-common.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+
+         ptype="${PROJECT_TYPE}"
+         if [ "${ptype}" = 'none' ]
+         then
+            ptype='unknown'
+         fi
+
+         sde_extension_main pimp --project-type "${ptype}" \
+                                 --oneshot-name "${name}" \
+                                 mulle-sde/craftinfo
+      ) || return 1
+      [ -d "${subprojectdir}" ] || \
+         internal_fail "did not produce \"${subprojectdir}\""
+
+      if [ "${copy}" = 'YES' ]
+      then
+         copy_mulle_make_definitions "${name}"
+      fi
    fi
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -303,6 +407,20 @@ __sde_craftinfo_vars_with_url_or_address()
 
    [ -z "${_address}" ] && fail "Empty url or address"
 
+   local marks
+
+   marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           -s \
+                           ${MULLE_SOURCETREE_FLAGS} \
+                           get "${_address}" marks`"
+   case ",${marks}," in
+      *,no-build,*|*,no-fs,*)
+         log_warning "${_address} is not built directly"
+         return 1
+      ;;
+   esac
+
    r_fast_basename "${_address}"
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}"
@@ -315,6 +433,253 @@ __sde_craftinfo_vars_with_url_or_address()
       log_trace2 "_subprojectdir: ${_subprojectdir}"
       log_trace2 "_folder:        ${_folder}"
    fi
+}
+
+
+sde_dependency_craftinfo_create_main()
+{
+   log_entry "sde_dependency_craftinfo_create_main" "$@"
+
+   local OPTION_CLOBBER='DEFAULT'
+
+   local extension="$1"; shift
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_create_usage
+         ;;
+
+         --clobber)
+            OPTION_CLOBBER='YES'
+         ;;
+
+         --no-clobber)
+            OPTION_CLOBBER='NO'
+         ;;
+
+         -*)
+            sde_dependency_craftinfo_create_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_create_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde_dependency_craftinfo_create_usage "Superflous arguments \"$*\""
+
+   local url="$1"
+
+   if [ "${extension}" = "DEFAULT" ]
+   then
+      extension=""
+   fi
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+
+   if ! __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
+   then
+      return 1
+   fi
+   sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
+                                          "${_name}" \
+                                          "${OPTION_COPY}" \
+                                          "${OPTION_CLOBBER}" || exit 1
+}
+
+
+sde_dependency_craftinfo_exists_main()
+{
+   log_entry "sde_dependency_craftinfo_exists_main" "$@"
+
+   if [ "$1" != "DEFAULT" ]
+   then
+      fail "Exists is always global"
+   fi
+   shift
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_fetch_usage
+         ;;
+
+         -*)
+            sde_dependency_craftinfo_fetch_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_fetch_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde_dependency_craftinfo_fetch_usage "Superflous arguments \"$*\""
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+
+   if ! __sde_craftinfo_vars_with_url_or_address "$1" "" 'NO'
+   then
+      return 1
+   fi
+
+   local dstdir
+   local repos
+   local repo
+
+   repos="${CRAFTINFO_REPOS:-https://github.com/craftinfos}"
+   dstdir="craftinfo/${_name}"
+   if [ -e "${dstdir}" ]
+   then
+      fail "${dstdir} already exists. Won't clobber."
+   fi
+
+   IFS='|'
+   for repo in ${repos}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      url="${repo}/${_name}.git"
+      if exekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
+      then
+         log_fluff "Craftinfos ${url} found"
+         return 0
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+
+   log_verbose "No craftinfos found online"
+   return 1
+}
+
+
+remove_dir_safer()
+{
+   log_entry "remove_dir_safer" "$@"
+
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      # shellcheck source=mulle-path.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"      || return 1
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      # shellcheck source=mulle-file.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"      || return 1
+   fi
+
+   rmdir_safer "$1"
+}
+
+
+sde_dependency_craftinfo_fetch_main()
+{
+   log_entry "sde_dependency_craftinfo_fetch_main" "$@"
+
+   local OPTION_CLOBBER='NO'
+   local OPTION_KEEP_HISTORY='NO'
+
+   if [ "$1" != "DEFAULT" ]
+   then
+      fail "Fetch is always global"
+   fi
+   shift
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_fetch_usage
+         ;;
+
+         --clobber)
+            OPTION_CLOBBER='YES'
+         ;;
+
+         --keep-history)
+            OPTION_KEEP_HISTORY='YES'
+         ;;
+
+         -*)
+            sde_dependency_craftinfo_fetch_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_fetch_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde_dependency_craftinfo_fetch_usage "Superflous arguments \"$*\""
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+
+   if ! __sde_craftinfo_vars_with_url_or_address "$1" "" 'NO'
+   then
+      return 1
+   fi
+
+   local dstdir
+   local repos
+   local repo
+
+   repos="${CRAFTINFO_REPOS:-https://github.com/craftinfos}"
+   dstdir="craftinfo/${_name}"
+   if [ -e "${dstdir}" ]
+   then
+      if [ "${OPTION_CLOBBER}" = 'NO' ]
+      then
+         fail "${dstdir} already exists. Won't clobber."
+      fi
+      remove_dir_safer "${dstdir}"
+   fi
+
+   IFS='|'
+   for repo in ${repos}
+   do
+      IFS="${DEFAULT_IFS}"
+
+      url="${repo}/${_name}.git"
+      if ! exekutor "${MULLE_FETCH:-mulle-fetch}" fetch "${url}" "${dstdir}"
+      then
+         return 1
+      fi
+
+      #
+      # behave like git archive, so we can add this craftinfo to our project
+      # easily. (but github don't support it)
+      #
+      if [ "${OPTION_KEEP_HISTORY}" = 'NO' ]
+      then
+         remove_dir_safer "${dstdir}/.git"
+      fi
+      return 0
+   done
+   IFS="${DEFAULT_IFS}"
+
+   fail "There is no craftinfo available for download ($url)"
 }
 
 
@@ -373,11 +738,15 @@ sde_dependency_craftinfo_set_main()
    local _subprojectdir
    local _folder
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
+   if ! __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}" 'NO'
+   then
+      return 1
+   fi
 
    sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                           "${_name}" \
-                                          "${OPTION_COPY}" || exit 1
+                                          "${OPTION_COPY}" \
+                                          "DEFAULT" || exit 1
 
    local setflags
 
@@ -440,6 +809,7 @@ sde_dependency_craftinfo_get_main()
    if [ "${extension}" = "DEFAULT" ]
    then
       __sde_craftinfo_vars_with_url_or_address "${url}" ""
+
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_MAKE_FLAGS} \
@@ -476,36 +846,12 @@ sde_dependency_craftinfo_get_main()
 }
 
 
-sde_dependency_craftinfo_list_main()
+_sde_dependency_craftinfo_list_main()
 {
-   log_entry "sde_dependency_craftinfo_list_main" "$@"
+   log_entry "_sde_dependency_craftinfo_list_main" "$@"
 
-   local extension="$1"; shift
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde_dependency_craftinfo_list_usage
-         ;;
-
-         -*)
-            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ $# -eq 0 ] && \
-      sde_dependency_craftinfo_list_usage "Missing url or address argument"
-
-   local url="$1"
-   shift
+   local url="$1"; shift
+   local indent="$1"; shift
 
    local _address
    local _name
@@ -514,21 +860,80 @@ sde_dependency_craftinfo_list_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      __sde_craftinfo_vars_with_url_or_address "${url}" ""
-      log_info "Global"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --definition-dir "${_folder}" list "$@"
-      log_info "${MULLE_UNAME}"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-         definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@"
+      if  __sde_craftinfo_vars_with_url_or_address "${url}" ""
+      then
+         log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
+         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+            definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"
+         log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
+         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+            definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@"  | \
+               sed "s/^/   ${indent}/"
+      fi
       return
    fi
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
+   if __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
+   then
+      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-Global}"
+      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+         definition --definition-dir "${_folder}" list "$@"  | sed "s/^/   ${indent}/"
+   fi
+}
 
-   log_info "${extension:-Global}"
-   exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
-      definition --definition-dir "${_folder}" list "$@"
+
+sde_dependency_craftinfo_list_main()
+{
+   log_entry "sde_dependency_craftinfo_list_main" "$@"
+
+   local extension="$1"; shift
+   local url
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_list_usage
+         ;;
+
+         --)
+            shift
+            break
+         ;;
+
+         -*)
+            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            url="$1"
+            shift
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ -z "${url}" ]
+   then
+      set -f ; IFS=$'\n'
+      for url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
+      do
+         set +f ; IFS="${DEFAULT_IFS}"
+         case "${url}" in
+            craftinfo/*)
+               continue
+            ;;
+         esac
+
+         log_info "${url}"
+         _sde_dependency_craftinfo_list_main "${url}" "   "
+      done
+      set +f ; IFS="${DEFAULT_IFS}"
+   else
+      _sde_dependency_craftinfo_list_main "${url}" ""
+   fi
 }
 
 
@@ -583,9 +988,14 @@ sde_dependency_craftinfo_main()
       [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
    fi
 
+
    case "${subcmd:-list}" in
-      set|get|list)
-         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@"
+      create|set|get|list|fetch|exists)
+         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@" || return 1
+         if [ "${subcmd}" = "set" ]
+         then
+            log_info "Your edits will be used after clean all"
+         fi
       ;;
 
       *)

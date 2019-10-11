@@ -273,7 +273,7 @@ emit_ignore_patternfile()
    set -o noglob;  IFS=$'\n'
    for subproject in ${subprojects}
    do
-      echo "${subproject}/"
+      printf "%s\n" "${subproject}/"
    done
    set +o noglob; IFS="${DEFAULT_IFS}"
 }
@@ -305,7 +305,7 @@ update_ignore_patternfile()
       exekutor chmod ug+w "${sharefile}"
    fi
 
-   redirect_exekutor "${sharefile}" echo "${contents}"
+   redirect_exekutor "${sharefile}" printf "%s\n" "${contents}"
    exekutor chmod ug-w "${sharefile}"
 
    local etcfile
@@ -324,7 +324,7 @@ update_ignore_patternfile()
       fail "User edits in \"${etcfile}\" are not allowed"
    fi
 
-   redirect_exekutor "${etcfile}" echo "${contents}"
+   redirect_exekutor "${etcfile}" printf "%s\n" "${contents}"
 }
 
 
@@ -482,8 +482,30 @@ sde_subproject_map()
    log_entry "sde_subproject_map" "$@"
 
    local verb="${1:-Updating}" ; shift
-   local lenient="${1:-NO}" ; shift
-   local parallel="${1:-NO}" ; shift
+   local mode="$1" ; shift
+
+   local lenient='NO'
+   local parallel='NO'
+   local env='YES'
+
+   case ",${mode}," in
+      *,lenient,*)
+         lenient='YES';
+      ;;
+   esac
+
+   case ",${mode}," in
+      *,parallel,*)
+         parallel='YES';
+      ;;
+   esac
+
+   case ",${mode}," in
+      *,no-env,*)
+         env='NO';
+      ;;
+   esac
+
 
    [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT undefined"
    [ -z "${MULLE_SDE_VAR_DIR}" ]  && internal_fail "MULLE_SDE_VAR_DIR undefined"
@@ -545,22 +567,42 @@ has no \"${sdefolder}\" folder"
             continue
          fi
 
-         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}${C_VERBOSE}"
+         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}"
 
          if [ "${parallel}" = 'YES' ]
          then
             (
-               exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
-               rval=$?
+               if [ "${env}" = 'YES' ]
+               then
+                  exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
+                  rval=$?
+               else
+                  (
+                     cd "${expanded_subproject}" ;
+                     MULLE_VIRTUAL_ROOT="" \
+                        eval exec "${command}"
+                  )
+                  rval=$?
+               fi
 
                if [ $rval -ne 0 ]
                then
-                  redirect_append_exekutor "${statusfile}" echo "${subproject};$rval"
+                  redirect_append_exekutor "${statusfile}" printf "%s\n" "${subproject};$rval"
                fi
             ) &
          else
-            exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
-            rval=$?
+            if [ "${env}" = 'YES' ]
+            then
+               exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
+               rval=$?
+            else
+               (
+                  cd "${expanded_subproject}" ;
+                     MULLE_VIRTUAL_ROOT="" \
+                        eval exec "${command}"
+               )
+               rval=$?
+            fi
             if [ ${rval} -ne 0 ]
             then
                if [ "${lenient}" = 'NO' ]
@@ -724,7 +766,7 @@ $1"
       ;;
 
       enter)
-         "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} subenv "$@"
+         exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} subenv "$@"
       ;;
 
       init)
@@ -767,7 +809,7 @@ $1"
       ;;
 
       map)
-         sde_subproject_map 'Executing' 'NO' 'NO' "$@"
+         sde_subproject_map 'Executing' 'default' "$@"
       ;;
 
       set)

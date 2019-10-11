@@ -40,18 +40,26 @@ sde_test_usage()
 Usage:
    ${MULLE_USAGE_NAME} test <command>
 
-   Run tests. Use 'init' to get started. Build the library to test with "build"
-   and redo this step everytime you change the library. Run tests with "run"
-   and everytime you change the tests.
+   Tests are run in their own mulle-sde environment. The library to test
+   is just another dependency to the test project.
+
+   Use \`init\` to get started. Build the library to test with \`craft\`.
+   Run tests with "run". Rerun failing tests with \`rerun\`.
+
+   Use \`clean tidy\` to get rid of all fetched dependencies. Use \`clean all\`
+   to rebuild everything.
 
 Command:
-   init      : initialize a test directory
-   craft     : craft library
-   generate  : generate some simple test files (Objective-C only)
-   recraft   : re-craft library and dependencies
-   run       : run tests
-   linkorder : show library command for linking test executable
-   rerun     : rerun failed tests
+   clean      : clean tests and or dependencies
+   craft      : craft library
+   craftorder : show order of dependencies being crafted
+   crun       : craft and run
+   generate   : generate some simple test files (Objective-C only)
+   init       : initialize a test directory
+   linkorder  : show library command for linking test executable
+   recraft    : re-craft library and dependencies
+   rerun      : rerun failed tests
+   run        : run tests only
 
 Environment:
    MULLE_SDE_TEST_PATH : test directories to run (test)
@@ -60,120 +68,107 @@ EOF
 }
 
 
-sde_test_run()
+sde_test_generate_usage()
 {
-   log_entry "sde_test_run" "$@"
+   [ "$#" -ne 0 ] && log_error "$1"
 
-   local cmd="$1"
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} test generate
 
-   MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
-
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-   [ -z "${MULLE_FILE_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
-
-   IFS=":"
-   for directory in ${MULLE_SDE_TEST_PATH}
-   do
-      IFS="${DEFAULT_IFS}"
-
-      if [ ! -d "${directory}" ]
-      then
-         fail "Test directory \"${directory}\" is missing"
-      fi
-
-      if ! (
-         log_info "Tests ${C_MAGENTA}${C_BOLD}${cmd}${C_INFO} (${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
-
-         #
-         # execute with mudo to use regular path and not pickup stuff
-         # from parent.
-         #
-         MULLE_VIRTUAL_ROOT=""
-         exekutor cd "${directory}" &&
-         exekutor mudo mulle-test ${MULLE_TECHNICAL_FLAGS} \
-                                  ${MULLE_TEST_FLAGS} \
-                                  "$@"
-      )
-      then
-         return 1
-      fi
-   done
-   IFS="${DEFAULT_IFS}"
+   Generate tests with mulle-testgen. Look there for more info.
+EOF
+   exit 1
 }
 
 
-r_sde_test_githubname()
+sde_hack_test_environment()
 {
-   log_entry "r_sde_test_githubname" "$@"
+   log_entry "sde_hack_test_environment" "$@"
 
-   if [ ! -z "${PROJECT_GITHUB_NAME}" ]
-   then
-      RVAL="${PROJECT_GITHUB_NAME}"
-      return
-   fi
-
+   # hackish und of some stuff, because we are probably entering a
+   # wild environment
    #
-   # assume structure is mulle-c/mulle-allocator and we are
-   # right in mulle-allocator, use mulle-c as github name,
-   # unless its prefixed with "src"
-   #
-   local name
-   local filtered
-   local directory
+   local pattern
 
-   # clumsy fix if called from test directory
-   directory="${PWD}"
-   r_fast_basename "${directory}"
-   case "${RVAL}" in
-      test*)
-         r_fast_dirname "${directory}"
-         directory="${RVAL}"
-      ;;
-   esac
+   r_escaped_grep_pattern "${MULLE_VIRTUAL_ROOT}"
+   pattern="${MULLE_VIRTUAL_ROOT}"
 
-   r_fast_dirname "${directory}"
-   r_fast_basename "${RVAL}"
-   name="${RVAL}"
+   unset MULLE_VIRTUAL_ROOT
+   unset ADDICTION_DIR
+   unset KITCHEN_DIR
+   unset DEPENDENCY_DIR
+   unset MULLE_FETCH_SEARCH_PATH
 
-   # github don't like underscores, so we adapt here
-   name="`tr '_' '-' <<< "${name}"`"
-
-   # is it a github identifier (engl.) ?
-   filtered="`tr -d -c 'A-Z0-9a-z-' <<< "${name}"`"
-   if [ "${filtered}" = "${name}" ]
+   if [ ! -z "${pattern}" ]
    then
-      case "${name}" in
-         ""|src*|-*|*-)
-         ;;
+      local problems
 
-         *)
-         RVAL="${name}"
-         return
-      esac
+      problems="`env | egrep -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' | grep -e grep -e "${pattern}"`"
+      if [ ! -z "${problems}" ]
+      then
+         log_warning "These environment variables may be problematic"
+         printf "%s\n" "${problems}" >&2
+      fi
    fi
-
-   RVAL="${LOGNAME:-unknown}"
-   return
 }
 
 
 sde_test_generate()
 {
-   log_entry "sde_test_run" "$@"
+   log_entry "sde_test_generate" "$@"
 
    local cmd="$1"
    local flags
+   local OPTION_FULL_TEST='NO'
+
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_test_generate_usage
+         ;;
+
+         -f|--full)
+            OPTION_FULL_TEST='YES'
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
 
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
       flags="-f"
    fi
 
-   MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
 
-   IFS=":"
+   log_info "Ensure mulle-testgen is accessible in environment"
+
+   if ! rexekutor mulle-sde tool get mulle-testgen > /dev/null
+   then
+      exekutor mulle-sde tool add --optional mulle-testgen || exit 1
+      exekutor mulle-sde tool link || exit 1
+   fi
+
+   MULLE_TESTGEN="${MULLE_TESTGEN:-`command -v mulle-testgen`}"
+   if [ -z "${MULLE_TESTGEN}" ]
+   then
+      fail "mulle-testgen not found in PATH."
+   fi
+
+   log_info "Craft library for test generation"
+
+   exekutor mulle-sde craft || exit 1
+
+   local rval
+
+   IFS=':'
    for directory in ${MULLE_SDE_TEST_PATH}
    do
       IFS="${DEFAULT_IFS}"
@@ -183,50 +178,145 @@ sde_test_generate()
          fail "Test directory \"${directory}\" is missing"
       fi
 
-      exekutor mulle-testgen \
+      exekutor "${MULLE_TESTGEN}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_TESTGENERATOR_FLAGS} \
                         ${flags} \
+                     generate \
                      -d "${directory}/00_noleak" \
-                     "$@" &&
-      exekutor mulle-testgen \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_TESTGENERATOR_FLAGS} \
-                        ${flags} \
-                     -d "${directory}/10_init" \
-                     -1 \
-                     -s \
-                     -m
-      exekutor mulle-testgen \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_TESTGENERATOR_FLAGS} \
-                        ${flags} \
-                     -d "${directory}/20_property" \
-                     -1 \
-                     -s \
-                     -p &&
-      exekutor mulle-testgen \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_TESTGENERATOR_FLAGS} \
-                        ${flags} \
-                     -d "${directory}/20_method" \
-                     -1 \
-                     -s \
-                     -m
-      return $?
+                     "$@"
+      rval=$?
+
+      if [ $rval -eq 0 -a "${OPTION_FULL_TEST}" = 'YES' ]
+      then
+         exekutor "${MULLE_TESTGEN}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_TESTGENERATOR_FLAGS} \
+                           ${flags} \
+                        generate \
+                        -d "${directory}/10_init" \
+                        -1 \
+                        -i &&
+         exekutor "${MULLE_TESTGEN}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_TESTGENERATOR_FLAGS} \
+                           ${flags} \
+                        generate \
+                        -d "${directory}/20_property" \
+                        -1 \
+                        -p &&
+         exekutor "${MULLE_TESTGEN}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_TESTGENERATOR_FLAGS} \
+                           ${flags} \
+                        generate \
+                        -d "${directory}/20_method" \
+                        -1 \
+                        -m
+         rval=$?
+      fi
+
+      if [ rval != 0 ]
+      then
+         return $rval
+      fi
    done
    IFS="${DEFAULT_IFS}"
 }
 
+
+
+#
+# Do the test run.
+#
+_sde_test_run()
+{
+   log_entry "_sde_test_run" "$@"
+
+   local directory="$1"; shift
+   local cmd="$1"; shift
+
+   if [ ! -d "${directory}" ]
+   then
+      fail "Test directory \"${directory}\" is missing"
+   fi
+
+   if ! is_test_directory "${directory}"
+   then
+      fail "Directory \"${directory}\" is not a test directory"
+   fi
+
+   (
+      log_info "Tests ${C_MAGENTA}${C_BOLD}${cmd} $*${C_INFO} (${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
+
+      #
+      # execute with mudo to use regular path and not pickup stuff
+      # from parent.
+      #
+
+      exekutor cd "${directory}" &&
+      exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} run \
+                  mulle-test ${MULLE_TECHNICAL_FLAGS} \
+                             ${MULLE_TEST_FLAGS} \
+                             "${cmd}" "$@"
+   )
+}
+
+
+sde_test_run()
+{
+   log_entry "sde_test_run" "$@"
+
+   local cmd="$1"; shift
+
+   local defaultpath
+   local projectdir
+
+   projectdir="`mulle-sde project-dir`"
+   if [ ! -z "${projectdir}" ]
+   then
+      exekutor cd "${projectdir}"
+   fi
+
+   [ -z "${MULLE_PATH_SH}" ] && \
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+   [ -z "${MULLE_FILE_SH}" ] && \
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+
+   (
+      sde_hack_test_environment
+
+      if is_test_directory "."
+      then
+         _sde_test_run "." "${cmd}" "$@"
+         exit $?
+      fi
+
+      IFS=":"
+      for directory in ${MULLE_SDE_TEST_PATH}
+      do
+         IFS="${DEFAULT_IFS}"
+
+         if ! _sde_test_run "${directory}" "${cmd}" "$@"
+         then
+            exit 1
+         fi
+      done
+   )
+}
 
 #
 # Problem: if you start mulle-sde test inside the project folder
 #          it will pickup the environment there including PATH and
 #          the tests inherits it. If you start the test in the test
 #          folder, it only has its own environment.
+#
 #          Need a solution to cleanly exit from one environment and
 #          move to next in a script. Or make test environments
 #          very restrictive.
+#
+# This function may or not be running in a subshell! It will not have been
+# forced into a subshell.
 #
 sde_test_main()
 {
@@ -255,9 +345,21 @@ sde_test_main()
          cmd="run"
       ;;
 
-      craft|build|recraft|rebuild|clean|init|run|libexec-dir|test-dir|version)
+      # build commands
+      clean|crun|craft|build|log|rebuild|recraft|recrun|run)
          shift;
       ;;
+
+      # introspection
+      env|libexec-dir|test-dir|version)
+         shift;
+      ;;
+
+      # no environment needed to run these properly
+      generate|init)
+         shift;
+      ;;
+
       *)
          if [ -e "${MULLE_USER_PWD}/${cmd}" ]
          then
@@ -268,28 +370,29 @@ sde_test_main()
       ;;
    esac
 
+   MULLE_SDE_TEST_PATH="`mulle-sde environment get MULLE_SDE_TEST_PATH`"
+   if is_test_directory "."
+   then
+      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
+   else
+      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
+   fi
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+   then
+      log_trace2 "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
+   fi
 
    case "${cmd}" in
-      -*)
-         sde_test_run run "${cmd}" "$@"
-      ;;
-
-      build|craft|clean|linkorder|rebuild|recraft|rerun|run|test)
-         sde_test_run "${cmd}" "$@"
-      ;;
-
       generate)
-         sde_test_generate "$@"
-      ;;
-
-      github-name)
-         r_sde_test_githubname
-         echo "${RVAL}"
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            exec_command_in_subshell test generate "$@"
+         else
+            sde_test_generate "$@"
+         fi
       ;;
 
       init)
-         r_sde_test_githubname
-
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_TEST_FLAGS} \
@@ -299,7 +402,7 @@ sde_test_main()
       ;;
 
       *)
-         sde_test_usage "Unknown command \"${cmd}\""
+         sde_test_run "${cmd}" "$@"
       ;;
    esac
 }

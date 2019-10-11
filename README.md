@@ -13,7 +13,7 @@ An important aspect of a mulle-sde project is, that your project
 can still be built without mulle-sde being installed.
 
 As mulle-sde is a bunch of scripts, a positive side effect is, that
-it is inherently scriptable. See the 
+it is inherently scriptable. See the
 [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for
 a more indepth introduction on what **mulle-sde** is.
 
@@ -63,7 +63,7 @@ Enter the environment:
 $ mulle-sde hello
 ```
 
-Optionally look at the project files:
+Optionally look at the project configuration:
 
 ```
 $ mulle-sde list
@@ -195,7 +195,8 @@ information about adding and writing extensions.
 
 ![](dox/mulle-sde-list.png)
 
-List files and dependencies/libraries known to your project.
+List environment variables, definitions, files and dependencies that comprise
+your project:
 
 ```
 mulle-sde list

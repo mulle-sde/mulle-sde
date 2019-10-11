@@ -46,15 +46,12 @@ Usage:
    ${MULLE_USAGE_NAME} dependency [command]
 
    A dependency is a third party package, that is fetched via an URL.
-   It will be built along with your project. Dependencies are managed with
-   mulle-sourcetree. The build definitions for a dependency are managed with
-   mulle-make.
+   It will be built ahead of your project to provide headers to include and
+   libraries to link against.
 
-   See the \`set\` command if you have problems finding dependencies header
-   or libraries.
-
-   Use \`mulle-sde dependency list -- --output-format cmd\` for copying
-   single entries between projects.
+   See the \`set\` command if the project has problems locating the header
+   or library. Use \`mulle-sde dependency list -- --output-format cmd\` for
+   copying single entries between projects.
 
 Commands:
    add        : add a dependency to the sourcetree
@@ -92,22 +89,31 @@ Usage:
 
    You should also specify the language if the dependency is Objective-C.
 
-   Example:
-      ${MULLE_USAGE_NAME} dependency add --multiphase --github nat foobar
+Examples:
+   Add a github repository as a dependency:
+
+      ${MULLE_USAGE_NAME} dependency add --github madler --scm git zlib
+
+   Add a tar archive as a dependency:
+
+      -${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
 
 Options:
    --c             : used for C dependencies (default)
+   --clean         : delete all previous dependencies and libraries
    --embedded      : the dependency becomes part of the local project
    --github <name> : create an URL for a - possibly fictitious - github name
    --headerless    : has no headerfile
    --headeronly    : has no library
+   --no-fetch      : do not attempt to find a matching craftinfo on github
    --if-missing    : if a node with the same address is present, do nothing
-   --multiphase    : the dependency can be crafted in three phases
+   --multiphase    : the dependency can be crafted in three phases (default)
    --objc          : used for Objective-C dependencies
    --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
-   --singlephase   : the dependency must be crafted in one phase (default)
+   --singlephase   : the dependency must be crafted in one phase
+   --startup       : dependency is a ObjC startup library
       (see: mulle-sourcetree -v add -h for more add options)
 EOF
   exit 1
@@ -431,6 +437,7 @@ sde_dependency_list_main()
 #    _address
 #    _nodetype
 #    _address
+#    _marks
 #
 _sde_enhance_url()
 {
@@ -440,6 +447,7 @@ _sde_enhance_url()
    local branch="$2"
    local nodetype="$3"
    local address="$4"
+   local marks="$5"
 
    if [ -z "${nodetype}" ]
    then
@@ -468,6 +476,7 @@ _sde_enhance_url()
    _url=""
    _branch=""
    _address=""
+   _marks=""
    _nodetype=""
 
    #
@@ -482,19 +491,8 @@ _sde_enhance_url()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
-   r_tweaked_de_camel_case "${address}"
-   upcaseid="`printf "%s" "${RVAL}" | tr -c 'a-zA-Z0-9' '_'`"
-   upcaseid="`tr 'a-z' 'A-Z' <<< "${upcaseid}"`"
-
-   # ensure its a shell identifier
-   case "${upcaseid}" in
-      [A-Za-z_]*)
-      ;;
-
-      *)
-         upcaseid="_${upcaseid}"
-      ;;
-   esac
+   r_de_camel_case_upcase_identifier "${address}"
+   upcaseid="${RVAL}"
 
    local last
    local leading
@@ -555,7 +553,16 @@ _sde_enhance_url()
 
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"
-   _nodetype="${nodetype}"
+   _marks="${marks}"
+   # THIS DOESN'T WORK SINCE the marks adding code bails
+   #
+   # remedy: autogenerate let sourcetree autogenerate environment checks
+   #         for MULLE_URL, MULLE_MARKS etc.
+   #
+   #  Maybe also allow changes based on UUID ?
+   #
+   # _marks="\${${upcaseid}_MARKS:-${marks}}"
+   _nodetype="\${${upcaseid}_NODETYPE:-${nodetype}}"
    _address="${address}"
 }
 
@@ -575,8 +582,11 @@ sde_dependency_add_main()
    local OPTION_PRIVATE='NO'
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
-   local OPTION_SINGLEPHASE='YES' # safe default
+   local OPTION_SINGLEPHASE='NO' # more common default for me :)
    local OPTION_FAKE_GITHUB
+   local OPTION_CLEAN='NO'
+   local OPTION_FETCH='YES'
+
    #
    # grab options for mulle-sourcetree
    # interpret sde options
@@ -588,9 +598,43 @@ sde_dependency_add_main()
             sde_dependency_add_usage
          ;;
 
-         --if-missing)
-            r_concat "${options}" "--if-missing"
-            options="${RVAL}"
+         --address)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            address="$1"
+         ;;
+
+         --branch)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            branch="$1"
+         ;;
+
+         --clean)
+            OPTION_CLEAN='YES'
+         ;;
+
+         -c|--c)
+            OPTION_DIALECT='c'
+         ;;
+
+         --embedded)
+            r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
+            marks="${RVAL}"
+         ;;
+
+         --executable)
+            r_comma_concat "${marks}" "no-link,no-header,no-bequeath"
+            marks="${RVAL}"
+         ;;
+
+         --github|--fake)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_FAKE_GITHUB="$1"
          ;;
 
          --header-less|--headerless)
@@ -603,17 +647,22 @@ sde_dependency_add_main()
             marks="${RVAL}"
          ;;
 
-         --embedded)
-            r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
+         --if-missing)
+            r_concat "${options}" "--if-missing"
+            options="${RVAL}"
+         ;;
+
+         --marks)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            r_comma_concat "${marks}" "$1"
             marks="${RVAL}"
          ;;
 
-         -c|--c)
-            OPTION_DIALECT='c'
-         ;;
-
-         -m|--objc)
-            OPTION_DIALECT='objc'
+         --startup)
+            r_comma_concat "${marks}" "no-intermediate-link,no-dynamic-link,no-header"
+            marks="${RVAL}"
          ;;
 
          --multiphase)
@@ -634,11 +683,23 @@ sde_dependency_add_main()
             OPTION_DIALECT='objc'
          ;;
 
-         --github|--fake)
+         --nodetype|--scm)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_FAKE_GITHUB="$1"
+            nodetype="$1"
+         ;;
+
+         --no-fetch)
+            OPTION_FETCH='NO'
+         ;;
+
+         --objc|-m)
+            OPTION_DIALECT='objc'
+         ;;
+
+         --optional)
+            OPTION_OPTIONAL='YES'
          ;;
 
          --plain)
@@ -651,39 +712,6 @@ sde_dependency_add_main()
 
          --public)
             OPTION_PRIVATE='NO'
-         ;;
-
-         --optional)
-            OPTION_OPTIONAL='YES'
-         ;;
-
-         --branch)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            branch="$1"
-         ;;
-
-        --nodetype|--scm)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            nodetype="$1"
-         ;;
-
-         --address)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            address="$1"
-         ;;
-
-         --marks)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            r_comma_concat "${marks}" "$1"
-            marks="${RVAL}"
          ;;
 
          --url)
@@ -708,12 +736,11 @@ sde_dependency_add_main()
 
    local url="$1"
 
-   local originalurl
-
    [ -z "${url}" ] && sde_dependency_add_usage "URL argument is missing ($*)"
    shift
-
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
+
+   local originalurl
 
    originalurl="${url}"
 
@@ -742,12 +769,13 @@ sde_dependency_add_main()
          ;;
 
          *)
-            _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}"
+            _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}" "${marks}"
 
             url="${_url}"
             branch="${_branch}"
             nodetype="${_nodetype}"
             address="${_address}"
+            marks="${_marks}"
          ;;
       esac
    fi
@@ -805,11 +833,46 @@ sde_dependency_add_main()
       options="${RVAL}"
    fi
 
-   log_verbose "URL: ${url}"
-   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+   if [ "${OPTION_CLEAN}" = 'YES' ]
+   then
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
                      "${MULLE_TECHNICAL_FLAGS}"\
                      "${MULLE_SOURCETREE_FLAGS}" \
+                  clean --config
+   fi
+
+   log_verbose "URL: ${url}"
+   if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+                      "${MULLE_TECHNICAL_FLAGS}"\
+                      "${MULLE_SOURCETREE_FLAGS}" \
                         add "${options}" "'${url}'"
+   then
+      return 1
+   fi
+
+   if [ "${OPTION_FETCH}" = 'NO' ]
+   then
+      return 0
+   fi
+
+   local dependency
+
+   dependency="${address:-${originalurl}}"
+   if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
+   then
+      return 0
+   fi
+
+   if ! sde_dependency_craftinfo_create_main "DEFAULT" "${dependency}"
+   then
+      return 1
+   fi
+
+   if ! sde_dependency_craftinfo_fetch_main "DEFAULT" --clobber "${dependency}"
+   then
+      return 1
+   fi
+
 }
 
 
@@ -851,7 +914,7 @@ sde_dependency_source_dir_main()
                   walk \
                      --lenient \
                      --qualifier 'MATCHES dependency' \
-                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && echo "${NODE_FILENAME}"'
+                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && printf "%s\n" "${NODE_FILENAME}"'
 
 }
 
@@ -896,6 +959,10 @@ sde_dependency_main()
 
    [ $# -ne 0 ] && shift
 
+   # shellcheck source=src/mulle-sde-common.sh
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+
    case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-common.sh
@@ -921,10 +988,6 @@ unmark"
       ;;
 
       craftinfo)
-         # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
-
          sde_dependency_craftinfo_main "$@"
          return $?
       ;;

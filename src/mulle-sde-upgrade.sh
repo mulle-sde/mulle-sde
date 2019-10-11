@@ -64,10 +64,10 @@ Commands:
 EOF
 
    (
-      echo "${SHOWN_COMMANDS}"
+      printf "%s\n" "${SHOWN_COMMANDS}"
       if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
       then
-         echo "${HIDDEN_COMMANDS}"
+         printf "%s\n" "${HIDDEN_COMMANDS}"
       fi
    ) | sed '/^$/d' | LC_ALL=C sort >&2
 
@@ -114,9 +114,15 @@ sde_upgrade_subprojects()
    fi
 
    # a subproject when upgraded "feels" like a main project
-   # unfortunately we can't pass parameters down wards
+   # unfortunately we can't pass parameters down ards
+   local mode
 
-   sde_subproject_map 'Upgrading' 'NO' "${parallel}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
+   mode="no-env"
+   if [ "${parallel}" = "mode" ]
+   then
+      mode="${mode},parallel"
+   fi
+   sde_subproject_map 'Upgrading' "${mode}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
 }
 
 
@@ -129,7 +135,7 @@ sde_upgrade_test()
                            environment \
                               get MULLE_SDE_TEST_PATH`"
 
-   IFS=":"
+   IFS=':'
    for i in ${MULLE_SDE_TEST_PATH:-test}
    do
       IFS="${DEFAULT_IFS}"

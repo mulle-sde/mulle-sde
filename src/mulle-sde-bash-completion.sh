@@ -344,7 +344,7 @@ _mulle_sde_subproject_complete()
       esac
    done
 
-   # echo "${state} s:\"${subcmd}\" ss:\"${subcmd}\": c=${cur} p=${prev}" >&2
+   # printf "%s\n" "${state} s:\"${subcmd}\" ss:\"${subcmd}\": c=${cur} p=${prev}" >&2
    # state can't be start here
    case "${state}" in
       state)
@@ -389,7 +389,7 @@ _mulle_sde_subproject_complete()
                   return
                fi
 
-               COMPREPLY=( $( compgen -W "`echo "${infcommands}"`" -- $cur ) )
+               COMPREPLY=( $( compgen -W "`printf "%s\n" "${infcommands}"`" -- $cur ) )
                return
             ;;
 

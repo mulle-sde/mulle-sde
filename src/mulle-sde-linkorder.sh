@@ -42,16 +42,21 @@ Usage:
 
    Emit a string suitable for linking all dependencies and libraries on the
    current platform. The dependencies must have been built in order for this
-   to work.
+   to work. There is a linkorder for executables that includes all
+   startup libraries marked as \`no-intermediate-link\` and a second one that
+   excludes them for linking shared libraries.
 
    The linkorder command may produce incorrect link names, if the aliases
-   feature is used in a depencency.
+   feature is used by a dependency entry.
 
-   ${MULLE_USAGE_NAME} linkorder -ld
+   \`${MULLE_USAGE_NAME} linkorder --output-format ld\` emits arguments for
+   gcc or clang.
 
 Options:
    --output-format <format>  : specify node,file,file_lf or ld, ld_lf
    --output-omit <library>   : do not emit link commands for library
+   --startup                 : include startup libraries (default)
+   --no-startup              : exclude startup libraries
 EOF
    exit 1
 }
@@ -99,7 +104,7 @@ _emit_file_output()
    done
    IFS="${DEFAULT_IFS}"; set +f
 
-   [ ! -z "${cmdline}" ] && rexekutor echo "${cmdline}"
+   [ ! -z "${cmdline}" ] && rexekutor printf "%s\n" "${cmdline}"
 }
 
 
@@ -136,6 +141,8 @@ _emit_ld_output()
    local withldpath="$1"; shift
    local withrpath="$1"; shift
    local wholearchiveformat="$1"; shift
+
+   [ -z "${wholearchiveformat}" ] && internal_fail "wholearchiveformat is empty"
 
    local result
 
@@ -181,6 +188,11 @@ _emit_ld_output()
 
    # omit trailing linefeed for cmake
    printf "%s" "${result}"
+
+   if [ "${OPTION_OUTPUT_FINAL_LF}" = 'YES' ]
+   then
+      echo
+   fi
 }
 
 
@@ -232,7 +244,7 @@ emit_node_output()
 
    for line in "$@"
    do
-      echo "${line}"
+      printf "%s\n" "${line}"
    done
 }
 
@@ -295,7 +307,7 @@ linkorder_callback()
 
    log_verbose "Add \"${_address}\" to linkorder "
 
-   echo "${_address};${_marks};${_raw_userinfo}"
+   printf "%s\n" "${_address};${_marks};${_raw_userinfo}"
 }
 
 
@@ -318,15 +330,25 @@ r_sde_linkorder_all_nodes()
 
    mode="`"${MULLE_SOURCETREE:-mulle-sourcetree}" mode`"
 
-   r_make_craftorder_qualifier 'MATCHES link'
+   local qualifier
+
+   qualifier='MATCHES link'
+   if [ "${OPTION_STARTUP}" = 'NO' ]
+   then
+      qualifier='MATCHES link AND MATCHES intermediate-link'
+   fi
+
+   r_make_craftorder_qualifier "${qualifier}"
    qualifier="${RVAL}"
 
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
+
 
    RVAL="`sourcetree_walk_main --lenient \
                                --no-eval \
                                --in-order \
                                --backwards \
+                               --bequeath \
                                --configuration "Release" \
                                --dedupe "linkorder" \
                                --callback-qualifier "${qualifier}" \
@@ -377,23 +399,9 @@ r_linkorder_collect()
          librarytype="standalone"
          log_debug "${name} is a standalone library"
       ;;
+   esac
 
-      *,only-startup,*)
-         if [ "${OPTION_STARTUP}" = 'NO' ]
-         then
-            log_debug "Ignore ${name} as its a startup library"
-            return 2
-         fi
-
-         if [ "${OPTION_LINK_STARTUP_LAST}" = 'YES' ]
-         then
-            r_add_line "${_startup_load}" "${name};${marks}"
-            _startup_load="${RVAL}"
-            log_debug "${name} is a startup library"
-            return 2
-         fi
-      ;;
-
+   case ",${marks}," in
       *,no-dynamic-link,*)
          requirement="static"
       ;;
@@ -450,7 +458,7 @@ r_linkorder_collect()
          ;;
       esac
 
-      fail "Did not find a linkable ${aliasfail} library in \"${searchpath}\".
+      fail "Did not find a linkable ${aliasfail} ${requirement} ${librarytype} in \"${searchpath}\".
 ${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
@@ -568,7 +576,6 @@ r_remove_line_by_first_field()
    local search="$2"
 
    local line
-
    local delim
 
    RVAL=
@@ -647,33 +654,6 @@ r_collect_emission_libs()
    done
    IFS="${DEFAULT_IFS}"; set +f
 
-   #
-   # move startup code as the very last library to be linked
-   # because previous libraries need the symbol to
-   # __register_mulle_objc_universe resolved, and on linux
-   # this has to be after the needy libraries. Since startup code
-   # may be dependent on other libraries, mark these as startup
-   # as well, they will be moved along
-   #
-   if [ ! -z "${_startup_load}" ]
-   then
-      RVAL="${dependency_libs}"
-
-      IFS=$'\n' ; set -f
-      for node in ${_startup_load}
-      do
-         IFS="${DEFAULT_IFS}"; set +f
-
-         # node will contain marks, but we want to remove all by name now
-         # so need something better than r_remove_line
-         r_remove_line_by_first_field "${RVAL}" "${node%%;*}"
-         r_add_line "${RVAL}" "${node}"
-      done
-      IFS="${DEFAULT_IFS}"; set +f
-
-      dependency_libs="${RVAL}"
-   fi
-
    if [ "${OPTION_REVERSE}" = 'YES' ]
    then
       r_reverse_lines "${dependency_libs}"
@@ -698,6 +678,7 @@ r_collect_emission_libs()
 # Basically its like a craftorder in reverse, but with the dependencies
 # of the non-static libraries removed... ugh
 #
+#
 sde_linkorder_main()
 {
    log_entry "sde_linkorder_main" "$@"
@@ -707,12 +688,13 @@ sde_linkorder_main()
    local OPTION_LD_PATH='YES'
    local OPTION_REVERSE='DEFAULT'
    local OPTION_RPATH='YES'
-   local OPTION_SIMPLIFY='NO'
+   local OPTION_SIMPLIFY='YES'
    local OPTION_FORCE_LOAD='NO'
-   local OPTION_LINK_STARTUP_LAST='YES'
+   local OPTION_BEQUEATH='YES'
    local OPTION_WHOLE_ARCHIVE_FORMAT
    local OPTION_OUTPUT_OMIT
-   local OPTION_STARTUP='YES'
+   local OPTION_STARTUP='YES'           # default executable link
+   local OPTION_OUTPUT_FINAL_LF='YES'
 
    local collect_libraries='YES'
 
@@ -733,6 +715,7 @@ sde_linkorder_main()
 
    r_platform_default_whole_archive_format
    OPTION_WHOLE_ARCHIVE_FORMAT="${RVAL}"
+   [ -z "${OPTION_WHOLE_ARCHIVE_FORMAT}" ] && internal_fail "No wholearchiveformat available on this platform ?"
 
    while :
    do
@@ -764,6 +747,10 @@ sde_linkorder_main()
             OPTION_LD_PATH='NO'
          ;;
 
+         --output-no-final-lf)
+            OPTION_OUTPUT_FINAL_LF='NO'
+         ;;
+
          --output-omit)
             [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
             shift
@@ -776,6 +763,14 @@ sde_linkorder_main()
             collect_libraries='NO'
          ;;
 
+         --bequeath)
+            OPTION_BEQUEATH='YES'
+         ;;
+
+         --no-bequeath)
+            OPTION_BEQUEATH='NO'
+         ;;
+
          --reverse)
             OPTION_REVERSE='YES'
          ;;
@@ -784,16 +779,20 @@ sde_linkorder_main()
             OPTION_REVERSE='NO'
          ;;
 
+         --startup)
+            OPTION_STARTUP='YES'
+         ;;
+
          --no-startup)
             OPTION_STARTUP='NO'
          ;;
 
-         --no-link-startup-last)
-            OPTION_LINK_STARTUP_LAST='NO'
-         ;;
-
          --simplify)
             OPTION_SIMPLIFY='YES'
+         ;;
+
+         --no-simplify)
+            OPTION_SIMPLIFY='NO'
          ;;
 
          --whole-archive-format)
@@ -813,13 +812,24 @@ sde_linkorder_main()
                   collect_libraries='NO'
                ;;
 
-               debug|node|cmake|csv|ld|ld_lf)
+               debug|node|csv|ld_lf)
+               ;;
+
+               cmake|ld)
+                  OPTION_OUTPUT_FINAL_LF='NO'
                ;;
 
                *)
                   sde_linkorder_usage "Unknown format value \"${OPTION_OUTPUT_FORMAT}\""
                ;;
             esac
+         ;;
+
+         --stash-dir)
+            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SOURCETREE_STASH_DIR="$1"
          ;;
 
          -*)
@@ -848,7 +858,7 @@ sde_linkorder_main()
 
    if [ "${OPTION_OUTPUT_FORMAT}" = "debug" ]
    then
-      echo "${RVAL}"
+      printf "%s\n" "${RVAL}"
       return 0
    fi
 

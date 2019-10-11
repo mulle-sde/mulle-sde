@@ -50,11 +50,31 @@ sde_status_main()
 {
    log_entry "sde_status_main" "$@"
 
+   local statustypes
+   local indent
+
+   indent=""
+   statustypes="project,database,quickstatus,graveyard,craftstatus,sourcetree,stash,quickstatus"
+   if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
+   then
+      indent="   "
+   fi
+
+   if [ "${MULLE_FLAG_LOG_FLUFF}" = 'YES' ]
+   then
+      statustypes="project,database,quickstatus,graveyard,craftstatus,sourcetree,stash,treestatus"
+      indent="   "
+   fi
+
    while :
    do
       case "$1" in
          -h|--help|help)
             sde_status_usage
+         ;;
+
+         --stash-only)
+            statustypes="sourcetree,stash"
          ;;
 
          -*)
@@ -84,182 +104,245 @@ sde_status_main()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
    fi
 
-   local rval
-   local projectdir
-   local parentdir
-   local directory
-   local mode=indir
+   case ",${statustypes}," in
+      *,project,*)
+         log_verbose "Project status:"
 
-   directory="`pwd -P`"
+         local rval
+         local projectdir
+         local parentdir
+         local directory
+         local mode=indir
 
-   if ! r_determine_project_dir "${directory}"
-   then
-      log_warning "There is no mulle-sde project here"
-      if [ -d .mulle-sde ]
-      then
-        log_warning "There is and old possibly upgradable mulle-sde project here"
-      fi
-      if [ -d .mulle-env ]
-      then
-        log_warning "There is and old possibly upgradable mulle-env environment here"
-      fi
-      if [ -d .mulle-bootstrap ]
-      then
-        log_warning "There is and old non-upgradable mulle-bootstrap project here"
-      fi
-      exit 1
-   fi
+         directory="`pwd -P`"
 
-   projectdir="${RVAL}"
-   if [ "${directory}" != "${projectdir}" ]
-   then
-      log_verbose "The project directory is ${projectdir}"
-   else
-      log_verbose "The project directory is ${projectdir}"
-   fi
-
-   r_fast_dirname "${projectdir}"
-   if r_determine_project_dir "${RVAL}"
-   then
-      parentdir="${RVAL}"
-      log_verbose "The parent directory is ${parentdir}"
-   fi
-
-
-   if [ "${projectdir}" != "${directory}" ]
-   then
-      mode=inproject
-   fi
-
-   if [ "${parentdir}" != "${projectdir}" -a -e "${projectdir}/.mulle/share/env/defer" ]
-   then
-      mode=inparent
-   fi
-
-   rval=0
-
-   case "${mode}" in
-      indir)
-         if [ -z "${parentdir}" ]
+         if ! r_determine_project_dir "${directory}"
          then
-            log_verbose "mulle-sde commands are executed here."
-         else
-            log_info "mulle-sde has a parent project ${parentdir}, but \
-commands are executed here"
+            log_warning "${indent}There is no mulle-sde project here"
+            if [ -d .mulle-sde ]
+            then
+              log_warning "${indent}There is and old possibly upgradable mulle-sde project here"
+            fi
+            if [ -d .mulle-env ]
+            then
+              log_warning "${indent}There is and old possibly upgradable mulle-env environment here"
+            fi
+            if [ -d .mulle-bootstrap ]
+            then
+              log_warning "${indent}There is and old non-upgradable mulle-bootstrap project here"
+            fi
+            exit 1
          fi
-      ;;
 
-      inproject)
-         log_info "mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir}"
-      ;;
+         projectdir="${RVAL}"
+         if [ "${directory}" != "${projectdir}" ]
+         then
+            log_verbose "${indent}The project directory is ${projectdir}"
+         else
+            log_verbose "${indent}The project directory is ${projectdir}"
+         fi
 
-      inparent)
-         log_info "mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir}"
+         r_fast_dirname "${projectdir}"
+         if r_determine_project_dir "${RVAL}"
+         then
+            parentdir="${RVAL}"
+            log_verbose "${indent}The parent directory is ${parentdir}"
+         fi
+
+         if [ "${projectdir}" != "${directory}" ]
+         then
+            mode=inproject
+         fi
+
+         if [ "${parentdir}" != "${projectdir}" -a -e "${projectdir}/.mulle/share/env/defer" ]
+         then
+            mode=inparent
+         fi
+
+         rval=0
+
+         case "${mode}" in
+            indir)
+               if [ -z "${parentdir}" ]
+               then
+                  log_verbose "${indent}mulle-sde commands are executed in ${projectdir}."
+               else
+                  log_info "${indent}mulle-sde commands are executed in ${projectdir}, but there is a parent project in ${parentdir}"
+               fi
+            ;;
+
+            inproject)
+               log_info "${indent}mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir}"
+            ;;
+
+            inparent)
+               log_info "${indent}mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir}"
+            ;;
+         esac
+
+
+         if [ "${directory}" != "${projectdir}" ]
+         then
+            log_verbose "${indent}The current directory is ${directory}"
+         fi
+
+         if [ ! -z "${projectdir}" ]
+         then
+            exekutor cd "${projectdir}" || exit 1
+         fi
       ;;
    esac
 
-
-   if [ "${directory}" != "${projectdir}" ]
-   then
-      log_verbose "The current directory is ${directory}"
-   fi
-
-   if [ ! -z "${projectdir}" ]
-   then
-      exekutor cd "${projectdir}" || exit 1
-   fi
-
-   if [ ! -f .mulle/etc/sourcetree/config ]
-   then
-      log_info "There is no sourcetree ($PWD)"
-   else
-      local state
-      local expect_dependencydir
-
-      if mulle-sourcetree -s dbstatus
-      then
-         log_info "Nothing needs to be fetched"
-      else
-         log_info "Dependencies need to be fetched"
-         log_verbose "${C_RESET_BOLD}   mulle-sde fetch"
-      fi
-
-      if [ -d "${MULLE_SOURCETREE_STASH_DIRNAME:-stash}" ]
-      then
-         local file
-         local hassymlinks
-         local hasdirs
-         local stashdir
-
-         stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
-         for file in "${stashdir}"/*
-         do
-            if [ -L "${file}" ]
-            then
-               r_resolve_symlinks "${file}"
-               if [ -z "${RVAL}" -o ! -e "${RVAL}" ]
-               then
-                  log_error "${C_ERROR}Symlink ${C_RESET_BOLD}${file}${C_ERROR} is broken"
-               fi
-               hassymlinks='YES'
-            else
-               # sometimes we'd prefer this to be a symlink, but mistaken fetch
-               # placed a real folder here. Hard to check though
-               if [ -d "${file}" ]
-               then
-                  hasdirs='YES'
-               fi
-            fi
-         done
-
-         if [ "${hasdirs}" = 'YES' -a "${hassymlinks}" = 'YES' ]
+   case ",${statustypes}," in
+      *,sourcetree,*)
+         if [ ! -f .mulle/etc/sourcetree/config ]
          then
-            log_info "\"${stashdir}\" contains a mix of symlinks and directories"
+            log_verbose "Sourcetree status:"
+            log_info "${indent}There is no sourcetree ($PWD)"
+         else
+            local state
+            local expect_dependencydir
+
+            case ",${statustypes}," in
+               *,database,*)
+                  log_verbose "Database status:"
+                  if mulle-sourcetree -s dbstatus
+                  then
+                     log_info "${indent}Nothing needs to be fetched"
+                  else
+                     log_info "${indent}Dependencies will be fetched/refreshed"
+                     log_verbose "${indent}${C_RESET_BOLD}   mulle-sde fetch"
+                  fi
+               ;;
+            esac
+
+            case ",${statustypes}," in
+               *,stash,*)
+                  log_verbose "Stash status:"
+
+                  local stashdir
+
+                  stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
+                  if [ -d "${stashdir}" ]
+                  then
+                     local file
+                     local hassymlinks
+                     local hasdirs
+                     local state
+                     local color
+
+                     shopt -s nullglob
+                     for file in "${stashdir}"/*
+                     do
+                        state="missing"
+                        if [ -L "${file}" ]
+                        then
+                           r_resolve_symlinks "${file}"
+                           state="symlink"
+                           if [ -z "${RVAL}" -o ! -e "${RVAL}" ]
+                           then
+                              state="broken"
+                              log_error "${indent}${C_ERROR}Symlink ${C_RESET_BOLD}${file}${C_ERROR} is broken"
+                           fi
+                        else
+                           # sometimes we'd prefer this to be a symlink, but mistaken fetch
+                           # placed a real folder here. Hard to check though
+                           if [ -d "${file}" ]
+                           then
+                              state="directory"
+                           else
+                              if [ -f "${file}" ]
+                              then
+                                 state="file"
+                              fi
+                           fi
+                        fi
+
+                        case "${state}" in
+                           broken)
+                              color="${C_RED}"
+                           ;;
+                           missing)
+                              color="${C_RED}"
+                           ;;
+                           symlink)
+                              color="${C_GREEN}"
+                           ;;
+                           directory)
+                              color="${C_BLUE}"
+                           ;;
+                           file)
+                              color="${C_MAGENTA}"
+                           ;;
+                        esac
+                        printf "   %b\n" "${color}${file}${C_RESET}"
+                     done
+                  fi
+                  shopt -u nullglob
+               ;;
+            esac
+
+            case ",${statustypes}," in
+               *,quickstatus,*)
+                  log_verbose "Quick status:"
+
+                  DEPENDENCY_DIR="${DEPENDENCY_DIR:-dependency}"
+                  if [ ! -d "${DEPENDENCY_DIR}" ]
+                  then
+                     log_info "${indent}There is no ${C_RESET_BOLD}${DEPENDENCY_DIR}${C_INFO} directory"
+                  else
+                     state="`mulle-craft -s quickstatus -p`"
+                     case "${state}" in
+                        complete)
+                           log_info "${indent}The dependency directory is ${state}"
+                        ;;
+
+                        *)
+                           log_verbose "${indent}${C_RESET_BOLD}   mulle-sde craft"
+                        ;;
+                     esac
+                  fi
+               ;;
+            esac
+
+            case ",${statustypes}," in
+               *,treestatus,*)
+                  log_verbose "Tree status:"
+
+                  mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check treestatus | sed -e "s/^/${indent}/"
+               ;;
+            esac
          fi
-      fi
+      ;;
+   esac
 
-      DEPENDENCY_DIR="${DEPENDENCY_DIR:-dependency}"
-      if [ ! -d "${DEPENDENCY_DIR}" ]
-      then
-         log_info "There is no ${C_RESET_BOLD}${DEPENDENCY_DIR}${C_INFO} directory"
-      else
-         state="`mulle-craft -s quickstatus -p`"
-         case "${state}" in
-            complete)
-               log_info "The dependency directory is ${state}"
-            ;;
+   case ",${statustypes}," in
+      *,graveyard,*)
+         log_verbose "Graveyard status:"
 
-            *)
-               log_verbose "${C_RESET_BOLD}   mulle-sde craft"
-            ;;
-         esac
-      fi
-   fi
+         graveyard="`mulle-env var-dir sourcetree`/graveyard"
+         if [ -d "${graveyard}" ]
+         then
+            DU="`command -v du`"
+            if [ ! -z "${DU}" ]
+            then
+               size="`${DU} -kh -d0 "${graveyard}" | awk '{ print $1 }'`"
+               log_info "${indent}There is a sourcetree grayeyard of ${size} size here"
+            else
+               log_info "${indent}There is a sourcetree grayeyard here"
+            fi
+            log_verbose "${indent}${C_RESET_BOLD}   mulle-sde clean graveyard"
+         fi
+      ;;
+   esac
 
-   local graveyard
+   case ",${statustypes}," in
+      *,craftstatus,*)
+         log_verbose "Craft status:"
 
-   graveyard="`mulle-env var-dir sourcetree`/graveyard"
-
-   if [ -d  "${graveyard}" ]
-   then
-      DF="`command -v df`"
-      if [ -z "${DF}" ]
-      then
-         size="`df -kh "${graveyard}" | awk '{ print $1 }'`"
-         log_info "There is sourcetree grayeyard of ${size} size here"
-      else
-         log_info "There is sourcetree grayeyard here"
-      fi
-      log_verbose "${C_RESET_BOLD}   mulle-sourcetree clean --all-graveyards"
-   fi
-
-   log_verbose "Treestatus"
-
-   mulle-sde ${MULLE_TECHNICAL_FLAGS} treestatus
-
-   log_verbose "Craftstatus"
-
-   mulle-sde ${MULLE_TECHNICAL_FLAGS} craftstatus
+         mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check craftstatus
+      ;;
+   esac
 
    return $rval
 }

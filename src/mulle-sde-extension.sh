@@ -300,7 +300,7 @@ r_extension_get_vendor_path()
 
    RVAL=""
 
-   IFS=":"; set -o noglob
+   IFS=':'; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}/${vendor}" ]
@@ -329,7 +329,7 @@ r_extension_get_quoted_vendor_dirs()
 
    RVAL=""
 
-   IFS=":"; set -o noglob
+   IFS=':'; set -o noglob
    for i in ${vendorpath}
    do
       r_concat "${RVAL}" "${s}${i}/${vendor}${t}"
@@ -349,7 +349,7 @@ _extension_list_vendors()
    r_extension_get_searchpath
    searchpath="${RVAL}"
 
-   IFS=":"; set -o noglob
+   IFS=':'; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}" ]
@@ -589,7 +589,7 @@ collect_extension_inherits()
          continue
       fi
 
-      echo "${dependency}"
+      printf "%s\n" "${dependency}"
    done <<< "${text}"
 }
 
@@ -657,9 +657,9 @@ emit_extension()
       if [ "${OPTION_VERSION}" = 'YES' ]
       then
          version="`extension_get_version "${extension}"`"
-         echo "${extension}" "${version}"
+         printf "%s\n" "${extension}" "${version}"
       else
-         echo "${extension}"
+         printf "%s\n" "${extension}"
       fi
    done
    IFS="${DEFAULT_IFS}"
@@ -713,12 +713,7 @@ sde_extension_show_main()
    cmd="$1"
    if [ -z "${cmd}" ]
    then
-      if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
-      then
-         cmd="default"
-      else
-         cmd="meta"
-      fi
+      cmd="extra"
    fi
 
    local runtime_extension
@@ -735,7 +730,7 @@ sde_extension_show_main()
    case "${cmd}" in
       vendor|vendors)
          log_info "Available vendors"
-         echo "${all_vendors}"
+         printf "%s\n" "${all_vendors}"
          return
       ;;
    esac
@@ -768,7 +763,7 @@ sde_extension_show_main()
       then
          if ! [ -z "${vendorextensions}" ]
          then
-            echo "${vendorextensions}"
+            printf "%s\n" "${vendorextensions}"
          fi
          continue
       fi
@@ -903,9 +898,9 @@ a mulle-sde project"
          if [ "${OPTION_VERSION}" = 'YES' ]
          then
             version="`LC_ALL=C egrep -v '^#' < "${filename}"`"
-            echo "${vendor}/${extension}" "${version}"
+            printf "%s %s\n" "${vendor}/${extension}" "${version}"
          else
-            echo "${vendor}/${extension}"
+            printf "%s\n" "${vendor}/${extension}"
          fi
       done
       IFS="${DEFAULT_IFS}"
@@ -1296,7 +1291,7 @@ hack_option_and_single_quote_everything()
       first='NO'
    done
 
-   echo "${option}"
+   printf "%s\n" "${option}"
    echo "'${last}'"
 }
 
@@ -1403,14 +1398,14 @@ sde_extension_main()
             log_warning "Could not figure out installed meta extension"
             return 1
          fi
-         echo "${meta}"
+         printf "%s\n" "${meta}"
       ;;
 
       searchpath)
          log_info "Extension searchpath"
 
                r_extension_get_searchpath
-         echo "${RVAL}"
+         printf "%s\n" "${RVAL}"
       ;;
 
       vendorpath)
@@ -1419,7 +1414,7 @@ sde_extension_main()
          log_info "Extension vendor path"
                r_extension_get_vendor_path "$1"
 
-         echo "${RVAL}"
+         printf "%s\n" "${RVAL}"
       ;;
 
       usage)

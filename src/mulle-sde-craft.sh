@@ -42,7 +42,7 @@ Usage:
 
    Build the dependency folder and/or the project according to target. The
    remaining arguments after target are passed to mulle-craft. See
-   \`mulle-craft project|craftorder> help\` for all the options available.
+   \`mulle-craft <project|craftorder> help\` for all the options available.
 
    The dependency folder is crafted in order of \`mulle-sde craftorder\`.
 
@@ -51,6 +51,8 @@ Options:
    -q                      : skip uptodate checks
    --clean                 : clean before crafting (see: mulle-sde clean)
    --clean-domain <domain> : clean specific domain before crafting (s.a)
+   --run                   : attempt to run produced executable
+   --analyze               : run clang analyzer when crafting the project
 
 Targets:
    all                     : build dependency folder, then project (default)
@@ -59,10 +61,12 @@ Targets:
    project                 : build the project
 
 Environment:
-   MULLE_SDE_CRAFT_TARGET        : default craft target (${target})
+   MULLE_SCAN_BUILD              : tool to use for --analyze (mulle-scan-build)
+   MULLE_SCAN_BUILD_DIR          : output directory ($KITCHEN_DIR/analyzer)
    MULLE_CRAFT_MAKE_FLAGS        : flags to be passed to mulle-make (via craft)
    MULLE_SDE_UPDATE_CALLBACKS    : callback called during update
    MULLE_SDE_UPDATE_BEFORE_CRAFT : force update before craft (${MULLE_SDE_UPDATE_BEFORE_CRAFT:-NO})
+   MULLE_SDE_DEFAULT_CRAFT_STYLE : Usually "Release" or "Debug" (Debug)
 EOF
    exit 1
 }
@@ -132,6 +136,10 @@ sde_perform_updates()
                               "${MULLE_TECHNICAL_FLAGS}" \
                               "${MULLE_SOURCETREE_FLAGS}" \
                            "update" || exit 1
+
+         # run this quickly, because incomplete previous fetches trip me
+         # up too often (not doing this since mulle-sde doctor is OK now)
+         # exekutor mulle-sde status --stash-only
       fi
       updateflags='' # db "force" update
    fi
@@ -191,6 +199,8 @@ sde_craft_main()
    local target
    local OPTION_UPDATE='YES'
    local OPTION_MOTD='YES'
+   local OPTION_RUN='NO'
+   local OPTION_ANALYZE='NO'
 
    target="${MULLE_SDE_CRAFT_TARGET}"
    if [ "${PROJECT_TYPE}" = "none" ]
@@ -224,6 +234,17 @@ sde_craft_main()
             OPTION_UPDATE='NO'
          ;;
 
+         --analyze)
+            OPTION_ANALYZE=YES
+         ;;
+
+         --analyze-dir)
+            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SCAN_BUILD_DIR="$1"
+         ;;
+
          --clean)
             [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
@@ -242,6 +263,10 @@ sde_craft_main()
 
          --no-motd)
             OPTION_MOTD='NO'
+         ;;
+
+         --run)
+            OPTION_RUN='YES'
          ;;
 
          -V)
@@ -295,6 +320,7 @@ sde_craft_main()
    local craftorder_cmdline
    local project_cmdline
    local flags
+
    r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
    flags="${RVAL}"
 
@@ -314,6 +340,19 @@ sde_craft_main()
       project_cmdline="${project_cmdline} '--motd'"
    fi
 
+   if [ "${OPTION_ANALYZE}" = 'YES' ]
+   then
+      case "${PROJECT_DIALECT}" in
+         objc)
+            project_cmdline="${MULLE_SCAN_BUILD:-mulle-scan-build} ${MULLE_SCAN_BUILD_OPTIONS} -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' ${project_cmdline}"
+         ;;
+
+         *)
+            project_cmdline="${MULLE_SCAN_BUILD:-scan-build} ${MULLE_SCAN_BUILD_OPTIONS} -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' ${project_cmdline}"
+         ;;
+      esac
+   fi
+
    local arguments
 
    if [ "${MULLE_SDE_ALLOW_BUILD_SCRIPT}" = 'YES' ]
@@ -322,6 +361,8 @@ sde_craft_main()
    fi
 
    local mulle_make_flags
+   local buildstyle
+   local runstyle
    local need_dashdash='YES'
    local i
 
@@ -331,6 +372,12 @@ sde_craft_main()
       then
          need_dashdash='NO'
       fi
+
+      case "$1" in
+         --release|--debug|--test)
+            buildstyle="${1:2}"
+         ;;
+      esac
 
       arguments="${arguments} '$1'"
       shift
@@ -352,6 +399,27 @@ sde_craft_main()
       done
       shopt -u nullglob
    fi
+
+   buildstyle="${buildstyle:-${MULLE_SDE_DEFAULT_CRAFT_STYLE}}"
+   case "${buildstyle}" in
+      [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+         runstyle="Release"
+         arguments=" --release ${arguments}"
+      ;;
+
+      [Dd][Ee][Bb][Uu][Gg])
+         runstyle="Debug"
+         arguments=" --debug ${arguments}"
+      ;;
+
+      [Tt][Ee][Ss][Tt])
+         arguments="--test --library-style dynamic ${arguments}"
+      ;;
+
+      *)
+         runstyle="" # erase unknown buildstyle
+      ;;
+   esac
 
 #   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
@@ -407,6 +475,25 @@ sde_craft_main()
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
             eval_exekutor "${project_cmdline}" project "${arguments}" || return 1
    esac
+
+   log_verbose "Craft was successful"
+   if [ "${OPTION_RUN}" = 'YES' ]
+   then
+      local executable
+
+      #
+      # should ask cmake or someone else for the executable name
+      # should check environment for EXECUTABLE_DEBUG or EXECUTABLE_RELEASE
+      # and so on
+      #
+      executable="${KITCHEN_DIR:-kitchen}/${runstyle:-Debug}/${PROJECT_NAME}"
+      if [ -x "${executable}" ]
+      then
+         exekutor "${executable}"
+      else
+         fail "Can't find executable to run (${executable})"
+      fi
+   fi
 }
 
 
@@ -425,7 +512,7 @@ sde_craftstatus_main()
 
    if [ ! -f "${_craftorderfile}" ]
    then
-      log_info "There is no craftinfo yet. I will be available after the next craft"
+      log_info "There is no craftinfo yet. It will be available after the next craft"
       return 1
    fi
 

@@ -217,6 +217,26 @@ r_projectdialect_seds()
 }
 
 
+r_test_seds()
+{
+#   log_entry "r_test_seds" "$@"
+
+   local o="$1"
+   local c="$2"
+
+   local cmdline
+
+   r_escaped_sed_replacement "${PREFERRED_STARTUP_LIBRARY}"
+   cmdline="-e 's/${o}PREFERRED_STARTUP_LIBRARY${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${PROJECT_GITHUB_NAME}"
+   cmdline="${cmdline} -e 's/${o}PROJECT_GITHUB_NAME${c}/${RVAL}/g'"
+
+   RVAL="${cmdline}"
+}
+
+
 r_author_date_seds()
 {
 #   log_entry "r_author_date_seds" "$@"
@@ -321,6 +341,9 @@ r_template_contents_replacement_command()
    r_author_date_seds "<|" "|>"
    cmdline="${cmdline} ${RVAL}"
 
+   r_test_seds "<|" "|>"
+   cmdline="${cmdline} ${RVAL}"
+
    #
    # get current environment (as maybe already set by an extensions)
    # or by the user
@@ -353,6 +376,7 @@ copy_and_expand_template()
    local onlyfile="$5"
 
    local templatefile
+
    r_filepath_concat "${templatedir}" "${dstfile}"
    templatefile="${RVAL}"
 
@@ -402,7 +426,7 @@ copy_and_expand_template()
 
    log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 
-   template_redirect_exekutor "${expanded_dstfile}" echo "${text}"
+   template_redirect_exekutor "${expanded_dstfile}" printf "%s\n" "${text}"
 
    local permissions
 
@@ -575,7 +599,7 @@ _template_main()
          ;;
 
          --version)
-            echo "${VERSION}"
+            printf "%s\n" "${VERSION}"
             exit 0
          ;;
 
@@ -676,18 +700,18 @@ _template_main()
 
    case "${1:-write}" in
       version)
-         echo "${VERSION}"
+         printf "%s\n" "${VERSION}"
          exit 0
       ;;
 
       csed)
          r_template_contents_replacement_command
-         echo "${RVAL}"
+         printf "%s\n" "${RVAL}"
       ;;
 
       fsed)
          r_template_filename_replacement_command
-         echo "${RVAL}"
+         printf "%s\n" "${RVAL}"
       ;;
 
       write)

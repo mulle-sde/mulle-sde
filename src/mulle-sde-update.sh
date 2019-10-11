@@ -151,7 +151,7 @@ _sde_update_task()
 
    if [ ! -z "${statusfile}" -a $rval -ne 0 ]
    then
-      redirect_append_exekutor "${statusfile}" echo "${name};$rval"
+      redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
    fi
 
    if [ ! -z "${task}" ]
@@ -161,7 +161,7 @@ _sde_update_task()
 
       if [ ! -z "${statusfile}" -a $rval -ne 0 ]
       then
-         redirect_append_exekutor "${statusfile}" echo "${name};$rval"
+         redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
       fi
    fi
 
@@ -272,7 +272,7 @@ sde_update_worker()
       flags="${flags} -f"
    fi
 
-   if ! sde_subproject_map 'Updating' 'NO' 'YES' "mulle-sde ${flags} update ${options} $*"
+   if ! sde_subproject_map 'Updating' "parallel" "mulle-sde ${flags} update ${options} $*"
    then
       return 1
    fi
