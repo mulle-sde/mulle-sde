@@ -300,7 +300,7 @@ r_extension_get_vendor_path()
 
    RVAL=""
 
-   IFS=":"; set -o noglob
+   IFS=':'; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}/${vendor}" ]
@@ -329,7 +329,7 @@ r_extension_get_quoted_vendor_dirs()
 
    RVAL=""
 
-   IFS=":"; set -o noglob
+   IFS=':'; set -o noglob
    for i in ${vendorpath}
    do
       r_concat "${RVAL}" "${s}${i}/${vendor}${t}"
@@ -349,7 +349,7 @@ _extension_list_vendors()
    r_extension_get_searchpath
    searchpath="${RVAL}"
 
-   IFS=":"; set -o noglob
+   IFS=':'; set -o noglob
    for i in ${searchpath}
    do
       if [ -d "${i}" ]

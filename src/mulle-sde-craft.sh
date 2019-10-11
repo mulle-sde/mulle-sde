@@ -42,7 +42,7 @@ Usage:
 
    Build the dependency folder and/or the project according to target. The
    remaining arguments after target are passed to mulle-craft. See
-   \`mulle-craft project|craftorder> help\` for all the options available.
+   \`mulle-craft <project|craftorder> help\` for all the options available.
 
    The dependency folder is crafted in order of \`mulle-sde craftorder\`.
 
@@ -62,10 +62,11 @@ Targets:
 
 Environment:
    MULLE_SCAN_BUILD              : tool to use for --analyze (mulle-scan-build)
-   MULLE_SCAN_BUILD_DIR          : output directory ($KITCHEN_DIR/analyzer)        : default craft target (${target})
+   MULLE_SCAN_BUILD_DIR          : output directory ($KITCHEN_DIR/analyzer)
    MULLE_CRAFT_MAKE_FLAGS        : flags to be passed to mulle-make (via craft)
    MULLE_SDE_UPDATE_CALLBACKS    : callback called during update
    MULLE_SDE_UPDATE_BEFORE_CRAFT : force update before craft (${MULLE_SDE_UPDATE_BEFORE_CRAFT:-NO})
+   MULLE_SDE_DEFAULT_CRAFT_STYLE : Usually "Release" or "Debug" (Debug)
 EOF
    exit 1
 }

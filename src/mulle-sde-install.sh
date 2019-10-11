@@ -62,8 +62,7 @@ https://github.com/MulleFoundation/Foundation/archive/latest.zip
       Grab local project. Place all dependency projects into \`/tmp/foo\`
       preferring local projects. Build in \`/tmp/foo\`.
       Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`.
-
-      Set MULLE_FETCH_SEARCH_PATH so that local projects are found.
+      Set MULLE_FETCH_SEARCH_PATH so that local dependencies can be found.
 
 Options:
    -k <dir>          : kitchen directory (\$PWD/kitchen)
@@ -74,7 +73,7 @@ Options:
    --standalone      : create a whole-archive shared library if supported
 
 Environment:
-   MULLE_FETCH_SEARCH_PATH : specify places to search local projects
+   MULLE_FETCH_SEARCH_PATH : specify places to search local dependencies.
 
 EOF
   exit 1
@@ -109,7 +108,8 @@ install_in_tmp()
    local marks="$3"
    local configuration="$4"
    local serial="$5"
-   local arguments="$6"
+   local symlink="$6"
+   local arguments="$7"
 
    exekutor mkdir -p "${directory}" 2> /dev/null
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
@@ -131,6 +131,12 @@ Use -f flag to clobber."
       r_simplified_absolutepath "${url}" "${MULLE_EXECUTABLE_PWD}"
       if [ -d "${RVAL}" ]
       then
+         #
+         # here we are building a local repository, so we'd prefer to
+         # also use loal repositories
+         #
+         log_verbose "Build local repositories (with symlinks if possible)"
+
          url="https://localhost${RVAL}"
          r_fast_dirname "${RVAL}"
 
@@ -147,6 +153,8 @@ Use -f flag to clobber."
                                             -N ${MULLE_TECHNICAL_FLAGS}  \
                                             update --symlink || return 1
       else
+         log_verbose "Build remote repositories"
+
          exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
                                    -N ${MULLE_TECHNICAL_FLAGS} \
                                    add \
@@ -342,6 +350,7 @@ sde_install_main()
                   "${OPTION_MARKS}" \
                   "${OPTION_CONFIGURATION}" \
                   "${OPTION_SERIAL}" \
+                  "${OPTION_SYMLINK}" \
                   "${arguments}"
    rval=$?
 

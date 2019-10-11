@@ -105,6 +105,7 @@ Options:
    --github <name> : create an URL for a - possibly fictitious - github name
    --headerless    : has no headerfile
    --headeronly    : has no library
+   --no-fetch      : do not attempt to find a matching craftinfo on github
    --if-missing    : if a node with the same address is present, do nothing
    --multiphase    : the dependency can be crafted in three phases (default)
    --objc          : used for Objective-C dependencies
@@ -584,6 +585,7 @@ sde_dependency_add_main()
    local OPTION_SINGLEPHASE='NO' # more common default for me :)
    local OPTION_FAKE_GITHUB
    local OPTION_CLEAN='NO'
+   local OPTION_FETCH='YES'
 
    #
    # grab options for mulle-sourcetree
@@ -688,7 +690,11 @@ sde_dependency_add_main()
             nodetype="$1"
          ;;
 
-        --objc|-m)
+         --no-fetch)
+            OPTION_FETCH='NO'
+         ;;
+
+         --objc|-m)
             OPTION_DIALECT='objc'
          ;;
 
@@ -730,12 +736,11 @@ sde_dependency_add_main()
 
    local url="$1"
 
-   local originalurl
-
    [ -z "${url}" ] && sde_dependency_add_usage "URL argument is missing ($*)"
    shift
-
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
+
+   local originalurl
 
    originalurl="${url}"
 
@@ -837,10 +842,37 @@ sde_dependency_add_main()
    fi
 
    log_verbose "URL: ${url}"
-   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
-                     "${MULLE_TECHNICAL_FLAGS}"\
-                     "${MULLE_SOURCETREE_FLAGS}" \
+   if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+                      "${MULLE_TECHNICAL_FLAGS}"\
+                      "${MULLE_SOURCETREE_FLAGS}" \
                         add "${options}" "'${url}'"
+   then
+      return 1
+   fi
+
+   if [ "${OPTION_FETCH}" = 'NO' ]
+   then
+      return 0
+   fi
+
+   local dependency
+
+   dependency="${address:-${originalurl}}"
+   if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
+   then
+      return 0
+   fi
+
+   if ! sde_dependency_craftinfo_create_main "DEFAULT" "${dependency}"
+   then
+      return 1
+   fi
+
+   if ! sde_dependency_craftinfo_fetch_main "DEFAULT" --clobber "${dependency}"
+   then
+      return 1
+   fi
+
 }
 
 
@@ -927,6 +959,10 @@ sde_dependency_main()
 
    [ $# -ne 0 ] && shift
 
+   # shellcheck source=src/mulle-sde-common.sh
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+
    case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-common.sh
@@ -952,10 +988,6 @@ unmark"
       ;;
 
       craftinfo)
-         # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
-
          sde_dependency_craftinfo_main "$@"
          return $?
       ;;

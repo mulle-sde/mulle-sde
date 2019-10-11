@@ -2956,7 +2956,7 @@ _sde_init_main()
 
    log_fluff "Unprotect ${MULLE_SDE_PROTECT_PATH}"
 
-   IFS=":"
+   IFS=':'
    for i in ${MULLE_SDE_PROTECT_PATH}
    do
       IFS="${DEFAULT_IFS}"
@@ -2985,7 +2985,7 @@ _sde_init_main()
 
    log_fluff "Protect ${MULLE_SDE_PROTECT_PATH}"
 
-   IFS=":"
+   IFS=':'
    for i in ${MULLE_SDE_PROTECT_PATH}
    do
       IFS="${DEFAULT_IFS}"

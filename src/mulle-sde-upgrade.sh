@@ -135,7 +135,7 @@ sde_upgrade_test()
                            environment \
                               get MULLE_SDE_TEST_PATH`"
 
-   IFS=":"
+   IFS=':'
    for i in ${MULLE_SDE_TEST_PATH:-test}
    do
       IFS="${DEFAULT_IFS}"

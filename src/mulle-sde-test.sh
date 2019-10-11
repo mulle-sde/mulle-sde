@@ -168,7 +168,7 @@ sde_test_generate()
 
    local rval
 
-   IFS=":"
+   IFS=':'
    for directory in ${MULLE_SDE_TEST_PATH}
    do
       IFS="${DEFAULT_IFS}"
