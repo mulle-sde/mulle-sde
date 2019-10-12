@@ -2954,9 +2954,9 @@ _sde_init_main()
    fi
 
 
-   eval `mulle-env mulle-tool-env sde`
+   eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
 
-   MULLE_SDE_PROTECT_PATH="`mulle-env environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
+   MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
 
    #
    # unprotect known share directories during installation

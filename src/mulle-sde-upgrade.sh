@@ -207,7 +207,11 @@ sde_upgrade_main()
          MULLE_VIRTUAL_ROOT="`pwd -P`"
          export MULLE_VIRTUAL_ROOT
 
-         MULLE_SDE_VAR_DIR="`mulle-env var-dir sde`/sde"
+         eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
+         # not sure about next two, but its the proper transformation
+         # of previous code
+         unset MULLE_SDE_ETC_DIR
+         unset MULLE_SDE_SHARE_DIR
 
          sde_upgrade_subprojects "${OPTION_PARALLEL}"
       ) || exit 1

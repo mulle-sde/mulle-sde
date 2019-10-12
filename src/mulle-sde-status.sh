@@ -320,7 +320,8 @@ sde_status_main()
       *,graveyard,*)
          log_verbose "Graveyard status:"
 
-         graveyard="`mulle-env var-dir sourcetree`/graveyard"
+         eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sourcetree` || exit 1
+         graveyard="${MULLE_SOURCETREE_VAR_DIR}/graveyard"
          if [ -d "${graveyard}" ]
          then
             DU="`command -v du`"
