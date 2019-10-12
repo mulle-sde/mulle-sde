@@ -225,7 +225,6 @@ r_extension_get_installdir()
 # installed
 #
 
-
 r_extension_get_searchpath()
 {
    log_entry "r_extension_get_searchpath" "$@"

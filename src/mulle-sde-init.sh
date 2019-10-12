@@ -83,8 +83,15 @@ EOF
          printf "%s\n" "${HIDDEN_OPTIONS}"
       fi
    ) | LC_ALL=C sort
+   echo "      (\`${MULLE_USAGE_NAME} -v init help\` for more options)" >&2
 
-   echo "      (\`${MULLE_USAGE_NAME} -v init help\` for more options)"
+   cat <<EOF >&2
+Usage:
+Environment:
+   MULLE_SDE_EXTENSION_PATH      : Overrides searchpath for extensions
+   MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath for extensions
+EOF
+
    exit 1
 }
 
@@ -570,7 +577,8 @@ read_template_expanded_file()
 
    local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
 
-   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="`tr '[a-z]' '[A-Z]' <<< "${PREFERRED_STARTUP_LIBRARY}"`"
+   r_uppercase "${PREFERRED_STARTUP_LIBRARY}"
+   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${RVAL}"
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER//-/_}"
 
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
@@ -1114,8 +1122,14 @@ _install_extension()
 
    if ! r_find_get_quoted_searchpath "${vendor}"
    then
-      fail "Could not find any installed extensions of vendor \"${vendor}\"!!"
+      r_extension_get_searchpath      
+      searchpath="${RVAL}"
+      
+      fail "Could not find any extensions of vendor \"${vendor}\" (${searchpath})!
+${C_INFO}Show available extensions with:
+   ${C_RESET}${C_BOLD}mulle-sde extension show all"
    fi
+
    searchpath="${RVAL}"
 
    if ! r_find_extension_in_searchpath "${vendor}" "${extname}" "${searchpath}"
