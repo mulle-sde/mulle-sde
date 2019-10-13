@@ -381,7 +381,7 @@ r_linkorder_collect()
 
    local name
 
-   r_fast_basename "${address}"
+   r_basename "${address}"
    name="${RVAL}"
 
    local librarytype

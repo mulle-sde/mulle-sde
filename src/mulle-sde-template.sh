@@ -411,7 +411,7 @@ copy_and_expand_template()
       esac
    fi
 
-   r_fast_dirname "${expanded_dstfile}"
+   r_dirname "${expanded_dstfile}"
    mkdir_if_missing "${RVAL}"
 
    if [ -f "${expanded_dstfile}" ]
@@ -693,7 +693,7 @@ _template_main()
 
    if [ -z "${TEMPLATE_DIR}" ]
    then
-      r_fast_dirname "$0"
+      r_dirname "$0"
       r_absolutepath "${RVAL}/project"
       TEMPLATE_DIR="${RVAL}"
    fi

@@ -54,7 +54,7 @@ load_plugin_if_needed()
    plugin="$(eval echo "\${${varname}}" )"
    if [ -z "${plugin}" ]
    then
-      r_fast_dirname="$0"
+      r_dirname="$0"
       libexedir="${RVAL}/../libexec"
       plugin="${libexedir}/${filename}"
       if [ ! -f "${plugin}" ]

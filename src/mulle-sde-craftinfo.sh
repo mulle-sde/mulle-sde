@@ -292,7 +292,7 @@ clobber possibly existing .mulle/etc/craft definitions"
    do
       if [ -d "${i}" ]
       then
-         r_fast_basename "${i}"
+         r_basename "${i}"
          dstname="${RVAL:1}"
 
          exekutor cp -Ra "${i}" \
@@ -346,7 +346,7 @@ sde_add_craftinfo_subproject_if_needed()
 
          #
          # Tricky: we are in a subshell. We don't have the environment variables
-         #         for setting stuff up. 
+         #         for setting stuff up.
          #         Grab them from the outside via mudo -e
          #
          MULLE_SDE_EXTENSION_BASE_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_BASE_PATH"'`"
@@ -429,7 +429,7 @@ __sde_craftinfo_vars_with_url_or_address()
       ;;
    esac
 
-   r_fast_basename "${_address}"
+   r_basename "${_address}"
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}"
    _folder="${_subprojectdir}/definition${extension}"

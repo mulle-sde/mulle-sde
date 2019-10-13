@@ -89,7 +89,7 @@ EOF
    fi
    cat <<EOF >&2
 Domains:
-   all         : clean craftorder, project. Remove folder "`fast_basename "${DEPENDENCY_DIR}"`"
+   all         : clean craftorder, project. Remove folder "`basename -- "${DEPENDENCY_DIR}"`"
    archive     : clean the archive cache
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
@@ -199,7 +199,7 @@ sde_clean_subproject_main()
    set -o noglob; IFS=$'\n'
    for subproject in ${subprojects}
    do
-      r_fast_basename "${subproject}"
+      r_basename "${subproject}"
       name="${RVAL}"
 
       set +o noglob; IFS="${DEFAULT_IFS}"

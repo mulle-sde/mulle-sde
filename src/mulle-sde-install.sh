@@ -138,7 +138,7 @@ Use -f flag to clobber."
          log_verbose "Build local repositories (with symlinks if possible)"
 
          url="https://localhost${RVAL}"
-         r_fast_dirname "${RVAL}"
+         r_dirname "${RVAL}"
 
          r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
          MULLE_FETCH_SEARCH_PATH="${RVAL}"

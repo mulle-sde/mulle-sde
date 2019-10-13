@@ -130,7 +130,7 @@ _copy_extension_dir()
 
    local name
 
-   r_fast_basename "${directory}"
+   r_basename "${directory}"
    name="${RVAL}"
 
    local destination
@@ -517,16 +517,16 @@ r_sde_test_githubname()
 
    # clumsy fix if called from test directory
    directory="${PWD}"
-   r_fast_basename "${directory}"
+   r_basename "${directory}"
    case "${RVAL}" in
       test*)
-         r_fast_dirname "${directory}"
+         r_dirname "${directory}"
          directory="${RVAL}"
       ;;
    esac
 
-   r_fast_dirname "${directory}"
-   r_fast_basename "${RVAL}"
+   r_dirname "${directory}"
+   r_basename "${RVAL}"
    name="${RVAL}"
 
    # github don't like underscores, so we adapt here
@@ -1021,17 +1021,17 @@ _delete_leaf_files_or_directories()
 
       if [ ! -d "${relpath}" ]
       then
-         r_fast_basename "${relpath}"
+         r_basename "${relpath}"
          if [ "${RVAL}" != ".gitignore" ]
          then
             log_warning "Not deleting files at present (${relpath})"
             continue
          fi
-         r_fast_dirname "${relpath}"
+         r_dirname "${relpath}"
          relpath="${RVAL}"
       fi
 
-      r_fast_basename "${relpath}"
+      r_basename "${relpath}"
       if [ "${RVAL}" != "share" ]
       then
          log_warning "Only deleting folders called \"share\" at present (${relpath})"
@@ -1122,9 +1122,9 @@ _install_extension()
 
    if ! r_find_get_quoted_searchpath "${vendor}"
    then
-      r_extension_get_searchpath      
+      r_extension_get_searchpath
       searchpath="${RVAL}"
-      
+
       fail "Could not find any extensions of vendor \"${vendor}\" (${searchpath})!
 ${C_INFO}Show available extensions with:
    ${C_RESET}${C_BOLD}mulle-sde extension show all"
@@ -1909,7 +1909,7 @@ install_project()
    PROJECT_NAME="${projectname}"
    if [ -z "${PROJECT_NAME}" ]
    then
-      r_fast_basename "${PWD}"
+      r_basename "${PWD}"
       PROJECT_NAME="${RVAL}"
    fi
 
@@ -2118,7 +2118,7 @@ __sde_init_add()
 }
 
 
-mset_quoted_env_line()
+r_mset_quoted_env_line()
 {
    local line="$1"
 
@@ -2130,11 +2130,11 @@ mset_quoted_env_line()
 
    case "${value}" in
       \"*\")
-         printf "%s\n" "${line}"
+         RVAL="${line}"
       ;;
 
       *)
-         printf "%s\n" "${key}=\"${value}\""
+         RVAL="${key}=\"${value}\""
       ;;
    esac
 }
@@ -2687,16 +2687,18 @@ _sde_init_main()
          ;;
 
          -D?*)
-            line="`mset_quoted_env_line "${1:2}"`"
-            OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'${line}'" `"
+            r_mset_quoted_env_line "${1:2}"
+            r_concat "${OPTION_DEFINES}" "'${RVAL}'"
+            OPTION_DEFINES="${RVAL}"
          ;;
 
          -D)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            line="`mset_quoted_env_line "$1"`"
-            OPTION_DEFINES="`concat "${OPTION_DEFINES}" "'${line}'" `"
+            r_mset_quoted_env_line "$1"
+            r_concat "${OPTION_DEFINES}" "'${RVAL}'"
+            OPTION_DEFINES="${RVAL}"
          ;;
 
          -a|--add)

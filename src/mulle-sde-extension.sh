@@ -179,8 +179,8 @@ r_extension_get_installdir()
 
    local prefix
 
-   r_fast_dirname "$0"
-   r_fast_dirname "${RVAL}"
+   r_dirname "$0"
+   r_dirname "${RVAL}"
    prefix="${RVAL}"
 
    # are we a symlink ?
@@ -497,7 +497,7 @@ r_extensionnames_from_vendorextensions()
       if [ -z "${extensiontype}" -o "${foundtype}" = "${extensiontype}" ]
       then
          directory="${line%%;*}"
-         r_fast_basename "${directory}"
+         r_basename "${directory}"
          r_add_line "${result}" "${vendor}/${RVAL}"
          result="${RVAL}"
       fi
@@ -565,7 +565,7 @@ collect_extension_projecttypes()
       do
          if [ -d "$i" ]
          then
-            fast_basename "$i"
+            basename -- "$i"
          fi
       done
    )
@@ -895,11 +895,11 @@ a mulle-sde project"
 
          log_verbose "Found ${C_RESET_BOLD}${filename}"
 
-         r_fast_basename "${filename}"
+         r_basename "${filename}"
          extension="${RVAL}"
-         r_fast_dirname "${filename}"
+         r_dirname "${filename}"
          vendor="${RVAL}"
-         r_fast_basename "${vendor}"
+         r_basename "${vendor}"
          vendor="${RVAL}"
 
          if [ "${OPTION_VERSION}" = 'YES' ]

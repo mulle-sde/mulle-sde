@@ -257,7 +257,7 @@ r_determine_project_dir()
          . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
       fi
 
-      r_fast_dirname "${current}"
+      r_dirname "${current}"
       current="${RVAL}"
    done
    return 1
@@ -1212,11 +1212,8 @@ _init()
    . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" || \
       fail "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
 
-   local _libexec_dir
-
-   _get_libexec_dir "$0" "mulle-sde" "mulle-sde-craft.sh"
-
-   MULLE_SDE_LIBEXEC_DIR="${_libexec_dir}"
+   r_get_libexec_dir "$0" "mulle-sde" "mulle-sde-craft.sh"
+   MULLE_SDE_LIBEXEC_DIR="${RVAL}"
 
    #
    # minimal setup exit

@@ -142,7 +142,7 @@ sde_status_main()
             log_verbose "${indent}The project directory is ${projectdir}"
          fi
 
-         r_fast_dirname "${projectdir}"
+         r_dirname "${projectdir}"
          if r_determine_project_dir "${RVAL}"
          then
             parentdir="${RVAL}"

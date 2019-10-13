@@ -465,7 +465,7 @@ _sde_enhance_url()
             fail "Specify --address with this kind of URL"
          fi
 
-         r_fast_basename "${url}"
+         r_basename "${url}"
          address="${RVAL}"
 
          url="file://${url}"
