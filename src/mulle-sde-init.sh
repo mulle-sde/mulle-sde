@@ -1639,16 +1639,19 @@ recall_installed_extensions()
       fail "egrep not in PATH: ${PATH}"
    fi
 
-   #
-   # also read old format
-   # use mulle-env so we can get at it from the outside
-   #
    if _check_file "${OPTION_EXTENSION_FILE}"
    then
       exekutor "${EGREP}" -v '^#' < "${OPTION_EXTENSION_FILE}"
       return $?
    fi
 
+
+   log_debug "Checking MULLE_SDE_INSTALLED_EXTENSIONS environment variable"
+
+   #
+   # also read old format
+   # use mulle-env so we can get at it from the outside
+   #
    local value
 
    value="${MULLE_SDE_INSTALLED_EXTENSIONS}"

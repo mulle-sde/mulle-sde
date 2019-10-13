@@ -335,7 +335,7 @@ sde_add_craftinfo_subproject_if_needed()
       (
          local ptype
 
-         # shellcheck source=src/mulle-sde-common.sh
+         # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
          ptype="${PROJECT_TYPE}"
@@ -344,9 +344,17 @@ sde_add_craftinfo_subproject_if_needed()
             ptype='unknown'
          fi
 
-         sde_extension_main pimp --project-type "${ptype}" \
-                                 --oneshot-name "${name}" \
-                                 mulle-sde/craftinfo
+         #
+         # Tricky: we are in a subshell. We don't have the environment variables
+         #         for setting stuff up. 
+         #         Grab them from the outside via mudo -e
+         #
+         MULLE_SDE_EXTENSION_BASE_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_BASE_PATH"'`"
+         MULLE_SDE_EXTENSION_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_PATH"'`"
+
+         exekutor sde_extension_main pimp --project-type "${ptype}" \
+                                          --oneshot-name "${name}" \
+                                          mulle-sde/craftinfo
       ) || return 1
       [ -d "${subprojectdir}" ] || \
          internal_fail "did not produce \"${subprojectdir}\""

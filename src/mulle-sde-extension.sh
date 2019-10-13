@@ -229,6 +229,12 @@ r_extension_get_searchpath()
 {
    log_entry "r_extension_get_searchpath" "$@"
 
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+   then
+      log_trace2 "MULLE_SDE_EXTENSION_PATH=\"${MULLE_SDE_EXTENSION_PATH}\""
+      log_trace2 "MULLE_SDE_EXTENSION_BASE_PATH=\"${MULLE_SDE_EXTENSION_BASE_PATH}\""
+   fi
+
    #
    # allow environment to add more extensions, mostly useful for development
    # where you don't really want to reinstall extensions with every little
@@ -264,14 +270,14 @@ r_extension_get_searchpath()
    s="${RVAL}"
 
    case "${MULLE_UNAME}" in
-      linux|freebsd)
+      linux|freebsd|windows)
          r_colon_concat "${s}" "/usr/share/mulle-sde/extensions"
          s="${RVAL}"
       ;;
    esac
 
    case "${MULLE_UNAME}" in
-      darwin|linux|freebsd)
+      darwin|linux|freebsd|windows)
          r_colon_concat "${s}" "/usr/local/share/mulle-sde/extensions"
          s="${RVAL}"
       ;;
@@ -706,6 +712,8 @@ sde_extension_show_main()
 
       shift
    done
+
+   [ "$#" -gt 1 ] || sde_extension_show_usage "Superflous arguments \"$*\""
 
    local cmd
 
@@ -1403,7 +1411,7 @@ sde_extension_main()
       searchpath)
          log_info "Extension searchpath"
 
-               r_extension_get_searchpath
+         r_extension_get_searchpath
          printf "%s\n" "${RVAL}"
       ;;
 

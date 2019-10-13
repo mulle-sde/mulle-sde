@@ -555,6 +555,7 @@ main()
 --force
 --git-terminal-prompt
 --no-search
+--no-test-check
 --style
 --version"
                options_technical_flags --list-technical-flags
@@ -669,7 +670,7 @@ stash-dir|test|upgrade)
    # be read only and we keep the bookkeeping somewhere on the outside
    #
 
-   eval `mulle-env mulle-tool-env sde`
+   eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
