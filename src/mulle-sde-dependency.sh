@@ -286,12 +286,10 @@ sde_dependency_set_main()
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                        ${MULLE_TECHNICAL_FLAGS} \
-                       ${MULLE_SOURCETREE_FLAGS} \
                    "${cmd}" "${address}" "all-load" &&
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                        ${MULLE_TECHNICAL_FLAGS} \
-                       ${MULLE_SOURCETREE_FLAGS} \
                    "${cmd}" "${address}" "import"
       return $?
    fi
@@ -316,7 +314,6 @@ sde_dependency_set_main()
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                           ${MULLE_TECHNICAL_FLAGS} \
-                          ${MULLE_SOURCETREE_FLAGS} \
                       set "${address}" "${field}" "${value}"
       ;;
    esac
@@ -408,25 +405,29 @@ sde_dependency_list_main()
    if [ "${OPTION_OUTPUT_COMMAND}" = 'YES' ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
-            --marks "${DEPENDENCY_LIST_MARKS}" \
-            --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
-            --output-eval \
-            --output-format cmd2 \
-            --output-no-url \
-            --output-no-column \
-            --output-no-header \
-            --output-no-marks "${DEPENDENCY_MARKS}" \
-            --output-cmdline "${MULLE_USAGE_NAME} dependency add" \
-            "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
+               ${MULLE_TECHNICAL_FLAGS} \
+            list \
+               --marks "${DEPENDENCY_LIST_MARKS}" \
+               --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
+               --output-eval \
+               --output-format cmd2 \
+               --output-no-url \
+               --output-no-column \
+               --output-no-header \
+               --output-no-marks "${DEPENDENCY_MARKS}" \
+               --output-cmdline "${MULLE_USAGE_NAME} dependency add" \
+               "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} list \
-            --format "${formatstring}\\n" \
-            --marks "${DEPENDENCY_LIST_MARKS}" \
-            --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
-            --output-no-marks "${DEPENDENCY_MARKS}" \
-            "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
+               ${MULLE_TECHNICAL_FLAGS} \
+            list \
+               --format "${formatstring}\\n" \
+               --marks "${DEPENDENCY_LIST_MARKS}" \
+               --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
+               --output-no-marks "${DEPENDENCY_MARKS}" \
+               "$@"
    fi
 }
 
@@ -837,14 +838,12 @@ sde_dependency_add_main()
    then
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
                      "${MULLE_TECHNICAL_FLAGS}"\
-                     "${MULLE_SOURCETREE_FLAGS}" \
                   clean --config
    fi
 
    log_verbose "URL: ${url}"
    if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
                       "${MULLE_TECHNICAL_FLAGS}"\
-                      "${MULLE_SOURCETREE_FLAGS}" \
                         add "${options}" "'${url}'"
    then
       return 1
@@ -1018,7 +1017,6 @@ os-excludes"
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
                         "${cmd}" \
                            --if-present \
                            "craftinfo/$1"
@@ -1027,7 +1025,6 @@ os-excludes"
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
                         "${cmd}" \
                            "$@"
       ;;
@@ -1037,7 +1034,6 @@ os-excludes"
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
                         "${cmd}" \
                            "$@"
       ;;

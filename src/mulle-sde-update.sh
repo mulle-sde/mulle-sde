@@ -50,9 +50,10 @@ Usage:
       sourcetree : reflect library and dependency changes into makefiles and
                    header files
 Options:
-   --if-needed   : check before update, if it seems unneccessary
    --craft       : craft after update
+   --if-needed   : check before update, if it seems unneccessary
    --no-recurse  : do not recurse into subprojects
+   --serial      : don't update subprojects in parallel
 
 Environment:
    MULLE_SDE_UPDATE_CALLBACKS   : default callbacks used for update
@@ -73,7 +74,6 @@ _callback_run()
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_MONITOR_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
-                                                 ${MULLE_MONITOR_FLAGS} \
                      callback run "${callback}"
 }
 
@@ -87,9 +87,7 @@ _task_run()
    [ -z "${task}" ] && internal_fail "task is empty"
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-   MULLE_MONITOR_TASK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
-                                                 ${MULLE_MONITOR_FLAGS} \
                   task run "${task}"
 }
 
@@ -100,7 +98,6 @@ _task_status()
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
-                                                 ${MULLE_MONITOR_FLAGS} \
                    task status "${task}"
 }
 
@@ -149,9 +146,14 @@ _sde_update_task()
    task="`_callback_run "${name}"`"
    rval=$?
 
-   if [ ! -z "${statusfile}" -a $rval -ne 0 ]
+   if [ $rval -ne 0 ]
    then
-      redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
+      log_fluff "Callback \"${name}\" returned error: $rval"
+      if [ ! -z "${statusfile}" ]
+      then
+         redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
+      fi
+      return $rval
    fi
 
    if [ ! -z "${task}" ]
@@ -159,9 +161,14 @@ _sde_update_task()
       "${runner}" "${task}"
       rval=$?
 
-      if [ ! -z "${statusfile}" -a $rval -ne 0 ]
+      if [ $rval -ne 0 ]
       then
-         redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
+         log_fluff "Task \"${task}\" returned error: $rval"
+         if [ ! -z "${statusfile}" ]
+         then
+            redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
+         fi
+         return $rval
       fi
    fi
 
@@ -174,7 +181,7 @@ _sde_update_main()
    log_entry "_sde_update_main" "$@"
 
    local runner="$1" ; shift
-
+   local parallel="$1" ; shift
    local task
    local name
 
@@ -186,51 +193,51 @@ _sde_update_main()
 
    local statusfile
 
-   _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}"
-   statusfile="${RVAL}"
-
-   for name in "$@"
-   do
-      if [ ! -z "${name}" ]
+   (
+      if [ "${parallel}" = 'YES' ]
       then
-         _sde_update_task "${runner}" "${name}" "${statusfile}"  &
+         _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "up-main"
+         statusfile="${RVAL}"
       fi
-   done
 
-   wait
+      for name in "$@"
+      do
+         if [ ! -z "${name}" ]
+         then
+            if [ "${parallel}" = 'YES' ]
+            then
+               _sde_update_task "${runner}" "${name}" "${statusfile}"  &
+            else
+               _sde_update_task "${runner}" "${name}" || exit $?
+            fi
+         fi
+      done
 
-   local rval
-   local errors
+      if [ "${parallel}" = 'YES' ]
+      then
+         wait
 
+         local errors
 
-   rval=0
-   errors="`cat "${statusfile}"`"
-   if [ ! -z "${errors}" ]
-   then
-      log_error "A project errored out: `cat "${statusfile}"` "
-      rval=1
-   fi
+         errors="`cat "${statusfile}"`" || exit 1
+         # remove_file_if_present "${statusfile}"
 
-   remove_file_if_present "${statusfile}"
-
-   return $rval
+         if [ ! -z "${errors}" ]
+         then
+            log_error "A project errored out: `cat "${statusfile}"` "
+            exit 1
+         fi
+      fi
+   )
 }
 
 
-sde_update_worker()
+_sde_update_subprojects()
 {
-   log_entry "sde_update_worker" "$@"
+   log_entry "_sde_update_subprojects" "$@"
 
    local runner="$1" ; shift
-   local recurse="$1" ; shift
-
-   log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
-
-   if [ "${recurse}" = 'NO' ]
-   then
-      _sde_update_main "${runner}" "$@"
-      return $?
-   fi
+   local parallel="$1" ; shift
 
    #
    # update source of mulle-sde subprojects only
@@ -244,19 +251,6 @@ sde_update_worker()
 #      ;;
 #   esac
 
-   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
-   fi
-
    local options
 
    if [ "${runner}" = "_task_run_if_needed" ]
@@ -266,19 +260,43 @@ sde_update_worker()
 
    local flags
 
-   flags="${MULLE_SDE_FLAGS} ${MULLE_TECHNICAL_FLAGS}"
+   flags="${MULLE_TECHNICAL_FLAGS}"
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
       flags="${flags} -f"
    fi
 
-   if ! sde_subproject_map 'Updating' "parallel" "mulle-sde ${flags} update ${options} $*"
+   local mode
+
+   mode=""
+   if [ "${parallel}" = 'YES' ]
    then
-      return 1
+      mode="parallel"
    fi
 
-   _sde_update_main "${runner}" "$@"
-   return $?
+   sde_subproject_map 'Updating' "${mode}" "mulle-sde ${flags} update ${options} $*"
+}
+
+
+sde_update_worker()
+{
+   log_entry "sde_update_worker" "$@"
+
+   local runner="$1" ; shift
+   local recurse="$1" ; shift
+   local parallel="$1" ; shift
+
+   log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
+
+   if [ "${recurse}" = 'YES' ]
+   then
+      if ! _sde_update_subprojects "${runner}" "${parallel}" "$@"
+      then
+         return 1
+      fi
+   fi
+
+   _sde_update_main "${runner}" "${parallel}" "$@"
 }
 
 
@@ -287,6 +305,7 @@ sde_update_main()
    log_entry "sde_update_main" "$@"
 
    local OPTION_RECURSE='YES'
+   local OPTION_PARALLEL='YES'
 
    local runner
 
@@ -309,6 +328,10 @@ sde_update_main()
             OPTION_RECURSE='NO'
          ;;
 
+         --no-parallel|--serial)
+            OPTION_PARALLEL='NO'
+         ;;
+
          -*)
             sde_update_usage "Unknown option \"$1\""
          ;;
@@ -328,13 +351,26 @@ sde_update_main()
 
    set_projectname_environment
 
+   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+   fi
+
    # gratuitous optimization ?
    export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
    export MULLE_SDE_LIBEXEC_DIR
 
    if [ $# -ne 0 ]
    then
-      sde_update_worker "${runner}" "${OPTION_RECURSE}" "$@"
+      sde_update_worker "${runner}" "${OPTION_RECURSE}" "${OPTION_PARALLEL}" "$@"
       return $?
    fi
 
@@ -347,5 +383,5 @@ sde_update_main()
       return 0
    fi
 
-   eval sde_update_worker "'${runner}'" "'${OPTION_RECURSE}'" "${tasks}"
+   eval sde_update_worker "'${runner}'" "'${OPTION_RECURSE}'" "'${OPTION_PARALLEL}'" "${tasks}"
 }

@@ -78,5 +78,5 @@ sde_monitor_main()
    # environment can specify a different set of patternfiles to match against
    #
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_MONITOR_FLAGS} run --ignore "$@"
+      exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} run --ignore "$@"
 }

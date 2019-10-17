@@ -181,12 +181,16 @@ _sourcetree_set_os_excludes()
    marks="${stdmarks}"
    if [ "${append}" = 'YES' ]
    then
-      marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} ${flags} \
+      marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${flags} \
                 get "${address}" "marks" `"
    fi
 
    marks="`os_excludes_add "${marks}" "${value}" `"
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} ${flags} \
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${flags} \
       set "${address}" "marks" "${marks}"
 }
 
@@ -223,7 +227,8 @@ sourcetree_get_os_excludes()
 
    local marks
 
-   marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -s ${MULLE_SOURCETREE_FLAGS} ${mode} \
+   marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               -s ${MULLE_TECHNICAL_FLAGS} ${mode} \
             get "${address}" "marks" `"
    [ $? -eq 0 ] || return 1
 
@@ -250,7 +255,6 @@ sourcetree_get_os_excludes_by_url()
    marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
                            ${mode} \
                         get "${address}" "marks" `"
    [ $? -eq 0 ] || return 1
@@ -278,7 +282,8 @@ _sourcetree_set_userinfo_field()
 
    local userinfo
 
-   userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
+   userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     ${MULLE_TECHNICAL_FLAGS} ${mode} \
                  get "${address}" "userinfo" `" || return 1
 
    if [ -z "${MULLE_ARRAY_SH}" ]
@@ -299,9 +304,8 @@ _sourcetree_set_userinfo_field()
    r_assoc_array_set "${userinfo}" "${field}" "${value}"
    userinfo="${RVAL}"
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                   -V \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                      -V \
+                     ${MULLE_TECHNICAL_FLAGS} \
                   set "${address}" "userinfo" "${userinfo}"
 }
 
@@ -339,7 +343,9 @@ sourcetree_get_userinfo_field()
 
    local userinfo
 
-   userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" ${MULLE_SOURCETREE_FLAGS} ${mode} \
+   userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${mode} \
             get "${address}" "userinfo" `"
 
    if [ $? -ne 0 ]

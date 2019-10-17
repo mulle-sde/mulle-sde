@@ -1,3 +1,17 @@
+## 0.39.0
+
+* changed to mulle-bashfunctions 2 call convention
+* moved to mulle-bashfunctions v2
+* support craftinfo repositories
+* add craftinfo create and exists commands
+* ask mulle-env for the location of ETC SHARE and VAR directories
+* new command craftinfo create, fix build script
+* add --analyze to craft command to run the clang analyzer
+* the doctor/status command now lists the stash and shows symlinks, broken links etc.
+* fixed upgrading subprojects (which are still not well supported)
+* Total -- 203.48kb -> 182.07kb (10.52%)
+
+
 ### 0.38.6
 
 * do not fail on linkorder emission for no-require dependencies that are absent

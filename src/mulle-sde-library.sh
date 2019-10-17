@@ -283,8 +283,7 @@ sde_library_add_main()
    log_verbose "Adding \"${libname}\" to libraries"
 
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
-                     "${MULLE_TECHNICAL_FLAGS}"\
-                     "${MULLE_SOURCETREE_FLAGS}" \
+                     "${MULLE_TECHNICAL_FLAGS}" \
                         add \
                            --nodetype none \
                            --marks "'${marks}'" \
@@ -451,7 +450,6 @@ sde_library_list_main()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                 -V -s \
                 ${MULLE_TECHNICAL_FLAGS} \
-                ${MULLE_SOURCETREE_FLAGS} \
                list \
                   --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
                   --marks "${marks}" \
@@ -505,7 +503,7 @@ sde_library_main()
 
       mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_SOURCETREE_FLAGS} ${cmd} "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_TECHNICAL_FLAGS} ${cmd} "$@"
       ;;
 
       "")

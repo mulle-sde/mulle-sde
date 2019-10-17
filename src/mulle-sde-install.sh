@@ -92,7 +92,6 @@ do_update_sourcetree()
 
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_SOURCETREE_FLAGS} \
                         "${OPTION_MODE}" \
                      "update" \
                         "$@"
@@ -143,32 +142,27 @@ Use -f flag to clobber."
          r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
          MULLE_FETCH_SEARCH_PATH="${RVAL}"
 
-         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
-                                   -N ${MULLE_TECHNICAL_FLAGS}  \
+         exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS}  \
                                    add --nodetype git \
                                        --marks "${marks}" \
                                        "${url}"  || return 1
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
-                           mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
-                                            -N ${MULLE_TECHNICAL_FLAGS}  \
+                           mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS}  \
                                             update --symlink || return 1
       else
          log_verbose "Build remote repositories"
 
-         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
-                                   -N ${MULLE_TECHNICAL_FLAGS} \
+         exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS} \
                                    add \
                                        --marks "${marks}" \
                                        "${url}"  || return 1
 
-         exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
-                                   -N ${MULLE_TECHNICAL_FLAGS} \
+         exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS} \
                                    update || return 1
       fi
    fi
 
-   exekutor mulle-sourcetree ${MULLE_SOURCETREE_FLAGS} \
-                             -N ${MULLE_TECHNICAL_FLAGS} \
+   exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS} \
                              craftorder \
                                 --no-print-env > craftorder || return 1
 
@@ -180,7 +174,6 @@ Use -f flag to clobber."
    fi
    eval_exekutor "${environment}" mulle-craft \
                                        ${MULLE_CRAFT_FLAGS} \
-                                       ${MULLE_TECHNICAL_FLAGS} \
                                        --craftorder-file craftorder \
                                     craftorder \
                                        --no-protect \

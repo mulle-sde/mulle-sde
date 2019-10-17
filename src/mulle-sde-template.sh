@@ -300,8 +300,8 @@ r_template_filename_replacement_command()
    #
    seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
              template_rexekutor "${MULLE_ENV:-mulle-env}" -s \
-                           ${MULLE_ENV_FLAGS} environment \
-                                 get --output-sed VENDOR_NAME`"
+                                 environment \
+                                    get --output-sed VENDOR_NAME`"
 
    r_concat "${cmdline}" "${seds}"
    cmdline="${RVAL}"
@@ -349,7 +349,7 @@ r_template_contents_replacement_command()
    # or by the user
    #
    seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
-             template_rexekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}  \
+             template_rexekutor "${MULLE_ENV:-mulle-env}" -s  \
                   environment list --output-sed  \
                                    --sed-key-prefix '<|' \
                                    --sed-key-suffix '|>'`" || exit 1

@@ -68,7 +68,6 @@ do_sync_sourcetree()
    fi
 
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                        "${MULLE_SOURCETREE_FLAGS}" \
                         "${MULLE_TECHNICAL_FLAGS}" \
                         "${OPTION_MODE}" \
                      "sync" "$@"
@@ -121,7 +120,6 @@ sde_fetch_main()
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                     -V \
                     ${MULLE_TECHNICAL_FLAGS} \
-                    ${MULLE_SOURCETREE_FLAGS} \
                     status --is-uptodate
       rval=$?
       log_fluff "is-uptodate returned with $rval"

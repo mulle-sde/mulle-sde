@@ -400,7 +400,7 @@ sde_subproject_init_main()
 
    if [ -z "${style}" ]
    then
-      style="`mulle-env style`"
+      style="`rexekutor "${MULLE_ENV:-mulle-env}" style`"
    fi
 
    # get this error early
@@ -449,7 +449,6 @@ exekutor_sourcetree_cmd_nofail()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                -V \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_SOURCETREE_FLAGS} \
             "$@" || exit 1
 }
 
@@ -459,7 +458,6 @@ rexekutor_sourcetree_cmd_nofail()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                -V \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_SOURCETREE_FLAGS} \
             "$@" || exit 1
 }
 
@@ -533,7 +531,7 @@ sde_subproject_map()
       [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
       [ -z "${MULLE_FILE_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
-      _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}"
+      _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "up-sub"
       statusfile="${RVAL}"
    fi
 
@@ -576,15 +574,16 @@ has no \"${sdefolder}\" folder"
                then
                   exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
                   rval=$?
+                  exit 0
                else
                   (
-                     cd "${expanded_subproject}" ;
-                     MULLE_VIRTUAL_ROOT="" \
-                        eval exec "${command}"
+                     cd "${expanded_subproject}" &&
+                     MULLE_VIRTUAL_ROOT="" eval exec "${command}"
                   )
                   rval=$?
                fi
 
+               log_info "$expanded_subproject: $rval"
                if [ $rval -ne 0 ]
                then
                   redirect_append_exekutor "${statusfile}" printf "%s\n" "${subproject};$rval"
@@ -597,12 +596,14 @@ has no \"${sdefolder}\" folder"
                rval=$?
             else
                (
-                  cd "${expanded_subproject}" ;
-                     MULLE_VIRTUAL_ROOT="" \
+                  cd "${expanded_subproject}" &&
+                  MULLE_VIRTUAL_ROOT="" \
                         eval exec "${command}"
                )
                rval=$?
             fi
+
+            log_info "$expanded_subproject: $rval"
             if [ ${rval} -ne 0 ]
             then
                if [ "${lenient}" = 'NO' ]
@@ -621,11 +622,12 @@ has no \"${sdefolder}\" folder"
          local errors
 
          errors="`cat "${statusfile}"`"
+         remove_file_if_present "${statusfile}"
+
          if [ ! -z "${errors}" ]
          then
             log_error "Subproject errored out: ${errors}"
 
-            remove_file_if_present "${statusfile}"
             exit 1
          fi
       fi
@@ -756,7 +758,7 @@ $1"
          done
 
          log_fluff "Run command with ${MULLE_ENV:-mulle-env}: -C \"${cmdline}\""
-         exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} -C "${cmdline}" subenv "${SUBPROJECT}"
+         exekutor exec "${MULLE_ENV:-mulle-env}" -C "${cmdline}" subenv "${SUBPROJECT}"
       ;;
 
       get)
@@ -766,7 +768,7 @@ $1"
       ;;
 
       enter)
-         exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} subenv "$@"
+         exekutor exec "${MULLE_ENV:-mulle-env}" subenv "$@"
       ;;
 
       init)

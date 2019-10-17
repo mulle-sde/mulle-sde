@@ -66,7 +66,7 @@ sde_list_files()
    # MULLE_TECHNICAL_FLAGS on match is just too much
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MATCH:-mulle-match}" \
-                     ${MULLE_MATCH_FLAGS} \
+                     ${MULLE_TECHNICAL_FLAGS} \
                   list \
                      --format "%t/%c: %f\\n" "$@"
 
@@ -120,7 +120,6 @@ sde_list_dependencies()
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_SOURCETREE_FLAGS} \
                   list --output-no-header \
                        --marks dependency,fs
    `"
@@ -136,7 +135,6 @@ sde_list_dependencies()
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_SOURCETREE_FLAGS} \
                      list --output-no-header \
                           --marks no-dependency,no-fs
    `"

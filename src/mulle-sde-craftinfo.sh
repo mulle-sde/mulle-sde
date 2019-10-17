@@ -367,7 +367,7 @@ sde_add_craftinfo_subproject_if_needed()
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_TECHNICAL_FLAGS} \
                add \
                   --if-missing \
                   --marks "no-update,no-delete,no-share,no-header,no-link" \
@@ -376,7 +376,7 @@ sde_add_craftinfo_subproject_if_needed()
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_TECHNICAL_FLAGS} \
                move \
                   "${subprojectdir}" \
                   top || return 1
@@ -400,7 +400,6 @@ __sde_craftinfo_vars_with_url_or_address()
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               -V \
                               -s \
-                              ${MULLE_SOURCETREE_FLAGS} \
                            get \
                               --url-addressing \
                               "${url}"`"
@@ -420,7 +419,6 @@ __sde_craftinfo_vars_with_url_or_address()
    marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
                            -s \
-                           ${MULLE_SOURCETREE_FLAGS} \
                            get "${_address}" marks`"
    case ",${marks}," in
       *,no-build,*|*,no-fs,*)
@@ -765,7 +763,6 @@ sde_dependency_craftinfo_set_main()
 
    exekutor "${MULLE_MAKE}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_MAKE_FLAGS} \
                definition \
                   --definition-dir "${_folder}" \
                   set \
@@ -820,7 +817,6 @@ sde_dependency_craftinfo_get_main()
 
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_MAKE_FLAGS} \
                   definition \
                      --definition-dir "${_folder}.${MULLE_UNAME}" \
                      get \
@@ -833,7 +829,6 @@ sde_dependency_craftinfo_get_main()
 
       exekutor "${MULLE_MAKE}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_MAKE_FLAGS} \
                   definition \
                      --definition-dir \
                         "${_folder}" \
@@ -846,7 +841,6 @@ sde_dependency_craftinfo_get_main()
 
    exekutor "${MULLE_MAKE}"  \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_MAKE_FLAGS} \
                definition \
                   --definition-dir "${_folder}" \
                   get \
@@ -871,10 +865,10 @@ _sde_dependency_craftinfo_list_main()
       if  __sde_craftinfo_vars_with_url_or_address "${url}" ""
       then
          log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
-         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
             definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"
          log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
-         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
             definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@"  | \
                sed "s/^/   ${indent}/"
       fi
@@ -884,7 +878,7 @@ _sde_dependency_craftinfo_list_main()
    if __sde_craftinfo_vars_with_url_or_address "${url}" "${extension}"
    then
       log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-Global}"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} ${MULLE_MAKE_FLAGS} \
+      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
          definition --definition-dir "${_folder}" list "$@"  | sed "s/^/   ${indent}/"
    fi
 }

@@ -357,7 +357,7 @@ $1"
    done
 
    log_fluff "Run command with mulle-env: -C \"${cmdline}\" in \"${PWD}\""
-   rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} -C "${cmdline}"
+   rexekutor exec "${MULLE_ENV:-mulle-env}" -C "${cmdline}"
 }
 
 
@@ -437,24 +437,24 @@ try_to_enter_or_download()
             local scm
 
             scm="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
-                               ${MULLE_TECHNICAL_FLAGS} \
-                               ${MULLE_FETCH_FLAGS} typeguess "$@"`"
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                              typeguess "$@"`"
             dst="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
-                               ${MULLE_TECHNICAL_FLAGS} \
-                               ${MULLE_FETCH_FLAGS} nameguess -s "${scm}" "$@"`"
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                              nameguess -s "${scm}" "$@"`"
             if [ ! -z "${dst}" ]
             then
                exekutor "${MULLE_FETCH:-mulle-fetch}" \
                               ${MULLE_TECHNICAL_FLAGS} \
-                              ${MULLE_FETCH_FLAGS} "$@" || exit 1
-               rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "${dst}"
+                              "$@" || exit 1
+               rexekutor exec "${MULLE_ENV:-mulle-env}" "${dst}"
             fi
          ;;
 
          *)
             if [ -d "$1" ]
             then
-               rexekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
+               rexekutor exec "${MULLE_ENV:-mulle-env}" "$@"
             fi
          ;;
         esac
@@ -536,6 +536,7 @@ main()
 
             r_concat "${MULLE_ENV_FLAGS}" "$1"
             MULLE_ENV_FLAGS="${RVAL}"
+            export MULLE_ENV_FLAGS
          ;;
 
          --version)
@@ -546,6 +547,7 @@ main()
          -N|--search-nearest|--no-search)  # --no-search is historic
             r_concat "${MULLE_ENV_FLAGS}" "--search-nearest"
             MULLE_ENV_FLAGS="${RVAL}"
+            export MULLE_ENV_FLAGS
          ;;
 
          --list-flags)
@@ -569,6 +571,7 @@ main()
 
             r_add_line "${defines}" "$1"
             defines="${RVAL}"
+            expot MULLE_ENV_FLAGS
          ;;
 
          -*)
@@ -632,12 +635,12 @@ stash-dir|test|upgrade)
 
             enter)
                shift
-               exekutor exec "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} "$@"
+               exekutor exec "${MULLE_ENV:-mulle-env}" "$@"
             ;;
 
             "")
                # special treatment for empty, show usage
-               if ! exekutor "${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS}
+               if ! exekutor "${MULLE_ENV:-mulle-env}" -s
                then
                   log_warning "No mulle-sde project found"
                   usage
@@ -670,7 +673,7 @@ stash-dir|test|upgrade)
    # be read only and we keep the bookkeeping somewhere on the outside
    #
 
-   eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
+   eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sde` || exit 1
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
@@ -724,7 +727,6 @@ stash-dir|test|upgrade)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_MONITOR:-mulle-monitor}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_MONITOR_FLAGS} \
                         "${cmd}" \
                            "$@"
       ;;
@@ -859,7 +861,6 @@ version"
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
                            -N \
                         "${cmd}" \
                            "$@"
@@ -899,8 +900,7 @@ version"
          # interactive shell, dont set usage
          sde_init_main --no-blurb "$@" &&
             exekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS}
+                           ${MULLE_TECHNICAL_FLAGS}
       ;;
 
       library)
@@ -944,7 +944,6 @@ version"
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_CRAFT_FLAGS} \
                         log \
                            "$@"
       ;;
@@ -960,7 +959,6 @@ version"
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_MATCH:-mulle-match}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_MATCH_FLAGS} \
                         "${cmd}" \
                            "$@"
       ;;
@@ -1040,7 +1038,6 @@ version"
       stash-dir)
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_SOURCETREE_FLAGS} \
                      stash-dir
       ;;
 
@@ -1055,7 +1052,6 @@ version"
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
                         "${cmd}" \
                            "$@"
       ;;
@@ -1102,7 +1098,6 @@ version"
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
                         status \
                            "$@"
       ;;
@@ -1113,7 +1108,6 @@ version"
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
                            -N \
                         "${cmd}" \
                            "$@"
@@ -1239,4 +1233,16 @@ _init()
 
 
 _init "$@" # needs params
-main "$@"
+
+quote="'"
+args=""
+for arg in "$@"
+do
+   arg="${arg//${quote}/${quote}\"${quote}\"${quote}}"
+   args="${args} '${arg}'"
+done
+
+unset quote
+unset arg
+
+eval main "${MULLE_SDE_FLAGS}" "${args}"

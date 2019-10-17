@@ -619,7 +619,6 @@ add_to_sourcetree()
          MULLE_VIRTUAL_ROOT="${PWD}" \
             eval_exekutor mulle-sourcetree -N \
                         "${MULLE_TECHNICAL_FLAGS}" \
-                        "${MULLE_SOURCETREE_FLAGS}" \
                       add \
                         "${line}" || exit 1
       fi
@@ -661,7 +660,6 @@ add_to_environment()
                            --search-nearest \
                            -s \
                            "${MULLE_TECHNICAL_FLAGS}" \
-                           "${MULLE_ENV_FLAGS}" \
                            --no-protect \
                         environment \
                            --scope extension \
@@ -695,7 +693,6 @@ _add_to_tools()
       eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
                            --search-nearest \
                            "${MULLE_TECHNICAL_FLAGS}" \
-                           "${MULLE_ENV_FLAGS}" \
                            --no-protect \
                         tool \
                            --os "'${os:-DEFAULT}'" \
@@ -1660,7 +1657,6 @@ recall_installed_extensions()
       value="`rexekutor "${MULLE_ENV:-mulle-env}" \
                               --search-nearest \
                               ${MULLE_TECHNICAL_FLAGS} \
-                              ${MULLE_ENV_FLAGS} \
                               --no-protect \
                            environment \
                               --scope extension \
@@ -1702,7 +1698,6 @@ env_set_var()
    exekutor "${MULLE_ENV:-mulle-env}" \
                      --search-nearest \
                      -s \
-                     ${MULLE_ENV_FLAGS} \
                      ${MULLE_TECHNICAL_FLAGS} \
                      --no-protect \
                   environment \
@@ -2055,7 +2050,6 @@ changes into your subshell"
    MULLE_VIRTUAL_ROOT="`pwd -P`" \
       eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
                            --search-nearest \
-                           "${MULLE_ENV_FLAGS}" \
                            "${MULLE_TECHNICAL_FLAGS}" \
                            --no-protect \
                         environment \
@@ -2332,7 +2326,6 @@ __sde_init_main()
       then
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
                            --no-protect \
                            upgrade || exit 1
       fi
@@ -2435,7 +2428,6 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
 
       exekutor "${MULLE_ENV:-mulle-env}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} \
                      ${flags} \
                      --no-protect \
                      --style "${OPTION_ENV_STYLE}" \
@@ -2551,8 +2543,9 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          #
          # repair patternfiles as a "bonus" with -add option
          #
-         exekutor "${MULLE_MATCH:-mulle-match}" ${MULLE_TECHNICAL_FLAGS} \
-                    ${MULLE_MATCH_FLAGS} patternfile repair --add
+         exekutor "${MULLE_MATCH:-mulle-match}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                    patternfile repair --add
       fi
    else
       if ! (
@@ -2611,7 +2604,6 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
       then
          exekutor "${MULLE_ENV:-mulle-env}" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_ENV_FLAGS} \
                         --no-protect \
                      tweak \
                         climb
@@ -2959,7 +2951,7 @@ _sde_init_main()
    fi
 
 
-   eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
+   eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sde` || exit 1
 
    MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
 

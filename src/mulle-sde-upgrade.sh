@@ -107,7 +107,7 @@ sde_upgrade_subprojects()
 
    local flags
 
-   flags="${MULLE_SDE_FLAGS} ${MULLE_TECHNICAL_FLAGS}"
+   flags="${MULLE_TECHNICAL_FLAGS}"
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
       flags="${flags} -f"
@@ -131,7 +131,6 @@ sde_upgrade_test()
    log_entry "sde_upgrade_test" "$@"
 
    MULLE_SDE_TEST_PATH="`mulle-env ${MULLE_TECHNICAL_FLAGS} \
-                                   ${MULLE_ENV_FLAGS} \
                            environment \
                               get MULLE_SDE_TEST_PATH`"
 
@@ -144,7 +143,7 @@ sde_upgrade_test()
          if [ -d "${i}/.mulle" -o -d "${i}/.mulle-env" ]
          then
             log_info "Upgrade test ${C_RESET_BOLD}${i}"
-            ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} ${MULLE_SDE_FLAGS} upgrade ) || exit 1
+            ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} upgrade ) || exit 1
          else
             log_verbose "Test diretory \"$i\" doesn't look like a mulle-sde project"
          fi
@@ -207,7 +206,7 @@ sde_upgrade_main()
          MULLE_VIRTUAL_ROOT="`pwd -P`"
          export MULLE_VIRTUAL_ROOT
 
-         eval `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
+         eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sde` || exit 1
          # not sure about next two, but its the proper transformation
          # of previous code
          unset MULLE_SDE_ETC_DIR

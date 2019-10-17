@@ -156,7 +156,6 @@ sde_clean_project_main()
 
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_CRAFT_FLAGS} \
                clean \
                   project
 }
@@ -169,7 +168,6 @@ sde_clean_dependency_main()
    log_verbose "Cleaning \"dependency\" directory"
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_CRAFT_FLAGS} \
                clean \
                   dependency
 }
@@ -205,7 +203,6 @@ sde_clean_subproject_main()
       set +o noglob; IFS="${DEFAULT_IFS}"
       rexekutor "${MULLE_CRAFT:-mulle-craft}" \
             ${MULLE_TECHNICAL_FLAGS} \
-            ${MULLE_CRAFT_FLAGS} \
             clean \
                "${name}"
    done
@@ -277,7 +274,6 @@ sde_clean_db_main()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
                reset
 }
 
@@ -291,7 +287,6 @@ sde_clean_sourcetree_main()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
                clean
 }
 
@@ -305,7 +300,6 @@ sde_clean_sourcetree_share_main()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
                clean --share
 }
 
@@ -318,7 +312,6 @@ sde_clean_patternfile_main()
 
    rexekutor "${MULLE_MATCH:-mulle-match}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_MONITOR_FLAGS} \
                clean
 }
 
@@ -332,7 +325,6 @@ sde_clean_monitor_main()
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       rexekutor "${MULLE_MONITOR:-mulle-monitor}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_MONITOR_FLAGS} \
                   clean
 }
 
@@ -346,7 +338,6 @@ sde_clean_graveyard_main()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   -V \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
                desecrate
 }
 
@@ -360,7 +351,6 @@ sde_clean_test_main()
 
    rexekutor "${MULLE_TEST:-mulle-test}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_TEST_FLAGS} \
                clean
 }
 
@@ -374,7 +364,6 @@ sde_clean_testall_main()
 
    rexekutor "${MULLE_TEST:-mulle-test}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_TEST_FLAGS} \
                clean all
 }
 
@@ -459,7 +448,6 @@ test"
       craftorder)
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_CRAFT_FLAGS} \
                      clean \
                         craftorder
       ;;
@@ -533,7 +521,6 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
 
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_CRAFT_FLAGS} \
                      clean \
                         "$1"
          return $?

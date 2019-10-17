@@ -115,7 +115,6 @@ create_craftorder_file()
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
             -V -s \
             ${MULLE_TECHNICAL_FLAGS} \
-            ${MULLE_SOURCETREE_FLAGS} \
          craftorder \
             --no-print-env \
             --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
@@ -165,7 +164,6 @@ show_craftorder()
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      -V -s \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_SOURCETREE_FLAGS} \
                   craftorder \
                      --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
                      "$@"
@@ -267,7 +265,6 @@ sde_craftorder_main()
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_CRAFT_FLAGS} \
                            --craftorder-file "${_craftorderfile}" \
                         list
       fi

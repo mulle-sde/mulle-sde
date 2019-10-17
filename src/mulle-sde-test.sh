@@ -257,7 +257,6 @@ _sde_test_run()
       exekutor cd "${directory}" &&
       exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} run \
                   mulle-test ${MULLE_TECHNICAL_FLAGS} \
-                             ${MULLE_TEST_FLAGS} \
                              "${cmd}" "$@"
    )
 }
@@ -395,7 +394,6 @@ sde_test_main()
       init)
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_TEST_FLAGS} \
                      init \
                         --github-name "${RVAL}" \
                         "$@"

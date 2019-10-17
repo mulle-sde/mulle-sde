@@ -111,7 +111,6 @@ sde_perform_updates()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                  -V \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
                  -s \
                   dbstatus
    dbrval="$?"
@@ -134,7 +133,6 @@ sde_perform_updates()
 
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                               "${MULLE_TECHNICAL_FLAGS}" \
-                              "${MULLE_SOURCETREE_FLAGS}" \
                            "update" || exit 1
 
          # run this quickly, because incomplete previous fetches trip me
@@ -321,8 +319,7 @@ sde_craft_main()
    local project_cmdline
    local flags
 
-   r_concat "${MULLE_TECHNICAL_FLAGS}" "${MULLE_CRAFT_FLAGS}"
-   flags="${RVAL}"
+   flags="${MULLE_TECHNICAL_FLAGS}"
 
    craftorder_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
 
@@ -519,7 +516,6 @@ sde_craftstatus_main()
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_CRAFT:-mulle-craft}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_CRAFT_FLAGS} \
                      --craftorder-file "${_craftorderfile}" \
                   status \
                      "$@"

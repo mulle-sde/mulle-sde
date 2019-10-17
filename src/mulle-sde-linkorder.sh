@@ -483,7 +483,6 @@ r_library_searchpath()
    configuration="${OPTION_CONFIGURATION:-Release}"
    searchpath="`rexekutor mulle-craft \
                                  ${MULLE_TECHNICAL_FLAGS} \
-                                 ${MULLE_CRAFT_FLAGS} \
                                  -s \
                               searchpath \
                                  --if-exists \
