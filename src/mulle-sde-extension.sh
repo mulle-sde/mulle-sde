@@ -713,7 +713,7 @@ sde_extension_show_main()
       shift
    done
 
-   [ "$#" -gt 1 ] || sde_extension_show_usage "Superflous arguments \"$*\""
+   [ $# -gt 1 ] && sde_extension_show_usage "Superflous arguments \"$*\""
 
    local cmd
 

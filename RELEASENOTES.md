@@ -1,3 +1,7 @@
+### 0.39.1
+
+* fix extension show bug and another ugly
+
 ## 0.39.0
 
 * changed to mulle-bashfunctions 2 call convention
