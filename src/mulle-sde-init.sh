@@ -2950,10 +2950,27 @@ _sde_init_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
    fi
 
+   # fake an environment so mulle-env gives us proper environment variables
+   # remove temp file if done
 
-   eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sde` || exit 1
+   local tmp_file
+
+   if [ ! -f ".mulle/share/env/environment.sh" ]
+   then
+      mkdir_if_missing .mulle/share/env
+      exekutor touch .mulle/share/env/environment.sh
+      tmp_file='YES'
+   fi
+
+   eval_exekutor `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
+
+   if [ "${tmp_file}" = 'YES' ]
+   then
+      remove_file_if_present .mulle/share/env/environment.sh
+   fi
 
    MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
+
 
    #
    # unprotect known share directories during installation
@@ -2961,6 +2978,17 @@ _sde_init_main()
    #
    r_colon_concat .mulle/share:cmake/share "${MULLE_SDE_PROTECT_PATH}"
    MULLE_SDE_PROTECT_PATH="${RVAL}"
+
+
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+   then
+      log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
+      log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
+      log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
+      log_trace2 "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
+      log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+      log_trace2 "PWD=\"${PWD}\""
+   fi
 
    local i
 

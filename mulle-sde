@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.39.1
+MULLE_EXECUTABLE_VERSION=0.39.2
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -889,6 +889,10 @@ version"
       init)
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+
+         unset MULLE_SDE_VAR_DIR
+         unset MULLE_SDE_ETC_DIR
+         unset MULLE_SDE_SHARE_DIR
 
          sde_init_main "$@"
       ;;

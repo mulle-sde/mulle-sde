@@ -1,3 +1,7 @@
+### 0.39.2
+
+* fix mulle-sde init
+
 ### 0.39.1
 
 * fix extension show bug and another ugly
