@@ -249,13 +249,8 @@ _sde_test_run()
    (
       log_info "Tests ${C_MAGENTA}${C_BOLD}${cmd} $*${C_INFO} (${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
 
-      #
-      # execute with mudo to use regular path and not pickup stuff
-      # from parent.
-      #
-
       exekutor cd "${directory}" &&
-      exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} run \
+      exekutor mulle-sde run \
                   mulle-test ${MULLE_TECHNICAL_FLAGS} \
                              "${cmd}" "$@"
    )

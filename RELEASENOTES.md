@@ -1,3 +1,7 @@
+### 0.39.3
+
+* improved ordering of dependency --startup marks generation
+
 ### 0.39.2
 
 * fix mulle-sde init

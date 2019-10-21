@@ -581,6 +581,9 @@ sde_dependency_add_main()
    local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_DIALECT="c"
    local OPTION_PRIVATE='NO'
+   local OPTION_EMBEDDED='NO'
+   local OPTION_EXECUTABLE='NO'
+   local OPTION_STARTUP='NO'
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
    local OPTION_SINGLEPHASE='NO' # more common default for me :)
@@ -622,13 +625,11 @@ sde_dependency_add_main()
          ;;
 
          --embedded)
-            r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
-            marks="${RVAL}"
+            OPTION_EMBEDDED='YES'
          ;;
 
          --executable)
-            r_comma_concat "${marks}" "no-link,no-header,no-bequeath"
-            marks="${RVAL}"
+            OPTION_EXECUTABLE='YES'
          ;;
 
          --github|--fake)
@@ -662,8 +663,7 @@ sde_dependency_add_main()
          ;;
 
          --startup)
-            r_comma_concat "${marks}" "no-intermediate-link,no-dynamic-link,no-header"
-            marks="${RVAL}"
+            OPTION_STARTUP='YES'
          ;;
 
          --multiphase)
@@ -810,6 +810,24 @@ sde_dependency_add_main()
    if [ "${OPTION_OPTIONAL}" = 'YES' ]
    then
       r_comma_concat "${marks}" "no-require"
+      marks="${RVAL}"
+   fi
+
+   if [ "${OPTION_EMBEDDED}" = 'YES' ]
+   then
+      r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
+      marks="${RVAL}"
+   fi
+
+   if [ "${OPTION_EXECUTABLE}" = 'YES' ]
+   then
+      r_comma_concat "${marks}" "no-link,no-header,no-bequeath"
+      marks="${RVAL}"
+   fi
+
+   if [ "${OPTION_STARTUP}" = 'YES' ]
+   then
+      r_comma_concat "${marks}" "all-load,no-intermediate-link,no-dynamic-link,no-header"
       marks="${RVAL}"
    fi
 
