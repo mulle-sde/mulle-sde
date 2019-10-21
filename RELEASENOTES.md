@@ -1,3 +1,7 @@
+### 0.39.4
+
+* force singlephase for startup links, as they have no header
+
 ### 0.39.3
 
 * improved ordering of dependency --startup marks generation

@@ -827,7 +827,9 @@ sde_dependency_add_main()
 
    if [ "${OPTION_STARTUP}" = 'YES' ]
    then
-      r_comma_concat "${marks}" "all-load,no-intermediate-link,no-dynamic-link,no-header"
+      # as startups are not installing a header, they must be singlephase
+      # this should remove a previous add above
+      r_comma_concat "${marks}" "all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header"
       marks="${RVAL}"
    fi
 
