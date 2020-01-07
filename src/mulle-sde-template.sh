@@ -153,8 +153,10 @@ r_projectlanguage_seds()
    local project_upcase_language
    local project_downcase_language
 
-   project_downcase_language="`tr A-Z a-z <<< "${PROJECT_LANGUAGE}" `"
-   project_upcase_language="`tr a-z A-Z <<< "${PROJECT_LANGUAGE}" `"
+   r_lowercase "${PROJECT_LANGUAGE}"
+   project_downcase_language="${RVAL}"
+   r_uppercase "${PROJECT_LANGUAGE}"
+   project_upcase_language="${RVAL}"
 
    local cmdline
 
@@ -181,8 +183,10 @@ r_projectdialect_seds()
    local project_upcase_dialect
    local project_downcase_dialect
 
-   project_downcase_dialect="`tr A-Z a-z <<< "${PROJECT_DIALECT}" `"
-   project_upcase_dialect="`tr a-z A-Z <<< "${PROJECT_DIALECT}" `"
+   r_lowercase "${PROJECT_DIALECT}"
+   project_downcase_dialect="${RVAL}"
+   r_uppercase "${PROJECT_DIALECT}"
+   project_upcase_dialect="${RVAL}"
 
    local cmdline
 
@@ -266,8 +270,38 @@ r_author_date_seds()
    cmdline="${cmdline} -e 's/${o}USER${c}/${RVAL}/g'"
    r_escaped_sed_replacement "${nowyear}"
    cmdline="${cmdline} -e 's/${o}YEAR${c}/${RVAL}/g'"
-   r_escaped_sed_replacement "${ONESHOT_NAME}"
+
+   RVAL="${cmdline}"
+}
+
+
+r_oneshot_seds()
+{
+   local o="$1"
+   local c="$2"
+
+   local cmdline
+
+   r_escaped_sed_replacement "${ONESHOT_FILENAME_NO_EXT:-ONESHOT_FILENAME_NO_EXT}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_FILENAME_NO_EXT${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${ONESHOT_FILENAME:-ONESHOT_FILENAME}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_FILENAME${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${ONESHOT_BASENAME:-ONESHOT_BASENAME}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_BASENAME${c}/${RVAL}/g'"
+
+   r_escaped_sed_replacement "${ONESHOT_NAME:-ONESHOT_NAME}"
    cmdline="${cmdline} -e 's/${o}ONESHOT_NAME${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${ONESHOT_IDENTIFIER:-ONESHOT_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_IDENTIFIER${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${ONESHOT_UPCASE_IDENTIFIER:-ONESHOT_UPCASE_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_UPCASE_IDENTIFIER${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${ONESHOT_DOWNCASE_IDENTIFIER:-ONESHOT_DOWNCASE_IDENTIFIER}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_DOWNCASE_IDENTIFIER${c}/${RVAL}/g'"
+
+   r_escaped_sed_replacement "${ONESHOT_CLASS:-ONESHOT_CLASS}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_CLASS${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${ONESHOT_CATEGORY:-ONESHOT_CATEGORY}"
+   cmdline="${cmdline} -e 's/${o}ONESHOT_CATEGORY${c}/${RVAL}/g'"
 
    RVAL="${cmdline}"
 }
@@ -298,20 +332,37 @@ r_template_filename_replacement_command()
    #
    # get VENDOR_NAME for file replacement
    #
-   seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
-             template_rexekutor "${MULLE_ENV:-mulle-env}" -s \
-                                 environment \
-                                    get --output-sed VENDOR_NAME`"
+   if [ -z "${TEMPLATE_NO_ENVIRONMENT}" ]
+   then
+      seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
+                template_rexekutor "${MULLE_ENV:-mulle-env}" -s \
+                                    environment \
+                                       get --output-sed VENDOR_NAME`" 2> /dev/null
+   else
+      r_escaped_sed_replacement "${VENDOR_NAME:-VENDOR_NAME}"
+      seds="-e 's/VENDOR_NAME/${RVAL}/g'"
+   fi
 
    r_concat "${cmdline}" "${seds}"
    cmdline="${RVAL}"
 
    #
-   # get ONESHOT_NAME from environment for file replacement. Name is used by
-   # oneshot extensions...it's a shabby hack
+   # use ONESHOT_FILENAME as filename
    #
+   r_escaped_sed_replacement "${ONESHOT_FILENAME_NO_EXT:-ONESHOT_FILENAME_NO_EXT}"
+   cmdline="${cmdline} -e 's/ONESHOT_FILENAME_NO_EXT/${RVAL}/g'"
+
+   r_escaped_sed_replacement "${ONESHOT_FILENAME:-ONESHOT_FILENAME}"
+   cmdline="${cmdline} -e 's/ONESHOT_FILENAME/${RVAL}/g'"
+
    r_escaped_sed_replacement "${ONESHOT_NAME:-ONESHOT_NAME}"
    cmdline="${cmdline} -e 's/ONESHOT_NAME/${RVAL}/g'"
+
+   r_escaped_sed_replacement "${ONESHOT_CLASS:-ONESHOT_CLASS}"
+   cmdline="${cmdline} -e 's/ONESHOT_CLASS/${RVAL}/g'"
+
+   r_escaped_sed_replacement "${ONESHOT_CATEGORY:-ONESHOT_CATEGORY}"
+   cmdline="${cmdline} -e 's/ONESHOT_CATEGORY/${RVAL}/g'"
 
    log_debug "${cmdline}"
 
@@ -341,6 +392,9 @@ r_template_contents_replacement_command()
    r_author_date_seds "<|" "|>"
    cmdline="${cmdline} ${RVAL}"
 
+   r_oneshot_seds "<|" "|>"
+   cmdline="${cmdline} ${RVAL}"
+
    r_test_seds "<|" "|>"
    cmdline="${cmdline} ${RVAL}"
 
@@ -348,20 +402,68 @@ r_template_contents_replacement_command()
    # get current environment (as maybe already set by an extensions)
    # or by the user
    #
-   seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
-             template_rexekutor "${MULLE_ENV:-mulle-env}" -s  \
-                  environment list --output-sed  \
-                                   --sed-key-prefix '<|' \
-                                   --sed-key-suffix '|>'`" || exit 1
+   if [ -z "${TEMPLATE_NO_ENVIRONMENT}" ]
+   then
+      seds="`MULLE_VIRTUAL_ROOT="${PHYSPWD}" \
+                template_rexekutor "${MULLE_ENV:-mulle-env}" -s  \
+                     environment list --output-sed  \
+                                      --sed-key-prefix '<|' \
+                                      --sed-key-suffix '|>'`" || exit 1
+      log_debug "seds from environment: ${seds}"
+      seds="`tr '\n' ' ' <<< "${seds}"`"
 
-   log_debug "seds from environment: ${seds}"
-   seds="`tr '\n' ' ' <<< "${seds}"`"
-
-   cmdline="${cmdline} ${seds}"
+      cmdline="${cmdline} ${seds}"
+   fi
 
    log_debug "${cmdline}"
 
    RVAL="${cmdline}"
+}
+
+
+cat_template_file()
+{
+   local templatefile="$1"
+
+   local line
+   local char
+
+   char="`tail -c 1 "${templatefile}"`"
+   case "${char}" in
+      "")
+      ;;
+
+      $'\n'|$'\r')
+      ;;
+
+      *)
+         fail "Invalid templatefile \"${templatefile}\" last char \"$char\" is not a linefeed"
+      ;;
+   esac
+
+   IFS=$'\n'
+   while read -r line
+   do
+      case "${line}" in
+         "<|HEADER|>")
+            if [ ! -z "${TEMPLATE_HEADER_FILE}" ]
+            then
+               cat "${TEMPLATE_HEADER_FILE}"
+            fi
+            continue # silently remove missing <|HEADER|> from template
+         ;;
+
+         "<|FOOTER|>")
+            if [ ! -z "${TEMPLATE_FOOTER_FILE}" ]
+            then
+               cat "${TEMPLATE_FOOTER_FILE}"
+            fi
+            continue # silently remove missing <|FOOTER|> from template
+         ;;
+      esac
+      printf "%s\n" "${line}"
+   done < "${templatefile}"
+   IFS="${DEFAULT_IFS}"
 }
 
 
@@ -394,7 +496,7 @@ copy_and_expand_template()
    if [ "${FLAG_FORCE}" = 'NO' -a -e "${expanded_dstfile}" ]
    then
       log_fluff "\"${templatedir}\" !! \"${expanded_dstfile}\" (exists)"
-      return 2
+      return 4
    fi
 
    if [ ! -z "${onlyfile}" ]
@@ -422,7 +524,8 @@ copy_and_expand_template()
    local text
 
    log_debug "Generating text from template \"${templatefile}\""
-   text="`LC_ALL=C template_eval_exekutor "${template_sed}" < "${templatefile}" `"
+
+   text="`cat_template_file "${templatefile}" | LC_ALL=C template_eval_exekutor "${template_sed}" `"
 
    log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 
@@ -522,6 +625,8 @@ _template_main()
 
    local FLAG_FORCE='NO'
    local TEMPLATE_DIR
+   local TEMPLATE_HEADER_FILE
+   local TEMPLATE_FOOTER_FILE
    local PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT
@@ -596,6 +701,20 @@ _template_main()
             [ $# -eq 0 ] && template_usage
 
             TEMPLATE_DIR="$1"
+         ;;
+
+         --header-file)
+            shift
+            [ $# -eq 0 ] && template_usage
+
+            TEMPLATE_HEADER_FILE="$1"
+         ;;
+
+         --footer-file)
+            shift
+            [ $# -eq 0 ] && template_usage
+
+            TEMPLATE_FOOTER_FILE="$1"
          ;;
 
          --version)

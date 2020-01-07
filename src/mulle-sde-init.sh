@@ -243,6 +243,8 @@ _template_file_arguments()
                --language '${PROJECT_LANGUAGE}' \
                --dialect '${PROJECT_DIALECT}' \
                --extensions '${PROJECT_EXTENSIONS}' \
+               --header-file '${OPTION_TEMPLATE_HEADER_FILE}' \
+               --footer-file '${OPTION_TEMPLATE_FOOTER_FILE}' \
                --source-dir '${PROJECT_SOURCE_DIR}'"
 
    if [ "${force}" = 'YES' ]
@@ -344,7 +346,8 @@ install_inheritfile()
          *\;*)
             IFS=";" read extension exttype depmarks <<< "${line}"
 
-            depmarks="`comma_concat "${marks}" "${depmarks}"`"
+            r_comma_concat "${marks}" "${depmarks}"
+            depmarks="${RVAL}"
          ;;
 
          *)
@@ -616,7 +619,7 @@ add_to_sourcetree()
 
       if [ ! -z "${line}" ]
       then
-         MULLE_VIRTUAL_ROOT="${PWD}" \
+         MULLE_VIRTUAL_ROOT="`physicalpath "${PWD}" `" \
             eval_exekutor mulle-sourcetree -N \
                         "${MULLE_TECHNICAL_FLAGS}" \
                       add \
@@ -906,7 +909,7 @@ assert_sane_extension_values()
       "")
          fail "empty extension name"
       ;;
-      *[^a-z-_0-9]*)
+      *[^a-z_0-9.-]*)
          fail "illegal extension name \"${extname}\" (lowercase only pls)"
       ;;
    esac
@@ -914,7 +917,7 @@ assert_sane_extension_values()
       "")
          fail "empty vendor name"
       ;;
-      *[^a-z-_0-9]*)
+      *[^a-z_0-9.-]*)
          fail "illegal vendor name \"${vendor}\" (lowercase only pls)"
       ;;
    esac
@@ -922,7 +925,7 @@ assert_sane_extension_values()
       "")
          fail "empty extension type"
       ;;
-      *[^a-z-_0-9]*)
+      *[^a-z_0-9.-]*)
          fail "illegal extension type \"${exttype}\" (lowercase only pls)"
       ;;
    esac
@@ -965,7 +968,7 @@ _copy_extension_template_directory()
    local second
 
    first="all"
-   second="${projecttype}"
+   second="${projecttype:-none}"
 
    _copy_extension_template_files "${extensiondir}" \
                                   "${subdirectory}" \
@@ -1381,7 +1384,7 @@ ${C_INFO}Possible ways to fix this:
                                             "$@"
       fi
    else
-      log_warning "Not installing project or demo files for \"${extname}\", as project-type is \"none\""
+      log_verbose "Not installing project or demo files for \"${extname}\", as project-type is \"none\""
    fi
 
    if [ -z "${onlyfilename}" ]
@@ -1480,7 +1483,7 @@ install_extension()
    local onlyfilename="$6"
 #   local force="$7"
 
-   local TEMPLATE_DIRECTORIES
+   local TEMPLATE_DIRECTORIES # will be set by _install_extension
 
    _install_extension "$@"
 
@@ -1705,7 +1708,6 @@ env_set_var()
                      set "${key}" "${value}" || internal_fail "failed env set"
 }
 
-
 #
 # also pre-compute variations needed for scripts
 #
@@ -1726,11 +1728,7 @@ memorize_project_name()
    fi
 
    set_projectname_variables "${PROJECT_NAME}"
-
-   env_set_var PROJECT_NAME                "${PROJECT_NAME}" "project"
-   env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project"
-   env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project"
-   env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project"
+   save_projectname_variables
 }
 
 
@@ -1856,11 +1854,6 @@ install_extensions()
                             "${onlyfilename}" \
                             "${force}"
 
-   install_oneshot_extensions "${OPTION_ONESHOTS}" \
-                              "${PROJECT_TYPE}" \
-                              "${marks}" \
-                              "${onlyfilename}" \
-                              "${force}"
 
    if [ ! -z "${onlyfilename}" ]
    then
@@ -1875,6 +1868,13 @@ install_extensions()
    env_set_var "MULLE_SDE_INSTALLED_VERSION" "${MULLE_EXECUTABLE_VERSION}" "plugin"
 
    memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
+
+   # oneshots aren't memorized
+   install_oneshot_extensions "${OPTION_ONESHOTS}" \
+                              "${PROJECT_TYPE}" \
+                              "${marks}" \
+                              "" \
+                              "${force}"
 }
 
 
@@ -2076,7 +2076,7 @@ __sde_init_add()
         ! -z "${OPTION_BUILDTOOL}" -o \
         ! -z "${OPTION_META}" ]
    then
-      fail "Only 'extra' extensions can be added"
+      fail "Only 'extra' and 'oneshot' extensions can be added"
    fi
 
    if [ -z "${OPTION_EXTRAS}" -a -z "${OPTION_ONESHOTS}" ]
@@ -2437,7 +2437,7 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          0)
          ;;
 
-         2)
+         4)
             log_fluff "mulle-env warning noted, but ignored"
          ;;
 
@@ -2628,6 +2628,25 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
 }
 
 
+sde_init_include()
+{
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || exit 1
+   fi
+
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || exit 1
+   fi
+
+   if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
+   fi
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -2662,11 +2681,14 @@ _sde_init_main()
    local OPTION_POST_INIT='YES'
    local OPTION_UPGRADE_SUBPROJECTS
    local PURGE_PWD_ON_ERROR='NO'
-
+   local OPTION_TEMPLATE_HEADER_FILE
+   local OPTION_TEMPLATE_FOOTER_FILE
    local OPTION_INIT_TYPE="project"
 
    local line
    local mark
+
+   sde_init_include
 
    #
    # handle options
@@ -2675,7 +2697,7 @@ _sde_init_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_init_usage
+            sde_oneshot_init_usage
          ;;
 
          -D?*)
@@ -2693,17 +2715,6 @@ _sde_init_main()
             OPTION_DEFINES="${RVAL}"
          ;;
 
-         -a|--add)
-            OPTION_ADD='YES'
-         ;;
-
-         -b|--buildtool)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_BUILDTOOL="$1"
-         ;;
-
          -d|--directory)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
@@ -2711,13 +2722,6 @@ _sde_init_main()
             exekutor mkdir -p "$1" 2> /dev/null
             exekutor cd "$1" || fail "can't change to \"$1\""
             PURGE_PWD_ON_ERROR='YES'
-         ;;
-
-         -e|--extra)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "$1" `"
          ;;
 
          --existing)
@@ -2740,19 +2744,64 @@ _sde_init_main()
             OPTION_INIT_FLAGS="$1"
          ;;
 
-         --oneshot-name)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
-            shift
-
-            ONESHOT_NAME="$1"
-            export ONESHOT_NAME
-         ;;
-
          -o|--oneshot)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_ONESHOTS="`add_line "${OPTION_ONESHOTS}" "$1" `"
+         ;;
+
+         --oneshot-name)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            ONESHOT_FILENAME="$1"
+            export ONESHOT_FILENAME
+
+            r_basename "${ONESHOT_FILENAME}"
+            ONESHOT_BASENAME="${RVAL}"
+            export ONESHOT_BASENAME
+
+            r_extensionless_basename "${ONESHOT_FILENAME}"
+            ONESHOT_NAME="${RVAL}"
+            export ONESHOT_NAME
+
+            r_identifier "${ONESHOT_NAME}"
+            export ONESHOT_IDENTIFIER="${RVAL}"
+            r_lowercase "${ONESHOT_IDENTIFIER}"
+            export ONESHOT_LOWERCASE_IDENTIFIER="${RVAL}"
+            r_uppercase "${ONESHOT_IDENTIFIER}"
+            export ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
+         ;;
+
+         --oneshot-class)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            ONESHOT_CLASS="$1"
+            export ONESHOT_CLASS
+         ;;
+
+         --oneshot-category)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            ONESHOT_CATEGORY="$1"
+            export ONESHOT_CATEGORY
+         ;;
+
+         --template-header-file)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_TEMPLATE_HEADER_FILE="$1"
+         ;;
+
+         --template-footer-file)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_TEMPLATE_FOOTER_FILE="$1"
          ;;
 
          -m|--meta)
@@ -2899,28 +2948,11 @@ _sde_init_main()
       shift
    done
 
-
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
       # empty it now
       MULLE_VIRTUAL_ROOT=""
    fi
-
-# MEMO: oneshot extensions are bad. Create mulle-sde ´file' command to
-#       add templated files
-#
-#   #
-#   # Special: one-shot extensions can be installed anywhere.
-#   # No project or environment required or even setup
-#   #
-#   if [ "${OPTION_UPGRADE}" != 'YES' -a \
-#        ! -z "${OPTION_ONESHOTS}" -a \
-#        -z "${OPTION_META}" -a \
-#        -z "${OPTION_RUNTIME}" -a \
-#        -z "${OPTION_BUILDTOOL}" ]
-#   then
-#      OPTION_INIT_ENV='NO'
-#   fi
 
    if [ "${OPTION_ADD}" = 'YES' ]
    then
@@ -2935,20 +2967,6 @@ _sde_init_main()
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
 
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || exit 1
-   fi
-
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || exit 1
-   fi
-
-   if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
-   fi
 
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done
@@ -3035,6 +3053,7 @@ _sde_init_main()
 
    return $rval
 }
+
 
 
 sde_init_main()

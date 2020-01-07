@@ -38,9 +38,25 @@ sde_status_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} status
+   ${MULLE_USAGE_NAME} status [options]
 
    Get some information about the current mulle-sde environment (if any).
+   To check if you are in a valid project directory, you can suppress output
+   and do a small check with:
+
+   mulle-sde -s status --clear --project
+
+
+Options:
+   --clear       : clear default information settings
+   --craftstatus : add craft information (default)
+   --database    : add sourcetree database information (default)
+   --graveyard   : add sourcetree graveyard information (default)
+   --project     : add project information (default)
+   --quickstatus : add deppendency status information (default)
+   --sourcetree  : add sourcetree information (default)
+   --stash       : add sourcetree stash information( default)
+   --treestatus  : add source files information
 EOF
    exit 1
 }
@@ -54,7 +70,7 @@ sde_status_main()
    local indent
 
    indent=""
-   statustypes="project,database,quickstatus,graveyard,craftstatus,sourcetree,stash,quickstatus"
+   statustypes="craftstatus,database,graveyard,project,quickstatus,sourcetree,stash"
    if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
    then
       indent="   "
@@ -62,7 +78,7 @@ sde_status_main()
 
    if [ "${MULLE_FLAG_LOG_FLUFF}" = 'YES' ]
    then
-      statustypes="project,database,quickstatus,graveyard,craftstatus,sourcetree,stash,treestatus"
+      statustypes="${statustypes},treestatus"
       indent="   "
    fi
 
@@ -71,6 +87,15 @@ sde_status_main()
       case "$1" in
          -h|--help|help)
             sde_status_usage
+         ;;
+
+         --clear)
+            statustypes=""
+         ;;
+
+         --craftstatus|--database|--graveyard|--project|--quickstatus|--sourcetree|--stash|--treestatus)
+            r_comma_concat "${statustypes}" "${1:2}"
+            statustypes="${RVAL}"
          ;;
 
          --stash-only)
@@ -328,12 +353,20 @@ sde_status_main()
             if [ ! -z "${DU}" ]
             then
                size="`${DU} -kh -d0 "${graveyard}" | awk '{ print $1 }'`"
-               log_info "${indent}There is a sourcetree grayeyard of ${size} size here"
+               log_warning "${indent}There is a sourcetree grayeyard of ${size} size here"
             else
-               log_info "${indent}There is a sourcetree grayeyard here"
+               log_warning "${indent}There is a sourcetree grayeyard here"
             fi
             log_verbose "${indent}${C_RESET_BOLD}   mulle-sde clean graveyard"
          fi
+      ;;
+   esac
+
+   case ",${statustypes}," in
+      *,patternfile,*)
+         log_verbose "Patternfile status:"
+
+         mulle-sde ${MULLE_TECHNICAL_FLAGS} patternfile status
       ;;
    esac
 

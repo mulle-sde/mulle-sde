@@ -29,18 +29,18 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_UPDATE_SH="included"
+MULLE_SDE_REFLECT_SH="included"
 
 
-sde_update_usage()
+sde_reflect_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} update [options] ...
+   ${MULLE_USAGE_NAME} reflect [options] ...
 
-   Update runs the default list of MULLE_SDE_UPDATE_CALLBACKS defined by the
+   Reflect runs the default list of MULLE_SDE_REFLECT_CALLBACKS defined by the
    environment, unless task names have been given. See
    \`mulle-monitor callback\` and \`mulle-monitor task\` for more information.
 
@@ -50,13 +50,13 @@ Usage:
       sourcetree : reflect library and dependency changes into makefiles and
                    header files
 Options:
-   --craft       : craft after update
-   --if-needed   : check before update, if it seems unneccessary
+   --craft       : craft after reflect
+   --if-needed   : check before reflect, if reflection seems unneccessary
    --no-recurse  : do not recurse into subprojects
-   --serial      : don't update subprojects in parallel
+   --serial      : don't reflect subprojects in parallel
 
 Environment:
-   MULLE_SDE_UPDATE_CALLBACKS   : default callbacks used for update
+   MULLE_SDE_REFLECT_CALLBACKS   : default callbacks used for reflect
 EOF
    exit 1
 }
@@ -132,9 +132,9 @@ _task_run_if_needed()
 }
 
 
-_sde_update_task()
+_sde_reflect_task()
 {
-   log_entry "_sde_update_task" "$@"
+   log_entry "_sde_reflect_task" "$@"
 
    local runner="$1"
    local name="$2"
@@ -176,18 +176,19 @@ _sde_update_task()
 }
 
 
-_sde_update_main()
+_sde_reflect_main()
 {
-   log_entry "_sde_update_main" "$@"
+   log_entry "_sde_reflect_main" "$@"
 
    local runner="$1" ; shift
    local parallel="$1" ; shift
+
    local task
    local name
 
    if [ $# -eq 1 ]
    then
-      _sde_update_task "${runner}" "$1"
+      _sde_reflect_task "${runner}" "$1"
       return $?
    fi
 
@@ -206,9 +207,9 @@ _sde_update_main()
          then
             if [ "${parallel}" = 'YES' ]
             then
-               _sde_update_task "${runner}" "${name}" "${statusfile}"  &
+               _sde_reflect_task "${runner}" "${name}" "${statusfile}"  &
             else
-               _sde_update_task "${runner}" "${name}" || exit $?
+               _sde_reflect_task "${runner}" "${name}" || exit $?
             fi
          fi
       done
@@ -232,17 +233,17 @@ _sde_update_main()
 }
 
 
-_sde_update_subprojects()
+_sde_reflect_subprojects()
 {
-   log_entry "_sde_update_subprojects" "$@"
+   log_entry "_sde_reflect_subprojects" "$@"
 
    local runner="$1" ; shift
    local parallel="$1" ; shift
 
    #
-   # update source of mulle-sde subprojects only
+   # reflect source of mulle-sde subprojects only
    #
-#   case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+#   case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
 #      *:source:*)
 #      ;;
 #
@@ -274,35 +275,35 @@ _sde_update_subprojects()
       mode="parallel"
    fi
 
-   sde_subproject_map 'Updating' "${mode}" "mulle-sde ${flags} update ${options} $*"
+   sde_subproject_map 'Updating' "${mode}" "mulle-sde ${flags} reflect ${options} $*"
 }
 
 
-sde_update_worker()
+sde_reflect_worker()
 {
-   log_entry "sde_update_worker" "$@"
+   log_entry "sde_reflect_worker" "$@"
 
    local runner="$1" ; shift
    local recurse="$1" ; shift
    local parallel="$1" ; shift
 
-   log_fluff "Update callbacks: \"${MULLE_SDE_UPDATE_CALLBACKS}\""
+   log_fluff "Reflect callbacks: \"${MULLE_SDE_REFLECT_CALLBACKS}\""
 
    if [ "${recurse}" = 'YES' ]
    then
-      if ! _sde_update_subprojects "${runner}" "${parallel}" "$@"
+      if ! _sde_reflect_subprojects "${runner}" "${parallel}" "$@"
       then
          return 1
       fi
    fi
 
-   _sde_update_main "${runner}" "${parallel}" "$@"
+   _sde_reflect_main "${runner}" "${parallel}" "$@"
 }
 
 
-sde_update_main()
+sde_reflect_main()
 {
-   log_entry "sde_update_main" "$@"
+   log_entry "sde_reflect_main" "$@"
 
    local OPTION_RECURSE='YES'
    local OPTION_PARALLEL='YES'
@@ -317,7 +318,7 @@ sde_update_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_update_usage
+            sde_reflect_usage
          ;;
 
          --if-needed)
@@ -333,7 +334,7 @@ sde_update_main()
          ;;
 
          -*)
-            sde_update_usage "Unknown option \"$1\""
+            sde_reflect_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -370,18 +371,20 @@ sde_update_main()
 
    if [ $# -ne 0 ]
    then
-      sde_update_worker "${runner}" "${OPTION_RECURSE}" "${OPTION_PARALLEL}" "$@"
+      sde_reflect_worker "${runner}" "${OPTION_RECURSE}" "${OPTION_PARALLEL}" "$@"
       return $?
    fi
 
    local tasks
 
-   tasks="${MULLE_SDE_UPDATE_CALLBACKS//:/ }"
+   tasks="${MULLE_SDE_REFLECT_CALLBACKS//:/ }"
    if [ -z "${tasks}" ]
    then
-      log_fluff "Nothing to do as no tasks are configured by MULLE_SDE_UPDATE_CALLBACKS"
+      log_fluff "Nothing to do as no tasks are configured by MULLE_SDE_REFLECT_CALLBACKS"
       return 0
    fi
 
-   eval sde_update_worker "'${runner}'" "'${OPTION_RECURSE}'" "'${OPTION_PARALLEL}'" "${tasks}"
+   log_fluff "Running tasks: ${tasks}"
+
+   eval sde_reflect_worker "'${runner}'" "'${OPTION_RECURSE}'" "'${OPTION_PARALLEL}'" "${tasks}"
 }

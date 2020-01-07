@@ -3,22 +3,11 @@ cmake_minimum_required( VERSION 3.0)
 project( <|ONESHOT_NAME|> NONE)
 
 
-# install scripts build scripts if any into "${DEPENDENCY_DIR}/bin"
+# install build script, if any into "${DEPENDENCY_DIR}/bin"
 
 file( GLOB SCRIPTS
-   bin/*
+   bin/<|ONESHOT_NAME|>-build
 )
-
-file( GLOB BORING_FILES
-   bin/*.example
-   bin/*~
-   bin/*.bak
-   bin/*.old
-)
-
-foreach( BORING_FILE ${BORING_FILES} )
-   list( REMOVE_ITEM SCRIPTS "${BORING_FILE}")
-endforeach()
 
 if( SCRIPTS)
 	install( FILES "${SCRIPTS}" DESTINATION "bin"

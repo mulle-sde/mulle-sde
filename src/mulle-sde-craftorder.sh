@@ -108,7 +108,7 @@ create_craftorder_file()
    [ -z "${MULLE_FILE_SH}" ] && \
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
-   log_info "Updating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} craftorder"
+   log_info "Creating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} craftorder"
 
    mkdir_if_missing "${cachedir}"
    if ! redirect_exekutor "${craftorderfile}" \

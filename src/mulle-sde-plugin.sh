@@ -51,7 +51,8 @@ load_plugin_if_needed()
 
    local plugin
    local libexedir
-   plugin="$(eval echo "\${${varname}}" )"
+
+   plugin="${!varname}"
    if [ -z "${plugin}" ]
    then
       r_dirname="$0"
@@ -68,18 +69,18 @@ load_plugin_if_needed()
       fi
    fi
 
-   if [ -z "$(eval echo "\${${definename}}" )" ]
+   if [ -z "${!definename}" ]
    then
       . "${plugin}" || fail "could not find \"libexec/${filename}\""
       log_debug "Did load plugin \"libexec/${filename}\""
    else
       functionname="${fallback}"
    fi
-   eval "${varname}='${functionname}'"
+
+   printf -v "${varname}"  "%s" "${functionname}"
 
    local value
 
-   value="$(eval echo "\${${varname}}" )"
-
+   value="${!varname}"
    log_debug "${varname}=${value}"
 }

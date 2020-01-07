@@ -416,7 +416,7 @@ r_linkorder_collect()
          # os-library, ignore it unless we do 'ld'
          if [ "${collect_libraries}" = 'NO' ]
          then
-            return 2
+            return 4
          fi
 
          log_fluff "Use OS library \"${name}\""
@@ -439,6 +439,7 @@ r_linkorder_collect()
    IFS=","; set -f
    for alias in ${aliases}
    do
+      alias="${alias#*:}"  # remove type if any
       r_concat "${aliasfail}" "'${alias}'" " or "
       aliasfail="${RVAL}"
       r_concat "${aliasargs}" "'${alias}'"
@@ -454,7 +455,7 @@ r_linkorder_collect()
       case ",${marks},*" in
          *,no-require,*)
             log_fluff "\"${libpath}\" is not found, but it is not required"
-            return 2
+            return 4
          ;;
       esac
 

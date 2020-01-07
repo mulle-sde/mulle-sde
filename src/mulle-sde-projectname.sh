@@ -36,7 +36,7 @@ set_projectname_variables()
 {
    log_entry "set_projectname_variables" "$@"
 
-   PROJECT_NAME="${PROJECT_NAME:-$1}"
+   PROJECT_NAME="${1:-${PROJECT_NAME}}"
 
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty.
 ${C_INFO}Are you runnning inside a mulle-sde environment ?"
@@ -71,4 +71,35 @@ set_projectname_environment()
    export PROJECT_DOWNCASE_IDENTIFIER
    export PROJECT_UPCASE_IDENTIFIER
 }
+
+
+project_env_set_var()
+{
+   local key="$1"
+   local value="$2"
+   local scope="${3:-extension}"
+
+   log_verbose "Environment: ${key}=\"${value}\""
+
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                     --search-nearest \
+                     -s \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     --no-protect \
+                  environment \
+                     --scope "${scope}" \
+                     set "${key}" "${value}" || internal_fail "failed env set"
+}
+
+
+save_projectname_variables()
+{
+   log_entry "save_projectname_variables" "$@"
+
+  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}" "project"
+  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project"
+  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project"
+  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project"
+}
+
 

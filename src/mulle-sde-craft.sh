@@ -61,36 +61,36 @@ Targets:
    project                 : build the project
 
 Environment:
-   MULLE_SCAN_BUILD              : tool to use for --analyze (mulle-scan-build)
-   MULLE_SCAN_BUILD_DIR          : output directory ($KITCHEN_DIR/analyzer)
-   MULLE_CRAFT_MAKE_FLAGS        : flags to be passed to mulle-make (via craft)
-   MULLE_SDE_UPDATE_CALLBACKS    : callback called during update
-   MULLE_SDE_UPDATE_BEFORE_CRAFT : force update before craft (${MULLE_SDE_UPDATE_BEFORE_CRAFT:-NO})
-   MULLE_SDE_DEFAULT_CRAFT_STYLE : Usually "Release" or "Debug" (Debug)
+   MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
+   MULLE_SCAN_BUILD_DIR           : output directory ($KITCHEN_DIR/analyzer)
+   MULLE_CRAFT_MAKE_FLAGS         : flags to be passed to mulle-make (via craft)
+   MULLE_SDE_REFLECT_CALLBACKS    : callback called during reflect
+   MULLE_SDE_REFLECT_BEFORE_CRAFT : force reflect before craft (${MULLE_SDE_REFLECT_BEFORE_CRAFT:-NO})
+   MULLE_SDE_DEFAULT_CRAFT_STYLE  : Usually "Release" or "Debug" (Debug)
 EOF
    exit 1
 }
 
 
-sde_perform_updates()
+sde_perform_reflects()
 {
-   log_entry "sde_pre_update" "$@"
+   log_entry "sde_perform_reflects" "$@"
 
    local target="$1"
    local craftorderfile="$2"
    local cachedir="$3"
-   local OPTION_UPDATE="$4"
+   local OPTION_REFLECT="$4"
 
    local dbrval
 
    dbrval=0
 
-   local updateflags
+   local reflectflags
    local tasks
 
-   updateflags="--if-needed"
+   reflectflags="--if-needed"
 
-   case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+   case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
       *:source:*)
          tasks="source"
       ;;
@@ -99,13 +99,13 @@ sde_perform_updates()
    #
    # Make a quick estimate if this is a virgin checkout scenario, by checking
    # the craftorder file exist
-   # If yes, then lets update once. If there is no craftorder file, let's
+   # If yes, then lets reflect once. If there is no craftorder file, let's
    # do it
    #
-   if [ "${MULLE_SDE_UPDATE_BEFORE_CRAFT}" = 'YES' ]
+   if [ "${MULLE_SDE_REFLECT_BEFORE_CRAFT}" = 'YES' ]
    then
-      log_debug "MULLE_SDE_UPDATE_BEFORE_CRAFT forces update"
-      updateflags="" # "force" update
+      log_debug "MULLE_SDE_REFLECT_BEFORE_CRAFT forces reflect"
+      reflectflags="" # "force" reflect
    fi
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -117,11 +117,11 @@ sde_perform_updates()
    log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
 
    #
-   # Check if we need to update the sourcetree.
+   # Check if we need to reflect the sourcetree.
    # This could fetch dependencies if required.
    # A 1 here means we have no sourcetree.
    #
-   if [ ${dbrval} -eq 2 ]
+   if [ ${dbrval} -eq 4 ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
@@ -129,23 +129,23 @@ sde_perform_updates()
       then
          log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
       else
-         log_verbose "Run sourcetree update"
+         log_verbose "Run sourcetree sync"
 
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                               "${MULLE_TECHNICAL_FLAGS}" \
-                           "update" || exit 1
+                           "sync" || exit 1
 
          # run this quickly, because incomplete previous fetches trip me
          # up too often (not doing this since mulle-sde doctor is OK now)
          # exekutor mulle-sde status --stash-only
       fi
-      updateflags='' # db "force" update
+      reflectflags='' # db "force" reflect
    fi
 
    # run task sourcetree, if present (0) or was dirty (2)
    if [ ${dbrval} -ne 1 ]
    then
-      case ":${MULLE_SDE_UPDATE_CALLBACKS}:" in
+      case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
          *:sourcetree:*)
             tasks="${tasks} sourcetree"
          ;;
@@ -154,17 +154,17 @@ sde_perform_updates()
 
    if [ "${target}" = 'all' -o "${target}" = 'project' ]
    then
-      [ -z "${MULLE_SDE_UPDATE_SH}" ] && \
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-update.sh"
+      [ -z "${MULLE_SDE_REFLECT_SH}" ] && \
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
-      sde_update_main ${updateflags} ${tasks} || exit 1
+      sde_reflect_main ${reflectflags} ${tasks} || exit 1
    fi
 
    #
    # at this point, it's better to clean, because cmake caches might
-   # get outdated (sourcetree updates don't run this often)
+   # get outdated (sourcetree syncs don't run this often)
    #
-   if [ ${dbrval} -eq 2 ]
+   if [ ${dbrval} -eq 4 ]
    then
       [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
@@ -180,7 +180,7 @@ sde_perform_updates()
          create_craftorder_file_if_needed "${craftorderfile}" "${cachedir}"
       ;;
 
-      2)
+      4)
          create_craftorder_file "${craftorderfile}" "${cachedir}"
       ;;
    esac
@@ -195,7 +195,7 @@ sde_craft_main()
    log_entry "sde_craft_main" "$@"
 
    local target
-   local OPTION_UPDATE='YES'
+   local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
    local OPTION_ANALYZE='NO'
@@ -206,7 +206,7 @@ sde_craft_main()
       if [ -z "${target}" ]
       then
          target="craftorder"
-         OPTION_UPDATE='NO'
+         OPTION_REFLECT='NO'
       fi
    fi
    target="${target:-all}"
@@ -228,8 +228,8 @@ sde_craft_main()
             sde_craft_usage
          ;;
 
-         -q|--quick|no-update)
-            OPTION_UPDATE='NO'
+         -q|--quick|no-update|no-reflect)
+            OPTION_REFLECT='NO'
          ;;
 
          --analyze)
@@ -277,7 +277,7 @@ sde_craft_main()
 
          *)
             target="$1"
-            OPTION_UPDATE='NO'
+            OPTION_REFLECT='NO'
             shift
             break
          ;;
@@ -302,14 +302,14 @@ sde_craft_main()
    # Things to do:
    #
    #  1. possibly sync the sourcetree db/fs/config if needed
-   #  2. possibly run a mulle-sde update if needed
+   #  2. possibly run a mulle-sde reflect if needed
    #  3. possibly create a new craftorder file
    #  4. possibly clean build
    #
-   sde_perform_updates "${target}" \
+   sde_perform_reflects "${target}" \
                        "${_craftorderfile}" \
                        "${_cachedir}" \
-                       "${OPTION_UPDATE}"
+                       "${OPTION_REFLECT}"
 
    #
    # by default, we don't want to see the craftorder verbosity

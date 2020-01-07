@@ -34,7 +34,7 @@ MULLE_SDE_SUBPROJECT_SH="included"
 
 SUBPROJECT_MARKS="dependency,no-update,no-delete,no-share"
 
-SUBPROJECT_LIST_MARKS="dependency"
+SUBPROJECT_LIST_MARKS="dependency,subproject,no-delete"
 SUBPROJECT_LIST_NODETYPES="local"
 
 
@@ -46,10 +46,9 @@ sde_subproject_usage()
 Usage:
    ${MULLE_USAGE_NAME} subproject [options] [command]
 
-   A subproject is another mulle-sde project of yours, that serves
-   as a dependency here. Subprojects are subdirectories. A subproject is
-   otherwise the same as a dependency but it can not be build on
-   its own.
+   A subproject is a part of your mulle-sde project. A subproject is contained
+   in a subdirectory and has its own environment. It is functionally very
+   similiar to a dependency but it can not be build on its own.
 
    The subproject feature is ** EXPERIMENTAL ** and in constant flux.
 
@@ -391,7 +390,7 @@ sde_subproject_init_main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
       fi
 
-      meta="`sde_extension_main installed-meta`"
+      meta="`sde_extension_main meta`"
       if [ -z "${meta}" ]
       then
          fail "Unknown installed meta extension. Specify it yourself"

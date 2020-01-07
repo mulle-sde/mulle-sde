@@ -66,6 +66,25 @@ MULLE_SDE_CLEAN_SH="included"
 # sde:         N/A
 # sourcetree:  touch, clean, reset  (do not clear graveyards,)
 #
+sde_clean_domains_usage()
+{
+   cat <<EOF
+   all         : clean craftinfos, craftorder, project. Remove folder "`basename -- "${DEPENDENCY_DIR}"`"
+   archive     : clean the archive cache
+   craftorder  : clean all dependencies
+   craftinfos  : clean craftinfos
+   default     : clean project and subprojects (default)
+   fetch       : clean to force a fresh fetch from remotes
+   graveyard   : clean graveyard (which can become quite large)
+   project     : clean project, keep dependencies
+   repository  : clean the repository mirror
+   subprojects : clean subprojects
+   test        : clean tests
+   tidy        : clean everything (except archive and graveyard). It's slow!
+EOF
+}
+
+
 sde_clean_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -87,19 +106,12 @@ EOF
 
 EOF
    fi
+
    cat <<EOF >&2
+
 Domains:
-   all         : clean craftorder, project. Remove folder "`basename -- "${DEPENDENCY_DIR}"`"
-   archive     : clean the archive cache
-   default     : clean project and subprojects (default)
-   fetch       : clean to force a fresh fetch from remotes
-   graveyard   : clean graveyard (which can become quite large)
-   project     : clean project, keep dependencies
-   repository  : clean the repository mirror
-   subprojects : clean subprojects
-   test        : clean tests
-   tidy        : clean everything (except archive and graveyard). It's slow!
 EOF
+   sde_clean_domains_usage >&2
    exit 1
 }
 
@@ -170,6 +182,40 @@ sde_clean_dependency_main()
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
                   dependency
+}
+
+
+sde_clean_craftinfo_main()
+{
+   log_entry "sde_clean_craftinfo_main" "$@"
+
+   if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh" || \
+         internal_fail "missing file"
+   fi
+
+   local craftinfos
+   local craftinfo
+
+   craftinfos="`sde_dependency_craftinfo_get_addresses`"
+   if [ -z "${craftinfos}" ]
+   then
+      log_fluff "No craftinfos, so done"
+      return
+   fi
+
+   local name
+   set -o noglob; IFS=$'\n'
+   for craftinfo in ${craftinfos}
+   do
+      set +o noglob; IFS="${DEFAULT_IFS}"
+      rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+            ${MULLE_TECHNICAL_FLAGS} \
+            clean \
+               "${craftinfo}"
+   done
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -259,10 +305,32 @@ sde_clean_var_main()
 {
    log_entry "sde_clean_var_main" "$@"
 
-   log_verbose "Cleaning \".mulle-sde/var\" folder"
+   log_verbose "Cleaning \"${MULLE_SDE_VAR_DIR}\" folder"
 
    rmdir_safer "${MULLE_SDE_VAR_DIR}"
 }
+
+
+sde_clean_tmp_main()
+{
+   log_entry "sde_clean_tmp_main" "$@"
+
+   local dir
+
+   shopt -s nullglob
+   for dir in .mulle/var/*/*/tmp  .mulle/var/*/tmp
+   do
+      shopt -u nullglob
+      if [ -d "${dir}" ]
+      then
+         log_verbose "Cleaning \"${dir}\" folder"
+
+         rmdir_safer "${dir}"
+      fi
+   done
+   shopt -u nullglob
+}
+
 
 
 sde_clean_db_main()
@@ -413,12 +481,15 @@ sde_clean_main()
    local domain
    local domains
 
+   [ $# -gt 1 ] && shift && sde_clean_usage "superflous arguments $*"
+
    case "${1:-default}" in
       'domains')
          echo "\
 all
 alltestall
 archive
+craftinfos
 craftorder
 cache
 default
@@ -443,6 +514,10 @@ test"
 
       archive)
          domains="archive"
+      ;;
+
+      craftinfo|craftinfos)
+         domains="craftinfo"
       ;;
 
       craftorder)
@@ -491,6 +566,15 @@ test"
 
       tidy)
          domains="sourcetree_share craftordercache output var db monitor patternfile"
+      ;;
+
+      tmp)
+         domains="tmp"
+      ;;
+
+      domains-usage)
+         sde_clean_domains_usage
+         return 0
       ;;
 
       *)

@@ -390,7 +390,6 @@ sde_test_main()
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
                      init \
-                        --github-name "${RVAL}" \
                         "$@"
       ;;
 

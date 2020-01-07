@@ -43,10 +43,12 @@ Usage:
    ${MULLE_USAGE_NAME} extension <command>
 
    Maintain mulle-sde extensions in your project after you ran
-   mulle-sde init. Upgrade all extensions with separate "upgrade" command.
+   mulle-sde init. Upgrade all extensions with separate
+   \`mulle-sde upgrade\` command.
 
 Commands:
    add        : add an extra extension to your project
+   find       : find extensions bases on vendor/name or type
    list       : list installed extensions
    meta       : print the installed meta extension
    pimp       : pimp up your your project with a one-shot extension
@@ -71,6 +73,27 @@ Usage:
 Options:
    --no-version  : don't show version of the extensions
 
+EOF
+   exit 1
+}
+
+
+sde_extension_find_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension find [vendor/name] [type]
+
+   Outputs the paths of matching extensions.
+
+Options:
+   --quiet              : just return a status
+
+Environment:
+   MULLE_SDE_EXTENSION_PATH      : Overrides searchpath for extensions
+   MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath for extensions
 EOF
    exit 1
 }
@@ -120,7 +143,11 @@ Usage:
    Add an "extra" extension to your project.
    To reconfigure your project with another runtime or buildtool, use
    \`${MULLE_USAGE_NAME} init\` to setup anew.
+
 EOF
+
+   sde_extension_show_main extra | sed -e 's|^mulle-sde/||' | sort >&2
+
    exit 1
 }
 
@@ -164,6 +191,7 @@ Options:
 EOF
    exit 1
 }
+
 
 #
 # Though libexec can be found tied to the executable, it's kind
@@ -214,6 +242,7 @@ r_extension_get_installdir()
    r_simplified_path "${prefix}/share/mulle-sde/extensions"
 }
 
+
 #
 # An extension must be present at init time. Nothing from the project
 # exists (there is nothing in MULLE_VIRTUAL_ROOT/dependencies)
@@ -224,7 +253,6 @@ r_extension_get_installdir()
 # /usr/local/share/mulle_sde/extensions/<vendor> or whereever mulle-sde is
 # installed
 #
-
 r_extension_get_searchpath()
 {
    log_entry "r_extension_get_searchpath" "$@"
@@ -310,9 +338,10 @@ r_extension_get_vendor_path()
    do
       if [ -d "${i}/${vendor}" ]
       then
+         log_debug "Vendor \"${vendor}\" found in \"${i}\""
+
          r_colon_concat "${RVAL}" "${i}"
       fi
-      # log_debug "Vendor \"${vendor}\" not found in \"${i}\""
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 }
@@ -348,13 +377,12 @@ _extension_list_vendors()
    log_entry "_extension_list_vendors" "$@"
 
    local searchpath
-   local s
    local i
 
    r_extension_get_searchpath
    searchpath="${RVAL}"
 
-   IFS=':'; set -o noglob
+   IFS=':'; shopt -s nullglob
    for i in ${searchpath}
    do
       if [ -d "${i}" ]
@@ -366,7 +394,7 @@ _extension_list_vendors()
                                   -print
       fi
    done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shopt -u nullglob
 }
 
 
@@ -374,7 +402,8 @@ extension_list_vendors()
 {
    log_entry "extension_list_vendors" "$@"
 
-   _extension_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | LC_ALL=C sort -u
+   # plugins vendor name is not allowed
+   _extension_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | sed -e '/plugins/d' | LC_ALL=C sort -u
 }
 
 
@@ -514,6 +543,8 @@ r_collect_vendorextensions()
    log_entry "r_collect_vendorextensions" "$@"
 
    local vendor="$1"
+   local searchname="$2"
+   local searchtype="$3"
 
    local directory
    local searchpath
@@ -541,6 +572,22 @@ r_collect_vendorextensions()
       then
          log_debug "\"${extensiondir}\" has no type information, skipped"
          continue
+      fi
+
+      if [ ! -z "${searchtype}" -a "${searchtype}" != "${foundtype}" ]
+      then
+         log_debug "\"${extensiondir}\" type \"${foundtype}\" does not match \"${searchtype}\""
+         continue
+      fi
+
+      if [ ! -z "${searchname}" ]
+      then
+         r_basename "${extensiondir}"
+         if [ "${searchname}" != "${RVAL}" ]
+         then
+            log_debug "\"${extensiondir}\" name \"${RVAL}\" does not match \"${searchname}\""
+            continue
+         fi
       fi
 
       r_add_line "${vendorextensions}" "${extensiondir};${foundtype}"
@@ -669,6 +716,100 @@ emit_extension()
    done
    IFS="${DEFAULT_IFS}"
 }
+
+
+sde_extension_find_main()
+{
+   log_entry "sde_extension_show_main" "$@"
+
+   local OPTION_QUIET='NO'
+
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_extension_find_usage
+         ;;
+
+         -q|--quiet)
+            OPTION_QUIET='YES'
+         ;;
+
+         -*)
+            sde_extension_show_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -lt 1 ] && sde_extension_show_usage "Missing arguments"
+   [ $# -gt 2 ] && sde_extension_show_usage "Superflous arguments \"$*\""
+
+   local vendor
+   local name
+
+   case "$1" in
+      */*)
+         vendor="${1%%/*}"
+         name="${1##*/}"
+      ;;
+
+      *)
+         vendor="$1"
+      ;;
+   esac
+   shift
+
+   # this is optional
+   local type
+
+   type="$1"
+
+   local extensions
+
+   if [ ! -z "${vendor}" ]
+   then
+      r_collect_vendorextensions "${vendor}" "${name}" "${type}"
+      extensions="${RVAL}"
+   else
+      local all_vendors
+
+      all_vendors="`extension_list_vendors`" || exit 1
+
+      set -o noglob ; IFS=$'\n'
+      for vendor in ${all_vendors}
+      do
+         IFS="${DEFAULT_IFS}"; set +o noglob
+
+         r_collect_vendorextensions "${vendor}" "${name}" "${type}"
+         r_add_line "${extensions}" "${RVAL}"
+         extensions="${RVAL}"
+      done
+      IFS="${DEFAULT_IFS}"; set +o noglob
+   fi
+
+   if [ -z "${extensions}" ]
+   then
+      log_debug "No matching extensions found"
+      return 1
+   fi
+
+   if [ "${OPTION_QUIET}" = 'NO' ]
+   then
+      sed -e 's/;.*//' <<< "${extensions}"
+   fi
+
+   return 0
+}
+
 
 
 sde_extension_show_main()
@@ -1377,7 +1518,7 @@ sde_extension_main()
             eval sde_init_main --no-blurb --no-env --add "${args}"
       ;;
 
-      show)
+      find|show)
          sde_extension_${cmd}_main "$@"
       ;;
 
@@ -1390,23 +1531,49 @@ sde_extension_main()
          sde_extension_${cmd}_main "$@"
       ;;
 
-      meta|installed-meta)
-         local meta
+      meta|runtime|buildtool)
+         local extension
 
-         [ -z "${MULLE_VIRTUAL_ROOT}" ] && fail "Command must be run from inside subshell"
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            exekutor exec mulle-sde run mulle-sde extension "${cmd}"
+         fi
 
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
          then
-            meta="`egrep ';meta$' "${MULLE_SDE_SHARE_DIR}/extension" | head -1 | cut -d';' -f 1`"
+            extension="`egrep -e ";${cmd}\$" "${MULLE_SDE_SHARE_DIR}/extension" | head -1 | cut -d';' -f 1`"
          fi
 
-         if [ -z "${meta}" ]
+         if [ -z "${extension}" ]
          then
-            log_warning "Could not figure out installed meta extension"
+            log_warning "Could not figure out installed \"${cmd}\" extension"
             return 1
          fi
-         printf "%s\n" "${meta}"
+         printf "%s\n" "${extension}"
       ;;
+
+
+      metas|runtimes|buildtools)
+         local extensions
+
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            exekutor exec mulle-sde run mulle-sde extension "${cmd}"
+         fi
+
+         if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
+         then
+            extensions="`egrep -e ";${cmd%s}\$" "${MULLE_SDE_SHARE_DIR}/extension" | cut -d';' -f 1`"
+         fi
+
+         if [ -z "${extensions}" ]
+         then
+            log_warning "Could not figure out installed \"${cmd%s}\" extensions"
+            return 1
+         fi
+         printf "%s\n" "${extensions}"
+      ;;
+
 
       searchpath)
          log_info "Extension searchpath"

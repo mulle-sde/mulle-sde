@@ -9,5 +9,4 @@ var/
 publisher-info.sh
 mulle-sde.graffle/
 dox/*Wishlist.txt
-
-src/mulle-sde-add.sh
+research/

@@ -5,16 +5,16 @@ digraph G {
     edge[ arrowhead="none", color="gray"]
 
     { rank = same;  "source-callback", "sourcetree-callback" };
-    { rank = last;  "mulle-sde update" };
+    { rank = last;  "mulle-sde reflect" };
 
     "source-callback"        [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"source\""];
     "sourcetree-callback"    [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"sourcetree\""];
 
 
-    "mulle-sde update"  [ shape="none", fontname="monospace", fontcolor="blue"]
+    "mulle-sde reflect"  [ shape="none", fontname="monospace", fontcolor="blue"]
 
     edge[ arrowhead="", style="dotted", color="black" ]
 
-    "mulle-sde update"  -> "source-callback"        [ label="callback" ]
-    "mulle-sde update"  -> "sourcetree-callback"    [ label="callback" ]
+    "mulle-sde reflect"  -> "source-callback"        [ label="callback" ]
+    "mulle-sde reflect"  -> "sourcetree-callback"    [ label="callback" ]
 }

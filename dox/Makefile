@@ -11,10 +11,10 @@ mulle-sde-log.png \
 mulle-sde-patternfile.png \
 mulle-sde-monitor.png \
 mulle-sde-overview.png \
+mulle-sde-reflect.png \
 mulle-sde-subproject.png \
 mulle-sde-status.png \
-mulle-sde-tool.png \
-mulle-sde-update.png
+mulle-sde-tool.png
 
 %.png: %.dot
 	dot -Tpng -o $*.png $<

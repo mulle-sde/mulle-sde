@@ -29,6 +29,10 @@ Executable      | Description
 See [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer) how
 to install mulle-sde.
 
+## Documentation
+
+There is quite a bit of documentation in the [mulle-sde WiKi](//github.com/mulle-sde/mulle-sde/wiki).
+
 
 # Commands
 
@@ -40,16 +44,6 @@ As the various tools that comprise mulle-sde are configured with
 environment variables, `mulle-sde init` will create  a virtual environment
 using [mulle-env](//github.com/mulle-sde/mulle-env), so that various projects
 can coexist on a filesystem with minimized interference.
-
-> For the followinge example you need to install the following extension:
-> [mulle-sde-cmake-c](//github.com/mulle-sde/mulle-sde-cmake)
-
-
-Enable bash completion:
-
-```
-$ . `mulle-sde bash-completion`
-```
 
 This is an example, that creates a cmake project for C (this is the default):
 
@@ -85,7 +79,7 @@ Update your source or project files manually. Then let mulle-sde reflect your
 changes back into the Makefiles and build again:
 
 ```
-$ mulle-sde update
+$ mulle-sde reflect
 $ mulle-sde craft
 
 ```
@@ -95,6 +89,18 @@ Leave the environment:
 ```
 $ exit
 ```
+
+## mulle-sde add
+
+You can create a templated source file for installed mulle-sde languages with
+the `add` command. These files can be optionally pre-loaded with
+personalized copyright statements.
+
+```
+mulle-sde list add src/Foo.m
+```
+
+This will automatically run `reflect`.
 
 
 ## mulle-sde craft
@@ -275,14 +281,16 @@ mulle-sde tool add nroff
 ```
 
 
-## mulle-sde update
+## mulle-sde reflect
 
-An *update* reflects changes made in the filesystem back into the buildsystem
-"Makefiles". mulle-sde executes the task returned by the *callbacks*
-`source` and `sourcetree`. The actual work is done by *tasks* of the chosen
-*extensions*.
+This command **reflects** changes made in the filesystem back into the
+build-system "Makefiles". You don't edit them manually, but let them be created
+for your.
 
-![](dox/mulle-sde-update.png)
+mulle-sde executes the tasks returned by the *callbacks* `source` and
+`sourcetree`. The actual work is done by *tasks* of the chosen *extensions*.
+
+![](dox/mulle-sde-reflect.png)
 
 
 ## mulle-sde linkorder
@@ -305,17 +313,17 @@ mulle-sde linkorder --output-format ld
 Inside the **mulle-sde** subshell, you have a few aliases defined to save
 you typework. These are
 
-Command         | Description
-----------------|--------------------------------
-c               | craft project
-C               | clean and craft project
-CC              | clean project and dependencies, then craft
-t               | run tests that haven't run yet or failed one by one
-tt              | craft project, then run tests like 't'
-T               | clean and craft project, then run tests in parallel
-TT              | clean project and dependencies, then craft, then test
-l               | list files and dependencies
-u               | update project
+Command  | Description
+---------|--------------------------------
+c        | craft project
+C        | clean and craft project
+CC       | clean project and dependencies, then craft
+t        | run tests that haven't run yet or failed one by one
+tt       | craft project, then run tests like 't'
+T        | clean and craft project, then run tests in parallel
+TT       | clean project and dependencies, then craft, then test
+l        | list files and dependencies
+r        | reflect project
 
 
 To have the same functionality without entering the subshell, define these
@@ -329,6 +337,6 @@ alias t="mulle-sde test rerun --serial"
 alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
 alias T="mulle-sde test craft ; mulle-sde test"
 alias TT="mulle-sde test clean ; mulle-sde test"
-alias u="mulle-sde update"
+alias r="mulle-sde reflect"
 alias l="mulle-sde list"
 ```

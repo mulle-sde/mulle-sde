@@ -53,6 +53,11 @@ Usage:
    or library. Use \`mulle-sde dependency list -- --output-format cmd\` for
    copying single entries between projects.
 
+   Check out the Wiki for information on how to setup and tweak your
+   dependencies:
+
+      https://github.com/mulle-sde/mulle-sde/wiki
+
 Commands:
    add        : add a dependency to the sourcetree
    craftinfo  : change build options for a dependency
@@ -82,12 +87,12 @@ Usage:
    a tar or zip archive (more options may be available if additional
    mulle-fetch plugins are installed).
 
-   The default dependency is a library with a headerfile.
+   The default dependency is a C library with header files. You need to use
+   the appropriate options to build Objective-C libraries, header-less or
+   header-only or purely embedded dependencies.
 
-   You should specify with options, if a dependency supports the mulle-make
-   three phase build protocol for vastly superior build times.
-
-   You should also specify the language if the dependency is Objective-C.
+   See the Wiki for more information:
+      https://github.com/mulle-sde/mulle-sde/wiki
 
 Examples:
    Add a github repository as a dependency:
@@ -96,13 +101,14 @@ Examples:
 
    Add a tar archive as a dependency:
 
-      -${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
+      ${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
 
 Options:
    --c             : used for C dependencies (default)
    --clean         : delete all previous dependencies and libraries
    --embedded      : the dependency becomes part of the local project
-   --github <name> : create an URL for a - possibly fictitious - github name
+   --domain <name> : create an URL for a known domain, e.g. github
+   --github <name> : a shortcut for --domain github --user <name>
    --headerless    : has no headerfile
    --headeronly    : has no library
    --no-fetch      : do not attempt to find a matching craftinfo on github
@@ -112,8 +118,11 @@ Options:
    --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
+   --repo <name>   : used in conjunction with --domain to specify an url
    --singlephase   : the dependency must be crafted in one phase
    --startup       : dependency is a ObjC startup library
+   --user <name>   : used in conjunction with --domain to specify an url
+   --tag <name>    : used in conjunction with --domain to specify an url
       (see: mulle-sourcetree -v add -h for more add options)
 EOF
   exit 1
@@ -137,14 +146,19 @@ Usage:
       ${MULLE_USAGE_NAME} dependency set libdill include libdill.h
 
    Note: Specifiying aliases works nicely in the generated cmake files. The
-         'linkorder' though has a problem, since it doesn't use cmake's
-         find_library.
+         'linkorder' command though will have a problem, as it doesn't use
+         cmake's find_library to locate libraries.
+
+   See the Wiki for more information:
+      https://github.com/mulle-sde/mulle-sde/wiki
 
 Options:
    --append    : append value instead of set
 
 Keys:
    aliases     : names of library to search for, separated by comma
+                 you can prefix a name with "Debug:" or "Release:" to
+                 narrow the use to these cmake build types
    include     : include filename to use
    os-excludes : names of OSes to exclude, separated by comma
    tag         : tag or version to fetch
@@ -450,12 +464,6 @@ _sde_enhance_url()
    local address="$4"
    local marks="$5"
 
-   if [ -z "${nodetype}" ]
-   then
-      nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
-      [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
-   fi
-
    if [ -z "${address}" ]
    then
       address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
@@ -495,62 +503,69 @@ _sde_enhance_url()
    r_de_camel_case_upcase_identifier "${address}"
    upcaseid="${RVAL}"
 
+
+   #
+   # TODO: move this part of the code to mulle-fetch ?
+   #
    local last
    local leading
    local extension
+   local tag
 
    case "${nodetype}" in
       tar|zip)
          case "${url}" in
-            *\$\{MULLE_BRANCH\}*|*\$\{MULLE_TAG\}*)
+            *\$\{MULLE_TAG\}*)
             ;;
 
             *)
-               [ ! -z "${branch}" ] && fail "The branch must be specified in the URL for archives."
+               [ ! -z "${tag}" ] && fail "The tag must be specified in the URL for archives."
             ;;
          esac
 
          case "${url}" in
-            # format .../branch.tar.gz or so
+            # format .../tag.tar.gz or so
             *github.com/*)
                last="${url##*/}"         # basename
                leading="${url%${last}}"  # dirname
-               branch="${last%%.tar*}"
-               if [ "${branch}" = "${last}" ]
+               tag="${last%%.tar*}"
+               if [ "${tag}" = "${last}" ]
                then
-                  branch="${last%%.zip*}"
+                  tag="${last%%.zip*}"
                fi
-               if [ "${branch}" = "${last}" ]
+               if [ "${tag}" = "${last}" ]
                then
-                  branch="${last%%.*.*}"
+                  tag="${last%%.*.*}"
                fi
-               if [ "${branch}" = "${last}" ]
+               if [ "${tag}" = "${last}" ]
                then
-                  branch="${last%%.*}"
+                  tag="${last%%.*}"
                fi
-               extension="${last#${branch}.}"    # dirname
+               extension="${last#${tag}.}"    # dirname
 
-               url="${leading}\${MULLE_BRANCH}.${extension}"
+               url="${leading}\${MULLE_TAG}.${extension}"
             ;;
 
-            # format .../branch
+            # format .../tag
          *mulle-kybernetik*/git/*)
                last="${url##*/}"         # basename
                leading="${url%${last}}"  # dirname
-               branch="${last%%.*}"
+               tag="${last%%.*}"
 
-               url="${leading}\${MULLE_BRANCH}"
+               url="${leading}\${MULLE_TAG}"
             ;;
          esac
       ;;
    esac
 
-   if [ ! -z "${branch}" ]
+   if [ ! -z "${tag}" ]
    then
-      _branch="\${${upcaseid}_BRANCH:-${branch}}"
+      _tag="\${${upcaseid}_TAG:-${tag}}"
    else
-      _branch="\${${upcaseid}_BRANCH}"
+      _tag="\${${upcaseid}_tag}"
    fi
+
+   _branch="\${${upcaseid}_BRANCH}"
 
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"
@@ -587,9 +602,14 @@ sde_dependency_add_main()
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
    local OPTION_SINGLEPHASE='NO' # more common default for me :)
-   local OPTION_FAKE_GITHUB
    local OPTION_CLEAN='NO'
    local OPTION_FETCH='YES'
+
+   local OPTION_DOMAIN
+   local OPTION_USER
+   local OPTION_REPO
+   local OPTION_TAG
+   local OPTION_FILTER
 
    #
    # grab options for mulle-sourcetree
@@ -626,18 +646,56 @@ sde_dependency_add_main()
 
          --embedded)
             OPTION_EMBEDDED='YES'
+            OPTION_FETCH='NO'
          ;;
 
          --executable)
             OPTION_EXECUTABLE='YES'
          ;;
 
-         --github|--fake)
+         --github)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_FAKE_GITHUB="$1"
+            OPTION_DOMAIN="github"
+            OPTION_USER="$1"
          ;;
+
+         --domain)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_DOMAIN="$1"
+         ;;
+
+         --repo)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_REPO="$1"
+         ;;
+
+         --filter)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_FILTER="$1"
+         ;;
+
+         --tag)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_TAG="$1"
+         ;;
+
+         --user)
+            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_USER="$1"
+         ;;
+
 
          --header-less|--headerless)
             r_comma_concat "${marks}" "no-header"
@@ -745,21 +803,22 @@ sde_dependency_add_main()
 
    originalurl="${url}"
 
-   if [ ! -z "${OPTION_FAKE_GITHUB}" ]
+   if [ -z "${nodetype}" ]
    then
-   	case "${nodetype}" in
-   		git)
-      		url="https://github.com/${OPTION_FAKE_GITHUB}/${url}.git"
-      	;;
+      nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
+      [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
+   fi
 
-      	zip)
-      		url="https://github.com/${OPTION_FAKE_GITHUB}/${url}/archive/latest.zip"
-      	;;
-
-      	*)
-      		url="https://github.com/${OPTION_FAKE_GITHUB}/${url}/archive/latest.tar.gz"
-      	;;
-      esac
+   if [ ! -z "${OPTION_DOMAIN}" ]
+   then
+      url="`exekutor "${MULLE_FETCH:-mulle-fetch}" ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_FETCH_FLAGS} \
+            compose-url \
+               --user "${OPTION_USER}" \
+               --tag "${OPTION_TAG}" \
+               --repo "${OPTION_REPO}" \
+               --scm "${nodetype}" \
+               "${OPTION_DOMAIN}" `" || exit 1
    fi
 
    if [ "${OPTION_ENHANCE}" = 'YES' ]
@@ -874,6 +933,12 @@ sde_dependency_add_main()
       return 0
    fi
 
+   # shellcheck source=src/mulle-sde-craftinfo.sh
+   if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+   fi
+
    local dependency
 
    dependency="${address:-${originalurl}}"
@@ -980,6 +1045,7 @@ sde_dependency_main()
 
    # shellcheck source=src/mulle-sde-common.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+   # shellcheck source=src/mulle-sde-craftinfo.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
 
    case "${cmd}" in

@@ -32,9 +32,9 @@
 MULLE_SDE_CRAFTINFO_SH="included"
 
 
-DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
-DEPENDENCY_LIST_MARKS="dependency"
-DEPENDENCY_LIST_NODETYPES="no-none,no-local,ALL"
+CRAFTINFO_MARKS="dependency,no-subproject,no-update,no-delete,no-share,no-header,no-link"
+CRAFTINFO_LIST_MARKS="dependency,no-subproject"
+CRAFTINFO_LIST_NODETYPES="local"
 
 
 # this is a dependency subcommand
@@ -47,15 +47,15 @@ sde_dependency_craftinfo_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo [option] <command>
 
-   Manage craft settings of a dependency. Thy will be stored in a subproject
-   in your project inside a mulle-sde created folder "craftinfo". This is done
-   for you automatically on the first setting add.
+   Manage craft settings of a dependency. They will be stored as subprojects
+   in a folder named "craftinfo" in your project root. This will be done
+   on \`create\` or the first \`set\`. The dependency can be specified by URL
+   or by its address.
 
    mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
-   subproject. This extension also simplifies the use of build scripts. See
-   the \`craftinfo set\` command for more.
+   subproject. This extension also simplifies the use of build scripts.
 
-   The dependency can be specified by URL or by its address.
+   See the \`craftinfo set\` command for more information and typical usage.
 
 EOF
 
@@ -64,9 +64,8 @@ EOF
       cat <<EOF >&2
    Eventually the "craftinfo" contents are used by \`mulle-craft\` to populate
    the \`dependency/share/mulle-craft\` folder and override any
-   \`.mulle/etc/craft/definition\`folders. That's all fairly complicated, but
-   it's necessary to have proper setting inheritance across multiple nested
-   projects.
+   \`.mulle/etc/craft/definition\`folders. This is necessary to have proper
+   setting inheritance across multiple nested projects.
 
 EOF
    else
@@ -75,7 +74,7 @@ EOF
 
       cat <<EOF >&2
 Commands:
-   create            : create an empty craftinfo for a dependency
+   create            : create an empty craftinfo. Rarely needed. Use \`set\`.
    exists            : check if a craftinfo is available from CRAFTINFO_REPOS
    fetch             : fetch craftinfo from CRAFTINFO_REPOS
    get               : retrieve a build setting of a dependency
@@ -109,21 +108,20 @@ Usage:
    See \`mulle-make definition help\` for more info about manipulating
    craftinfo settings.
 
-#
-#
-# Enable scripts with:
-#    mulle-sde environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
-
    Examples:
       Set preprocessor flag -DX=0 for all platforms on dependency "nng":
+         ${MULLE_USAGE_NAME} dependency craftinfo --global set --append nng \
+            CPPFLAGS "-DX=0"
 
-      ${MULLE_USAGE_NAME} dependency craftinfo --global set --append nng CPPFLAGS "-DX=0"
+      Use a build script "build.sh" to build dependency "xyz" on the current
+      platform only. The executable script should be placed by the user
+      into "craftinfo/xyz/bin":
+         ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
+         ${MULLE_USAGE_NAME} environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
 
-      Use a build script to build a dependency for the current platform on
-      dependency "xyz". The build script will be expected to reside in
-      "craftinfo/async.h/bin":
-
-      ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
+      Build curl via cmake and set some variables accordingly:
+         ${MULLE_USAGE_NAME} dependency craftinfo set curl \
+            CMAKEFLAGS "-DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF"
 
 Options:
    --append : value will be appended to key instead (e.g. CPPFLAGS += )
@@ -322,7 +320,7 @@ sde_add_craftinfo_subproject_if_needed()
    then
       if [ "${clobber}" = "DEFAULT" ]
       then
-         return 2
+         return 4
       fi
       if [ "${clobber}" = "YES" ]
       then
@@ -370,7 +368,7 @@ sde_add_craftinfo_subproject_if_needed()
                   ${MULLE_TECHNICAL_FLAGS} \
                add \
                   --if-missing \
-                  --marks "no-update,no-delete,no-share,no-header,no-link" \
+                  --marks "${CRAFTINFO_MARKS}" \
                   --nodetype "local" \
                   "${subprojectdir}"  || return 1
 
@@ -407,7 +405,7 @@ __sde_craftinfo_vars_with_url_or_address()
    then
       if [ "${emptyok}" != 'YES' ]
       then
-         fail "Dependency \"${url}\" is unknown"
+         fail "Dependency with url \"${url}\" is unknown"
       fi
       _address="${url}"
    fi
@@ -592,6 +590,21 @@ remove_dir_safer()
 
    rmdir_safer "$1"
 }
+
+
+
+sde_dependency_craftinfo_get_addresses()
+{
+   log_entry "sde_dependency_craftinfo_get_addresses" "$@"
+
+   rexekutor_sourcetree_cmd_nofail list \
+        --marks "${CRAFTINFO_LIST_MARKS}" \
+        --nodetypes "${CRAFTINFO_LIST_NODETYPES}" \
+        --no-output-header \
+        --output-format raw \
+        --format '%a\n'
+}
+
 
 
 sde_dependency_craftinfo_fetch_main()
