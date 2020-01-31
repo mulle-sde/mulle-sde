@@ -275,7 +275,7 @@ _sde_reflect_subprojects()
       mode="parallel"
    fi
 
-   sde_subproject_map 'Updating' "${mode}" "mulle-sde ${flags} reflect ${options} $*"
+   sde_subproject_map 'Reflecting' "${mode}" "mulle-sde ${flags} reflect ${options} $*"
 }
 
 

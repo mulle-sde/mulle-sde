@@ -478,7 +478,7 @@ sde_subproject_map()
 {
    log_entry "sde_subproject_map" "$@"
 
-   local verb="${1:-Updating}" ; shift
+   local verb="${1:-Reflecting}" ; shift
    local mode="$1" ; shift
 
    local lenient='NO'

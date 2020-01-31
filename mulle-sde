@@ -89,6 +89,7 @@ print_commands()
    monitor        : monitor project files, run reflect and craft
    patternfile    : manage patternfiles
    project-dir    : print project root directory
+   rename         : rename a project and its files
    subproject     : manage local subprojects
    task           : manage reflect tasks
    test           : run tests using mulle-test
@@ -614,7 +615,7 @@ main()
          case "${cmd}" in
             callback|clean|craft|craftinfo|craftorder|craftstatus|crun|doctor|\
 dependency|definition|environment|fetch|find|library|linkorder|list|log|\
-mark|match|monitor|patternfile|reflect|\
+mark|match|monitor|patternfile|reflect|rename|\
 subproject|style|task|template|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
             ;;
@@ -638,7 +639,7 @@ subproject|style|task|template|tool|treestatus|unmark|update)
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|extension|init|init-and-enter|reinit|\
 status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
-project|stash-dir|test|upgrade)
+stash-dir|test|upgrade)
             ;;
 
             enter)
@@ -789,6 +790,7 @@ monitor
 patternfile
 project-dir
 reinit
+rename
 reflect
 run
 show
@@ -1013,13 +1015,6 @@ version"
          sde_monitor_main "$@"
       ;;
 
-      project)
-         # shellcheck source=src/mulle-sde-monitor.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh"
-
-         sde_project_main "$@"
-      ;;
-
       project-dir)
          if r_determine_project_dir
          then
@@ -1035,6 +1030,13 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
          sde_reflect_main "$@"
+      ;;
+
+      rename)
+         # shellcheck source=src/mulle-sde-rename.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-rename.sh"
+
+         sde_rename_main "$@"
       ;;
 
       #

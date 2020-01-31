@@ -1514,7 +1514,7 @@ sde_extension_main()
 
          args="`hack_option_and_single_quote_everything "${option}" "$@" | tr '\012' ' '`"
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
+         INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
             eval sde_init_main --no-blurb --no-env --add "${args}"
       ;;
 

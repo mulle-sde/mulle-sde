@@ -145,7 +145,7 @@ sde_upgrade_test()
             log_info "Upgrade test ${C_RESET_BOLD}${i}"
             ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} upgrade ) || exit 1
          else
-            log_verbose "Test diretory \"$i\" doesn't look like a mulle-sde project"
+            log_verbose "Test directory \"$i\" doesn't look like a mulle-sde project"
          fi
       fi
    done

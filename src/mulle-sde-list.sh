@@ -207,7 +207,7 @@ sde_list_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_fetch_usage
+            sde_list_usage
          ;;
 
          --no-dependencies)
@@ -244,6 +244,8 @@ sde_list_main()
 
       shift
    done
+
+   [ $# -ne 0 ] && sde_list_usage "Superflous arguments $*"
 
    if [ "${OPTION_LIST_FILES}" = 'YES' -a "${PROJECT_TYPE}" != 'none' ]
    then

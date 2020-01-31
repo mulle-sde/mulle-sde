@@ -545,7 +545,7 @@ test"
       ;;
 
       fetch)
-         domains="sourcetree craftordercache output var db monitor patternfile archive"
+         domains="sourcetree craftordercache output db monitor patternfile archive"
       ;;
 
       graveyard)

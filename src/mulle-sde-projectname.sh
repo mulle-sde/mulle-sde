@@ -75,9 +75,9 @@ set_projectname_environment()
 
 project_env_set_var()
 {
-   local key="$1"
-   local value="$2"
-   local scope="${3:-extension}"
+   local key="$1"; shift
+   local value="$1"; shift
+   local scope="${1:-extension}" ; shift
 
    log_verbose "Environment: ${key}=\"${value}\""
 
@@ -85,7 +85,7 @@ project_env_set_var()
                      --search-nearest \
                      -s \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     --no-protect \
+                     "$@" \
                   environment \
                      --scope "${scope}" \
                      set "${key}" "${value}" || internal_fail "failed env set"
@@ -94,12 +94,12 @@ project_env_set_var()
 
 save_projectname_variables()
 {
-   log_entry "save_projectname_variables" "$@"
+  log_entry "save_projectname_variables" "$@"
 
-  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}" "project"
-  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project"
-  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project"
-  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project"
+  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}" "project" "$@"
+  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project" "$@"
+  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project" "$@"
+  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project" "$@"
 }
 
 

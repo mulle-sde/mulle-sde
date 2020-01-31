@@ -60,6 +60,7 @@ Command:
    recraft    : re-craft library and dependencies
    rerun      : rerun failed tests
    run        : run tests only
+   test-dir   : list test directories
 
 Environment:
    MULLE_SDE_TEST_PATH : test directories to run (test)

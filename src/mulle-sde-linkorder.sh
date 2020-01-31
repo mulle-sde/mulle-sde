@@ -41,7 +41,7 @@ Usage:
    ${MULLE_USAGE_NAME} linkorder [options]
 
    Emit a string suitable for linking all dependencies and libraries on the
-   current platform. The dependencies must have been built in order for this
+   current platform. The dependencies must have been built, in order for this
    to work. There is a linkorder for executables that includes all
    startup libraries marked as \`no-intermediate-link\` and a second one that
    excludes them for linking shared libraries.

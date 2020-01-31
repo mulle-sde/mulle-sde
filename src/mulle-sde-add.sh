@@ -159,14 +159,14 @@ _sde_add_oneshot_extension()
    local category="$4"
 
    local headerfile
-   local extension
+   local ext
 
-   extension="${filepath##*.}"
+   ext="${filepath##*.}"
 
-   r_add_template_header_file "${extension}"
+   r_add_template_header_file "${ext}"
    headerfile="${RVAL}"
 
-   r_add_template_footer_file "${extension}"
+   r_add_template_footer_file "${ext}"
    footerfile="${RVAL}"
 
    #
@@ -192,7 +192,7 @@ _sde_add_oneshot_extension()
       export ONESHOT_CATEGORY="${category}"
       # hack!!
       export OPTION_TEMPLATE_HEADER_FILE="${headerfile}"
-      export OPTION_TEMPLATE_HEADER_FILE="${footerfile}"
+      export OPTION_TEMPLATE_FOOTER_FILE="${footerfile}"
       export VENDOR_NAME="${extension%%/*}"
 
       install_oneshot_extensions "${extension}"
@@ -306,9 +306,9 @@ _r_sde_get_class_category_genericname()
          name="category.${extension}"
          _genericname="file.${extension}"
 
-         r_identifier "${filename#*+}"
-         _class="${RVAL}"
          r_identifier "${filename%%+*}"
+         _class="${RVAL}"
+         r_identifier "${filename#*+}"
          _category="${RVAL}"
          log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
       ;;

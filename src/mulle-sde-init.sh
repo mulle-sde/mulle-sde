@@ -62,17 +62,22 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   List available meta extensions with \`mulle-sde init show\`. Pick a meta
-   extension to install with \`-m\`. Choose a project type like "library",
+   Initialize and maintain a project.
+
+   You typically initialize a project with a meta extension. A meta extension
+   combines buildtool, runtime and extra extensions to configure your project.
+
+   To see what meta extensions are available use \`mulle-sde init show\`.
+   Pick a meta extension and choose a project type like "library",
    "executable" or "none". Optionally choose a directory to create and install
-   into with the \'-d\':
+   into with the \'-d\' option:
 
    Example:
 
       mulle-sde init -d ./my-project -m mulle-sde/c-developer executable
 
-   You can use \`mulle-sde extension add\` to add extra and oneshot extensions.
-   at a later date.
+   Use \`mulle-sde extension add\` to add extra and oneshot extensions at a
+   later date.
 
 Options:
 EOF
@@ -126,7 +131,7 @@ _copy_extension_dir()
       flags="${flags} -n"  # don't clobber
    fi
 
-   log_fluff "Installing from \"${directory}\""
+   log_fluff "Installing files from \"${directory}\""
 
    local name
 
@@ -198,7 +203,7 @@ _copy_env_extension_dir()
    # files are overwritten.
    #
 
-   log_fluff "Installing from \"${directory}\""
+   log_fluff "Installing env files from \"${directory}\""
 
    # need L flag since homebrew creates relative links
    exekutor cp -RLa ${flags} "${directory}/share" ".mulle/share/env/"
@@ -1496,7 +1501,7 @@ install_extension()
 
    if [ -z "${onlyfilename}" ]
    then
-      log_info "Installing project files for \"${vendor}/${extname}\""
+      log_verbose "Installing project files for \"${vendor}/${extname}\""
    fi
 
    #
@@ -1516,7 +1521,7 @@ install_extension()
 
          if [ ! -z "${arguments}" ]
          then
-            eval _template_main "${arguments}" || exit 1
+            eval_rexekutor _template_main "${arguments}" || exit 1
          fi
       done
    ) || exit 1
@@ -1728,7 +1733,7 @@ memorize_project_name()
    fi
 
    set_projectname_variables "${PROJECT_NAME}"
-   save_projectname_variables
+   save_projectname_variables "--no-protect"
 }
 
 
@@ -1968,7 +1973,7 @@ install_project()
 
    if [ -z "${onlyfilename}" ]
    then
-      log_info "Installing project extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
+      log_verbose "Installing project extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
    fi
 
    install_extensions "${marks}" "${onlyfilename}" "${force}"
@@ -2495,21 +2500,29 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
 
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
-      mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
-      redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start init `date` in $PWD on ${MULLE_HOSTNAME}"
-
       #
       # always wipe these for clean upgrades
       # except if we are just updating a specific project file
       # (i.e. CMakeLists.txt). Keep "extension" file around in case something
       # goes wrong. Also temporarily keep old share
       #
+      rmdir_safer "${MULLE_MATCH_SHARE_DIR}.old"
+      if [ -d "${MULLE_MATCH_SHARE_DIR}" ]
+      then
+         exekutor mv "${MULLE_MATCH_SHARE_DIR}" "${MULLE_MATCH_SHARE_DIR}.old"
+      fi
+      rmdir_safer "${MULLE_MATCH_VAR_DIR}"
+      mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
+
       rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
       if [ -d "${MULLE_SDE_SHARE_DIR}" ]
       then
          exekutor mv "${MULLE_SDE_SHARE_DIR}" "${MULLE_SDE_SHARE_DIR}.old"
       fi
       rmdir_safer "${MULLE_SDE_VAR_DIR}"
+
+      mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
+      redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start init `date` in $PWD on ${MULLE_HOSTNAME}"
    fi
 
    # rmdir_safer ".mulle-env"
@@ -2526,8 +2539,11 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          fi
 
          log_info "The upgrade failed. Restoring old configuration."
+
          rmdir_safer "${MULLE_SDE_SHARE_DIR}"
          exekutor mv "${MULLE_SDE_SHARE_DIR}.old" "${MULLE_SDE_SHARE_DIR}"
+         rmdir_safer "${MULLE_MATCH_SHARE_DIR}"
+         exekutor mv "${MULLE_MATCH_SHARE_DIR}.old" "${MULLE_MATCH_SHARE_DIR}"
          remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
          exit 1
       fi
@@ -2592,10 +2608,13 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
 
    if [ -z "${OPTION_PROJECT_FILE}" ]
    then
+      rmdir_safer "${MULLE_MATCH_SHARE_DIR}.old"
       rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
       remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+
       # only remove if empty
       exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
+      exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
    fi
 
    if [ "${OPTION_INIT_ENV}" = 'YES'  ]
@@ -2697,7 +2716,7 @@ _sde_init_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_oneshot_init_usage
+            sde_init_usage
          ;;
 
          -D?*)
@@ -2715,6 +2734,18 @@ _sde_init_main()
             OPTION_DEFINES="${RVAL}"
          ;;
 
+
+         -a|--add)
+            OPTION_ADD='YES'
+         ;;
+
+         -b|--buildtool)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_BUILDTOOL="$1"
+         ;;
+
          -d|--directory)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
@@ -2722,6 +2753,13 @@ _sde_init_main()
             exekutor mkdir -p "$1" 2> /dev/null
             exekutor cd "$1" || fail "can't change to \"$1\""
             PURGE_PWD_ON_ERROR='YES'
+         ;;
+
+         -e|--extra)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_EXTRAS="`add_line "${OPTION_EXTRAS}" "$1" `"
          ;;
 
          --existing)
@@ -2980,7 +3018,10 @@ _sde_init_main()
       tmp_file='YES'
    fi
 
+   # get environments for some tools we manage share files and want
+   # to upgrade
    eval_exekutor `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
+   eval_exekutor `"${MULLE_ENV:-mulle-env}" mulle-tool-env match` || exit 1
 
    if [ "${tmp_file}" = 'YES' ]
    then
@@ -3004,6 +3045,7 @@ _sde_init_main()
       log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
       log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
       log_trace2 "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
+      log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
       log_trace2 "PWD=\"${PWD}\""
    fi

@@ -60,6 +60,7 @@ Usage:
 
 Commands:
    add        : add a dependency to the sourcetree
+   duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
    get        : retrieve a dependency settings from the sourcetree
    list       : list dependencies in the sourcetree (default)
@@ -803,23 +804,25 @@ sde_dependency_add_main()
 
    originalurl="${url}"
 
-   if [ -z "${nodetype}" ]
-   then
-      nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
-      [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
-   fi
-
    if [ ! -z "${OPTION_DOMAIN}" ]
    then
+      nodetype="${nodetype:-tar}"
       url="`exekutor "${MULLE_FETCH:-mulle-fetch}" ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_FETCH_FLAGS} \
             compose-url \
                --user "${OPTION_USER}" \
                --tag "${OPTION_TAG}" \
-               --repo "${OPTION_REPO}" \
+               --repo "${OPTION_REPO:-$url}" \
                --scm "${nodetype}" \
                "${OPTION_DOMAIN}" `" || exit 1
    fi
+
+   if [ -z "${nodetype}" ]
+   then
+      nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
+   fi
+
+   [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
 
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
@@ -1061,6 +1064,7 @@ sde_dependency_main()
          echo "\
 add
 craftinfo
+duplicate
 get
 list
 map
@@ -1075,6 +1079,15 @@ unmark"
       craftinfo)
          sde_dependency_craftinfo_main "$@"
          return $?
+      ;;
+
+      duplicate|mark|move|unmark)
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
       get)
@@ -1107,15 +1120,6 @@ os-excludes"
                            --if-present \
                            "craftinfo/$1"
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "${cmd}" \
-                           "$@"
-      ;;
-
-      mark|move|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -V \
