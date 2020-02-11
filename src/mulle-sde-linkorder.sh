@@ -386,7 +386,10 @@ r_linkorder_collect()
 
    local librarytype
    local requirement
+   local alias
+   local aliases
 
+   aliases="${aliases:-${name}}"
    librarytype="library"
 
    # find dependency lib and
@@ -419,22 +422,19 @@ r_linkorder_collect()
             return 4
          fi
 
-         log_fluff "Use OS library \"${name}\""
-         r_concat "${name}" "${marks}" ";"
+         # prefer first alias name if any
+         alias="${aliases%%,*}"
+         alias="${alias#*:}"  # remove type if any
+
+         log_fluff "Use OS library \"${alias}\""
+         r_concat "${alias}" "${marks}" ";"
          return 0
       ;;
    esac
 
    local libpath
-
-   if [ -z "${aliases}" ]
-   then
-      aliases="${name}"
-   fi
-
    local aliasargs
    local aliasfail
-   local alias
 
    IFS=","; set -f
    for alias in ${aliases}

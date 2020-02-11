@@ -45,9 +45,10 @@ sde_dependency_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency [command]
 
-   A dependency is a third party package, that is fetched via an URL.
+   A dependency is usually a third party package, that is fetched via an URL.
    It will be built ahead of your project to provide headers to include and
-   libraries to link against.
+   libraries to link against. You can also embed remote source files with
+   the dependency command. See the \`add\` for more details.
 
    See the \`set\` command if the project has problems locating the header
    or library. Use \`mulle-sde dependency list -- --output-format cmd\` for
@@ -84,9 +85,10 @@ sde_dependency_add_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency add [options] <url>
 
-   Add a dependency to your project. A dependency is a git repository or
-   a tar or zip archive (more options may be available if additional
-   mulle-fetch plugins are installed).
+   Add a dependency to your project. A dependency is usually a git repository
+   or a tar/zip archive (more options may be available if additional
+   mulle-fetch plugins are installed). But you can also embed remote source
+   files into your source tree.
 
    The default dependency is a C library with header files. You need to use
    the appropriate options to build Objective-C libraries, header-less or
@@ -104,7 +106,13 @@ Examples:
 
       ${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
 
+   Add a remote hosted file to your project:
+
+      ${MULLE_USAGE_NAME} dependency add --embedded --scm file \
+                  --address src/foo.c https://foo.com/foo_2.11.c
+
 Options:
+   --address <dst> : specify place in project for an embedded dependency
    --c             : used for C dependencies (default)
    --clean         : delete all previous dependencies and libraries
    --embedded      : the dependency becomes part of the local project
@@ -122,9 +130,10 @@ Options:
    --repo <name>   : used in conjunction with --domain to specify an url
    --singlephase   : the dependency must be crafted in one phase
    --startup       : dependency is a ObjC startup library
+   --scm <name>    : specify remote format [git, svn, tar, zip, file]
    --user <name>   : used in conjunction with --domain to specify an url
    --tag <name>    : used in conjunction with --domain to specify an url
-      (see: mulle-sourcetree -v add -h for more add options)
+
 EOF
   exit 1
 }
@@ -163,6 +172,7 @@ Keys:
    include     : include filename to use
    os-excludes : names of OSes to exclude, separated by comma
    tag         : tag or version to fetch
+
 EOF
   exit 1
 }
@@ -186,6 +196,7 @@ Keys:
    aliases     : names of library to search for, separated by comma
    include     : include filename to use
    os-excludes : names of OSes to exclude, separated by comma
+
 EOF
   exit 1
 }
@@ -207,6 +218,7 @@ Usage:
 Options:
    --        : pass remaining arguments to mulle-sourcetree list
    --url     : show URL
+
 EOF
    exit 1
 }
@@ -484,6 +496,7 @@ _sde_enhance_url()
    fi
 
    _url=""
+   _tag=""
    _branch=""
    _address=""
    _marks=""
@@ -520,7 +533,7 @@ _sde_enhance_url()
             ;;
 
             *)
-               [ ! -z "${tag}" ] && fail "The tag must be specified in the URL for archives."
+#               [ ! -z "${tag}" ] && fail "The tag must be specified in the URL for archives."
             ;;
          esac
 
@@ -559,13 +572,7 @@ _sde_enhance_url()
       ;;
    esac
 
-   if [ ! -z "${tag}" ]
-   then
-      _tag="\${${upcaseid}_TAG:-${tag}}"
-   else
-      _tag="\${${upcaseid}_tag}"
-   fi
-
+   _tag="\${${upcaseid}_TAG:-${tag}}"
    _branch="\${${upcaseid}_BRANCH}"
 
    # common wrapper for archive and repository
@@ -836,6 +843,7 @@ sde_dependency_add_main()
 
             url="${_url}"
             branch="${_branch}"
+            tag="${_tag}"
             nodetype="${_nodetype}"
             address="${_address}"
             marks="${_marks}"
@@ -908,6 +916,11 @@ sde_dependency_add_main()
    if [ ! -z "${branch}" ]
    then
       r_concat "${options}" "--branch '${branch}'"
+      options="${RVAL}"
+   fi
+   if [ ! -z "${tag}" ]
+   then
+      r_concat "${options}" "--tag '${tag}'"
       options="${RVAL}"
    fi
    if [ ! -z "${marks}" ]
