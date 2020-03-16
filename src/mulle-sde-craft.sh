@@ -135,7 +135,7 @@ sde_perform_reflects()
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                               "${MULLE_TECHNICAL_FLAGS}" \
                               "${MULLE_SOURCETREE_FLAGS}" \
-                           "sync"
+                           "sync" \
                                "${OPTION_SYNCFLAGS}" || exit 1
 
          # run this quickly, because incomplete previous fetches trip me
