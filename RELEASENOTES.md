@@ -1,3 +1,26 @@
+## 0.40.0
+
+* the **rename** command is now **project rename**
+* the template variable ``PROJECT_GITHUB_NAME`` is now ``GITHUB_USER`` for consistency across tools
+* craftinfos on github are now craftinfo instead
+* **clean** gains the `--no-graveyard` option
+* linkorder output for OS libraries prefers the first alias name now
+* rename command update to reflect
+* command rename added to rename a project
+* improved status/doctor command now with options
+* template files can now have a `<|HEADER|>` and `<|FOOTER|>` include, used for inserting user copyright info
+* new **add** command creates source files from oneshot extensions
+* new *find* subcommand of **extension** command
+* enhanced archive URLs now properly use `MULLE_TAG` and not `MULLE_BRANCH` as previously
+* RENAMED **update** to **reflect**, for the mantra "organize, reflect, craft"
+* renamed ``MULLE_SDE_UPDATE_CALLBACKS`` to ``MULLE_SDE_REFLECT_CALLBACKS``
+* renamed ``MULLE_SDE_REFLECT_CALLBACKS`` to ``MULLE_SDE_REFLECT_BEFORE_CRAFT``
+* renamed alias `update` to `reflect`
+* renamed alias `u` to `r`
+* craftinfos can now be cleaned with `clean craftinfos`
+* removed bash-completion from documentation, since it's very stale now
+
+
 ### 0.39.4
 
 * force singlephase for startup links, as they have no header

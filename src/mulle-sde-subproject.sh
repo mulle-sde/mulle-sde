@@ -564,7 +564,7 @@ has no \"${sdefolder}\" folder"
             continue
          fi
 
-         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject}"
+         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject} (parallel:$parallel env:$env)"
 
          if [ "${parallel}" = 'YES' ]
          then
@@ -576,8 +576,8 @@ has no \"${sdefolder}\" folder"
                   exit 0
                else
                   (
-                     cd "${expanded_subproject}" &&
-                     MULLE_VIRTUAL_ROOT="" eval exec "${command}"
+                     rexekutor cd "${expanded_subproject}" &&
+                     MULLE_VIRTUAL_ROOT="" eval_exekutor exec "${command}"
                   )
                   rval=$?
                fi
@@ -595,21 +595,20 @@ has no \"${sdefolder}\" folder"
                rval=$?
             else
                (
-                  cd "${expanded_subproject}" &&
-                  MULLE_VIRTUAL_ROOT="" \
-                        eval exec "${command}"
+                  rexekutor cd "${expanded_subproject}" &&
+                  MULLE_VIRTUAL_ROOT="" eval_exekutor exec "${command}"
                )
                rval=$?
             fi
 
-            log_info "$expanded_subproject: $rval"
+            log_info "${expanded_subproject}: $rval"
             if [ ${rval} -ne 0 ]
             then
                if [ "${lenient}" = 'NO' ]
                then
                   exit $rval
                fi
-               log_fluff "Ignoring rval $rval coz we're lenient"
+               log_fluff "Ignoring rval ${rval} coz we're lenient"
             fi
          fi
       done

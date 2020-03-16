@@ -79,16 +79,16 @@ sde_list_files()
    local categories
    local type
    local category
-   local seperator
+   local separator
 
-   seperator=''
+   separator=''
    types="`rexekutor sed 's|^\([^/]*\).*|\1|' <<< "${text}" | sort -u`"
 
    log_debug "types: ${types}"
    for type in ${types}
    do
-      printf "%s" "${seperator}"
-      seperator=''
+      printf "%s" "${separator}"
+      separator=''
 
       # https://stackoverflow.com/questions/12487424/uppercase-first-character-in-a-variable-with-bash
       log_info "${C_MAGENTA}${C_BOLD}$(tr '[:lower:]' '[:upper:]' <<< ${type:0:1})${type:1}"
@@ -100,8 +100,8 @@ sde_list_files()
 
       for category in ${categories}
       do
-         printf "%s" "${seperator}"
-         seperator=$'\n'
+         printf "%s" "${separator}"
+         separator=$'\n'
          log_info "   $(tr '[:lower:]' '[:upper:]' <<< ${category:0:1})${category:1}"
          rexekutor sed -n "s|^${category}: |      |p" <<< "${subtext}"
       done
@@ -114,7 +114,7 @@ sde_list_dependencies()
    log_entry "sde_list_dependencies" "$@"
 
    local text
-   local seperator
+   local separator
 
    text="`
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -125,8 +125,8 @@ sde_list_dependencies()
    `"
    if [ ! -z "${text}" ]
    then
-      printf "%s" "${seperator}"
-      seperator=$'\n'
+      printf "%s" "${separator}"
+      separator=$'\n'
       log_info "${C_MAGENTA}${C_BOLD}Dependencies"
       sed 's|^|   |' <<< "${text}"
    fi
@@ -140,8 +140,8 @@ sde_list_dependencies()
    `"
    if [ ! -z "${text}" ]
    then
-      printf "%s" "${seperator}"
-      seperator=$'\n'
+      printf "%s" "${separator}"
+      separator=$'\n'
       log_info "${C_MAGENTA}${C_BOLD}Libraries"
       sed 's|^|   |' <<< "${text}"
    fi

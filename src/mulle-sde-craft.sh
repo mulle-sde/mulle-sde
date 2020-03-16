@@ -111,6 +111,7 @@ sde_perform_reflects()
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                  -V \
                   ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
                  -s \
                   dbstatus
    dbrval="$?"
@@ -133,7 +134,9 @@ sde_perform_reflects()
 
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                               "${MULLE_TECHNICAL_FLAGS}" \
-                           "sync" || exit 1
+                              "${MULLE_SOURCETREE_FLAGS}" \
+                           "sync"
+                               "${OPTION_SYNCFLAGS}" || exit 1
 
          # run this quickly, because incomplete previous fetches trip me
          # up too often (not doing this since mulle-sde doctor is OK now)
@@ -198,7 +201,7 @@ sde_craft_main()
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
-   local OPTION_ANALYZE='NO'
+   local OPTION_SYNCFLAGS
 
    target="${MULLE_SDE_CRAFT_TARGET}"
    if [ "${PROJECT_TYPE}" = "none" ]
@@ -230,6 +233,10 @@ sde_craft_main()
 
          -q|--quick|no-update|no-reflect)
             OPTION_REFLECT='NO'
+         ;;
+
+         --sync-flags)
+            OPTION_SYNCFLAGS="$1"
          ;;
 
          --analyze)

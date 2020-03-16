@@ -1131,7 +1131,7 @@ os-excludes"
                            ${MULLE_TECHNICAL_FLAGS} \
                         "${cmd}" \
                            --if-present \
-                           "craftinfo/$1"
+                           "craftinfo/$1-craftinfo"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \

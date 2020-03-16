@@ -43,6 +43,7 @@ sde_init_usage()
    COMMON_OPTIONS="\
    --existing         : skip demo file installation.
    --no-sourcetree    : do not add sourcetree to project
+   --style <tool/env> : specify environment style, see mulle-env init -h
    -d <dir>           : directory to populate (working directory)
    -D <key>=<val>     : specify an environment variable
    -e <extra>         : specify extra extensions. Multiple uses are possible
@@ -62,12 +63,14 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   Initialize and maintain a project.
+   Initialize a project.
 
    You typically initialize a project with a meta extension. A meta extension
    combines buildtool, runtime and extra extensions to configure your project.
+   Extensions are plugins containing scripts and data to setup the project
+   for the desired programming language and build system.
 
-   To see what meta extensions are available use \`mulle-sde init show\`.
+   To see available meta extensions use \`mulle-sde extension show meta\`.
    Pick a meta extension and choose a project type like "library",
    "executable" or "none". Optionally choose a directory to create and install
    into with the \'-d\' option:
@@ -117,7 +120,7 @@ _copy_extension_dir()
 
    local flags
 
-   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' ]
+   if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' -o "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES'  ]
    then
       flags=-v
    fi
@@ -131,7 +134,6 @@ _copy_extension_dir()
       flags="${flags} -n"  # don't clobber
    fi
 
-   log_fluff "Installing files from \"${directory}\""
 
    local name
 
@@ -149,6 +151,8 @@ _copy_extension_dir()
          fail "Unsupported destination directory \"${name}\""
       ;;
    esac
+
+   log_verbose "Installing files from \"${directory#${MULLE_USER_PWD}/}\" into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
 
    # need L flag since homebrew creates relative links
    exekutor cp -RLa ${flags} "${directory}" "${destination}/"
@@ -504,13 +508,13 @@ environmenttext_to_mset()
 }
 
 
-r_sde_test_githubname()
+r_sde_githubname()
 {
-   log_entry "r_sde_test_githubname" "$@"
+   log_entry "r_sde_githubname" "$@"
 
-   if [ ! -z "${PROJECT_GITHUB_NAME}" ]
+   if [ ! -z "${GITHUB_USER}" ]
    then
-      RVAL="${PROJECT_GITHUB_NAME}"
+      RVAL="${GITHUB_USER}"
       return
    fi
 
@@ -549,8 +553,9 @@ r_sde_test_githubname()
          ;;
 
          *)
-         RVAL="${name}"
-         return
+            RVAL="${name}"
+            return
+         ;;
       esac
    fi
 
@@ -578,10 +583,7 @@ read_template_expanded_file()
    # for the benefit of test we have to define some stuff now
    #
    local PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY:-Foundation-startup}"
-   local PROJECT_GITHUB_NAME="${PROJECT_GITHUB_NAME}"
-
-   r_sde_test_githubname
-   PROJECT_GITHUB_NAME="${RVAL}"
+   local GITHUB_USER="${GITHUB_USER:-${LOGNAME}}"
 
    local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
 
@@ -590,7 +592,7 @@ read_template_expanded_file()
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER//-/_}"
 
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
-   PROJECT_GITHUB_NAME="${PROJECT_GITHUB_NAME}" \
+   GITHUB_USER="${GITHUB_USER}" \
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
    PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
       r_template_contents_replacement_command
@@ -1647,7 +1649,16 @@ recall_installed_extensions()
    if _check_file "${OPTION_EXTENSION_FILE}"
    then
       exekutor "${EGREP}" -v '^#' < "${OPTION_EXTENSION_FILE}"
-      return $?
+      # deal with empty file (maybe due to edits)
+      case $? in
+         0|1)
+            return 0
+         ;;
+
+         *)
+            return 1
+         ;;
+      esac
    fi
 
 
@@ -1720,7 +1731,7 @@ memorize_project_name()
 {
    log_entry "memorize_project_name" "$@"
 
-   local PROJECT_NAME="$1"
+   local name="$1"
 
    if [ -z "${MULLE_CASE_SH}" ]
    then
@@ -1732,7 +1743,7 @@ memorize_project_name()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
    fi
 
-   set_projectname_variables "${PROJECT_NAME}"
+   set_projectname_variables "${name}"
    save_projectname_variables "--no-protect"
 }
 
@@ -1945,7 +1956,7 @@ install_project()
    #
    local scopes
 
-   scopes="`rexekutor mulle-env -s environment scopes --all`"
+   scopes="`rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} -s environment scopes --all`"
    log_debug "scopes: ${scopes}"
 
    if find_line "${scopes}" "project"
@@ -1962,8 +1973,9 @@ install_project()
          env_set_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
       fi
    else
-      log_warning "Can not save project settings as the environment style is not
-\"mulle\" and \"project\" is not defined in ¸\`mulle-env environment scopes --all\`"
+      # there is really no good way around this
+      log_warning "Can not save project settings as the environment style is not \"mulle\"."
+      log_debug "And the scope \"project\" is not defined in ¸\`mulle-env environment scopes --all\`"
    fi
 
    local _MOTD
@@ -2561,6 +2573,7 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          #
          exekutor "${MULLE_MATCH:-mulle-match}" \
                      ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_MATCH_FLAGS} \
                     patternfile repair --add
       fi
    else
@@ -2807,7 +2820,7 @@ _sde_init_main()
             r_identifier "${ONESHOT_NAME}"
             export ONESHOT_IDENTIFIER="${RVAL}"
             r_lowercase "${ONESHOT_IDENTIFIER}"
-            export ONESHOT_LOWERCASE_IDENTIFIER="${RVAL}"
+            export ONESHOT_DOWNCASE_IDENTIFIER="${RVAL}"
             r_uppercase "${ONESHOT_IDENTIFIER}"
             export ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
          ;;
@@ -2857,6 +2870,13 @@ _sde_init_main()
          ;;
 
          # little hack
+         --github|github-user)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            GITHUB_USER="$1"
+         ;;
+
          --project-file|--upgrade-project-file)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
@@ -2961,17 +2981,18 @@ _sde_init_main()
             OPTION_POST_INIT='NO'
          ;;
 
+         # keep these down here, so they don't catch flags prematurely
+         --allow-*)
+            mark="${1:8}"
+            warn_if_unknown_mark "${mark}" "allow-mark"
+            OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${mark}"`"
+         ;;
+
          --no-*)
             mark="${1:5}"
             warn_if_unknown_mark "${mark}" "no-${mark}"
             r_comma_concat "${OPTION_MARKS}" "no-${mark}"
             OPTION_MARKS="${RVAL}"
-         ;;
-
-         --allow-*)
-            mark="${1:8}"
-            warn_if_unknown_mark "${mark}" "allow-mark"
-            OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${mark}"`"
          ;;
 
          -*)
@@ -3006,6 +3027,8 @@ _sde_init_main()
       fail "--reinit and --upgrade exclude each other"
 
 
+   log_fluff "Setup environment"
+
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done
 
@@ -3020,8 +3043,8 @@ _sde_init_main()
 
    # get environments for some tools we manage share files and want
    # to upgrade
-   eval_exekutor `"${MULLE_ENV:-mulle-env}" mulle-tool-env sde` || exit 1
-   eval_exekutor `"${MULLE_ENV:-mulle-env}" mulle-tool-env match` || exit 1
+   eval_exekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
+   eval_exekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
 
    if [ "${tmp_file}" = 'YES' ]
    then
@@ -3030,7 +3053,6 @@ _sde_init_main()
 
    MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
 
-
    #
    # unprotect known share directories during installation
    # TODO: this should be a setting somewhere
@@ -3038,15 +3060,21 @@ _sde_init_main()
    r_colon_concat .mulle/share:cmake/share "${MULLE_SDE_PROTECT_PATH}"
    MULLE_SDE_PROTECT_PATH="${RVAL}"
 
+   # figure out a GITHUB user name for later
+   r_sde_githubname
+   GITHUB_USER="${RVAL}"
+   log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
+      log_trace2 "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
+      log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
       log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
       log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
       log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
       log_trace2 "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
-      log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+      log_trace2 "GITHUB_USER=\"${GITHUB_USER}\""
       log_trace2 "PWD=\"${PWD}\""
    fi
 

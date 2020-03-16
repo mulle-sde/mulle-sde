@@ -78,9 +78,9 @@ case "\${MULLE_SHELL_MODE}" in
          alias t="mulle-sde test rerun --serial"
          alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
          alias T="mulle-sde test craft ; mulle-sde test"
-         alias TT="mulle-sde test clean ; mulle-sde test"
+         alias TT="mulle-sde test clean all; mulle-sde test"
          alias r="mulle-sde reflect"
-         alias l="mulle-sde list"
+         alias l="mulle-sde list --files"
       fi
    ;;
 esac
@@ -290,8 +290,8 @@ print_mulle_auxscope_sh()
 {
    log_entry "print_mulle_auxscope_sh" "$@"
 
-   echo "project
-extension"
+   echo "s:project
+s:extension"
 }
 
 

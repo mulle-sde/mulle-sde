@@ -29,7 +29,28 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_RENAME_SH="included"
+MULLE_SDE_PROJECT_SH="included"
+
+
+sde_project_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} project [options] <command>
+
+   Project related commands.
+
+Options:
+   -h     : show this usage
+
+Commands:
+   rename : rename the project
+
+EOF
+   exit 1
+}
 
 
 sde_rename_usage()
@@ -38,7 +59,7 @@ sde_rename_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} rename [options] <newname>
+   ${MULLE_USAGE_NAME} project rename [options] <newname>
 
    Rename an existing project. This will change environment variables in
    the project domain. It will alsosearch/replace file names and file
@@ -128,6 +149,11 @@ edit_old_to_new_content()
    local sed_statement="$3"
 
    local permissions
+
+   if file_is_binary "${filename}"
+   then
+      return
+   fi
 
    if eval_rexekutor "${grep_statement}" "${filename}"
    then
@@ -307,9 +333,20 @@ r_rename_current_project()
       sed_cmdline="inplace_sed"
 
       sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_NAME}/${PROJECT_NAME}/g'"
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_IDENTIFIER}/${PROJECT_IDENTIFIER}/g'"
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_DOWNCASE_IDENTIFIER}/${PROJECT_DOWNCASE_IDENTIFIER}/g'"
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_UPCASE_IDENTIFIER}/${OLD_PROJECT_UPCASE_IDENTIFIER}/g'"
+      if [ "${PROJECT_NAME}" != "${OLD_PROJECT_IDENTIFIER}" ]
+      then
+         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_IDENTIFIER}/${PROJECT_IDENTIFIER}/g'"
+      fi
+      if [ "${PROJECT_NAME}" != "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" -a \
+           "${PROJECT_IDENTIFIER}" != "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" ]
+      then
+         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_DOWNCASE_IDENTIFIER}/${PROJECT_DOWNCASE_IDENTIFIER}/g'"
+      fi
+      if [ "${PROJECT_NAME}" != "${OLD_PROJECT_UPCASE_IDENTIFIER}" -a \
+           "${PROJECT_IDENTIFIER}" != "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
+      then
+         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_UPCASE_IDENTIFIER}/${OLD_PROJECT_UPCASE_IDENTIFIER}/g'"
+      fi
 
       local grep_cmdline
 
@@ -495,4 +532,41 @@ sde_rename_main()
    fi
 
    log_verbose "Done"
+}
+
+
+
+sde_project_main()
+{
+   log_entry "sde_project_main" "$@"
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_rename_usage
+         ;;
+
+         -*)
+            sde_project_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   case "$1" in
+      rename)
+         shift
+         sde_rename_main "$@"
+      ;;
+
+      *)
+         sde_project_usage "Unknown command \"$1\""
+      ;;
+   esac
 }

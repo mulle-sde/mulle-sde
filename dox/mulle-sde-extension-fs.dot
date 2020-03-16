@@ -1,0 +1,34 @@
+digraph G {
+    graph [rankdir = TD];
+
+     node[ shape=folder ];
+
+    { rank = same;  "project" };
+    { rank = same;  ".mulle", "src" };
+    { rank = same;  "match", "monitor" };
+    { rank = same;  "bin", "libexec" }
+
+    "project"
+    "project" -> ".mulle"
+    "project" -> "src"
+
+    ".mulle"  -> "share"
+    "share"   -> "monitor"
+    "share"   -> "match"
+
+    "monitor" -> "bin"
+    "monitor" -> "libexec"
+    "bin"     -> "text-callback"
+    "libexec" -> "aspell-task.sh"
+
+    "src"   -> "demo.txt"
+
+    "match" -> "match.d"
+    "match.d" -> "00-text--all"
+
+
+    "demo.txt"        [ shape="note", color="#3867d6", fontcolor="#3867d6" ]
+    "00-text--all"    [ shape="note", color="#20bf6b", fontcolor="#20bf6b" ]
+    "text-callback"   [ shape="note", color="#fa8231", fontcolor="#fa8231" ]
+    "aspell-task.sh"  [ shape="note", color="#8854d0", fontcolor="#8854d0" ]
+}

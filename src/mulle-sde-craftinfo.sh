@@ -87,7 +87,7 @@ Options:
    --platform <name> : specify settings for a specific platform
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfos)
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -140,14 +140,14 @@ Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo exists <dep>
 
    For a popular third party library there is a chance, that a pre-made
-   craftinfo is available from https://github.com/craftinfos. This command
+   craftinfo is available from https://github.com/craftinfo. This command
    checks if there is any.
 
    Example:
       mulle-sde dependency craftinfo exists async.h
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfos)
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -163,7 +163,7 @@ Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo fetch [options] <dep>
 
    For a popular third party library there is a chance, that a pre-made
-   craftinfo is available from https://github.com/craftinfos. Instead of
+   craftinfo is available from https://github.com/craftinfo. Instead of
    manually downloading it, you can let mulle-sde do it for you.
 
    The downloaded craftinfo may contain build scripts! Better check them
@@ -179,7 +179,7 @@ Options:
    --keep-history    : Do not remove git history from craftinfo
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfos)
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -427,7 +427,7 @@ __sde_craftinfo_vars_with_url_or_address()
 
    r_basename "${_address}"
    _name="${RVAL}"
-   _subprojectdir="craftinfo/${_name}"
+   _subprojectdir="craftinfo/${_name}-craftinfo"
    _folder="${_subprojectdir}/definition${extension}"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}"  = 'YES' ]
@@ -547,8 +547,8 @@ sde_dependency_craftinfo_exists_main()
    local repos
    local repo
 
-   repos="${CRAFTINFO_REPOS:-https://github.com/craftinfos}"
-   dstdir="craftinfo/${_name}"
+   repos="${CRAFTINFO_REPOS:-https://github.com/craftinfo}"
+   dstdir="craftinfo/${_name}-craftinfo"
    if [ -e "${dstdir}" ]
    then
       fail "${dstdir} already exists. Won't clobber."
@@ -559,7 +559,7 @@ sde_dependency_craftinfo_exists_main()
    do
       IFS="${DEFAULT_IFS}"
 
-      url="${repo}/${_name}.git"
+      url="${repo}/${_name}-craftinfo.git"
       if exekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
       then
          log_fluff "Craftinfos ${url} found"
@@ -568,7 +568,7 @@ sde_dependency_craftinfo_exists_main()
    done
    IFS="${DEFAULT_IFS}"
 
-   log_verbose "No craftinfos found online"
+   log_verbose "No craftinfo found online"
    return 1
 }
 
@@ -592,7 +592,6 @@ remove_dir_safer()
 }
 
 
-
 sde_dependency_craftinfo_get_addresses()
 {
    log_entry "sde_dependency_craftinfo_get_addresses" "$@"
@@ -604,7 +603,6 @@ sde_dependency_craftinfo_get_addresses()
         --output-format raw \
         --format '%a\n'
 }
-
 
 
 sde_dependency_craftinfo_fetch_main()
@@ -664,8 +662,8 @@ sde_dependency_craftinfo_fetch_main()
    local repos
    local repo
 
-   repos="${CRAFTINFO_REPOS:-https://github.com/craftinfos}"
-   dstdir="craftinfo/${_name}"
+   repos="${CRAFTINFO_REPOS:-https://github.com/craftinfo}"
+   dstdir="craftinfo/${_name}-craftinfo"
    if [ -e "${dstdir}" ]
    then
       if [ "${OPTION_CLOBBER}" = 'NO' ]
@@ -680,7 +678,7 @@ sde_dependency_craftinfo_fetch_main()
    do
       IFS="${DEFAULT_IFS}"
 
-      url="${repo}/${_name}.git"
+      url="${repo}/${_name}-craftinfo.git"
       if ! exekutor "${MULLE_FETCH:-mulle-fetch}" fetch "${url}" "${dstdir}"
       then
          return 1

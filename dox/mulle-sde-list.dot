@@ -1,11 +1,7 @@
 digraph G {
-    graph [rankdir = TD];
+    graph [rankdir = LR];
 
     node[shape=record];
-
-    "mulle-sde list"  [ label="mulle-sde list", shape="none", fontname="monospace", fontcolor="blue"]
-
-    "mulle-sde list"  -> "mulle-match"
 
     "mulle-match" [ color="magenta", fontcolor="magenta"]
 }

@@ -234,8 +234,8 @@ r_test_seds()
    cmdline="-e 's/${o}PREFERRED_STARTUP_LIBRARY${c}/${RVAL}/g'"
    r_escaped_sed_replacement "${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}"
    cmdline="${cmdline} -e 's/${o}PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER${c}/${RVAL}/g'"
-   r_escaped_sed_replacement "${PROJECT_GITHUB_NAME}"
-   cmdline="${cmdline} -e 's/${o}PROJECT_GITHUB_NAME${c}/${RVAL}/g'"
+   r_escaped_sed_replacement "${GITHUB_USER}"
+   cmdline="${cmdline} -e 's/${o}GITHUB_USER${c}/${RVAL}/g'"
 
    RVAL="${cmdline}"
 }
@@ -518,7 +518,7 @@ copy_and_expand_template()
 
    if [ -f "${expanded_dstfile}" ]
    then
-      exekutor chmod ug+w "${expanded_dstfile}"
+      exekutor chmod ug+w "${expanded_dstfile}" || exit 1
    fi
 
    local text
@@ -529,12 +529,12 @@ copy_and_expand_template()
 
    log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 
-   template_redirect_exekutor "${expanded_dstfile}" printf "%s\n" "${text}"
+   template_redirect_exekutor "${expanded_dstfile}" printf "%s\n" "${text}" || fail "failed to write to \"${expanded_dstfile}\" (${PWD#${MULLE_USER_PWD}/})"
 
    local permissions
 
    permissions="`lso "${templatefile}"`"
-   chmod "${permissions}" "${expanded_dstfile}"
+   exekutor chmod "${permissions}" "${expanded_dstfile}"
 }
 
 
@@ -667,7 +667,7 @@ _template_main()
             [ $# -eq 1 ] && template_usage "Missing argument to \"$1\""
             shift
 
-            mkdir_if_missing "$1" || return 1
+            mkdir_if_missing "$1"
             exekutor cd "$1"
          ;;
 
@@ -788,7 +788,7 @@ _template_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
    fi
 
-   set_projectname_variables "${PROJECT_NAME}"
+   set_projectname_variables
 
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-none}"
    PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
@@ -837,12 +837,12 @@ _template_main()
          if [ -z "${FILENAME_SED}" ]
          then
             r_template_filename_replacement_command
-            FILENAME_SED="${RVAL}" || exit 1
+            FILENAME_SED="${RVAL}"
          fi
          if [ -z "${CONTENTS_SED}" ]
          then
             r_template_contents_replacement_command
-            CONTENTS_SED="${RVAL}" || exit 1
+            CONTENTS_SED="${RVAL}"
          fi
 
          "${template_callback}" "${TEMPLATE_DIR}" \

@@ -453,6 +453,11 @@ sde_clean_main()
             sde_clean_usage
          ;;
 
+         --no-graveyard)
+            MULLE_SOURCETREE_GRAVEYARD_ENABLED='NO'
+            export MULLE_SOURCETREE_GRAVEYARD_ENABLED
+         ;;
+
          --no-test)
             OPTION_TEST="NO"
          ;;

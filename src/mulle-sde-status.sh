@@ -345,7 +345,7 @@ sde_status_main()
       *,graveyard,*)
          log_verbose "Graveyard status:"
 
-         eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sourcetree` || exit 1
+         eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree` || exit 1
          graveyard="${MULLE_SOURCETREE_VAR_DIR}/graveyard"
          if [ -d "${graveyard}" ]
          then

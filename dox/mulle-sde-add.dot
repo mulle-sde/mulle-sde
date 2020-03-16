@@ -1,0 +1,8 @@
+digraph G {
+    graph [rankdir = TD];
+
+    node[shape=record];
+    edge[ arrowhead="none", color="gray"]
+
+    "filesystem" [ color="brown", fontcolor="brown"]
+}

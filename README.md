@@ -36,6 +36,7 @@ There is quite a bit of documentation in the [mulle-sde WiKi](//github.com/mulle
 
 # Commands
 
+
 ## mulle-sde init
 
 Create a mulle-sde project.
@@ -72,7 +73,7 @@ $ mulle-sde craft
 Run it:
 
 ```
-$ ./build/hello
+$ ./kitchen/Debug/hello
 ```
 
 Update your source or project files manually. Then let mulle-sde reflect your
@@ -84,6 +85,12 @@ $ mulle-sde craft
 
 ```
 
+Or add a template generated source file with reflection for free:
+
+```
+$ mulle-sde add src/foo.c
+```
+
 Leave the environment:
 
 ```
@@ -92,15 +99,19 @@ $ exit
 
 ## mulle-sde add
 
-You can create a templated source file for installed mulle-sde languages with
+![](dox/mulle-sde-add.png)
+
+You can create a templated source file for installed languages with
 the `add` command. These files can be optionally pre-loaded with
-personalized copyright statements.
+personalized copyright statements and so forth.
 
 ```
-mulle-sde list add src/Foo.m
+mulle-sde add src/Foo.m
 ```
 
 This will automatically run `reflect`.
+
+The `add` command can be run outside of the mulle-sde environment.
 
 
 ## mulle-sde craft
@@ -119,14 +130,18 @@ mulle-sde craft
 ![](dox/mulle-sde-dependency.png)
 
 *Dependencies* are typically GitHub projects, that provide a library (like zlib)
-or headers. These will be downloaded, unpacked and built into `dependency`
+or headers only. These will be downloaded, unpacked and built into `dependency`
 with the next build:
 
 ```
 mulle-sde dependency add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 ```
 
-See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
+Dependencies can have nested dependencies. mulle-sde will resolve them all
+and build them in the appropriate order.
+
+This the most powerful aspect of mulle-sde. See the
+[mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
 information about dependencies.
 
 
@@ -150,17 +165,11 @@ mulle-sde environment set FOO "my foo value"
 
 ## mulle-sde extension
 
-*Extensions* add support for build systems, language runtimes and other tools
-to mulle-sde. *Extensions* are used during *init* to setup a project. A
-project, setup with a hypothetically "spellcheck" mulle-sde extension, might
-look like this:
-
 ![](dox/mulle-sde-extension.png)
 
-There is a *patternfile* `00-text-all` to classify interesting files to
-spellcheck. There is a *callback* `text-callback` that gets activated via this
-*patternfile* that will schedule the *task* `aspell-task.sh`. The
-extension also installs a template file `demo.txt` to get things going quickly.
+*Extensions* add support for build systems, language runtimes and other tools
+like editors and IDEs to mulle-sde. *Extensions* are used during *init* to
+setup a project.
 
 *mulle-sde* knows about five different extension types
 
@@ -206,6 +215,12 @@ your project:
 
 ```
 mulle-sde list
+```
+
+To see only the project files use:
+
+```
+mulle-sde list --files
 ```
 
 See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
@@ -254,6 +269,7 @@ See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
 information on this command.
 
 
+
 ## mulle-sde status
 
 ![](dox/mulle-sde-status.png)
@@ -273,8 +289,8 @@ mulle-sde status
 provided by [mulle-env](/mulle-sde/mulle-env).
 You can add or remove tools with this command set.
 
-> This is only applicable to environment styles `-restricted` and `-tight`.
-> The `-inherit` style uses the default **PATH**.
+> This is only applicable to environment styles `restricted` and `tight`.
+> The `inherit` style uses the default **PATH**.
 
 ```
 mulle-sde tool add nroff
@@ -283,6 +299,8 @@ mulle-sde tool add nroff
 
 ## mulle-sde reflect
 
+![](dox/mulle-sde-reflect.png)
+
 This command **reflects** changes made in the filesystem back into the
 build-system "Makefiles". You don't edit them manually, but let them be created
 for your.
@@ -290,10 +308,11 @@ for your.
 mulle-sde executes the tasks returned by the *callbacks* `source` and
 `sourcetree`. The actual work is done by *tasks* of the chosen *extensions*.
 
-![](dox/mulle-sde-reflect.png)
 
 
 ## mulle-sde linkorder
+
+![](dox/mulle-sde-linkorder.png)
 
 The *linkorder* command outputs clang/gcc-style link commands that you can
 use to link your dependencies outside of *mulle-sde*:
@@ -307,6 +326,8 @@ mulle-sde linkorder --output-format ld
 -Wl,--whole-archive -Wl,--no-as-needed -lMulleObjC -Wl,--as-needed -Wl,--no-whole-archive -ldl -lmulle-container -Wl,--whole-archive -Wl,--no-as-needed -lmulle-objc-runtime -Wl,--as-needed -Wl,--no-whole-archive -lmulle-stacktrace -lmulle-vararg -lmulle-concurrent -lmulle-aba -lmulle-thread -lpthread -lmulle-allocator
 ```
 
+> There are many more commands in mulle-sde. These are the most commonly
+> used ones.
 
 # Quick Commands
 
@@ -336,7 +357,7 @@ alias CC="mulle-sde clean all; mulle-sde craft"
 alias t="mulle-sde test rerun --serial"
 alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
 alias T="mulle-sde test craft ; mulle-sde test"
-alias TT="mulle-sde test clean ; mulle-sde test"
+alias TT="mulle-sde test clean all; mulle-sde test"
 alias r="mulle-sde reflect"
-alias l="mulle-sde list"
+alias l="mulle-sde list --files"
 ```

@@ -38,7 +38,7 @@ sde_test_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} test <command>
+   ${MULLE_USAGE_NAME} test [options] <command>
 
    Tests are run in their own mulle-sde environment. The library to test
    is just another dependency to the test project.
@@ -48,6 +48,9 @@ Usage:
 
    Use \`clean tidy\` to get rid of all fetched dependencies. Use \`clean all\`
    to rebuild everything.
+
+Options:
+   See \`mulle-test help\` for options
 
 Command:
    clean      : clean tests and or dependencies
@@ -300,6 +303,23 @@ sde_test_run()
    )
 }
 
+
+sde_test_path_environment()
+{
+   MULLE_SDE_TEST_PATH="`mulle-sde environment get MULLE_SDE_TEST_PATH`"
+   if is_test_directory "."
+   then
+      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
+   else
+      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
+   fi
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+   then
+      log_trace2 "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
+   fi
+}
+
+
 #
 # Problem: if you start mulle-sde test inside the project folder
 #          it will pickup the environment there including PATH and
@@ -313,17 +333,21 @@ sde_test_run()
 # This function may or not be running in a subshell! It will not have been
 # forced into a subshell.
 #
-sde_test_main()
+r_sde_test_main()
 {
-   log_entry "sde_test_main" "$@"
+   log_entry "_sde_test_main" "$@"
 
-   local cmd
+   local rval
 
    while :
    do
       case "$1" in
          -h|--help|help)
             sde_test_usage
+         ;;
+
+         -*)
+            continue
          ;;
 
          *)
@@ -334,59 +358,43 @@ sde_test_main()
       shift
    done
 
-   cmd="$1"
-   case "${cmd}" in
+   sde_test_path_environment
+
+   RVAL=""
+   case "${1}" in
       ""|/*|.*)
-         cmd="run"
+         RVAL='run'
+         return 1
       ;;
 
       # build commands
       clean|crun|craft|build|log|rebuild|recraft|recrun|run)
-         shift;
+         RVAL='DEFAULT'
+         return 1;
       ;;
 
       # introspection
       env|libexec-dir|test-dir|version)
-         shift;
+         RVAL='DEFAULT'
+         return 1;
       ;;
 
       # no environment needed to run these properly
-      generate|init)
-         shift;
-      ;;
-
-      *)
-         if [ -e "${MULLE_USER_PWD}/${cmd}" ]
-         then
-            cmd="run"
-         else
-            shift
-         fi
-      ;;
-   esac
-
-   MULLE_SDE_TEST_PATH="`mulle-sde environment get MULLE_SDE_TEST_PATH`"
-   if is_test_directory "."
-   then
-      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
-   else
-      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
-   fi
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
-   fi
-
-   case "${cmd}" in
       generate)
+         shift
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
             exec_command_in_subshell test generate "$@"
          else
             sde_test_generate "$@"
          fi
+         rval=$?
+         RVAL=""
+         return $rval
       ;;
 
+
+      # no environment needed to run these properly
       init)
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
@@ -395,7 +403,39 @@ sde_test_main()
       ;;
 
       *)
-         sde_test_run "${cmd}" "$@"
+         RVAL='run'
+         return 1
       ;;
    esac
+}
+
+
+sde_test_main()
+{
+   log_entry "sde_test_main" "$@"
+
+   local rval
+
+   r_sde_test_main "$@"
+   rval=$?
+
+   if [ $rval -eq 1 ]
+   then
+      case "${RVAL}" in
+         "")
+         ;;
+
+         DEFAULT)
+            sde_test_run "$@"
+            rval=$?
+         ;;
+
+         *)
+            sde_test_run ${RVAL} "$@"
+            rval=$?
+         ;;
+      esac
+   fi
+
+   return $rval
 }

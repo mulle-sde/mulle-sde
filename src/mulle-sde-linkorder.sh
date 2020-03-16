@@ -71,7 +71,6 @@ r_sde_locate_library()
    local require="$1"; shift
 
    r_platform_search "${searchpath}" \
-                     "lib" \
                      "${libstyle}" \
                      "static" \
                      "${require}" \
@@ -148,18 +147,18 @@ _emit_ld_output()
 
    if [ "${withldpath}" = 'YES' ]
    then
-      r_platform_translate_lines "ldpath" "-L" "${wholearchiveformat}" "$@" || exit 1
+      r_platform_translate_lines "ldpath" "-L"  $'\n' "${wholearchiveformat}" "$@" || exit 1
       r_add_line "${result}" "${RVAL}"
       result="${RVAL}"
    fi
 
-   r_platform_translate_lines "ld" "-l" "${wholearchiveformat}" "$@" || exit 1
+   r_platform_translate_lines "ld" "-l" $'\n' "${wholearchiveformat}" "$@" || exit 1
    r_add_line "${result}" "${RVAL}"
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
    then
-      r_platform_translate_lines "rpath" "-Wl,-rpath -Wl," "${wholearchiveformat}" "$@" || exit 1
+      r_platform_translate_lines "rpath" "-Wl,-rpath -Wl,"  $'\n' "${wholearchiveformat}" "$@" || exit 1
       r_add_line "${result}" "${RVAL}"
       result="${RVAL}"
    fi
@@ -365,6 +364,32 @@ r_sde_linkorder_all_nodes()
 
 
 #
+# this
+#
+r_search_os_library()
+{
+   log_entry "r_search_os_library" "$@"
+
+   local aliases="$1"
+
+   local cmd
+
+   IFS=","; set -f
+   for alias in ${aliases}
+   do
+      IFS="${DEFAULT_IFS}"; set +f
+      if r_platform_search "" library "" "" "${alias}"
+      then
+         return 0
+      fi
+   done
+   IFS="${DEFAULT_IFS}"; set +f
+
+   return 1
+}
+
+
+#
 # local _dependency_libs
 # local _optional_dependency_libs
 # local _os_specific_libs
@@ -422,9 +447,26 @@ r_linkorder_collect()
             return 4
          fi
 
-         # prefer first alias name if any
-         alias="${aliases%%,*}"
-         alias="${alias#*:}"  # remove type if any
+         #
+         #  check that library is present
+         #
+         IFS=","; set -f
+         for alias in ${aliases}
+         do
+            alias="${alias#*:}"  # remove type if any
+            if r_search_os_library "${alias}"
+            then
+               break
+            fi
+         done
+         set +f; IFS="${DEFAULT_IFS}"
+
+         # otherwise prefer first alias
+         if [ -z "${alias}" ]
+         then
+            alias="${aliases%%,*}"
+            alias="${alias#*:}"  # remove type if any
+         fi
 
          log_fluff "Use OS library \"${alias}\""
          r_concat "${alias}" "${marks}" ";"
@@ -487,7 +529,6 @@ r_library_searchpath()
                                  -s \
                               searchpath \
                                  --if-exists \
-                                 --prefix-only \
                                  --configuration "${configuration}" \
                                  library`"
    if [ -z "${searchpath}" ]
@@ -712,6 +753,10 @@ sde_linkorder_main()
 
    [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
+
+   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] && \
+      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+
 
    r_platform_default_whole_archive_format
    OPTION_WHOLE_ARCHIVE_FORMAT="${RVAL}"

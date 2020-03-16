@@ -1,9 +1,11 @@
 digraph G {
-    graph [rankdir = TD];
+    graph [rankdir = TB];
 
     node[shape=folder];
 
-    "mulle-sde status"  [ label="mulle-sde status", shape="none", fontname="monospace", fontcolor="blue"]
-    "mulle-sde status" -> "mulle-sourcetree"
+    {  rank="same" ; "mulle-sourcetree", "mulle-craft", "filesystem" }
+
     "mulle-sourcetree"  [ shape="record", color="magenta", fontcolor="magenta"]
+    "mulle-craft"       [ shape="record", color="magenta", fontcolor="magenta"]
+    "filesystem"        [ color="brown", fontcolor="brown"]
 }

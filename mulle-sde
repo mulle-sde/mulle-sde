@@ -89,7 +89,7 @@ print_commands()
    monitor        : monitor project files, run reflect and craft
    patternfile    : manage patternfiles
    project-dir    : print project root directory
-   rename         : rename a project and its files
+   project        : rename a project and its files
    subproject     : manage local subprojects
    task           : manage reflect tasks
    test           : run tests using mulle-test
@@ -243,29 +243,9 @@ set_custom_environment()
 
 r_determine_project_dir()
 {
-   local current="${1:-`pwd -P`}"
+   local directory="$1"
 
-   while [ "${current}" != "/" ]
-   do
-      if [ -d "${current}/.mulle/share/sde" ]
-      then
-         RVAL="${current}"
-         return 0
-      fi
-
-      if [ -z "${MULLE_PATH_SH}" ]
-      then
-         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
-      fi
-      if [ -z "${MULLE_FILE_SH}" ]
-      then
-         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
-      fi
-
-      r_dirname "${current}"
-      current="${RVAL}"
-   done
-   return 1
+   RVAL="`( cd "${directory}" && mulle-env --search-nearest project-dir )`"
 }
 
 
@@ -321,6 +301,8 @@ assert_test_environment()
 
 _exec_command_in_subshell()
 {
+   log_entry "_exec_command_in_subshell" "%@"
+
    local cmdline="$1"; shift
 
    local current
@@ -615,7 +597,7 @@ main()
          case "${cmd}" in
             callback|clean|craft|craftinfo|craftorder|craftstatus|crun|doctor|\
 dependency|definition|environment|fetch|find|library|linkorder|list|log|\
-mark|match|monitor|patternfile|reflect|rename|\
+mark|match|monitor|patternfile|project|reflect|\
 subproject|style|task|template|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
             ;;
@@ -682,7 +664,7 @@ stash-dir|test|upgrade)
    # be read only and we keep the bookkeeping somewhere on the outside
    #
 
-   eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sde` || exit 1
+   eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
@@ -788,9 +770,9 @@ log
 match
 monitor
 patternfile
+project
 project-dir
 reinit
-rename
 reflect
 run
 show
@@ -1015,8 +997,15 @@ version"
          sde_monitor_main "$@"
       ;;
 
+      project)
+         # shellcheck source=src/mulle-sde-project.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh"
+
+         sde_project_main "$@"
+      ;;
+
       project-dir)
-         if r_determine_project_dir
+         if r_determine_project_dir "${PWD}"
          then
             printf "%s\n" "${RVAL}"
          fi
@@ -1030,13 +1019,6 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
          sde_reflect_main "$@"
-      ;;
-
-      rename)
-         # shellcheck source=src/mulle-sde-rename.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-rename.sh"
-
-         sde_rename_main "$@"
       ;;
 
       #

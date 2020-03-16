@@ -59,13 +59,14 @@ Usage:
    ${MULLE_USAGE_NAME} add [options] <filepath>
 
    Add an existing file or create a file from a template. The add command
-   can be without a virtual environment in place. Inside a mulle-sde project
-   it will reflect and check if your file can be reflected.
+   can be executed without a virtual environment in place. Inside a mulle-sde
+   project this command checks if your file can be reflected and will
+   \`reflect\`.
 
    Create a "${MULLE_SDE_ETC_DIR#${MULLE_USER_PWD}/}/header.default" or
    "~/.mulle/etc/sde/header.default" file to prepend copyright information
    to your file. Change "default" to the desired file extension if you want
-   to have different contents different languages.
+   to have different contents for different languages.
 
    Example:
          ${MULLE_USAGE_NAME} add src/MyClass.m
@@ -182,7 +183,7 @@ _sde_add_oneshot_extension()
       r_identifier "${ONESHOT_NAME}"
       export ONESHOT_IDENTIFIER="${RVAL}"
       r_lowercase "${ONESHOT_IDENTIFIER}"
-      export ONESHOT_LOWERCASE_IDENTIFIER="${RVAL}"
+      export ONESHOT_DOWNCASE_IDENTIFIER="${RVAL}"
       r_uppercase "${ONESHOT_IDENTIFIER}"
       export ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
 
@@ -261,6 +262,8 @@ _sde_add_file_via_oneshot_extension()
 #
 _r_sde_get_class_category_genericname()
 {
+   log_entry "_r_sde_get_class_category_genericname" "$@"
+
    local filepath="$1"
    local name="$2"
 
@@ -387,18 +390,31 @@ sde_add_in_project()
       #
       if [ -z "${vendors}" ]
       then
-         vendors="`sde_extension_main runtimes | cut -d'/' -f1,1 `" || exit 1
+         # it's not terrible if this fails though
+         vendors="`sde_extension_main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
       fi
 
-      if ! sde_add_file_via_oneshot_extension "${absfilepath#${MULLE_USER_PWD}/}" \
-                                              "${vendors}" \
-                                              "${name}"
-      then
-         fail "No matching template found to create \"${absfilepath#${MULLE_USER_PWD}/}\""
-      fi
+      local rval
+
+      sde_add_file_via_oneshot_extension "${absfilepath#${MULLE_USER_PWD}/}" \
+                                         "${vendors}" \
+                                         "${name}"
+      rval=$?
+      case $rval in
+         4)
+            fail "No matching template found to create \"${absfilepath#${MULLE_USER_PWD}/}\""
+         ;;
+
+         0)
+         ;;
+
+         *)
+            exit $rval
+         ;;
+      esac
    fi
 
-   exekutor mulle-sde update || exit 1
+   exekutor mulle-sde reflect || exit 1
 
    local found
 
@@ -444,14 +460,24 @@ sde_add_no_project()
       export PROJECT_DIALECT="objc"
       export TEMPLATE_NO_ENVIRONMENT="YES" # hacky
 
-      if ! sde_add_file_via_oneshot_extension "${filepath}" \
-                                              "${vendors}" \
-                                              "${name}"
+      sde_add_file_via_oneshot_extension "${filepath}" \
+                                         "${vendors}" \
+                                         "${name}"
 
-      then
-         fail "No matching template found to create \"${filepath}\""
-      fi
-   )
+      rval=$?
+      case $rval in
+         4)
+            fail "No matching template found to create \"${absfilepath#${MULLE_USER_PWD}/}\""
+         ;;
+
+         0)
+         ;;
+
+         *)
+            exit $rval
+         ;;
+      esac
+   ) || exit $?
 
    log_info "Created \"${filepath#${MULLE_USER_PWD/}}\""
 }
@@ -542,9 +568,10 @@ sde_add_main()
       then
          exec_command_in_subshell add --vendor "${OPTION_VENDOR}" \
                                       --name "${OPTION_NAME}" \
-                                      "$@"
+                                      "$@" || exit 1
+      else
+         sde_add_in_project "$@" "${OPTION_VENDOR}" "${OPTION_NAME}"
       fi
-      sde_add_in_project "$@" "${OPTION_VENDOR}" "${OPTION_NAME}"
    else
       sde_add_no_project "$@" "${OPTION_VENDOR}" "${OPTION_NAME}"
    fi

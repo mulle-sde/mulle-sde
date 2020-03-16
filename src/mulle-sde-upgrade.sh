@@ -56,6 +56,7 @@ Usage:
 
 Options:
    --project-file <file> : update a single project file to newest verion
+   --no-parallel         : do not upgrade projects in parallel
    --no-project          : do not upgrade the project
    --no-subprojects      : do not upgrade subprojects
    --no-test             : do not upgrade a test folder if it exists
@@ -89,7 +90,7 @@ sde_upgrade_project()
    [ -z "${MULLE_SDE_INIT_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   eval_exekutor sde_init_main --upgrade "$@" || return 1
+   eval_exekutor sde_init_main --upgrade "$@"
 }
 
 
@@ -169,7 +170,7 @@ sde_upgrade_main()
             sde_upgrade_usage
          ;;
 
-         --no-parallel)
+         --serial|--no-parallel)
             OPTION_PARALLEL='NO'
          ;;
 
@@ -206,11 +207,17 @@ sde_upgrade_main()
          MULLE_VIRTUAL_ROOT="`pwd -P`"
          export MULLE_VIRTUAL_ROOT
 
-         eval `"${MULLE_ENV:-mulle-env}" -N mulle-tool-env sde` || exit 1
+         eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
+
          # not sure about next two, but its the proper transformation
          # of previous code
          unset MULLE_SDE_ETC_DIR
          unset MULLE_SDE_SHARE_DIR
+
+         # unset MULLE_SDE_VAR_DIR
+         unset MULLE_MATCH_ETC_DIR
+         unset MULLE_MATCH_SHARE_DIR
+         unset MULLE_MATCH_VAR_DIR
 
          sde_upgrade_subprojects "${OPTION_PARALLEL}"
       ) || exit 1

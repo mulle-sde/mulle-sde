@@ -563,7 +563,11 @@ r_collect_vendorextensions()
 
 #     log_debug "$directory: ${directory}"
    IFS=$'\n' ; set -o noglob
-   for extensiondir in `eval_exekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print`
+   for extensiondir in `eval_exekutor find -H "${searchpath}" \
+                                           -mindepth 1 \
+                                           -maxdepth 1 \
+                                           '\(' -type d -o -type l '\)' \
+                                           -print`
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -720,7 +724,7 @@ emit_extension()
 
 sde_extension_find_main()
 {
-   log_entry "sde_extension_show_main" "$@"
+   log_entry "sde_extension_find_main" "$@"
 
    local OPTION_QUIET='NO'
 
@@ -739,7 +743,7 @@ sde_extension_find_main()
          ;;
 
          -*)
-            sde_extension_show_usage "Unknown option \"$1\""
+            sde_extension_find_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -750,8 +754,8 @@ sde_extension_find_main()
       shift
    done
 
-   [ $# -lt 1 ] && sde_extension_show_usage "Missing arguments"
-   [ $# -gt 2 ] && sde_extension_show_usage "Superflous arguments \"$*\""
+   [ $# -lt 1 ] && sde_extension_find_usage "Missing arguments"
+   [ $# -gt 2 ] && sde_extension_find_usage "Superflous arguments \"$*\""
 
    local vendor
    local name
@@ -861,7 +865,12 @@ sde_extension_show_main()
    cmd="$1"
    if [ -z "${cmd}" ]
    then
-      cmd="extra"
+      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         cmd="meta"
+      else
+         cmd="extra"
+      fi
    fi
 
    local runtime_extension
@@ -1494,6 +1503,11 @@ sde_extension_main()
    if [ -z "${MULLE_PATH_SH}" ]
    then
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+   fi
+
+   if [ ! -z "${MULLE_SDE_EXTENSION_PATH}" -a ! -z "${MULLE_SDE_EXTENSION_BASE_PATH}" ]
+   then
+      log_warning "MULLE_SDE_EXTENSION_BASE_PATH is ignored due to MULLE_SDE_EXTENSION_PATH being set"
    fi
 
    case "${cmd}" in
