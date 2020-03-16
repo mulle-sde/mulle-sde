@@ -109,9 +109,9 @@ personalized copyright statements and so forth.
 mulle-sde add src/Foo.m
 ```
 
-This will automatically run `reflect`.
+This command will automatically run `reflect`.
 
-The `add` command can be run outside of the mulle-sde environment.
+The `add` command can be run outside of an existing mulle-sde environment.
 
 
 ## mulle-sde craft
@@ -137,7 +137,8 @@ with the next build:
 mulle-sde dependency add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 ```
 
-Dependencies can have nested dependencies. mulle-sde will resolve them all
+You can also embed dependencies in your project, if you want to build them within your project.
+*Dependencies* can have nested *dependencies*. mulle-sde will resolve them all
 and build them in the appropriate order.
 
 This the most powerful aspect of mulle-sde. See the
@@ -169,7 +170,7 @@ mulle-sde environment set FOO "my foo value"
 
 *Extensions* add support for build systems, language runtimes and other tools
 like editors and IDEs to mulle-sde. *Extensions* are used during *init* to
-setup a project.
+setup a project, but can also be added at a later date.
 
 *mulle-sde* knows about five different extension types
 
@@ -178,8 +179,8 @@ Extensiontype  | Description
 buildtool      | Support for build environment and tools like **cmake** .
 extra          | Support for extra features like **git**.
 meta           | A wrapper for extensions (usually buildtool+runtime+extra).
-oneshot        | A special kind of extra extension, that can be installed multiple times but is not upgradable.
-runtime        | Support for language/runtime combinations like C with X11.
+oneshot        | A special kind of extra extension, that can be installed multiple times but is not upgradable. Used primarily for source files.
+runtime        | Support for language/runtime combinations like C or Objective-C.
 
 Extensions are installable plugins. The package [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer)
 provides the basic set of extension. Use *list* to see the *extensions* installed on your system:
@@ -236,6 +237,12 @@ don't build yourself.
 
 ```
 mulle-sde library add m
+```
+
+You can exclude libraries on a per-platform level (as you can dependencies)
+
+```
+mulle-sde library mark m no-os-windows
 ```
 
 See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more
@@ -305,6 +312,11 @@ This command **reflects** changes made in the filesystem back into the
 build-system "Makefiles". You don't edit them manually, but let them be created
 for your.
 
+```
+rm src/foo.*
+mulle-sde reflect
+```
+
 mulle-sde executes the tasks returned by the *callbacks* `source` and
 `sourcetree`. The actual work is done by *tasks* of the chosen *extensions*.
 
@@ -315,7 +327,7 @@ mulle-sde executes the tasks returned by the *callbacks* `source` and
 ![](dox/mulle-sde-linkorder.png)
 
 The *linkorder* command outputs clang/gcc-style link commands that you can
-use to link your dependencies outside of *mulle-sde*:
+use to link your *dependencies* and *libraries* outside of *mulle-sde*:
 
 
 e.g.
@@ -326,8 +338,10 @@ mulle-sde linkorder --output-format ld
 -Wl,--whole-archive -Wl,--no-as-needed -lMulleObjC -Wl,--as-needed -Wl,--no-whole-archive -ldl -lmulle-container -Wl,--whole-archive -Wl,--no-as-needed -lmulle-objc-runtime -Wl,--as-needed -Wl,--no-whole-archive -lmulle-stacktrace -lmulle-vararg -lmulle-concurrent -lmulle-aba -lmulle-thread -lpthread -lmulle-allocator
 ```
 
-> There are many more commands in mulle-sde. These are the most commonly
-> used ones.
+## Afterword
+
+There are many more commands in mulle-sde. These are the most commonly
+used ones.
 
 # Quick Commands
 

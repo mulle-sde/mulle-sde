@@ -533,7 +533,7 @@ r_library_searchpath()
                                  library`"
    if [ -z "${searchpath}" ]
    then
-      fail "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
+      log_warning "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
    fi
 
    log_fluff "Library searchpath is: ${searchpath}"
