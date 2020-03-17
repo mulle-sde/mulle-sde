@@ -618,11 +618,14 @@ add_to_sourcetree()
    fi
 
    local line
+   local lines
 
-   IFS=$'\n'
-   for line in `read_template_expanded_file "${filename}"`
+   lines="`read_template_expanded_file "${filename}"`"
+
+   set -o noglob ; IFS=$'\n'
+   for line in ${lines}
    do
-      IFS="${DEFAULT_IFS}"
+      set +o noglob ; IFS="${DEFAULT_IFS}"
 
       if [ ! -z "${line}" ]
       then
@@ -633,7 +636,7 @@ add_to_sourcetree()
                         "${line}" || exit 1
       fi
    done
-   IFS="${DEFAULT_IFS}"
+   set +o noglob ; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -785,26 +788,29 @@ run_init()
    # TODO: small database with sha256 sums, that the user has "allowed"
    #       if not in database query Y/n like mulle-bootstrap used to
    #
-   r_simplified_path "${executable}"
-   log_info "Running init script \"${RVAL}\""
+   (
+      r_simplified_path "${executable}"
+      log_info "Running init script \"${RVAL}\""
 
-   eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
-                 OPTION_REINIT="${OPTION_REINIT}" \
-                 OPTION_INIT_TYPE="${OPTION_INIT_TYPE}" \
-                 PROJECT_DIALECT="${PROJECT_DIALECT}" \
-                 PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}" \
-                 PROJECT_LANGUAGE="${PROJECT_LANGUAGE}" \
-                 PROJECT_NAME="${PROJECT_NAME}" \
-                 PROJECT_TYPE="${PROJECT_TYPE}" \
-                 MULLE_VIRTUAL_ROOT="`pwd -P`" \
-                     "${executable}" \
-                           "${INIT_FLAGS}" \
-                           "${MULLE_TECHNICAL_FLAGS}" \
-                           "${flags}" \
-                           "${auxflags}" \
-                        --marks "'${marks}'" \
-                               "${projecttype}" ||
-      fail "init script \"${RVAL}\" failed"
+      eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
+                    OPTION_REINIT="${OPTION_REINIT}" \
+                    OPTION_INIT_TYPE="${OPTION_INIT_TYPE}" \
+                    PROJECT_DIALECT="${PROJECT_DIALECT}" \
+                    PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}" \
+                    PROJECT_LANGUAGE="${PROJECT_LANGUAGE}" \
+                    PROJECT_NAME="${PROJECT_NAME}" \
+                    PROJECT_TYPE="${PROJECT_TYPE}" \
+                    ONESHOT_FILENAME="${ONESHOT_FILENAME}" \
+                    ONESHOT_IDENTIFIER="${ONESHOT_IDENTIFIER}" \
+                    MULLE_VIRTUAL_ROOT="`pwd -P`" \
+                        "${executable}" \
+                              "${INIT_FLAGS}" \
+                              "${MULLE_TECHNICAL_FLAGS}" \
+                              "${flags}" \
+                              "${auxflags}" \
+                           --marks "'${marks}'" \
+                                  "${projecttype}"
+   ) || fail "init script \"${RVAL}\" failed"
 }
 
 
@@ -1114,7 +1120,7 @@ _install_extension()
    then
       if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         log_fluff "Extension \"${vendor}/${extname}\" is already installed"
+         log_info "Extension \"${vendor}/${extname}\" is already installed"
          return
       fi
    else
@@ -1410,6 +1416,7 @@ ${C_INFO}Possible ways to fix this:
 
    if [ ! -z "${onlyfilename}" ]
    then
+      RVAL=""
       return
    fi
 
@@ -1442,38 +1449,7 @@ ${C_INFO}Possible ways to fix this:
          fail "Could not copy \"${extensiondir}/etc\""
    fi
 
-
-   local executable
-
-   executable="${extensiondir}/init"
-   if ! is_file_disabled_by_marks "${marks}" \
-                                  "${executable}" \
-                                  "no-init" \
-                                  "no-init/${vendor}/${extname}"
-   then
-      run_init "${executable}" "${projecttype}" \
-                               "${exttype}" \
-                               "${vendor}" \
-                               "${extname}" \
-                               "${marks}" \
-                               "${force}"
-   fi
-
-   executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
-   if ! is_file_disabled_by_marks "${marks}" \
-                                  "${executable}" \
-                                  "no-init" \
-                                  "no-init/${vendor}/${extname}"
-   then
-      run_init "${executable}" "${projecttype}" \
-                               "${exttype}" \
-                               "${vendor}" \
-                               "${extname}" \
-                               "${marks}" \
-                               "${force}"
-   fi
-
-   log_verbose "${C_RESET_BOLD}${verb} ${exttype} extension \"${vendor}/${extname}\""
+   RVAL="${extensiondir}"
 }
 
 
@@ -1482,17 +1458,20 @@ install_extension()
 {
    log_entry "install_extension" "$@"
 
-#   local projecttype="$1"
-#   local exttype="$2"
+   local projecttype="$1"
+   local exttype="$2"
    local vendor="$3"
    local extname="$4"
-#   local marks="$5"
+   local marks="$5"
    local onlyfilename="$6"
-#   local force="$7"
+   local force="$7"
 
    local TEMPLATE_DIRECTORIES # will be set by _install_extension
 
+   local extensiondir
+
    _install_extension "$@"
+   extensiondir="${RVAL}"
 
    if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
    then
@@ -1527,6 +1506,46 @@ install_extension()
          fi
       done
    ) || exit 1
+
+
+   if [ -z "${onlyfilename}" ]
+   then
+      local executable
+
+      executable="${extensiondir}/init"
+      if ! is_file_disabled_by_marks "${marks}" \
+                                     "${executable}" \
+                                     "no-init" \
+                                     "no-init/${vendor}/${extname}"
+      then
+         run_init "${executable}" "${projecttype}" \
+                                  "${exttype}" \
+                                  "${vendor}" \
+                                  "${extname}" \
+                                  "${marks}" \
+                                  "${force}"
+      fi
+
+      # happens for oneshot extensions
+      if [ ! -z "${OPTION_INIT_TYPE}" ]
+      then
+         executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
+         if ! is_file_disabled_by_marks "${marks}" \
+                                        "${executable}" \
+                                        "no-init" \
+                                        "no-init/${vendor}/${extname}"
+         then
+            run_init "${executable}" "${projecttype}" \
+                                     "${exttype}" \
+                                     "${vendor}" \
+                                     "${extname}" \
+                                     "${marks}" \
+                                     "${force}"
+         fi
+      fi
+   fi
+
+   log_verbose "Done with ${C_RESET_BOLD}${verb} ${exttype} extension \"${vendor}/${extname}\""
 }
 
 

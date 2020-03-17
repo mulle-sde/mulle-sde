@@ -1334,8 +1334,11 @@ emit_extension_usage()
 
       __set_extension_vars
 
+      local dependencies
+
+      dependencies="`collect_extension_inherits "${extensiondir}"`"
       set -o noglob ; IFS=$'\n'
-      for dependency in `collect_extension_inherits "${extensiondir}"`
+      for dependency in ${dependencies}
       do
          set +o noglob ; IFS="${DEFAULT_IFS}"
 

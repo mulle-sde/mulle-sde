@@ -51,8 +51,9 @@ sde_add_usage()
    FILE_USAGE_NAME="${FILE_USAGE_NAME:-${MULLE_USAGE_NAME} add}"
 
    COMMON_OPTIONS="\
-   -d <dir>           : directory to populate (${PROJECT_SOURCE_DIR})
-   -e <extension>     : extension to use"
+   -d <dir>                : directory to populate (${PROJECT_SOURCE_DIR})
+   -e <extension>          : oneshot extension to use
+   --file-extension <name> : force file extension to name"
 
    cat <<EOF >&2
 Usage:
@@ -266,6 +267,7 @@ _r_sde_get_class_category_genericname()
 
    local filepath="$1"
    local name="$2"
+   local extension="$3"
 
    _genericname="${name}"
    _category=""
@@ -277,13 +279,14 @@ _r_sde_get_class_category_genericname()
       return
    fi
 
-   local extension
-
-   r_path_extension "${filepath}"
-   extension="${RVAL}"
    if [ -z "${extension}" ]
    then
-      fail "Can not determine file type because of missing extension"
+      r_path_extension "${filepath}"
+      extension="${RVAL}"
+      if [ -z "${extension}" ]
+      then
+         fail "Can not determine file type because of missing extension"
+      fi
    fi
 
    local filename
@@ -336,12 +339,13 @@ sde_add_file_via_oneshot_extension()
    local filepath="$1"
    local vendors="$2"
    local name="$3"
+   local ext="$4"
 
    local _genericname
    local _category
    local _class
 
-   _r_sde_get_class_category_genericname "${filepath}" "${name}"
+   _r_sde_get_class_category_genericname "${filepath}" "${name}" "${ext}"
    name="${RVAL}"
 
    _sde_add_file_via_oneshot_extension "${filepath}" \
@@ -360,6 +364,7 @@ sde_add_in_project()
    local filepath="$1"
    local vendors="$2"
    local name="$3"
+   local ext="$4"
 
    if ! mulle-match match --quiet "${filepath}"
    then
@@ -398,7 +403,8 @@ sde_add_in_project()
 
       sde_add_file_via_oneshot_extension "${absfilepath#${MULLE_USER_PWD}/}" \
                                          "${vendors}" \
-                                         "${name}"
+                                         "${name}" \
+                                         "${ext}"
       rval=$?
       case $rval in
          4)
@@ -440,6 +446,7 @@ sde_add_no_project()
    local filepath="$1"
    local vendors="$2"
    local name="$3"
+   local ext="$4"
 
    if [ -e "${filepath}" ]
    then
@@ -462,7 +469,8 @@ sde_add_no_project()
 
       sde_add_file_via_oneshot_extension "${filepath}" \
                                          "${vendors}" \
-                                         "${name}"
+                                         "${name}" \
+                                         "${ext}"
 
       rval=$?
       case $rval in
@@ -493,6 +501,7 @@ sde_add_main()
 
    local OPTION_NAME
    local OPTION_VENDOR
+   local OPTION_FILE_EXTENSION
 
    #
    # handle options
@@ -502,6 +511,13 @@ sde_add_main()
       case "$1" in
          -h|--help|help)
             sde_add_usage
+         ;;
+
+         -fe|--file-extension)
+            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_FILE_EXTENSION="$1"
          ;;
 
          -e|--extension)
@@ -568,12 +584,13 @@ sde_add_main()
       then
          exec_command_in_subshell add --vendor "${OPTION_VENDOR}" \
                                       --name "${OPTION_NAME}" \
+                                      --file-extension "${OPTION_FILE_EXTENSION}" \
                                       "$@" || exit 1
       else
-         sde_add_in_project "$@" "${OPTION_VENDOR}" "${OPTION_NAME}"
+         sde_add_in_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_FILE_EXTENSION}"
       fi
    else
-      sde_add_no_project "$@" "${OPTION_VENDOR}" "${OPTION_NAME}"
+      sde_add_no_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_FILE_EXTENSION}"
    fi
 }
 
