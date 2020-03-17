@@ -335,7 +335,7 @@ sde_test_path_environment()
 #
 r_sde_test_main()
 {
-   log_entry "_sde_test_main" "$@"
+   log_entry "r_sde_test_main" "$@"
 
    local rval
 
@@ -347,7 +347,6 @@ r_sde_test_main()
          ;;
 
          -*)
-            continue
          ;;
 
          *)
@@ -362,8 +361,13 @@ r_sde_test_main()
 
    RVAL=""
    case "${1}" in
-      ""|/*|.*)
-         RVAL='run'
+      "")
+         RVAL='DEFAULT'
+         return 1
+      ;;
+
+      /*|.*)
+         RVAL='RUN'
          return 1
       ;;
 
@@ -389,7 +393,7 @@ r_sde_test_main()
             sde_test_generate "$@"
          fi
          rval=$?
-         RVAL=""
+         RVAL="DONE"
          return $rval
       ;;
 
@@ -400,10 +404,13 @@ r_sde_test_main()
                         ${MULLE_TECHNICAL_FLAGS} \
                      init \
                         "$@"
+         rval=$?
+         RVAL="DONE"
+         return $rval
       ;;
 
       *)
-         RVAL='run'
+         RVAL='RUN'
          return 1
       ;;
    esac
@@ -422,16 +429,16 @@ sde_test_main()
    if [ $rval -eq 1 ]
    then
       case "${RVAL}" in
-         "")
+         "DONE")
          ;;
 
-         DEFAULT)
+         'DEFAULT')
             sde_test_run "$@"
             rval=$?
          ;;
 
-         *)
-            sde_test_run ${RVAL} "$@"
+         'RUN')
+            sde_test_run run "$@"
             rval=$?
          ;;
       esac
