@@ -230,14 +230,14 @@ set_custom_environment()
 
    local i
 
-   set -f; IFS=$'\n'
+   set -o noglob; IFS=$'\n'
    for i in ${defines}
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       set_custom_define "${i#-D}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -344,7 +344,7 @@ $1"
    done
 
    log_fluff "Run command with mulle-env: -C \"${cmdline}\" in \"${PWD}\""
-   rexekutor exec "${MULLE_ENV:-mulle-env}" -C "${cmdline}"
+   MULLE_USAGE_NAME="mulle-sde" rexekutor exec "${MULLE_ENV:-mulle-env}" -C "${cmdline}"
 }
 
 
@@ -437,14 +437,16 @@ try_to_enter_or_download()
                exekutor "${MULLE_FETCH:-mulle-fetch}" \
                               ${MULLE_TECHNICAL_FLAGS} \
                               "$@" || exit 1
-               rexekutor exec "${MULLE_ENV:-mulle-env}" "${dst}"
+               MULLE_USAGE_NAME="mulle-sde" \
+                  rexekutor exec "${MULLE_ENV:-mulle-env}" "${dst}"
             fi
          ;;
 
          *)
             if [ -d "$1" ]
             then
-               rexekutor exec "${MULLE_ENV:-mulle-env}" "$@"
+               MULLE_USAGE_NAME="mulle-sde" \
+                  rexekutor exec "${MULLE_ENV:-mulle-env}" "$@"
             fi
          ;;
         esac
@@ -626,12 +628,14 @@ stash-dir|test|upgrade)
 
             enter)
                shift
-               exekutor exec "${MULLE_ENV:-mulle-env}" "$@"
+               MULLE_USAGE_NAME="mulle-sde" \
+                  exekutor exec "${MULLE_ENV:-mulle-env}" "$@"
             ;;
 
             "")
                # special treatment for empty, show usage
-               if ! exekutor "${MULLE_ENV:-mulle-env}" -s
+               if ! MULLE_USAGE_NAME="mulle-sde" \
+                     exekutor "${MULLE_ENV:-mulle-env}" -s
                then
                   log_warning "No mulle-sde project found"
                   usage

@@ -53,7 +53,7 @@ Options:
    --database    : add sourcetree database information (default)
    --graveyard   : add sourcetree graveyard information (default)
    --project     : add project information (default)
-   --quickstatus : add deppendency status information (default)
+   --quickstatus : add dependency status information (default)
    --sourcetree  : add sourcetree information (default)
    --stash       : add sourcetree stash information( default)
    --treestatus  : add source files information

@@ -52,11 +52,14 @@ ${C_INFO}Are you runnning inside a mulle-sde environment ?"
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
    fi
 
-   PROJECT_IDENTIFIER="`printf "%s" "${PROJECT_NAME}" | tr -c 'a-zA-Z0-9$' '_'`"
+   r_identifier "${PROJECT_NAME}"
+   PROJECT_IDENTIFIER="${RVAL}"
 
    r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
-   PROJECT_DOWNCASE_IDENTIFIER="`tr 'A-Z-' 'a-z_' <<< "${RVAL}"`"
-   PROJECT_UPCASE_IDENTIFIER="`tr 'a-z-' 'A-Z_' <<< "${PROJECT_DOWNCASE_IDENTIFIER}"`"
+   r_lowercase "${RVAL}"
+   PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+   r_uppercase "${PROJECT_DOWNCASE_IDENTIFIER}"
+   PROJECT_UPCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
 }
 
 
@@ -77,9 +80,19 @@ project_env_set_var()
 {
    local key="$1"; shift
    local value="$1"; shift
-   local scope="${1:-extension}" ; shift
 
    log_verbose "Environment: ${key}=\"${value}\""
+
+   #
+   # save it into /etc now, use -f flag to create the project scope
+   # see mulle-env-scope for the meaning of 20
+   #
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                     --search-nearest \
+                     -s \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                  scope \
+                     add --if-missing --priority 20 project &&
 
    exekutor "${MULLE_ENV:-mulle-env}" \
                      --search-nearest \
@@ -87,7 +100,7 @@ project_env_set_var()
                      ${MULLE_TECHNICAL_FLAGS} \
                      "$@" \
                   environment \
-                     --scope "${scope}" \
+                     --scope project \
                      set "${key}" "${value}" || internal_fail "failed env set"
 }
 
@@ -96,10 +109,10 @@ save_projectname_variables()
 {
   log_entry "save_projectname_variables" "$@"
 
-  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}" "project" "$@"
-  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "project" "$@"
-  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "project" "$@"
-  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "project" "$@"
+  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}"  "$@"
+  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "$@"
+  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "$@"
+  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "$@"
 }
 
 

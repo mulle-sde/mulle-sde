@@ -102,11 +102,11 @@ _local_search_and_replace_filenames()
    IFS=$'\n' ; set -f
    for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -name "*${old}*" -print`
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       rename_old_to_new_filename "${filename}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -127,11 +127,11 @@ search_and_replace_filenames()
       IFS=$'\n' ; set -f
       for filename in  `eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print`
       do
-         set +f; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
 
          rename_old_to_new_filename "${filename}"
       done
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
    fi
 }
 
@@ -178,11 +178,11 @@ _local_search_and_replace_contents()
    IFS=$'\n' ; set -f
    for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -print`
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       edit_old_to_new_content "${filename}" "$@"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -199,11 +199,11 @@ search_and_replace_contents()
       IFS=$'\n' ; set -f
       for filename in  `eval_rexekutor find "${dir}" -type f -print`
       do
-         set +f; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
 
          edit_old_to_new_content "${filename}" "$@"
       done
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
    fi
 }
 
@@ -216,10 +216,10 @@ walk_over_mulle_match_path()
 
    local dir
 
-   IFS=':' ; set -f
+   set -o noglob; IFS=':'
    for dir in ${MULLE_MATCH_PATH}
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
       case "${dir}" in
          .*)
          ;;
@@ -229,7 +229,7 @@ walk_over_mulle_match_path()
          ;;
       esac
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -241,12 +241,12 @@ walk_over_test_paths()
 
    local dir
 
-   IFS=':' ; set -f
+   set -o noglob; IFS=':'
    for dir in *
    do
       if [ -d "${dir}" ]
       then
-         set +f; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
          case "${dir}" in
             .*)
             ;;
@@ -257,7 +257,7 @@ walk_over_test_paths()
          esac
       fi
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -514,10 +514,10 @@ sde_rename_main()
          ;;
       esac
 
-      IFS=$'\n'; set -f
+      set -o noglob; IFS=$'\n'
       for testdir in ${test_path}
       do
-         IFS="${DEFAULT_IFS}"; set +f
+         set +o noglob; IFS="${DEFAULT_IFS}"
          (
             MULLE_VIRTUAL_ROOT=
             PROJECT_NAME=
@@ -528,7 +528,7 @@ sde_rename_main()
             exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} rename ${cmdline} "${newname}"
          )
       done
-      IFS="${DEFAULT_IFS}"; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
    fi
 
    log_verbose "Done"

@@ -218,10 +218,10 @@ _sde_add_file_via_oneshot_extension()
    #
    # now try to find a oneshot extension in our vendors list that fits
    #
-   IFS=$'\n'; set -f
+   set -o noglob; IFS=$'\n'
    for vendor in ${vendors}
    do
-      IFS=${DEFAULT_IFS}; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       if sde_extension_find_main -q "${vendor}/${name}" "oneshot"
       then
@@ -229,17 +229,17 @@ _sde_add_file_via_oneshot_extension()
          return $?
       fi
    done
-   IFS=${DEFAULT_IFS}; set +f
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    if [ ! -z "${genericname}" -a "${genericname}" != "${name}" ]
    then
       #
       # fall back to non-specialized files
       #
-      IFS=$'\n'; set -f
+      set -o noglob; IFS=$'\n'
       for vendor in ${vendors}
       do
-         IFS=${DEFAULT_IFS}; set +f
+         set +o noglob; IFS="${DEFAULT_IFS}"
 
          if sde_extension_find_main -q "${vendor}/${genericname}" "oneshot"
          then
@@ -247,7 +247,7 @@ _sde_add_file_via_oneshot_extension()
             return $?
          fi
       done
-      IFS=${DEFAULT_IFS}; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
    fi
 
    return 4  # not found
@@ -300,10 +300,10 @@ _r_sde_get_class_category_genericname()
    case "${filename}" in
       *-*)
          r_lowercase "${filename}"
-         name="file-${RVAL#*-}.${extension}"
+         name="file-${RVAL##*-}.${extension}"
          _genericname="file.${extension}"
 
-         r_identifier "${filename#*-}"
+         r_identifier "${filename%-*}"
          _class="${RVAL}"
          log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
       ;;
@@ -475,7 +475,7 @@ sde_add_no_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create \"${absfilepath#${MULLE_USER_PWD}/}\""
+            fail "No matching template found to create \"${filepath#${MULLE_USER_PWD}/}\""
          ;;
 
          0)
@@ -487,7 +487,7 @@ sde_add_no_project()
       esac
    ) || exit $?
 
-   log_info "Created \"${filepath#${MULLE_USER_PWD/}}\""
+   log_info "Created \"${filepath#${MULLE_USER_PWD}/}\""
 }
 
 

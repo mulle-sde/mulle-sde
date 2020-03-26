@@ -78,6 +78,24 @@ template_rexekutor()
 }
 
 
+
+template_eval_rexekutor()
+{
+   local old
+
+   old="${MULLE_FLAG_LOG_EXEKUTOR}"
+   MULLE_FLAG_LOG_EXEKUTOR="${MULLE_FLAG_TEMPLATE_LOG_EXECUTOR}"
+
+   local rval
+
+   eval_rexekutor "$@"
+   rval=$?
+
+   MULLE_FLAG_LOG_EXEKUTOR="${old}"
+   return $rval
+}
+
+
 template_eval_exekutor()
 {
    local old
@@ -486,7 +504,7 @@ copy_and_expand_template()
 
    local expanded_dstfile
 
-   expanded_dstfile="`LC_ALL=C template_eval_exekutor "${filename_sed}" <<< "${dstfile}" `"
+   expanded_dstfile="`LC_ALL=C template_eval_rexekutor "${filename_sed}" <<< "${dstfile}" `"
 
    if [ "${expanded_dstfile}" != "${dstfile}" ]
    then
@@ -525,7 +543,7 @@ copy_and_expand_template()
 
    log_debug "Generating text from template \"${templatefile}\""
 
-   text="`cat_template_file "${templatefile}" | LC_ALL=C template_eval_exekutor "${template_sed}" `"
+   text="`cat_template_file "${templatefile}" | LC_ALL=C template_eval_rexekutor "${template_sed}" `"
 
    log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 

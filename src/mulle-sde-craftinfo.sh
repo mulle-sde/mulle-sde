@@ -930,10 +930,10 @@ sde_dependency_craftinfo_list_main()
 
    if [ -z "${url}" ]
    then
-      set -f ; IFS=$'\n'
+      set -o noglob; IFS=$'\n'
       for url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
       do
-         set +f ; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
          case "${url}" in
             craftinfo/*)
                continue
@@ -943,7 +943,7 @@ sde_dependency_craftinfo_list_main()
          log_info "${url}"
          _sde_dependency_craftinfo_list_main "${url}" "   "
       done
-      set +f ; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
    else
       _sde_dependency_craftinfo_list_main "${url}" ""
    fi

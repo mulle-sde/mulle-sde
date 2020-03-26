@@ -421,7 +421,7 @@ _extension_list_vendor_extensions()
    then
       return 1
    fi
-   eval_exekutor find -H "${searchpaths}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print
+   eval_rexekutor find -H "${searchpaths}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print
 }
 
 
@@ -452,7 +452,7 @@ Use / separator"
       ;;
    esac
 
-   RVAL="`eval_exekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -name "${name}" -print | head -1`"
+   RVAL="`eval_rexekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -name "${name}" -print | head -1`"
 
    if [ -z "${RVAL}" ]
    then
@@ -563,11 +563,11 @@ r_collect_vendorextensions()
 
 #     log_debug "$directory: ${directory}"
    IFS=$'\n' ; set -o noglob
-   for extensiondir in `eval_exekutor find -H "${searchpath}" \
-                                           -mindepth 1 \
-                                           -maxdepth 1 \
-                                           '\(' -type d -o -type l '\)' \
-                                           -print`
+   for extensiondir in `eval_rexekutor find -H "${searchpath}" \
+                                            -mindepth 1 \
+                                            -maxdepth 1 \
+                                            '\(' -type d -o -type l '\)' \
+                                            -print`
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -788,7 +788,7 @@ sde_extension_find_main()
 
       all_vendors="`extension_list_vendors`" || exit 1
 
-      set -o noglob ; IFS=$'\n'
+      set -o noglob; IFS=$'\n'
       for vendor in ${all_vendors}
       do
          IFS="${DEFAULT_IFS}"; set +o noglob
@@ -895,7 +895,7 @@ sde_extension_show_main()
    log_verbose "Available vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}" | sed 's/^/  /'`"
 
-   set -o noglob ; IFS=$'\n'
+   set -o noglob; IFS=$'\n'
    for vendor in ${all_vendors}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1074,14 +1074,14 @@ collect_file_info()
 
    local directory
 
-   set -o noglob ; IFS=$'\n'
+   set -o noglob; IFS=$'\n'
    for directory in ${extensiondirs}
    do
-      set +o noglob ; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       cat "${directory}/${filename}" 2> /dev/null
    done
-   set +o noglob ; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -1337,10 +1337,10 @@ emit_extension_usage()
       local dependencies
 
       dependencies="`collect_extension_inherits "${extensiondir}"`"
-      set -o noglob ; IFS=$'\n'
+      set -o noglob; IFS=$'\n'
       for dependency in ${dependencies}
       do
-         set +o noglob ; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
 
          emit_extension_usage "${dependency}"
          if [ "${OPTION_LIST_TYPES}" = 'NO' ]
@@ -1349,7 +1349,7 @@ emit_extension_usage()
             echo
          fi
       done
-      set +o noglob ; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
    fi
    __emit_extension_usage "${extension}"
 }

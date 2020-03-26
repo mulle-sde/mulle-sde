@@ -169,7 +169,7 @@ print_mulle_include_environment_sh()
 # --------------------------------------|--------------------
 #                                       | environment-plugin.sh
 #                                       | environment-plugin-os-\${MULLE_UNAME}.sh
-#                                       | environment-project.sh
+# environment-project.sh                |
 #                                       | environment-extension.sh
 # environment-global.sh                 |
 # environment-os-\${MULLE_UNAME}.sh      |
@@ -199,9 +199,9 @@ fi
 # The project file, if present is to be set by mulle-sde init itself
 # w/o extensions
 #
-if [ -f "\${MULLE_ENV_SHARE_DIR}/environment-project.sh" ]
+if [ -f "\${MULLE_ENV_ETC_DIR}/environment-project.sh" ]
 then
-   . "\${MULLE_ENV_SHARE_DIR}/environment-project.sh"
+   . "\${MULLE_ENV_ETC_DIR}/environment-project.sh"
 fi
 
 #
@@ -240,6 +240,7 @@ fi
 
 #
 # For more complex edits, that don't work with the cmdline tool
+# Therefore its not in a scope
 #
 if [ -f "\${MULLE_ENV_ETC_DIR}/environment-custom.sh" ]
 then
@@ -285,13 +286,18 @@ autoreconf;optional"
 
 }
 
-
+#
+# smallish convention, mulle-env known scopes are times 20
+# known scopes to mulle-sde are times 10 but not times 20
+# user scopes could be just odd numbers ?
+# The only reason for that, that you have an idea, where it came from
+# though could "plop it" into the csv as well as a third field..
+#
 print_mulle_auxscope_sh()
 {
    log_entry "print_mulle_auxscope_sh" "$@"
 
-   echo "s:project
-s:extension"
+   echo "extension;30"
 }
 
 

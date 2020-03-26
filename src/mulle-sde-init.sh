@@ -622,10 +622,10 @@ add_to_sourcetree()
 
    lines="`read_template_expanded_file "${filename}"`"
 
-   set -o noglob ; IFS=$'\n'
+   set -o noglob; IFS=$'\n'
    for line in ${lines}
    do
-      set +o noglob ; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       if [ ! -z "${line}" ]
       then
@@ -636,7 +636,7 @@ add_to_sourcetree()
                         "${line}" || exit 1
       fi
    done
-   set +o noglob ; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -1272,15 +1272,7 @@ ${C_INFO}Possible ways to fix this:
 
    if [ -z "${onlyfilename}" ]
    then
-      log_verbose "${verb} \"${vendor}/${extname}\""
-   fi
-
-   local verb
-
-   verb="Installed"
-   if [ "${OPTION_UPGRADE}" = 'YES' ]
-   then
-      verb="Upgraded"
+      log_verbose "${C_RESET_BOLD}${verb}${C_VERBOSE} ${exttype} extension \"${vendor}/${extname}\""
    fi
 
 
@@ -1495,7 +1487,7 @@ install_extension()
 
       log_debug "TEMPLATE_DIRECTORIES: ${TEMPLATE_DIRECTORIES}"
 
-      set -o noglob ; IFS=$'\n'
+      set -o noglob; IFS=$'\n'
       for arguments in ${TEMPLATE_DIRECTORIES}
       do
          IFS="${DEFAULT_IFS}"; set +o noglob
@@ -1545,7 +1537,15 @@ install_extension()
       fi
    fi
 
-   log_verbose "Done with ${C_RESET_BOLD}${verb} ${exttype} extension \"${vendor}/${extname}\""
+   local verb
+
+   verb="Installed"
+   if [ "${OPTION_UPGRADE}" = 'YES' ]
+   then
+      verb="Ugraded"
+   fi
+
+   log_verbose "${C_RESET_BOLD}${verb}${C_VERBOSE} ${exttype} extension \"${vendor}/${extname}\""
 }
 
 
@@ -2105,7 +2105,8 @@ __sde_init_add()
 
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" ]
    then
-      fail "You must init first, before you can add an 'extra' extension"
+      fail "You must init first, before you can add an 'extra' extension!
+${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#${MULLE_USER_PWD}/}\" not present)"
    fi
 
    if [ ! -z "${OPTION_RUNTIME}" -o \
@@ -2275,10 +2276,10 @@ read_project_environment()
 {
    log_entry "read_project_environment" "$@"
 
-   if [ -f ".mulle/share/env/environment-project.sh" ]
+   if [ -f ".mulle/etc/env/environment-project.sh" ]
    then
       log_fluff "Reading project settings"
-      . ".mulle/share/env/environment-project.sh"
+      . ".mulle/etc/env/environment-project.sh"
    fi
 
    if [ -z "${PROJECT_TYPE}" ]
@@ -2287,6 +2288,12 @@ read_project_environment()
       then
          log_warning "Reading OLD project settings from \".mulle/share/env.old/environment-project.sh\""
          . ".mulle/share/env/environment-project.sh"
+      else
+         if [ -f ".mulle/share/env/environment-project.sh" ]
+         then
+            log_fluff "Reading v2 project settings"
+            . ".mulle/share/env/environment-project.sh"
+         fi
       fi
    fi
 
@@ -2583,7 +2590,8 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
       #
       # TODO: compare old version to new, and run custom pre/postscripts
       #
-      memorize_project_name "${PROJECT_NAME}"
+      # Not doing this anymore, as project moved to etc
+      # memorize_project_name "${PROJECT_NAME}"
 
       if [ -z "${OPTION_PROJECT_FILE}" ]
       then
@@ -3062,8 +3070,8 @@ _sde_init_main()
 
    # get environments for some tools we manage share files and want
    # to upgrade
-   eval_exekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
-   eval_exekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
+   eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
+   eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
 
    if [ "${tmp_file}" = 'YES' ]
    then

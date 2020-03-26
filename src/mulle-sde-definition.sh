@@ -156,17 +156,17 @@ sde_definition_set_remove()
 
       local i
 
-      set -f; IFS=$'\n'
+      set -o noglob; IFS=$'\n'
       for i in ${RVAL}
       do
-         set +f; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
          sde_call_definition "remove" \
                              "${flags}"  \
                              "${definitiondir}.${i}" \
                              "${key}"
       done
    fi
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    local directory
 
@@ -292,17 +292,17 @@ sde_definition_list()
 
    local i
 
-   set -f; IFS=$'\n'
+   set -o noglob; IFS=$'\n'
    for i in ${RVAL}
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       log_info "${i}"
       sde_call_definition "list" \
                           "${flags}"  \
                           "${definitiondir}.${i}" | sed 's/^/   /'
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 

@@ -94,14 +94,14 @@ _emit_file_output()
    IFS=$'\n' ; set -f
    for csv in "$@"
    do
-      IFS="${DEFAULT_IFS}"; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       filename="${csv%%;*}"
 
       r_concat "${result}" "${RVAL}" "${sep}"
       cmdline="${RVAL}"
    done
-   IFS="${DEFAULT_IFS}"; set +f
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    [ ! -z "${cmdline}" ] && rexekutor printf "%s\n" "${cmdline}"
 }
@@ -174,13 +174,13 @@ _emit_ld_output()
       local line
 
       RVAL=
-      IFS=$'\n'; set -f
+      set -o noglob; IFS=$'\n'
       for line in ${result}
       do
-         IFS="${DEFAULT_IFS}"; set +f
+         set +o noglob; IFS="${DEFAULT_IFS}"
          r_concat "${RVAL}" "${line}" "${sep}"
       done
-      IFS="${DEFAULT_IFS}"; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       result="${RVAL}"
    fi
@@ -377,13 +377,13 @@ r_search_os_library()
    IFS=","; set -f
    for alias in ${aliases}
    do
-      IFS="${DEFAULT_IFS}"; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
       if r_platform_search "" library "" "" "${alias}"
       then
          return 0
       fi
    done
-   IFS="${DEFAULT_IFS}"; set +f
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    return 1
 }
@@ -459,7 +459,7 @@ r_linkorder_collect()
                break
             fi
          done
-         set +f; IFS="${DEFAULT_IFS}"
+         set +o noglob; IFS="${DEFAULT_IFS}"
 
          # otherwise prefer first alias
          if [ -z "${alias}" ]
@@ -487,7 +487,7 @@ r_linkorder_collect()
       r_concat "${aliasargs}" "'${alias}'"
       aliasargs="${RVAL}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    eval r_sde_locate_library "'${searchpath}'" "'${librarytype}'" "'${requirement}'" "${aliasargs}"
    libpath="${RVAL}"
@@ -606,7 +606,7 @@ r_remove_leading_duplicate_nodes()
       r_remove_line "${RVAL}" "${node}"
       r_add_line "${RVAL}" "${node}"
    done
-   IFS="${DEFAULT_IFS}"; set +f
+   set +o noglob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -620,7 +620,7 @@ r_remove_line_by_first_field()
    local delim
 
    RVAL=
-   set -o noglob ; IFS=$'\n'
+   set -o noglob; IFS=$'\n'
    for line in ${lines}
    do
       case "${line}" in
@@ -663,7 +663,7 @@ r_collect_emission_libs()
    IFS=$'\n' ; set -f
    for node in ${nodes}
    do
-      IFS="${DEFAULT_IFS}"; set +f
+      set +o noglob; IFS="${DEFAULT_IFS}"
 
       IFS=";" read address marks raw_userinfo <<< "${node}"
 
@@ -693,7 +693,7 @@ r_collect_emission_libs()
       r_add_line "${RVAL}" "${line}"
       dependency_libs="${RVAL}"
    done
-   IFS="${DEFAULT_IFS}"; set +f
+   set +o noglob; IFS="${DEFAULT_IFS}"
 
    if [ "${OPTION_REVERSE}" = 'YES' ]
    then
