@@ -51,9 +51,9 @@ sde_add_usage()
    FILE_USAGE_NAME="${FILE_USAGE_NAME:-${MULLE_USAGE_NAME} add}"
 
    COMMON_OPTIONS="\
-   -d <dir>                : directory to populate (${PROJECT_SOURCE_DIR})
    -e <extension>          : oneshot extension to use
-   --file-extension <name> : force file extension to name"
+   -t <type>               : type of file to create (file)
+   --file-extension <name> : force file extension"
 
    cat <<EOF >&2
 Usage:
@@ -64,13 +64,17 @@ Usage:
    project this command checks if your file can be reflected and will
    \`reflect\`.
 
+   The default type of file to create is "file", which corresponds to a class
+   in Objective-C. Filenames that contain a '+' are looking for  type
+   "category" first, before falling back on type "file".
+
    Create a "${MULLE_SDE_ETC_DIR#${MULLE_USER_PWD}/}/header.default" or
    "~/.mulle/etc/sde/header.default" file to prepend copyright information
    to your file. Change "default" to the desired file extension if you want
    to have different contents for different languages.
 
    Example:
-         ${MULLE_USAGE_NAME} add src/MyClass.m
+         ${MULLE_USAGE_NAME} add -t protocolclass src/MyClass.m
 
 Options:
 EOF
@@ -267,13 +271,14 @@ _r_sde_get_class_category_genericname()
 
    local filepath="$1"
    local name="$2"
-   local extension="$3"
+   local type="$3"
+   local extension="$4"
 
    _genericname="${name}"
    _category=""
    _class=""
 
-   if [ ! -z "${name}" ]
+   if [ -z "${type}" -a ! -z "${name}" ]
    then
       RVAL="${name}"
       return
@@ -295,39 +300,50 @@ _r_sde_get_class_category_genericname()
    filename="${RVAL}"
 
    #
-   # if file name is like +Foo or -private deal with it in a special way
+   # If user specified the type, lets use this
    #
-   case "${filename}" in
-      *-*)
-         r_lowercase "${filename}"
-         name="file-${RVAL##*-}.${extension}"
-         _genericname="file.${extension}"
+   if [ "${type}" != "file" ]
+   then
+       r_identifier "${filename}"
+       _class="${RVAL}"
 
-         r_identifier "${filename%-*}"
-         _class="${RVAL}"
-         log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
-      ;;
+      name="${type}.${extension}"
+      log_debug "Look for extensions named \"${RVAL}\""
+   else
+      #
+      # if file name is like +Foo or -private deal with it in a special way
+      #
+      case "${filename}" in
+         *-*)
+            r_lowercase "${filename}"
+            name="file-${RVAL##*-}.${extension}"
+            _genericname="file.${extension}"
 
-      *+*)
-         name="category.${extension}"
-         _genericname="file.${extension}"
+            r_identifier "${filename%-*}"
+            _class="${RVAL}"
+            log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
+         ;;
 
-         r_identifier "${filename%%+*}"
-         _class="${RVAL}"
-         r_identifier "${filename#*+}"
-         _category="${RVAL}"
-         log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
-      ;;
+         *+*)
+            name="category.${extension}"
+            _genericname="file.${extension}"
 
-      *)
-         name="file.${extension}"
+            r_identifier "${filename%%+*}"
+            _class="${RVAL}"
+            r_identifier "${filename#*+}"
+            _category="${RVAL}"
+            log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
+         ;;
 
-         r_identifier "${filename}"
-         _class="${RVAL}"
-         log_debug "Look for extensions named \"${name}\""
-      ;;
-   esac
+         *)
+            name="file.${extension}"
 
+            r_identifier "${filename}"
+            _class="${RVAL}"
+            log_debug "Look for extensions named \"${name}\""
+         ;;
+      esac
+   fi
    RVAL="${name}"
 }
 
@@ -339,14 +355,23 @@ sde_add_file_via_oneshot_extension()
    local filepath="$1"
    local vendors="$2"
    local name="$3"
-   local ext="$4"
+   local type="$4"
+   local ext="$5"
 
    local _genericname
    local _category
    local _class
 
-   _r_sde_get_class_category_genericname "${filepath}" "${name}" "${ext}"
+   _r_sde_get_class_category_genericname "${filepath}" "${name}" "${type}" "${ext}"
    name="${RVAL}"
+
+   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+   then
+      log_trace2 "name:        ${name}"
+      log_trace2 "class:       ${_class}"
+      log_trace2 "category:    ${_category}"
+      log_trace2 "genericname: ${_genericname}"
+   fi
 
    _sde_add_file_via_oneshot_extension "${filepath}" \
                                        "${vendors}" \
@@ -364,7 +389,8 @@ sde_add_in_project()
    local filepath="$1"
    local vendors="$2"
    local name="$3"
-   local ext="$4"
+   local type="$4"
+   local ext="$5"
 
    if ! mulle-match match --quiet "${filepath}"
    then
@@ -404,6 +430,7 @@ sde_add_in_project()
       sde_add_file_via_oneshot_extension "${absfilepath#${MULLE_USER_PWD}/}" \
                                          "${vendors}" \
                                          "${name}" \
+                                         "${type}" \
                                          "${ext}"
       rval=$?
       case $rval in
@@ -502,6 +529,7 @@ sde_add_main()
    local OPTION_NAME
    local OPTION_VENDOR
    local OPTION_FILE_EXTENSION
+   local OPTION_TYPE='file'
 
    #
    # handle options
@@ -511,6 +539,13 @@ sde_add_main()
       case "$1" in
          -h|--help|help)
             sde_add_usage
+         ;;
+
+         -t|--type)
+            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_TYPE="$1"
          ;;
 
          -fe|--file-extension)
@@ -584,13 +619,14 @@ sde_add_main()
       then
          exec_command_in_subshell add --vendor "${OPTION_VENDOR}" \
                                       --name "${OPTION_NAME}" \
+                                      --type "${OPTION_TYPE}" \
                                       --file-extension "${OPTION_FILE_EXTENSION}" \
                                       "$@" || exit 1
       else
-         sde_add_in_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_FILE_EXTENSION}"
+         sde_add_in_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_TYPE}" "${OPTION_FILE_EXTENSION}"
       fi
    else
-      sde_add_no_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_FILE_EXTENSION}"
+      sde_add_no_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_TYPE}" "${OPTION_FILE_EXTENSION}"
    fi
 }
 

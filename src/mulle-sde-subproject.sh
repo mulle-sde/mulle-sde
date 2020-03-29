@@ -601,7 +601,7 @@ has no \"${sdefolder}\" folder"
                rval=$?
             fi
 
-            log_info "${expanded_subproject}: $rval"
+            log_fluff "${expanded_subproject}: $rval"
             if [ ${rval} -ne 0 ]
             then
                if [ "${lenient}" = 'NO' ]

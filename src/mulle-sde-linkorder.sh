@@ -357,7 +357,7 @@ r_sde_linkorder_all_nodes()
                                --no-callback-trace \
                                linkorder_callback `"
 
-   log_verbose "Reversing lines"
+   log_fluff "Reversing lines"
    r_reverse_lines "${RVAL}"
 #   r_remove_leading_duplicate_nodes "${RVAL}"
 }
@@ -533,7 +533,8 @@ r_library_searchpath()
                                  library`"
    if [ -z "${searchpath}" ]
    then
-      log_warning "The library searchpath is empty. Have dependencies been built for configuration \"${configuration}\" ?"
+      log_warning "The library searchpath is empty.
+${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
    fi
 
    log_fluff "Library searchpath is: ${searchpath}"

@@ -545,7 +545,7 @@ copy_and_expand_template()
 
    text="`cat_template_file "${templatefile}" | LC_ALL=C template_eval_rexekutor "${template_sed}" `"
 
-   log_fluff "\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
+   log_fluff "${C_RESET_BOLD}\"${templatedir}\" -> \"${expanded_dstfile}\" ($FLAG_FORCE)"
 
    template_redirect_exekutor "${expanded_dstfile}" printf "%s\n" "${text}" || fail "failed to write to \"${expanded_dstfile}\" (${PWD#${MULLE_USER_PWD}/})"
 

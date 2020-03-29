@@ -400,8 +400,10 @@ r_sde_test_main()
 
       # no environment needed to run these properly
       init)
+         shift
          exekutor mulle-test \
                         ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_TEST_FLAGS} \
                      init \
                         "$@"
          rval=$?

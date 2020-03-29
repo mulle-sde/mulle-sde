@@ -298,19 +298,22 @@ _copy_extension_template_files()
    _template_file_arguments "${projectdir}" "${force}" "${onlyfilename}"
 
    #
-   # If force is set, we copy in the "incoming" order and overwrite whatever
-   # is there.
-   # If force is not set, the destination will not be overwritten so the
-   # first file wins. In this case we reverse the order
+   # Normally the base projet files will be copied first, then we can not
+   # inherit properly because they are already there and we can not clobber
+   # them. So we collect TEMPLATE_DIRECTORIES in reverse order.
+   #
+   # If force is set, the dlast file file will win, in this case we use the
+   # "natural" order
    #
    if [ "${force}" = 'YES' ]
    then
       TEMPLATE_DIRECTORIES="${TEMPLATE_DIRECTORIES}
 ${_arguments}"
-   else
-      TEMPLATE_DIRECTORIES="${_arguments}
-${TEMPLATE_DIRECTORIES}"
+      return
    fi
+
+   TEMPLATE_DIRECTORIES="${_arguments}
+${TEMPLATE_DIRECTORIES}"
 }
 
 
@@ -329,7 +332,7 @@ install_inheritfile()
 
    text="`LC_ALL=C egrep -v '^#' "${inheritfilename}"`"
 
-   log_debug "text: $text"
+   log_debug "Inherits: $text"
 
    #
    # read needs IFS set for each iteration, whereas
@@ -345,7 +348,7 @@ install_inheritfile()
       local exttype
       local depmarks
 
-      log_debug "read \"${line}\""
+      log_debug "Inheriting: \"${line}\""
 
       case "${line}" in
          "")
@@ -1126,7 +1129,9 @@ _install_extension()
    else
       if [ "${exttype}" != "oneshot" ]
       then
-         _INSTALLED_EXTENSIONS="`add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"`"
+         log_debug "memorize extension ${vendor}/${extname} as installed"
+         r_add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"
+         _INSTALLED_EXTENSIONS="${RVAL}"
       fi
    fi
 
@@ -1182,7 +1187,8 @@ ${C_INFO}Possible ways to fix this:
                PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
                if [ -z "${PROJECT_EXTENSIONS}" ]
                then
-                  PROJECT_EXTENSIONS="`tr A-Z a-z <<< "${PROJECT_DIALECT}"`"
+                  r_lowercase "${PROJECT_DIALECT}"
+                  PROJECT_EXTENSIONS="${RVAL}"
                fi
 
                log_fluff "Project language set to \"${PROJECT_DIALECT}\""
@@ -1656,6 +1662,8 @@ recall_installed_extensions()
 {
    log_entry "recall_installed_extensions" "$@"
 
+   local extensionfile="$1"
+
    local EGREP
 
    # can sometimes happen, bail early then.
@@ -1665,9 +1673,9 @@ recall_installed_extensions()
       fail "egrep not in PATH: ${PATH}"
    fi
 
-   if _check_file "${OPTION_EXTENSION_FILE}"
+   if _check_file "${extensionfile}"
    then
-      exekutor "${EGREP}" -v '^#' < "${OPTION_EXTENSION_FILE}"
+      exekutor "${EGREP}" -v '^#' < "${extensionfile}"
       # deal with empty file (maybe due to edits)
       case $? in
          0|1)
@@ -1693,7 +1701,7 @@ recall_installed_extensions()
    if [ -z "${value}" ]
    then
       value="`rexekutor "${MULLE_ENV:-mulle-env}" \
-                              --search-nearest \
+                              --search-as-is \
                               ${MULLE_TECHNICAL_FLAGS} \
                               --no-protect \
                            environment \
@@ -1734,7 +1742,7 @@ env_set_var()
    log_verbose "Environment: ${key}=\"${value}\""
 
    exekutor "${MULLE_ENV:-mulle-env}" \
-                     --search-nearest \
+                     --search-as-is \
                      -s \
                      ${MULLE_TECHNICAL_FLAGS} \
                      --no-protect \
@@ -1968,34 +1976,18 @@ install_project()
    PROJECT_SOURCE_DIR="${projectsourcedir:-src}"
    PROJECT_TYPE="${projecttype}"
 
-   local has_project_scope
-
+   # TODO: this is clumsy and needs to be rewritten
+   # put these first, so extensions can draw on these in their definitions
    #
-   # MEMO: we can only memorize if the scope project is known
-   #
-   local scopes
+   memorize_project_name "${PROJECT_NAME}"
 
-   scopes="`rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} ${MULLE_ENV_FLAGS} -s environment scopes --all`"
-   log_debug "scopes: ${scopes}"
+   env_set_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
 
-   if find_line "${scopes}" "project"
+   if [ "${PROJECT_TYPE}" != "none" ]
    then
-      has_project_scope='YES'
-      # put these first, so extensions can draw on these in their definitions
-      #
-      memorize_project_name "${PROJECT_NAME}"
-
-      env_set_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
-
-      if [ "${PROJECT_TYPE}" != "none" ]
-      then
-         env_set_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
-      fi
-   else
-      # there is really no good way around this
-      log_warning "Can not save project settings as the environment style is not \"mulle\"."
-      log_debug "And the scope \"project\" is not defined in ¸\`mulle-env environment scopes --all\`"
+      env_set_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
    fi
+
 
    local _MOTD
    local _INSTALLED_EXTENSIONS
@@ -2014,16 +2006,9 @@ install_project()
       return
    fi
 
-   #
-   # setup the initial environment-global.sh (if missing) with some
-   # values that the user may want to edit
-   #
-   if [ "${has_project_scope}" = 'YES' ]
-   then
-      [ ! -z "${PROJECT_LANGUAGE}" ]    && env_set_var PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" "project"
-      [ ! -z "${PROJECT_DIALECT}" ]     && env_set_var PROJECT_DIALECT "${PROJECT_DIALECT}" "project"
-      [ ! -z "${PROJECT_EXTENSIONS}" ]  && env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "project"
-   fi
+   [ ! -z "${PROJECT_LANGUAGE}" ]    && env_set_var PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" "project"
+   [ ! -z "${PROJECT_DIALECT}" ]     && env_set_var PROJECT_DIALECT "${PROJECT_DIALECT}" "project"
+   [ ! -z "${PROJECT_EXTENSIONS}" ]  && env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "project"
 
    if [ -z "${_INSTALLED_EXTENSIONS}" -a "${OPTION_UPGRADE}" != 'YES' ]
    then
@@ -2127,7 +2112,7 @@ ${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#${MULLE_USER_PWD}/}\" not present)"
 
    local _INSTALLED_EXTENSIONS
 
-   _INSTALLED_EXTENSIONS="`recall_installed_extensions`" || exit 1
+   _INSTALLED_EXTENSIONS="`recall_installed_extensions "${OPTION_EXTENSION_FILE}"`" || exit 1
    log_debug "Installed extensions: ${_INSTALLED_EXTENSIONS}"
 
    if ! install_extra_extensions "${OPTION_EXTRAS}" \
@@ -2173,7 +2158,9 @@ r_mset_quoted_env_line()
 
 __get_installed_extensions()
 {
-   log_entry "__get_installed_extensions" "$@"
+   log_entry "mulle-objc/travis" "$@"
+
+   local extensionfile="$1"
 
    local extensions
 
@@ -2185,14 +2172,14 @@ __get_installed_extensions()
       rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
    fi
 
-   extensions="`recall_installed_extensions`" || exit 1
+   extensions="`recall_installed_extensions "${extensionfile}"`" || exit 1
    if [ -z "${extensions}" ]
    then
       log_fluff "No extensions found"
       return 1
    fi
 
-   log_debug "Found extension: ${extensions}"
+   log_debug "Found extensions: ${extensions}"
 
    local extension
 
@@ -2380,7 +2367,7 @@ __sde_init_main()
 
       read_project_environment
 
-      if ! __get_installed_extensions
+      if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
       then
          case "${PROJECT_TYPE}" in
             "none")
@@ -2897,7 +2884,7 @@ _sde_init_main()
          ;;
 
          # little hack
-         --github|github-user)
+         --github|--github-user)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 

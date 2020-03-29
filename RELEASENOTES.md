@@ -1,3 +1,7 @@
+### 0.40.1
+
+* add a -t `<type>` option to the add command
+
 ## 0.40.0
 
 * the **rename** command is now **project rename**

@@ -39,7 +39,7 @@ set_projectname_variables()
    PROJECT_NAME="${1:-${PROJECT_NAME}}"
 
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty.
-${C_INFO}Are you runnning inside a mulle-sde environment ?"
+${C_INFO}Are you running inside a mulle-sde environment ?"
 
    if [ ! -z "${PROJECT_UPCASE_IDENTIFIER}" ]
    then

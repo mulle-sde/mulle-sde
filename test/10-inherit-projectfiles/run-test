@@ -1,0 +1,168 @@
+#! /usr/bin/env bash
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+
+# the tests here are wrong, mulle-craft shouldn't b
+run_mulle_sde()
+{
+   log_fluff "####################################"
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################"
+
+   exekutor "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+}
+
+
+expect()
+{
+   local expected="$1"
+   local filename="$2"
+
+   local result
+
+   result="`cat "${filename}"`"
+   log_debug "${filename}: ${result}"
+   if [ "${expected}" != "${result}" ]
+   then
+      fail "${filename}: \"${result}\" != \"${expected}\""
+   fi
+}
+
+
+# Test inheritance: W is winner (Y is exists)
+#
+#              | file1 | file2 | file3 | file4
+# -------------|-------|-------|-------|-------
+# a:all        |   W   |       |       |
+# a:executable |       |   W   |       |
+# b:all        |       |       |   W   |
+# b:executable |       |       |       |   W
+#
+#              | file5 | file6 | file7 | file8 | file9 | file10
+# -------------|-------|-------|-------|-------|-------|-------
+# a:all        |   Y   |       |       |   Y   |       |   Y
+# a:executable |   W   |   Y   |       |       |   Y   |
+# b:all        |       |   W   |   Y   |       |       |   Y
+# b:executable |       |       |   W   |   W   |   W   |
+#
+#              | file11 | file12 | file13 | file14
+# -------------|--------|--------|--------|--------
+# a:all        |   Y    |        |   Y    |   Y
+# a:executable |   Y    |   Y    |        |   Y
+# b:all        |   W    |   Y    |   Y    |
+# b:executable |        |   W    |   W    |   W
+#
+#              | file15
+# -------------|--------
+# a:all        |   Y
+# a:executable |   Y
+# b:all        |   Y
+# b:executable |   W
+#
+
+
+expect_files()
+{
+   local directory="$1"
+
+   expect "a:all"        "${directory}/file1"
+   expect "a:executable" "${directory}/file2"
+   expect "b:all"        "${directory}/file3"
+   expect "b:executable" "${directory}/file4"
+
+   expect "a:executable" "${directory}/file5"
+   expect "b:all"        "${directory}/file6"
+   expect "b:executable" "${directory}/file7"
+   expect "b:executable" "${directory}/file8"
+   expect "b:executable" "${directory}/file9"
+   expect "b:all"        "${directory}/file10"
+
+   expect "b:all"        "${directory}/file11"
+   expect "b:executable" "${directory}/file12"
+   expect "b:executable" "${directory}/file13"
+   expect "b:executable" "${directory}/file14"
+
+   expect "b:executable" "${directory}/file15"
+}
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@"
+
+   MULLE_SDE_EXTENSION_PATH="${PWD}"
+   export MULLE_SDE_EXTENSION_PATH
+
+   local directory
+
+   directory="`make_tmp_directory`"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" executable
+   (
+      cd "${directory}" &&
+      run_mulle_sde -s extension add test-vendor/b
+   )
+
+   expect_files "${directory}"
+
+   log_verbose "----- #1 PASSED -----"
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde upgrade
+   )
+
+   expect_files "${directory}"
+
+   log_verbose "----- #2 PASSED -----"
+
+   # remove a few files, and watch upgrade resupply them correctly
+
+   remove_file_if_present "${directory}/file1"
+   remove_file_if_present "${directory}/file9"
+   remove_file_if_present "${directory}/file10"
+   remove_file_if_present "${directory}/file13"
+   remove_file_if_present "${directory}/file15"
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde upgrade
+   )
+   expect_files "${directory}"
+
+   log_verbose "----- #3 PASSED -----"
+
+   # check force flag
+   exekutor rm "${directory}"/*
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde -vvv -ld -f upgrade
+   )
+   expect_files "${directory}"
+
+   log_verbose "----- #4 PASSED -----"
+
+   log_info "----- ALL PASSED -----"
+
+   rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
+
