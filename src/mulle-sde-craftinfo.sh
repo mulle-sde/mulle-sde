@@ -47,10 +47,8 @@ sde_dependency_craftinfo_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo [option] <command>
 
-   Manage craft settings of a dependency. They will be stored as subprojects
-   in a folder named "craftinfo" in your project root. This will be done
-   on \`create\` or the first \`set\`. The dependency can be specified by URL
-   or by its address.
+   Manage craft settings of a dependency. Settings will be stored as
+   subprojects in a folder named "craftinfo" in your project root.
 
    mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
    subproject. This extension also simplifies the use of build scripts.
@@ -83,8 +81,8 @@ Commands:
    set               : set a build setting of a dependency
 
 Options:
-   --global          : use global settings instead of current platform settings
-   --platform <name> : specify settings for a specific platform
+   --global          : use global settings instead of current OS settings
+   --os <name>       : specify settings for a specific OS
 
 Environment:
    CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
@@ -102,25 +100,29 @@ sde_dependency_craftinfo_set_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo set [option] <dep> <key> <value>
 
-   Set a setting value for key. This will automatically create a proper
+   Change a setting value for key. This will automatically create a proper
    "craftinfo" subproject for you, if there is none yet.
 
    See \`mulle-make definition help\` for more info about manipulating
    craftinfo settings.
 
-   Examples:
-      Set preprocessor flag -DX=0 for all platforms on dependency "nng":
-         ${MULLE_USAGE_NAME} dependency craftinfo --global set --append nng \
-            CPPFLAGS "-DX=0"
+Examples:
+   Set preprocessor flag -DX=0 for all platforms on dependency "nng":
 
-      Use a build script "build.sh" to build dependency "xyz" on the current
-      platform only. The executable script should be placed by the user
-      into "craftinfo/xyz/bin":
-         ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
-         ${MULLE_USAGE_NAME} environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
+      ${MULLE_USAGE_NAME} dependency craftinfo --global \\
+         set --append nng CPPFLAGS "-DX=0"
 
-      Build curl via cmake and set some variables accordingly:
-         ${MULLE_USAGE_NAME} dependency craftinfo set curl \
+   Use a build script "build.sh" to build dependency "xyz" on the current
+   OS only. The executable script should be placed by the user
+   into "craftinfo/xyz/bin":
+
+      ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
+      ${MULLE_USAGE_NAME} environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
+
+   Build curl via cmake and set some variables accordingly for linux:
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --os linux \\
+         set curl \\
             CMAKEFLAGS "-DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF"
 
 Options:
@@ -251,8 +253,8 @@ Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo list [dep]
 
    List build settings of a dependency. By default the global settings and
-   those for the current platform are listed. To see other platform settings
-   use the "--platform" option of \`dependency craftinfo\`.
+   those for the current OS are listed. To see other OS settings
+   use the "--os" option of \`dependency craftinfo\`.
 
 EOF
   exit 1
@@ -969,7 +971,7 @@ sde_dependency_craftinfo_main()
             extension=""
          ;;
 
-         --platform)
+         --os|--platform)
             [ "$#" -eq 1 ] && \
                sde_dependency_craftinfo_usage "Missing argument to \"$1\""
             shift
