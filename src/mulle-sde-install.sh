@@ -67,10 +67,12 @@ https://github.com/MulleFoundation/Foundation/archive/latest.zip
 Options:
    -k <dir>          : kitchen directory (\$PWD/kitchen)
    -d <dir>          : directory to fetch into (\$PWD)
+   --branch <name>   : branch to checkout
    --debug           : install as debug instead of release
    --prefix <prefix> : installation prefix (\$PWD)
    --keep-tmp        : don't delete temporary directory
    --standalone      : create a whole-archive shared library if supported
+   --tag <name>      : tag to checkout
 
 Environment:
    MULLE_FETCH_SEARCH_PATH : specify places to search local dependencies.
@@ -108,7 +110,9 @@ install_in_tmp()
    local configuration="$4"
    local serial="$5"
    local symlink="$6"
-   local arguments="$7"
+   local branch="$7"
+   local tag="$8"
+   local arguments="$9"
 
    exekutor mkdir -p "${directory}" 2> /dev/null
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
@@ -132,7 +136,7 @@ Use -f flag to clobber."
       then
          #
          # here we are building a local repository, so we'd prefer to
-         # also use loal repositories
+         # also use local repositories
          #
          log_verbose "Build local repositories (with symlinks if possible)"
 
@@ -142,29 +146,40 @@ Use -f flag to clobber."
          r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
          MULLE_FETCH_SEARCH_PATH="${RVAL}"
 
-         exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS}  \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -N ${MULLE_TECHNICAL_FLAGS}  \
                                    add --nodetype git \
                                        --marks "${marks}" \
                                        "${url}"  || return 1
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
-                           mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS}  \
+                           "${MULLE_SOURCETREE:-mulle-sourcetree}" -N ${MULLE_TECHNICAL_FLAGS}  \
                                             update --symlink || return 1
       else
          log_verbose "Build remote repositories"
 
-         exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS} \
-                                   add \
-                                       --marks "${marks}" \
-                                       "${url}"  || return 1
+         local options
 
-         exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS} \
+         options="--marks '${marks}'"
+         if [ ! -z "${branch}" ]
+         then
+            options="${options} --branch '${branch}'"
+         fi
+         if [ ! -z "${tag}" ]
+         then
+            options="${options} --tag '${tag}'"
+         fi
+         eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" -N "${MULLE_TECHNICAL_FLAGS}" \
+                                   add \
+                                       "${options}" \
+                                       "'${url}'"  || return 1
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -N ${MULLE_TECHNICAL_FLAGS} \
                                    update || return 1
       fi
    fi
 
-   exekutor mulle-sourcetree -N ${MULLE_TECHNICAL_FLAGS} \
-                             craftorder \
-                                --no-print-env > craftorder || return 1
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                -N ${MULLE_TECHNICAL_FLAGS} \
+                craftorder \
+                 --no-print-env > craftorder || return 1
 
    if [ "${serial}" = 'YES' ]
    then
@@ -172,7 +187,7 @@ Use -f flag to clobber."
    else
       serial=""
    fi
-   eval_exekutor "${environment}" mulle-craft \
+   eval_exekutor "${environment}" "${MULLE_CRAFT:-mulle-craft}" \
                                        ${MULLE_CRAFT_FLAGS} \
                                        --craftorder-file craftorder \
                                     craftorder \
@@ -192,6 +207,8 @@ sde_install_main()
    local OPTION_SERIAL='NO'
    local OPTION_MARKS=''
    local OPTION_CONFIGURATION='Release'
+   local OPTION_BRANCH=
+   local OPTION_TAG=
 
    while [ $# -ne 0 ]
    do
@@ -214,23 +231,11 @@ sde_install_main()
             KITCHEN_DIR="$1"
          ;;
 
-         --prefix)
+         --branch)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            DEPENDENCY_DIR="$1"
-         ;;
-
-         --keep-tmp)
-            OPTION_KEEP_TMP='YES'
-         ;;
-
-         --serial)
-            OPTION_SERIAL='YES'
-         ;;
-
-         --standalone)
-            OPTION_MARKS='only-standalone'
+            OPTION_BRANCH="$1"
          ;;
 
          --configuration)
@@ -244,8 +249,34 @@ sde_install_main()
             OPTION_CONFIGURATION='Debug'
          ;;
 
+         --keep-tmp)
+            OPTION_KEEP_TMP='YES'
+         ;;
+
+         --prefix)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            DEPENDENCY_DIR="$1"
+         ;;
+
          --release)
             OPTION_CONFIGURATION='Release'
+         ;;
+
+         --serial)
+            OPTION_SERIAL='YES'
+         ;;
+
+         --standalone)
+            OPTION_MARKS='only-standalone'
+         ;;
+
+         --tag)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_TAG="$1"
          ;;
 
          --test)
@@ -344,6 +375,8 @@ sde_install_main()
                   "${OPTION_CONFIGURATION}" \
                   "${OPTION_SERIAL}" \
                   "${OPTION_SYMLINK}" \
+                  "${OPTION_BRANCH}" \
+                  "${OPTION_TAG}" \
                   "${arguments}"
    rval=$?
 
