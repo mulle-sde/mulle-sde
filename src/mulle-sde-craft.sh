@@ -252,7 +252,7 @@ sde_craft_main()
 
          --clean)
             [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
+               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
             sde_clean_main
          ;;
 
