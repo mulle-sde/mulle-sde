@@ -80,7 +80,14 @@ Options:
 EOF
    (
       printf "%s\n" "${COMMON_OPTIONS}"
-   ) | LC_ALL=C sort
+   ) | LC_ALL=C sort >&2
+
+
+   echo >&2
+
+   sde_extension_show_main oneshot \
+      | sed -n -e 's|^mulle-sde/||' -e '/\.[a-z]*$/p' \
+      | sort >&2
 
    exit 1
 }
@@ -423,6 +430,10 @@ sde_add_in_project()
       then
          # it's not terrible if this fails though
          vendors="`sde_extension_main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
+         if [ -z "${vendors}" -a -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            vendors="`sde_extension_main vendors`"
+         fi
       fi
 
       local rval
@@ -531,6 +542,10 @@ sde_add_main()
    local OPTION_FILE_EXTENSION
    local OPTION_TYPE='file'
 
+   # need includes for usage
+
+   sde_add_include
+
    #
    # handle options
    #
@@ -608,8 +623,6 @@ sde_add_main()
 
       shift
    done
-
-   sde_add_include
 
    [ $# -ne 1  ] && sde_add_usage
 

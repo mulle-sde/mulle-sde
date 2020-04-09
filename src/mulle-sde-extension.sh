@@ -55,6 +55,7 @@ Commands:
    searchpath : show locations where extensions are searched
    show       : show available extensions
    usage      : show usage information for an extension
+   vendors    : list installed vendors
 EOF
    exit 1
 }
@@ -1578,9 +1579,11 @@ sde_extension_main()
             exekutor exec mulle-sde run mulle-sde extension "${cmd}"
          fi
 
+         [ ! -z "${MULLE_SDE_SHARE_DIR}" ] || internal_fail "MULLE_SDE_SHARE_DIR undefined"
+
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
          then
-            extensions="`egrep -e ";${cmd%s}\$" "${MULLE_SDE_SHARE_DIR}/extension" | cut -d';' -f 1`"
+            extensions="`rexekutor egrep -e ";${cmd%s}\$" "${MULLE_SDE_SHARE_DIR}/extension" | cut -d';' -f 1`"
          fi
 
          if [ -z "${extensions}" ]
@@ -1606,6 +1609,10 @@ sde_extension_main()
                r_extension_get_vendor_path "$1"
 
          printf "%s\n" "${RVAL}"
+      ;;
+
+      vendors)
+         extension_list_vendors
       ;;
 
       usage)
