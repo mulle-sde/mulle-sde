@@ -484,7 +484,8 @@ sde_add_no_project()
    local filepath="$1"
    local vendors="$2"
    local name="$3"
-   local ext="$4"
+   local type="$4"
+   local ext="$5"
 
    if [ -e "${filepath}" ]
    then
@@ -508,6 +509,7 @@ sde_add_no_project()
       sde_add_file_via_oneshot_extension "${filepath}" \
                                          "${vendors}" \
                                          "${name}" \
+                                         "${type}" \
                                          "${ext}"
 
       rval=$?
