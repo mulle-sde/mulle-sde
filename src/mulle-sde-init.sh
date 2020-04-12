@@ -143,7 +143,7 @@ _copy_extension_dir()
    local destination
 
    case "${name}" in
-      etc|share)
+      share)
          destination=".mulle"
       ;;
 
@@ -1357,6 +1357,27 @@ ${C_INFO}Possible ways to fix this:
 
       local subdirectory
 
+
+      if [ -d "${extensiondir}/${OPTION_INIT_TYPE}-oneshot" ]
+      then
+         subdirectory="${OPTION_INIT_TYPE}-oneshot"
+      else
+         subdirectory="project-oneshot"
+      fi
+
+      if ! is_directory_disabled_by_marks "${marks}" \
+                                          "${extensiondir}/${subdirectory}" \
+                                          "no-project-oneshot" \
+                                          "no-project-oneshot/${vendor}/${extname}"
+      then
+         _copy_extension_template_directory "${extensiondir}" \
+                                            "${subdirectory}" \
+                                            "${projecttype}" \
+                                            "${force}" \
+                                            "${onlyfilename}" \
+                                            "$@"
+      fi
+
       if [ -d "${extensiondir}/${OPTION_INIT_TYPE}" ]
       then
          subdirectory="${OPTION_INIT_TYPE}"
@@ -1365,17 +1386,18 @@ ${C_INFO}Possible ways to fix this:
       fi
 
       if ! is_directory_disabled_by_marks "${marks}" \
-                                          "${extensiondir}/project" \
+                                          "${extensiondir}/${subdirectory}" \
                                           "no-project" \
                                           "no-project/${vendor}/${extname}"
       then
          _copy_extension_template_directory "${extensiondir}" \
-                                            "project" \
+                                            "${subdirectory}" \
                                             "${projecttype}" \
                                             "${force}" \
                                             "${onlyfilename}" \
                                             "$@"
       fi
+
 
       #
       # the clobber folder is like project but may always overwrite
@@ -1435,17 +1457,17 @@ ${C_INFO}Possible ways to fix this:
          fail "Could not copy \"${extensiondir}/share\""
    fi
 
-   #
-   # etc is also disabled by no-share
-   #
-   if ! is_directory_disabled_by_marks "${marks}" \
-                                       "${extensiondir}/etc" \
-                                       "no-share" \
-                                       "no-share/${vendor}/${extname}"
-   then
-      _copy_extension_dir "${extensiondir}/etc" 'YES' 'NO' ||
-         fail "Could not copy \"${extensiondir}/etc\""
-   fi
+#   #
+#   # etc is also disabled by no-share
+#   #
+#   if ! is_directory_disabled_by_marks "${marks}" \
+#                                       "${extensiondir}/etc" \
+#                                       "no-share" \
+#                                       "no-share/${vendor}/${extname}"
+#   then
+#      _copy_extension_dir "${extensiondir}/etc" 'YES' 'NO' ||
+#         fail "Could not copy \"${extensiondir}/etc\""
+#   fi
 
    RVAL="${extensiondir}"
 }
@@ -1905,11 +1927,7 @@ install_extensions()
 
    #
    # remember type and installed extensions
-   # also remember version and given project name, which we may need to
-   # create files later after init
    #
-   env_set_var "MULLE_SDE_INSTALLED_VERSION" "${MULLE_EXECUTABLE_VERSION}" "plugin"
-
    memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
 
    # oneshots aren't memorized
@@ -2612,17 +2630,17 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
             if [ "${purge_sde_on_error}" = 'YES' ]
             then
                rmdir_safer "${MULLE_SDE_SHARE_DIR}"
-               rmdir_safer "${MULLE_SDE_ETC_DIR}"
+               rmdir_safer "${MULLE_SDE_ETC_DIR}" # ???
             fi
             if [ "${purge_env_on_error}" = 'YES' ]
             then
                rmdir_safer ".mulle/share/env"
-               rmdir_safer ".mulle/etc/env"
+               rmdir_safer ".mulle/etc/env" # ???
             fi
             if [ "${purge_sourcetree_on_error}" = 'YES' ]
             then
                rmdir_safer ".mulle/share/sourcetree"
-               rmdir_safer ".mulle/etc/sourcetree"
+               rmdir_safer ".mulle/etc/sourcetree" # ???
             fi
          fi
          if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
@@ -2671,6 +2689,55 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
          fi
       fi
    fi
+}
+
+
+sde_protect_unprotect()
+{
+   log_entry "sde_protect_unprotect" "$@"
+
+   local title="$1"
+   local mode="$2"
+
+   MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
+
+   #
+   # unprotect known share directories during installation
+   # TODO: this should be a setting somewhere
+   #
+   case ":${MULLE_SDE_PROTECT_PATH}:" in
+      *:.mulle/share:*)
+      ;;
+
+      *)
+         r_colon_concat ".mulle/share" "${MULLE_SDE_PROTECT_PATH}"
+         MULLE_SDE_PROTECT_PATH="${RVAL}"
+      ;;
+   esac
+
+   case ":${MULLE_SDE_PROTECT_PATH}:" in
+      *:cmake/share:*)
+      ;;
+
+      *)
+         r_colon_concat "cmake/share" "${MULLE_SDE_PROTECT_PATH}"
+         MULLE_SDE_PROTECT_PATH="${RVAL}"
+      ;;
+   esac
+
+   local i
+
+   log_fluff "${title} ${MULLE_SDE_PROTECT_PATH}"
+
+   IFS=':'
+   for i in ${MULLE_SDE_PROTECT_PATH}
+   do
+      IFS="${DEFAULT_IFS}"
+      [ ! -e "${i}" ] && continue
+
+      exekutor chmod -R ${mode} "${i}"
+   done
+   IFS="${DEFAULT_IFS}"
 }
 
 
@@ -2730,7 +2797,7 @@ _sde_init_main()
    local OPTION_TEMPLATE_HEADER_FILE
    local OPTION_TEMPLATE_FOOTER_FILE
    local OPTION_INIT_TYPE="project"
-
+   local OPTION_REFLECT='YES'
    local line
    local mark
 
@@ -2969,15 +3036,25 @@ _sde_init_main()
             OPTION_BLURB='NO'
             r_comma_concat "${OPTION_MARKS}" "no-demo"
             r_comma_concat "${RVAL}" "no-project"
+            r_comma_concat "${RVAL}" "no-project-oneshot"
             r_comma_concat "${RVAL}" "no-sourcetree"
             OPTION_MARKS="${RVAL}"
             OPTION_INIT_ENV='NO'
+         ;;
+
+         --reflect)
+            OPTION_REFLECT='YES'
+         ;;
+
+         --no-reflect)
+            OPTION_REFLECT='NO'
          ;;
 
          --upgrade)
             OPTION_UPGRADE='YES'
             OPTION_BLURB='NO'
             r_comma_concat "${OPTION_MARKS}" "no-demo"
+            r_comma_concat "${RVAL}" "no-project-oneshot"
             r_comma_concat "${RVAL}" "no-sourcetree"
             OPTION_MARKS="${RVAL}"
             OPTION_INIT_ENV='NO'
@@ -3021,6 +3098,26 @@ _sde_init_main()
       shift
    done
 
+   # old version will be used for migrate
+   local oldversion
+
+   if [ "${OPTION_UPGRADE}" = 'YES' ]
+   then
+      oldversion="`mulle-env --search-as-is environment get MULLE_SDE_INSTALLED_VERSION`"
+      case "${oldversion}" in
+         [0-9]*\.[0-9]*\.[0-9]*)
+            # fine
+         ;;
+
+         *)
+            [ ! -d .mulle/share/sde ] &&  fail "There is no mulle-sde project here"
+
+            oldversion="0.0.0"
+            log_warning "Can not get previous installed version from MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
+         ;;
+      esac
+   fi
+
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
       # empty it now
@@ -3039,7 +3136,6 @@ _sde_init_main()
 
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
-
 
    log_fluff "Setup environment"
 
@@ -3065,14 +3161,7 @@ _sde_init_main()
       remove_file_if_present .mulle/share/env/environment.sh
    fi
 
-   MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
-
-   #
-   # unprotect known share directories during installation
-   # TODO: this should be a setting somewhere
-   #
-   r_colon_concat .mulle/share:cmake/share "${MULLE_SDE_PROTECT_PATH}"
-   MULLE_SDE_PROTECT_PATH="${RVAL}"
+   sde_protect_unprotect "Unprotect" "ug+wX"
 
    # figure out a GITHUB user name for later
    r_sde_githubname
@@ -3092,49 +3181,59 @@ _sde_init_main()
       log_trace2 "PWD=\"${PWD}\""
    fi
 
-   local i
-
-   log_fluff "Unprotect ${MULLE_SDE_PROTECT_PATH}"
-
-   IFS=':'
-   for i in ${MULLE_SDE_PROTECT_PATH}
-   do
-      IFS="${DEFAULT_IFS}"
-      [ ! -e "${i}" ] && continue
-
-      exekutor chmod -R ug+wX "${i}"
-   done
-   IFS="${DEFAULT_IFS}"
 
    (
       if [ "${OPTION_ADD}" = 'YES' ]
       then
          __sde_init_add "$@"
       else
-         __sde_init_main "$@"
+         # we use the protected version of mulle-env here, because it doesn't
+         # matter and we can circumvent a protection bug
+         # we protect afterwards anyway
+         #
+         __sde_init_main "$@" &&
+         exekutor "${MULLE_ENV:-mulle-env}" \
+                     --search-as-is \
+                     -s \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                  environment \
+                     --scope "plugin" \
+                     set "MULLE_SDE_INSTALLED_VERSION" "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
       fi
    )
    rval=$?
 
    #
-   # only write-protect individual files because of git
-   #
-   MULLE_SDE_PROTECT_PATH="`mulle-env environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
-   r_colon_concat .mulle/share:cmake/share "${MULLE_SDE_PROTECT_PATH}"
-   MULLE_SDE_PROTECT_PATH="${RVAL}"
+   # for these post processing steps load up the environment if present
+   if [ $rval -eq 0 ]
+   then
+      (
+         if [ -f ".mulle/share/env/environment.sh" ]
+         then
+            export MULLE_VIRTUAL_ROOT="`pwd -P`"
+            log_fluff "Rerading settings in subshell"
+            . ".mulle/share/env/environment.sh"
+         fi
 
-   log_fluff "Protect ${MULLE_SDE_PROTECT_PATH}"
 
-   IFS=':'
-   for i in ${MULLE_SDE_PROTECT_PATH}
-   do
-      IFS="${DEFAULT_IFS}"
-      [ ! -e "${i}" ] && continue
+         if [ "${OPTION_UPGRADE}" = 'YES' ]
+         then
+            # shellcheck source=src/mulle-sde-migrate.sh
+            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
 
-      exekutor find "${i}" -type f -exec chmod a-w {} \;
-   done
-   IFS="${DEFAULT_IFS}"
+            sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || return 1
+         fi
 
+         if [ "${OPTION_REFLECT}" = 'YES' ]
+         then
+            # shellcheck source=src/mulle-sde-reflect.sh
+            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
+
+            sde_reflect_main || return 1
+         fi
+      )
+      rval=$?
+   fi
    return $rval
 }
 

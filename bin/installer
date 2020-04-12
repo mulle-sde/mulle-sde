@@ -191,12 +191,12 @@ main()
 
    for i in src/mulle*.sh
    do
-      install -v -m "${mode}" "${i}" "${libexec}" || exit 1
+      install ${VERBOSE} -m "${mode}" "${i}" "${libexec}" || exit 1
    done
 
    EXTENSION_DIR="${share}/extensions"
    mkdir -p "${EXTENSION_DIR}" || exit 1
-   cp -Rav "src/mulle-sde" "${EXTENSION_DIR}/" || exit 1
+   cp -Ra ${VERBOSE} "src/mulle-sde" "${EXTENSION_DIR}/" || exit 1
 
    local share
 
@@ -209,7 +209,7 @@ main()
    mkdir -p "${PLUGIN_DIR}" || exit 1
    for i in src/mulle-env/plugins/*.sh
    do
-      cp -av "${i}" "${PLUGIN_DIR}/" || exit 1
+      cp -a ${VERBOSE} "${i}" "${PLUGIN_DIR}/" || exit 1
    done
 }
 

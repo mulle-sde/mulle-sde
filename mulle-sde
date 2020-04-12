@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.42.1
+MULLE_EXECUTABLE_VERSION=0.43.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -241,11 +241,31 @@ set_custom_environment()
 }
 
 
+exec_mulle_env()
+{
+   rexekutor exec "${MULLE_ENV:-mulle-env}" \
+                       ${MULLE_TECHNICAL_FLAGS} \
+                       ${MULLE_ENV_FLAGS} \
+                       ${MULLE_FWD_FLAGS} \
+                       --defines "${MULLE_DEFINE_FLAGS}" "$@"
+}
+
+
+run_mulle_env()
+{
+   rexekutor "${MULLE_ENV:-mulle-env}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_ENV_FLAGS} \
+                  ${MULLE_FWD_FLAGS} \
+                  --defines "${MULLE_DEFINE_FLAGS}" "$@"
+}
+
+
 r_determine_project_dir()
 {
    local directory="$1"
 
-   RVAL="`( cd "${directory}" && mulle-env --search-nearest project-dir )`"
+   RVAL="`( cd "${directory}" && run_mulle_env --search-nearest project-dir )`"
 }
 
 
@@ -301,7 +321,7 @@ assert_test_environment()
 
 _exec_command_in_subshell()
 {
-   log_entry "_exec_command_in_subshell" "%@"
+   log_entry "_exec_command_in_subshell" "$@"
 
    local cmdline="$1"; shift
 
@@ -316,7 +336,7 @@ _exec_command_in_subshell()
          fail "There is only an old mulle-sde project here ($current).
 ${C_INFO}It should be upgradable with:
 ${C_RESET_BOLD}   mulle-sde upgrade
-${C_RESET_BOLD}   mulle-sde clean all"
+${C_RESET_BOLD}   mulle-sde clean tidy"
       fi
       fail "There is no mulle-sde project here ($current)"
    fi
@@ -343,13 +363,19 @@ $1"
       shift
    done
 
-   log_fluff "Run command with mulle-env: -C \"${cmdline}\" in \"${PWD}\""
-   MULLE_USAGE_NAME="mulle-sde" rexekutor exec "${MULLE_ENV:-mulle-env}" -C "${cmdline}"
+   MULLE_USAGE_NAME="mulle-sde" exec_mulle_env -C "${cmdline}"
 }
 
 
+
+#
+# This reruns a mulle-sde command via mulle-env, so effectively calling
+# this script with the same parameters again, but from inside the environment#
+#
 exec_command_in_subshell()
 {
+   log_entry "exec_command_in_subshell" "$@"
+
    _exec_command_in_subshell "$0" "$@"
 }
 
@@ -438,7 +464,7 @@ try_to_enter_or_download()
                               ${MULLE_TECHNICAL_FLAGS} \
                               "$@" || exit 1
                MULLE_USAGE_NAME="mulle-sde" \
-                  rexekutor exec "${MULLE_ENV:-mulle-env}" "${dst}"
+                  exec_mulle_env "${dst}"
             fi
          ;;
 
@@ -446,7 +472,7 @@ try_to_enter_or_download()
             if [ -d "$1" ]
             then
                MULLE_USAGE_NAME="mulle-sde" \
-                  rexekutor exec "${MULLE_ENV:-mulle-env}" "$@"
+                  exec_mulle_env "$@"
             fi
          ;;
         esac
@@ -509,6 +535,7 @@ main()
 
          --git-terminal-prompt)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+
             r_concat "${MULLE_FWD_FLAGS}" "$1"
             MULLE_FWD_FLAGS="${RVAL}"
             shift
@@ -558,12 +585,11 @@ main()
          ;;
 
          -D*)
-            r_concat "${MULLE_ENV_FLAGS}" "$1"
-            MULLE_ENV_FLAGS="${RVAL}"
+            r_add_line "${MULLE_DEFINE_FLAGS}" "$1"
+            MULLE_DEFINE_FLAGS="${RVAL}"
 
             r_add_line "${defines}" "$1"
             defines="${RVAL}"
-            export MULLE_ENV_FLAGS
          ;;
 
          -*)
@@ -598,8 +624,8 @@ main()
          # commands where we want to start a subshell
          case "${cmd}" in
             callback|clean|craft|craftinfo|craftorder|craftstatus|crun|doctor|\
-dependency|definition|environment|fetch|find|library|linkorder|list|log|\
-mark|match|monitor|patternfile|project|reflect|\
+dependency|definition|environment|fetch|files|find|library|linkorder|list|log|\
+mark|match|monitor|patternfile|project|reflect|run|\
 subproject|style|task|template|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
             ;;
@@ -613,13 +639,6 @@ subproject|style|task|template|tool|treestatus|unmark|update)
                return $?
             ;;
 
-            # experimental "run" command inside subshell
-            run)
-               MULLE_VIRTUAL_ROOT=""  # experimental fix
-               shift
-               _exec_command_in_subshell "$@"
-            ;;
-
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|extension|init|init-and-enter|reinit|\
 status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
@@ -629,13 +648,13 @@ stash-dir|test|upgrade)
             enter)
                shift
                MULLE_USAGE_NAME="mulle-sde" \
-                  exekutor exec "${MULLE_ENV:-mulle-env}" "$@"
+                  exec_mulle_env "$@"
             ;;
 
             "")
                # special treatment for empty, show usage
                if ! MULLE_USAGE_NAME="mulle-sde" \
-                     exekutor "${MULLE_ENV:-mulle-env}" -s
+                     exec_mulle_env -s
                then
                   log_warning "No mulle-sde project found"
                   usage
@@ -762,6 +781,7 @@ dependency
 environment
 extension
 fetch
+files
 find
 init
 init-and-enter
@@ -864,11 +884,7 @@ version"
          cd_virtual_root "${cmd}" 'NO'
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           -N \
-                        "${cmd}" \
-                           "$@"
+            exec_mulle_env -N "${cmd}" "$@"
       ;;
 
       extension)
@@ -885,6 +901,15 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
          sde_fetch_main "$@"
+      ;;
+
+      files)
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         # shellcheck source=src/mulle-sde-dependency.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
+
+         sde_list_main --files "$@"
       ;;
 
       hostname)
@@ -907,9 +932,7 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          # interactive shell, dont set usage
-         sde_init_main --no-blurb "$@" &&
-            exekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS}
+         sde_init_main --no-blurb "$@" && exec_mulle_env
       ;;
 
       library)
@@ -1049,9 +1072,22 @@ version"
       ;;
 
       run)
-         MULLE_VIRTUAL_ROOT=""
+         local quote
+         local args
+         local arg
 
-         _exec_command_in_subshell "$@"
+         quote="'"
+         args=""
+         for arg in "$@"
+         do
+            arg="${arg//${quote}/${quote}\"${quote}\"${quote}}"
+            args="${args} '${arg}'"
+         done
+
+         unset quote
+         unset arg
+
+         eval_exekutor "${args}"
       ;;
 
       show)
@@ -1076,10 +1112,7 @@ version"
 
       style)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "${cmd}" \
-                           "$@"
+           exec_mulle_env -N "${cmd}" "$@"
       ;;
 
       subproject)
@@ -1132,11 +1165,7 @@ version"
          cd_virtual_root "${cmd}"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           -N \
-                        "${cmd}" \
-                           "$@"
+           exec_mulle_env -N "${cmd}" "$@"
       ;;
 
       uname)

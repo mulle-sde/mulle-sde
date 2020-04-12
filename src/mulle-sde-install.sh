@@ -44,25 +44,25 @@ Usage:
    be run outside of a mulle-sde environment. The URL can be a repository or
    an archive. It can also be an existing project.
 
-   You should never use this command inside an existing project, instead you
-   let "install" create a temporary project for you that installs the existing
-   project as a dependency.
+   You should never use this command inside an existing project. "install"
+   will create a temporary project that installs an existing project as a
+   dependency.
 
 Examples:
+   Grab project from github and place it into a temporary folder. Fetch all
+   dependencies into this temporary folder. Build a standalone shared
+   Foundation library there. Then install into \`/tmp/yyy\` and
+   remove the temporary folder:
+
    mulle-sde install --standalone --prefix /tmp/yyyy \
 https://github.com/MulleFoundation/Foundation/archive/latest.zip
 
-      Grab project from github and place it into a temporary folder. Fetch all
-      dependencies into this temporary folder. Build a standalone shared
-      Foundation library in \`/tmp/bar\`.
-      Install into \`/tmp/yyy\`. Remove the temporary folder.
+   Grab local project. Place all dependency projects into \`/tmp/foo\`
+   preferring local projects. Build in \`/tmp/foo\`.
+   Tip: Set MULLE_FETCH_SEARCH_PATH so that local dependencies can be found.
+   Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`:
 
    mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
-
-      Grab local project. Place all dependency projects into \`/tmp/foo\`
-      preferring local projects. Build in \`/tmp/foo\`.
-      Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`.
-      Set MULLE_FETCH_SEARCH_PATH so that local dependencies can be found.
 
 Options:
    -k <dir>          : kitchen directory (\$PWD/kitchen)
