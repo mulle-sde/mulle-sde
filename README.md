@@ -49,7 +49,15 @@ mulle-sde dependency add --c --github mulle-c mulle-allocator
 mulle-sde craft
 ```
 
-This will create four folders `dependencies`, the output, `kitchen` the intermediate build folder, `stash` the downloaded dependencies, and `.mulle` a maintainance folder.
+This will create four folders:
+
+```
+.
+├── dependency   # the desired output
+├── kitchen      # temporary build folder
+├── .mulle       # internal mulle-sde maintenance
+└── stash        # download dependencies
+```
 
 
 ## Documentation
