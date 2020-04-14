@@ -1,3 +1,23 @@
+## 0.43.0
+
+* forward --search-as-is --search-here --search-none to mulle-env
+* allow inheritance of meta extensions now (experimental, but mulle-web-developer depends on it)
+* improved install command with new options --c --objc --linkorder --only-project
+* forward --no-bequeath option of linkorder command now
+* new `files` shortcut for mulle-sde list --files
+* standard project variables like `MULLE_FETCH_MIRROR_DIR` or `KITCHEN_DIR` can be overridden like mulle-sde `-DKITCHEN_DIR=/foo` after an mulle-sde upgrade
+* new project-oneshot extension feature for files that are required, so don't fit into demo
+
+
+### 0.42.0
+
+* add vendors command to mulle-sde extension
+* add command is now more supportive, especially out of environment
+
+### 0.41.0
+
+* add --branch and --tag options to install command, to test prerelease legacy install
+
 ### 0.40.1
 
 * add a -t `<type>` option to the add command

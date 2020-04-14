@@ -90,7 +90,8 @@ sde_hack_test_environment()
 {
    log_entry "sde_hack_test_environment" "$@"
 
-   # hackish und of some stuff, because we are probably entering a
+   #
+   # hackish undo some stuff, because we are probably entering a
    # wild environment
    #
    local pattern
@@ -306,7 +307,9 @@ sde_test_run()
 
 sde_test_path_environment()
 {
-   MULLE_SDE_TEST_PATH="`mulle-sde environment get MULLE_SDE_TEST_PATH`"
+   log_entry "sde_test_path_environment" "$@"
+
+   MULLE_SDE_TEST_PATH="`rexekutor mulle-env -s environment get MULLE_SDE_TEST_PATH`"
    if is_test_directory "."
    then
       MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"

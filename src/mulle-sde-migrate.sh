@@ -94,6 +94,14 @@ sde_migrate()
    local oldversion="$1"
    local version="$2"
 
+   if [ -f ".mulle/share/env/include-environment.sh" ]
+   then
+      export MULLE_VIRTUAL_ROOT="`pwd -P`"
+
+      log_fluff "Rereading settings in subshell"
+      . ".mulle/share/env/include-environment.sh"
+   fi
+
    local oldmajor
    local oldminor
 

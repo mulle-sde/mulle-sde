@@ -122,7 +122,10 @@ sde_add_include()
 }
 
 
-r_add_template_header_footer_file()
+#
+# this has to move to templating really...
+#
+r_add_template_named_file()
 {
    local extension="${1:-default}"
    local name="$2"
@@ -150,15 +153,16 @@ r_add_template_header_footer_file()
    return 1
 }
 
+
 r_add_template_header_file()
 {
-   r_add_template_header_footer_file "$1" "header" "MULLE_SDE_FILE_HEADER"
+   r_add_template_named_file "$1" "header" "MULLE_SDE_FILE_HEADER"
 }
 
 
 r_add_template_footer_file()
 {
-   r_add_template_header_footer_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
+   r_add_template_named_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
 }
 
 

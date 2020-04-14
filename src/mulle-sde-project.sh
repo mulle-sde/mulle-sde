@@ -525,7 +525,7 @@ sde_rename_main()
             log_verbose "$testdir"
 
             rexekutor cd "${testdir}" && \
-            exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} rename ${cmdline} "${newname}"
+            exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} project rename ${cmdline} "${newname}"
          )
       done
       set +o noglob; IFS="${DEFAULT_IFS}"

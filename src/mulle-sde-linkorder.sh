@@ -342,12 +342,20 @@ r_sde_linkorder_all_nodes()
 
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
 
+   local bequeath_flag
 
-   RVAL="`sourcetree_walk_main --lenient \
+   bequeath_flag=""
+   if [ "${OPTION_BEQUEATH}" = 'YES' ]
+   then
+      bequeath_flag="--bequeath"
+   fi
+
+   RVAL="`rexekutor sourcetree_walk_main \
+                               --lenient \
                                --no-eval \
                                --in-order \
                                --backwards \
-                               --bequeath \
+                               ${bequeath_flag} \
                                --configuration "Release" \
                                --dedupe "linkorder" \
                                --callback-qualifier "${qualifier}" \
@@ -501,7 +509,7 @@ r_linkorder_collect()
          ;;
       esac
 
-      fail "Did not find a linkable ${aliasfail} ${requirement} ${librarytype} in \"${searchpath}\".
+      fail "Did not find a linkable ${aliasfail} ${requirement} ${librarytype} in searchpath \"${searchpath}\".
 ${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
@@ -732,7 +740,7 @@ sde_linkorder_main()
    local OPTION_RPATH='YES'
    local OPTION_SIMPLIFY='YES'
    local OPTION_FORCE_LOAD='NO'
-   local OPTION_BEQUEATH='YES'
+   local OPTION_BEQUEATH='DEFAULT'
    local OPTION_WHOLE_ARCHIVE_FORMAT
    local OPTION_OUTPUT_OMIT
    local OPTION_STARTUP='YES'           # default executable link

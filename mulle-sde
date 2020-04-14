@@ -569,6 +569,12 @@ main()
             export MULLE_ENV_FLAGS
          ;;
 
+         --search-as-is|--search-here|--search-none)  # --no-search is historic
+            r_concat "${MULLE_ENV_FLAGS}" "$1"
+            MULLE_ENV_FLAGS="${RVAL}"
+            export MULLE_ENV_FLAGS
+         ;;
+
          --list-flags)
             (
                echo "\

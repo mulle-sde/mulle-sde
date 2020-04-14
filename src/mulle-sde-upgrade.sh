@@ -131,9 +131,12 @@ sde_upgrade_test()
 {
    log_entry "sde_upgrade_test" "$@"
 
-   MULLE_SDE_TEST_PATH="`mulle-env ${MULLE_TECHNICAL_FLAGS} \
+   # this can fail on projects, which older. ignore
+   MULLE_SDE_TEST_PATH="`mulle-env \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              -s \
                            environment \
-                              get MULLE_SDE_TEST_PATH`"
+                              get MULLE_SDE_TEST_PATH 2> /dev/null`"
 
    IFS=':'
    for i in ${MULLE_SDE_TEST_PATH:-test}

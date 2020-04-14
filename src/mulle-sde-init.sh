@@ -378,8 +378,10 @@ install_inheritfile()
       exttype="${exttype:-${defaultexttype}}"
       if [ "${exttype}" = "meta" ]
       then
-         fail "A meta extension mistakenly tries to inherit another meta \
-extension (\"${inheritfilename}\")"
+         :
+         # in this case we locate the
+         # fail "A meta extension mistakenly tries to inherit another meta \
+#extension (\"${inheritfilename}\")"
       fi
 
       #
@@ -3103,17 +3105,32 @@ _sde_init_main()
 
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
-      oldversion="`mulle-env --search-as-is environment get MULLE_SDE_INSTALLED_VERSION`"
+      oldversion="`rexekutor mulle-env --search-as-is -s environment get MULLE_SDE_INSTALLED_VERSION 2> /dev/null`"
+      log_debug "Old version: ${oldversion}"
+
       case "${oldversion}" in
          [0-9]*\.[0-9]*\.[0-9]*)
-            # fine
+            # check that old version is not actually newer than what we have
+            # shellcheck source=mulle-case.sh
+            [ -z "${MULLE_VERSION_SH}" ] &&  . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-version.sh"
+
+            r_version_distance "${MULLE_EXECUTABLE_VERSION}" "${oldversion}"
+            if [ "${RVAL}" -gt 0 ]
+            then
+               fail "Can't upgrade! The environment  was created by a newer mulle-sde version ${oldversion}.
+${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
+            fi
          ;;
 
-         *)
+         "")
             [ ! -d .mulle/share/sde ] &&  fail "There is no mulle-sde project here"
 
             oldversion="0.0.0"
             log_warning "Can not get previous installed version from MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
+         ;;
+
+         *)
+            internal_fail "Unparsable version info in MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
          ;;
       esac
    fi
@@ -3208,14 +3225,6 @@ _sde_init_main()
    if [ $rval -eq 0 ]
    then
       (
-         if [ -f ".mulle/share/env/environment.sh" ]
-         then
-            export MULLE_VIRTUAL_ROOT="`pwd -P`"
-            log_fluff "Rerading settings in subshell"
-            . ".mulle/share/env/environment.sh"
-         fi
-
-
          if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
             # shellcheck source=src/mulle-sde-migrate.sh
@@ -3226,10 +3235,10 @@ _sde_init_main()
 
          if [ "${OPTION_REFLECT}" = 'YES' ]
          then
-            # shellcheck source=src/mulle-sde-reflect.sh
-            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
-
-            sde_reflect_main || return 1
+            exekutor "${MULLE_SDE:-mulle-sde}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        -N \
+                     reflect
          fi
       )
       rval=$?

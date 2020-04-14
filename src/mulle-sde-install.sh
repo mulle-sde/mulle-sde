@@ -45,14 +45,14 @@ Usage:
    an archive. It can also be an existing project.
 
    You should never use this command inside an existing project. "install"
-   will create a temporary project that installs an existing project as a
-   dependency.
+   will create a temporary project.
+
+   The command will output the suggested link flags for the current platform
+   after the install has finished.
 
 Examples:
-   Grab project from github and place it into a temporary folder. Fetch all
-   dependencies into this temporary folder. Build a standalone shared
-   Foundation library there. Then install into \`/tmp/yyy\` and
-   remove the temporary folder:
+   Build a standalone shared Foundation library from the github repository.
+   Then install it and all intermediate libraries into \`/tmp/yyy\`:
 
    mulle-sde install --standalone --prefix /tmp/yyyy \
 https://github.com/MulleFoundation/Foundation/archive/latest.zip
@@ -67,9 +67,13 @@ https://github.com/MulleFoundation/Foundation/archive/latest.zip
 Options:
    -k <dir>          : kitchen directory (\$PWD/kitchen)
    -d <dir>          : directory to fetch into (\$PWD)
+   --c               : project is C
+   --objc            : project is Objective-C
    --branch <name>   : branch to checkout
    --debug           : install as debug instead of release
+   --only-project    : install only the main project
    --prefix <prefix> : installation prefix (\$PWD)
+   --linkorder       : produce linkorder output
    --keep-tmp        : don't delete temporary directory
    --standalone      : create a whole-archive shared library if supported
    --tag <name>      : tag to checkout
@@ -99,28 +103,43 @@ do_update_sourcetree()
                         "$@"
 }
 
-
+#
+# This method create a new custom project adds everythin as dependencies
+# and installs all of them by setting DEPENDENCY_DIR to --prefix
+#
 install_in_tmp()
 {
    log_entry "install_in_tmp" "$@"
 
-   local url="$1"
-   local directory="$2"
-   local marks="$3"
-   local configuration="$4"
-   local serial="$5"
-   local symlink="$6"
-   local branch="$7"
-   local tag="$8"
-   local arguments="$9"
+   local url="$1"; shift
+   local directory="$1"; shift
+   local marks="$1"; shift
+   local configuration="$1"; shift
+   local serial="$1"; shift
+   local symlink="$1"; shift
+   local branch="$1"; shift
+   local tag="$1"; shift
+   local arguments="$1"; shift
+   local environment="$1"; shift
 
-   exekutor mkdir -p "${directory}" 2> /dev/null
+   mkdir_if_missing "${directory}" 2> /dev/null
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
+
+   if [ "${OPTION_OUTPUT_LINKORDER}" = 'YES' ]
+   then
+      if [ ! -d .mulle/share/env -a ! -d .mulle/share/sde ]
+      then
+         # fake an environment for mulle-sde to run afterwards,
+         # otherwise we don't need it
+         exekutor mulle-sde -s --style none/wild init --no-post-init none
+      fi
+   fi
 
    local add
 
    add='YES'
-   if mulle-sourcetree -s -N dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+
+   if mulle-sourcetree -s --no-defer dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       log_verbose "Reusing previous .mulle-sourcetree folder unchanged. \
 Use -f flag to clobber."
@@ -146,13 +165,18 @@ Use -f flag to clobber."
          r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
          MULLE_FETCH_SEARCH_PATH="${RVAL}"
 
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -N ${MULLE_TECHNICAL_FLAGS}  \
-                                   add --nodetype git \
-                                       --marks "${marks}" \
-                                       "${url}"  || return 1
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                         ${MULLE_TECHNICAL_FLAGS}  \
+                         --no-defer \
+                         -s \
+                     add --nodetype git \
+                         --marks "${marks}" \
+                         "${url}"  || return 1
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
-                           "${MULLE_SOURCETREE:-mulle-sourcetree}" -N ${MULLE_TECHNICAL_FLAGS}  \
-                                            update --symlink || return 1
+                           "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                                 ${MULLE_TECHNICAL_FLAGS}  \
+                                 --no-defer \
+                              update --symlink || return 1
       else
          log_verbose "Build remote repositories"
 
@@ -167,17 +191,24 @@ Use -f flag to clobber."
          then
             options="${options} --tag '${tag}'"
          fi
-         eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" -N "${MULLE_TECHNICAL_FLAGS}" \
-                                   add \
-                                       "${options}" \
-                                       "'${url}'"  || return 1
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -N ${MULLE_TECHNICAL_FLAGS} \
-                                   update || return 1
+         eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
+                              "${MULLE_TECHNICAL_FLAGS}" \
+                              --no-defer \
+                              -s \
+                           add \
+                              "${options}" \
+                              "'${url}'"  || return 1
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           --no-defer \
+                        update || return 1
       fi
    fi
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                -N ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  --no-defer \
+                  -s \
                 craftorder \
                  --no-print-env > craftorder || return 1
 
@@ -187,15 +218,103 @@ Use -f flag to clobber."
    else
       serial=""
    fi
-   eval_exekutor "${environment}" "${MULLE_CRAFT:-mulle-craft}" \
-                                       ${MULLE_CRAFT_FLAGS} \
-                                       --craftorder-file craftorder \
-                                    craftorder \
-                                       --no-protect \
-                                       ${serial} \
-                                       --configuration "${configuration}" \
-                                       "${arguments}" || return 1
+
+   eval_exekutor "${environment}" \
+      "'${MULLE_CRAFT:-mulle-craft}'" \
+         ${MULLE_TECHNICAL_FLAGS} \
+         ${MULLE_CRAFT_FLAGS} \
+         --craftorder-file craftorder \
+      craftorder \
+         --no-protect \
+         ${serial} \
+         --configuration "${configuration}" \
+         "${arguments}" || return 1
+
+   if [ "${OPTION_OUTPUT_LINKORDER}" = 'YES' ]
+   then
+      log_warning "Link Information"
+      eval_exekutor "${environment}" \
+         "'${MULLE_SDE:-mulle-sde}'" \
+               ${MULLE_TECHNICAL_FLAGS} \
+            "linkorder" || return 1
+   fi
 }
+
+
+#
+# This method clones/copies a project. Places all dependencies into a local
+# DEPENDENCY_DIR then build project with --prefix and runs make install
+#
+install_project_only_in_tmp()
+{
+   log_entry "install_project_only_in_tmp" "$@"
+
+   local url="$1"; shift
+   local directory="$1"; shift
+   local prefixdir="$1"; shift
+   local configuration="$1"; shift
+   local serial="$1"; shift
+   local symlink="$1"; shift
+   local arguments="$1"; shift
+
+   exekutor cd "${directory}" || fail "can't change to \"${directory}\""
+
+   if [ "${serial}" = 'YES' ]
+   then
+      serial="--serial"
+   else
+      serial=""
+   fi
+
+   eval_exekutor  \
+      "'${MULLE_SDE:-mulle-sde}'" \
+         ${MULLE_TECHNICAL_FLAGS} \
+         ${MULLE_SDE_FLAGS} \
+      craft craftorder \
+         ${serial} \
+         --configuration "'${configuration}'" \
+         "${arguments}" || return 1
+
+   local definition_dir
+
+   definition_dir="`mulle-craft search`"
+
+   local build_dir
+
+   build_dir="`make_tmp_directory`" || exit 1
+
+   # just to be sure, in case we are doing an inline build, but the build_dir
+   # elsehere
+   eval_exekutor \
+      "'${MULLE_SDE:-mulle-sde}'" \
+            "${MULLE_TECHNICAL_FLAGS}" \
+            "${MULLE_SDE_FLAGS}" \
+         run \
+            "'${MULLE_MAKE:-mulle-make}'" \
+               "${MULLE_TECHNICAL_FLAGS}" \
+               "${MULLE_MAKE_FLAGS}" \
+            install \
+               --build-dir "'${build_dir}'" \
+               --definition-dir "'${definition_dir}'" \
+               --prefix "'${prefixdir}'" \
+               --configuration "'${configuration}'" \
+               "${arguments}" || return 1
+
+   if [ "${OPTION_OUTPUT_LINKORDER}" = 'YES' ]
+   then
+      log_warning "Link Information for inferior libraries"
+      eval_exekutor "${environment}" \
+         "'${MULLE_SDE:-mulle-sde}'" \
+               ${MULLE_TECHNICAL_FLAGS} \
+            "linkorder" || return 1
+   fi
+
+   if [ "${OPTION_KEEP_TMP}" = 'NO' ]
+   then
+      rmdir_safer "${build_dir}"
+   fi
+}
+
 
 
 sde_install_main()
@@ -209,6 +328,9 @@ sde_install_main()
    local OPTION_CONFIGURATION='Release'
    local OPTION_BRANCH=
    local OPTION_TAG=
+   local OPTION_OUTPUT_LINKORDER='NO'
+   local OPTION_ONLY_PROJECT='NO'
+   local PREFIX_DIR="/tmp"
 
    while [ $# -ne 0 ]
    do
@@ -238,6 +360,16 @@ sde_install_main()
             OPTION_BRANCH="$1"
          ;;
 
+         --c)
+            r_colon_concat "${OPTION_MARKS}" 'no-all-load,no-import'
+            OPTION_MARKS="${RVAL}"
+         ;;
+
+         --objc)
+            r_colon_concat "${OPTION_MARKS}" 'no-singlephase'
+            OPTION_MARKS="${RVAL}"
+         ;;
+
          --configuration)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
@@ -253,11 +385,23 @@ sde_install_main()
             OPTION_KEEP_TMP='YES'
          ;;
 
+         --linkorder)
+            OPTION_OUTPUT_LINKORDER='YES'
+         ;;
+
+         --no-linkorder)
+            OPTION_OUTPUT_LINKORDER='NO'
+         ;;
+
          --prefix)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            DEPENDENCY_DIR="$1"
+            PREFIX_DIR="$1"
+         ;;
+
+         --only-project)
+            OPTION_ONLY_PROJECT='YES'
          ;;
 
          --release)
@@ -269,7 +413,8 @@ sde_install_main()
          ;;
 
          --standalone)
-            OPTION_MARKS='only-standalone'
+            r_colon_concat "${OPTION_MARKS}" 'only-standalone'
+            OPTION_MARKS="${RVAL}"
          ;;
 
          --tag)
@@ -318,40 +463,6 @@ sde_install_main()
    fi
 
    local delete_tmp
-   local PROJECT_DIR
-   if [ -z "${OPTION_PROJECT_DIR}" ]
-   then
-      PROJECT_DIR="`make_tmp_directory`" || exit 1
-      if [ "${OPTION_KEEP_TMP}" = 'NO' ]
-      then
-         delete_tmp="${PROJECT_DIR}"
-      fi
-   else
-      r_simplified_absolutepath "${OPTION_PROJECT_DIR}"
-      PROJECT_DIR="${RVAL}"
-   fi
-
-   log_verbose "Directory: \"${PROJECT_DIR}\""
-
-   DEPENDENCY_DIR="${DEPENDENCY_DIR:-${PROJECT_DIR}/dependency}"
-   KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
-   KITCHEN_DIR="${KITCHEN_DIR:-${PROJECT_DIR}/kitchen}"
-
-   local environment
-
-   environment="DEPENDENCY_DIR='${DEPENDENCY_DIR}'"
-   environment="${environment} KITCHEN_DIR='${KITCHEN_DIR}'"
-   environment="${environment} PATH='${DEPENDENCY_DIR}/bin:$PATH'"
-   environment="${environment} MULLE_VIRTUAL_ROOT='${PROJECT_DIR}'"
-
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "KITCHEN_DIR=${KITCHEN_DIR}"
-      log_trace2 "DEPENDENCY_DIR=${DEPENDENCY_DIR}"
-      log_trace2 "MULLE_VIRTUAL_ROOT=${PROJECT_DIR}"
-      log_trace2 "PATH=${DEPENDENCY_DIR}/bin:$PATH"
-      log_trace2 "PROJECT_DIR=${PROJECT_DIR}"
-   fi
 
    # remaining arguments are passed to mulle-make (and not mulle-craft)
    local arguments
@@ -369,15 +480,91 @@ sde_install_main()
 
    local rval
 
-   install_in_tmp "${URL}" \
-                  "${PROJECT_DIR}" \
-                  "${OPTION_MARKS}" \
-                  "${OPTION_CONFIGURATION}" \
-                  "${OPTION_SERIAL}" \
-                  "${OPTION_SYMLINK}" \
-                  "${OPTION_BRANCH}" \
-                  "${OPTION_TAG}" \
-                  "${arguments}"
+   if [ "${OPTION_ONLY_PROJECT}" = 'YES' ]
+   then
+      if [ -z "${OPTION_PROJECT_DIR}" ]
+      then
+         PROJECT_DIR="`make_tmp_directory`" || exit 1
+         if [ "${OPTION_KEEP_TMP}" = 'NO' ]
+         then
+            delete_tmp="${PROJECT_DIR}"
+         fi
+
+         if [ ! -d "${URL}" ]
+         then
+            exekutor "${MULLE_FETCH:-mulle-fetch}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_FETCH_FLAGS} \
+                        fetch \
+                           --tag "${OPTION_TAG}" \
+                           --branch "${OPTION_BRANCH}" \
+                           "${URL}" \
+                           "${PROJECT_DIR}"
+         else
+            PROJECT_DIR="${URL}"
+         fi
+      else
+         r_simplified_absolutepath "${OPTION_PROJECT_DIR}"
+         PROJECT_DIR="${RVAL}"
+
+         [ -d "${PROJECT_DIR}/.mulle/sde" ] || fail "Not a mulle-sde project in \"${PROJECT_DIR}\""
+      fi
+
+      # project should be ready now
+      install_project_only_in_tmp "${URL}" \
+                                  "${PROJECT_DIR}" \
+                                  "${PREFIX_DIR}" \
+                                  "${OPTION_CONFIGURATION}" \
+                                  "${OPTION_SERIAL}" \
+                                  "${OPTION_SYMLINK}" \
+                                  "${arguments}"
+   else
+      if [ -z "${OPTION_PROJECT_DIR}" ]
+      then
+         PROJECT_DIR="`make_tmp_directory`" || exit 1
+         if [ "${OPTION_KEEP_TMP}" = 'NO' ]
+         then
+            delete_tmp="${PROJECT_DIR}"
+         fi
+      else
+         r_simplified_absolutepath "${OPTION_PROJECT_DIR}"
+         PROJECT_DIR="${RVAL}"
+      fi
+
+      log_verbose "Directory: \"${PROJECT_DIR}\""
+
+      DEPENDENCY_DIR="${PREFIX_DIR}"
+      KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
+      KITCHEN_DIR="${KITCHEN_DIR:-${PROJECT_DIR}/kitchen}"
+
+      local environment
+
+      environment="DEPENDENCY_DIR='${DEPENDENCY_DIR}'"
+      environment="${environment} KITCHEN_DIR='${KITCHEN_DIR}'"
+      environment="${environment} PATH='${DEPENDENCY_DIR}/bin:$PATH'"
+      environment="${environment} MULLE_VIRTUAL_ROOT='${PROJECT_DIR}'"
+
+      if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+      then
+         log_trace2 "KITCHEN_DIR=${KITCHEN_DIR}"
+         log_trace2 "DEPENDENCY_DIR=${DEPENDENCY_DIR}"
+         log_trace2 "MULLE_VIRTUAL_ROOT=${PROJECT_DIR}"
+         log_trace2 "PATH=${DEPENDENCY_DIR}/bin:$PATH"
+         log_trace2 "PROJECT_DIR=${PROJECT_DIR}"
+      fi
+
+      install_in_tmp "${URL}" \
+                     "${PROJECT_DIR}" \
+                     "${OPTION_MARKS}" \
+                     "${OPTION_CONFIGURATION}" \
+                     "${OPTION_SERIAL}" \
+                     "${OPTION_SYMLINK}" \
+                     "${OPTION_BRANCH}" \
+                     "${OPTION_TAG}" \
+                     "${arguments}" \
+                     "${environment}"
+   fi
+
    rval=$?
 
    if [ ${rval} -eq 0 ]
@@ -387,4 +574,6 @@ sde_install_main()
          rmdir_safer "${delete_tmp}"
       fi
    fi
+
+   return $rval
 }
