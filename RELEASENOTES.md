@@ -1,5 +1,10 @@
 ## 0.43.0
 
+* fixed add command, add command has now an `-a` option to show all vendors
+* fix some init bugs
+* migrate now removes a duplicate `.mulle/etc/craft` folder
+* fix ``PROJECT_UPCASE_IDENTIFIER`` being upcase
+* environment variables defined via mulle-sde -Dxxx are not correctly passed to the mulle-test environment
 * forward --search-as-is --search-here --search-none to mulle-env
 * allow inheritance of meta extensions now (experimental, but mulle-web-developer depends on it)
 * improved install command with new options --c --objc --linkorder --only-project

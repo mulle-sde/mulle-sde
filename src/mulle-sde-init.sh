@@ -737,8 +737,10 @@ add_to_tools()
    local os
    local file
 
+   shopt -s nullglob
    for file in "${filename}" "${filename}".*
    do
+      shopt -u nullglob
       if _check_file "${file}"
       then
          r_path_extension "${file}"
@@ -746,6 +748,7 @@ add_to_tools()
          _add_to_tools "${file}" "${os}"
       fi
    done
+   shopt -u nullglob
 }
 
 
@@ -821,6 +824,8 @@ run_init()
 
 is_disabled_by_marks()
 {
+   log_entry "is_disabled_by_marks" "$@"
+
    local marks="$1"; shift
    local description="$1"; shift
 
@@ -846,6 +851,8 @@ is_disabled_by_marks()
 
 is_directory_disabled_by_marks()
 {
+   log_entry "is_directory_disabled_by_marks" "$@"
+
    local marks="$1"
    local directory="$2"
 
@@ -860,6 +867,8 @@ is_directory_disabled_by_marks()
 
 is_file_disabled_by_marks()
 {
+   log_entry "is_file_disabled_by_marks" "$@"
+
    local marks="$1"
    local filename="$2"
 
@@ -874,6 +883,8 @@ is_file_disabled_by_marks()
 
 is_sourcetree_file_disabled_by_marks()
 {
+   log_entry "is_sourcetree_file_disabled_by_marks" "$@"
+
    local marks="$1"
    local filename="$2"
    local projecttype="$3"
@@ -1309,7 +1320,10 @@ ${C_INFO}Possible ways to fix this:
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
-         add_to_environment "${extensiondir}/environment-${projecttype}"
+         if [ ! -z "${projecttype}" ]
+         then
+            add_to_environment "${extensiondir}/environment-${projecttype}"
+         fi
          add_to_environment "${extensiondir}/environment"
 
          add_to_tools "${extensiondir}/tool"
@@ -1360,7 +1374,7 @@ ${C_INFO}Possible ways to fix this:
       local subdirectory
 
 
-      if [ -d "${extensiondir}/${OPTION_INIT_TYPE}-oneshot" ]
+      if [ ! -z "${OPTION_INIT_TYPE}" -a  -d "${extensiondir}/${OPTION_INIT_TYPE}-oneshot" ]
       then
          subdirectory="${OPTION_INIT_TYPE}-oneshot"
       else
@@ -1380,7 +1394,7 @@ ${C_INFO}Possible ways to fix this:
                                             "$@"
       fi
 
-      if [ -d "${extensiondir}/${OPTION_INIT_TYPE}" ]
+      if [ ! -z "${OPTION_INIT_TYPE}" -a -d "${extensiondir}/${OPTION_INIT_TYPE}" ]
       then
          subdirectory="${OPTION_INIT_TYPE}"
       else

@@ -402,6 +402,7 @@ sde_add_in_project()
    local name="$3"
    local type="$4"
    local ext="$5"
+   local all="$6"
 
    if ! mulle-match match --quiet "${filepath}"
    then
@@ -430,14 +431,16 @@ sde_add_in_project()
       # get currently installed runtime vendors, theses are the ones we
       # query for the file to produce, if none are given
       #
-      if [ -z "${vendors}" ]
+      if [ -z "${vendors}" -a "${all}" = 'NO' ]
       then
          # it's not terrible if this fails though
          vendors="`sde_extension_main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
-         if [ -z "${vendors}" -a -z "${MULLE_VIRTUAL_ROOT}" ]
-         then
-            vendors="`sde_extension_main vendors`"
-         fi
+      fi
+
+      # otherwise fallback to
+      if [ -z "${vendors}" ]
+      then
+         vendors="`sde_extension_main vendors`"
       fi
 
       local rval
@@ -473,7 +476,7 @@ sde_add_in_project()
       return
    fi
 
-   log_info "Added \"${filepath#${MULLE_USER_PWD/}}\""
+   log_info "Added \"${filepath#${MULLE_USER_PWD}/}\""
 }
 
 
@@ -545,6 +548,7 @@ sde_add_main()
 
    local OPTION_NAME
    local OPTION_VENDOR
+   local OPTION_ALL_VENDORS='NO'
    local OPTION_FILE_EXTENSION
    local OPTION_TYPE='file'
 
@@ -560,6 +564,10 @@ sde_add_main()
       case "$1" in
          -h|--help|help)
             sde_add_usage
+         ;;
+
+         -a|--all-vendors)
+            OPTION_ALL_VENDORS='YES'
          ;;
 
          -t|--type)
@@ -642,10 +650,17 @@ sde_add_main()
                                       --file-extension "${OPTION_FILE_EXTENSION}" \
                                       "$@" || exit 1
       else
-         sde_add_in_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_TYPE}" "${OPTION_FILE_EXTENSION}"
+         sde_add_in_project "$1" "${OPTION_VENDOR}" \
+                                 "${OPTION_NAME}" \
+                                 "${OPTION_TYPE}" \
+                                 "${OPTION_FILE_EXTENSION}" \
+                                 "${OPTION_ALL_VENDORS}"
       fi
    else
-      sde_add_no_project "$1" "${OPTION_VENDOR}" "${OPTION_NAME}" "${OPTION_TYPE}" "${OPTION_FILE_EXTENSION}"
+      sde_add_no_project "$1" "${OPTION_VENDOR}" \
+                              "${OPTION_NAME}" \
+                              "${OPTION_TYPE}" \
+                              "${OPTION_FILE_EXTENSION}"
    fi
 }
 

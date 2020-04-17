@@ -59,7 +59,7 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
    r_lowercase "${RVAL}"
    PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
    r_uppercase "${PROJECT_DOWNCASE_IDENTIFIER}"
-   PROJECT_UPCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
+   PROJECT_UPCASE_IDENTIFIER="${RVAL}"
 }
 
 

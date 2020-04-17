@@ -155,10 +155,10 @@ sde_test_generate()
 
    log_info "Ensure mulle-testgen is accessible in environment"
 
-   if ! rexekutor mulle-sde tool get mulle-testgen > /dev/null
+   if ! rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool get mulle-testgen > /dev/null
    then
-      exekutor mulle-sde tool add --optional mulle-testgen || exit 1
-      exekutor mulle-sde tool link || exit 1
+      exekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool add --optional mulle-testgen || exit 1
+      exekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool link || exit 1
    fi
 
    MULLE_TESTGEN="${MULLE_TESTGEN:-`command -v mulle-testgen`}"
@@ -169,7 +169,7 @@ sde_test_generate()
 
    log_info "Craft library for test generation"
 
-   exekutor mulle-sde craft || exit 1
+   exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft || exit 1
 
    local rval
 
@@ -232,7 +232,7 @@ sde_test_generate()
 
 
 #
-# Do the test run.
+# Execute command in the test environment
 #
 _sde_test_run()
 {
@@ -251,13 +251,47 @@ _sde_test_run()
       fail "Directory \"${directory}\" is not a test directory"
    fi
 
+   physdir="`physicalpath "${directory}"`"
+
+   #
+   # We need to pass -Ddefine variables to mulle-test
+   #
    (
       log_info "Tests ${C_MAGENTA}${C_BOLD}${cmd} $*${C_INFO} (${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
 
-      exekutor cd "${directory}" &&
-      exekutor mulle-sde run \
-                  mulle-test ${MULLE_TECHNICAL_FLAGS} \
-                             "${cmd}" "$@"
+      exekutor cd "${physdir}" || exit 1
+
+      #
+      # Case 1: we are outside the environment
+      # Case 2: we are in the wrong environment
+      # Case 3: we are in the right environment
+      #
+      if [ -z "${MULLE_VIRTUAL_ROOT}" -o  "${MULLE_VIRTUAL_ROOT}" != "${physdir}" ]
+      then
+         local cmdline
+
+         cmdline="mulle-test"
+         for arg in ${MULLE_TECHNICAL_FLAGS}
+         do
+            r_add_line "${cmdline}" "${arg}"
+            cmdline="${RVAL}"
+         done
+
+         r_add_line "${cmdline}" "${cmd}"
+         cmdline="${RVAL}"
+
+         while [ $# -ne 0 ]
+         do
+            r_add_line "${cmdline}" "$1"
+            cmdline="${RVAL}"
+            shift
+         done
+
+         run_mulle_env -C "${cmdline}"
+         return $?
+      fi
+
+      mulle-test ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
    )
 }
 
