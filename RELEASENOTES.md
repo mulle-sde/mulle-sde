@@ -1,5 +1,6 @@
 ## 0.43.0
 
+* fix some mulle-sde test inconsistencies
 * fixed add command, add command has now an `-a` option to show all vendors
 * fix some init bugs
 * migrate now removes a duplicate `.mulle/etc/craft` folder
