@@ -178,10 +178,7 @@ sde_test_generate()
    do
       IFS="${DEFAULT_IFS}"
 
-      if [ ! -d "${directory}" ]
-      then
-         fail "Test directory \"${directory}\" is missing"
-      fi
+      mkdir_if_missing "${directory}"
 
       exekutor "${MULLE_TESTGEN}" \
                         ${MULLE_TECHNICAL_FLAGS} \
@@ -241,16 +238,6 @@ _sde_test_run()
    local directory="$1"; shift
    local cmd="$1"; shift
 
-   if [ ! -d "${directory}" ]
-   then
-      fail "Test directory \"${directory}\" is missing"
-   fi
-
-   if ! is_test_directory "${directory}"
-   then
-      fail "Directory \"${directory}\" is not a test directory"
-   fi
-
    physdir="`physicalpath "${directory}"`"
 
    #
@@ -300,6 +287,7 @@ sde_test_run()
 {
    log_entry "sde_test_run" "$@"
 
+   local harmeless='$1'; shift
    local cmd="$1"; shift
 
    local defaultpath
@@ -329,6 +317,24 @@ sde_test_run()
       for directory in ${MULLE_SDE_TEST_PATH}
       do
          IFS="${DEFAULT_IFS}"
+
+         if [ ! -d "${directory}" ]
+         then
+            if [ "${harmless}" = 'NO' ]
+            then
+               fail "Test directory \"${directory}\" is missing"
+            fi
+            continue
+         fi
+
+         if ! is_test_directory "${directory}"
+         then
+            if [ "${harmless}" = 'NO' ]
+            then
+               fail "Directory \"${directory}\" is not a test directory"
+            fi
+            continue
+         fi
 
          if ! _sde_test_run "${directory}" "${cmd}" "$@"
          then
@@ -414,10 +420,17 @@ r_sde_test_main()
          return 1;
       ;;
 
-      # introspection
-      env|libexec-dir|test-dir|version)
-         RVAL='DEFAULT'
+      # introspection, no test dir needed
+      env|test-dir)
+         RVAL='HARMLESS'
          return 1;
+      ;;
+
+      libexec-dir|version)
+         rexekutor mulle-test ${MULLE_TECHNICAL_FLAGS} "$1" "$@"
+         rval=$?
+         RVAL="DONE"
+         return $rval
       ;;
 
       # no environment needed to run these properly
@@ -472,12 +485,17 @@ sde_test_main()
          ;;
 
          'DEFAULT')
-            sde_test_run "$@"
+            sde_test_run 'NO' "$@"
+            rval=$?
+         ;;
+
+         'HARMLESS')
+            sde_test_run 'YES' "$@"
             rval=$?
          ;;
 
          'RUN')
-            sde_test_run run "$@"
+            sde_test_run 'NO' run "$@"
             rval=$?
          ;;
       esac
