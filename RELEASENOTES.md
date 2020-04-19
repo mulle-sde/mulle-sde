@@ -1,3 +1,7 @@
+### 0.43.1
+
+* remove objc-loader.inc on migration
+
 ## 0.43.0
 
 * fix some mulle-sde test inconsistencies

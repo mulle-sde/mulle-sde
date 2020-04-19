@@ -51,6 +51,7 @@ sde_migrate_from_v0_41_to_v42()
          r_basename "$i"
          remove_file_if_present "${PROJECT_SOURCE_DIR}/${RVAL}"
       done
+      remove_file_if_present "${PROJECT_SOURCE_DIR}/objc-loader.inc"
    fi
 
    # remove old cmake stuff
