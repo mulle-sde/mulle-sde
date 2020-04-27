@@ -1,3 +1,7 @@
+### 0.43.2
+
+* fix migration code
+
 ### 0.43.1
 
 * remove objc-loader.inc on migration

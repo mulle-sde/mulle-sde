@@ -82,7 +82,7 @@ sde_migrate_from_v0_41_to_v42()
    then
       log_info "Adding cmake/reflect to CMAKE_MODULE_PATH in CMakeLists.txt"
       exekutor cp CMakeLists.txt CMakeLists.txt.orig
-      inplace_sed -e "/list( INSERT CMAKE_MODULE_PATH 0 \"\${PROJECT_SOURCE_DIR}\/cmake\/share\")/a\
+      inplace_sed -e "/list( INSERT CMAKE_MODULE_PATH 0 \"\${PROJECT_SOURCE_DIR}\/cmake\/share\")/a\\
 list( INSERT CMAKE_MODULE_PATH 0 \"\${PROJECT_SOURCE_DIR}/cmake/reflect\")" CMakeLists.txt
    fi
 }
