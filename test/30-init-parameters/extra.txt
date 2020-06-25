@@ -1,0 +1,20 @@
+## Environment variables
+
+These are some of the environment variables available in templates during
+init.
+
+
+Key                            | Value
+-------------------------------|-------------------
+`GITHUB_USER`                  | `marten`
+`LOCAL_KEY`                    | `hello`
+`VENDOR_DEFINED`               | `world`
+
+Key                            | Value
+------------------------------ |-------------------
+`PROJECT_NAME`                 | `FooBar`
+`PROJECT_IDENTIFIER`           | `FooBar`
+`PROJECT_DOWNCASE_IDENTIFIER`  | `foo_bar`
+`PROJECT_UPCASE_IDENTIFIER`    | `FOO_BAR`
+`PROJECT_LANGUAGE`             | `gumba`
+`PROJECT_DIALECT`              | `mumba`

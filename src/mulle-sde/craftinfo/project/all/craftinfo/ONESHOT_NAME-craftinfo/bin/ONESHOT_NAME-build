@@ -61,8 +61,33 @@ build_main()
    # set CFLAGS, LDFLAGS for CONFIGURATION (-DDEBUG ?)
    # set CFLAGS, LDFLAGS for SDK (darwin --isysroot)
    #
-   # exekutor make
+   # Tips: On linux you usually need to get -fPIC into the CFLAGS of the
+   # Makefile. Read the Makfile to figure out how to do that (if at all).
+   #
+   # case "${MULLE_UNAME}" in
+   #    linux)
+   #        logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
+   #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}" CFLAGS="-fPIC"
+   #    ;;
+   #
+   #    *)
+   #        logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
+   #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}"
+   #    ;;
+   # esac
 }
+
+
+clean_main()
+{
+   log_entry "clean_main" "$@"
+
+   #
+   # Could run make clean here, there is no logging here
+   #
+   # exekutor make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}"
+}
+
 
 
 install_main()
@@ -75,17 +100,24 @@ install_main()
    fi
 
    #
-   # Collect results and place them into PREFIX if needed. F.e. the Makefile
+   # Collect results and place them into PREFIX if needed. F.e. if the Makefile
    # does not support PREFIX.
+   #
+   # logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
+   #    make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}" CFLAGS="-fPIC" install
    #
    # It's probably not a bad idea to use mulle-dispense for that.
    #
-   # exekutor mulle-dispense dispense "${KITCHEN_DIR}" "${PREFIX}"
+   # logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
+   #    mulle-dispense dispense "${KITCHEN_DIR}" "${PREFIX}"
    #
    # But you could also just use a set of copy commands.
    #
-   # mkdir -p "${PREFIX}/include/async"
-   # exekutor cp async/async*.h "${PREFIX}/include/async"
+   # logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
+   #    mkdir -p "${PREFIX}/include/async"
+   # logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
+   #    cp async/async*.h "${PREFIX}/include/async"
+   #
 }
 
 
@@ -95,6 +127,8 @@ main()
    local SDK=""
    local PREFIX="/tmp"
    local KITCHEN_DIR="kitchen"
+   local LOGFILE
+   local TEEFILE
 
    while [ "$#" -ne 0 ]
    do
@@ -107,6 +141,20 @@ main()
       case "$1" in
          -h*|--help|help)
             usage
+         ;;
+
+         --logfile)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+
+            LOGFILE="$1"
+         ;;
+
+         --teefile)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+
+            TEEFILE="$1"
          ;;
 
          --sdk)
@@ -144,8 +192,14 @@ main()
             PREFIX="$1"
          ;;
 
+         --*)
+            log_warning "Ignoring unknown option $1 $2"
+            shift
+         ;;
+
          -*)
-            usage "Unknown flag \"$1\""
+            log_warning "Ignoring unknown option $1"
+            shift
          ;;
 
          *)
@@ -158,6 +212,21 @@ main()
 
    options_setup_trace "${MULLE_TRACE}"
 
+   if [ -z "${TEEFILE}" ]
+   then
+      if [ "${MULLE_FLAG_LOG_VERBOSE}" ]
+      then
+         TEEFILE="/dev/stderr"
+      else
+         TEEFILE="/dev/null"
+      fi
+   fi
+
+   if [ -z "${LOGFILE}" ]
+   then
+      LOGFILE="/dev/null"
+   fi
+
    # see with -ls
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
@@ -167,6 +236,8 @@ main()
       log_trace2 "PREFIX        = \"${PREFIX}\""
       log_trace2 "PWD           = \"${PWD}\""
       log_trace2 "SDK           = \"${SDK}\""
+      log_trace2 "TEEFILE       = \"${TEEFILE}\""
+      log_trace2 "LOGFILE       = \"${LOGFILE}\""
    fi
 
    local cmd
@@ -174,7 +245,7 @@ main()
    cmd="${1:-install}"
 
    case "${cmd}" in
-      build|install)
+      build|install|clean)
          ${cmd}_main "$@"
       ;;
 

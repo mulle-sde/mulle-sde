@@ -400,34 +400,39 @@ cd_virtual_root()
       fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
    fi
 
+   local physdir
+
+   physdir="`pwd -P`"
+
    #
    # this check can hit us, if we get a linkorder request in cmake for example
    # but we don't really want to warn then. subenvwarn is a hack
    # to suppress this.
    #
-   log_debug "PWD:                ${PWD}"
+   log_debug "PWD:                ${physdir}"
    log_debug "MULLE_VIRTUAL_ROOT: ${MULLE_VIRTUAL_ROOT}"
 
-   if [ "${PWD}" != "${MULLE_VIRTUAL_ROOT}" ]
+   if [ "${physdir}" != "${MULLE_VIRTUAL_ROOT}" ]
    then
       #
       # quick check that we are not passing a "mulle-env" boundary
       #
-      if [ -d "${PWD}/.mulle/share/env" ]
+      if [ -d "${physdir}/.mulle/share/env" ]
       then
          if [ "${subenvwarn}" = 'YES' ]
          then
-            log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are in a subshell already ($PWD)"
+            log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are in a subshell already ($physdir)"
          fi
-         MULLE_VIRTUAL_ROOT="${PWD}"
+         MULLE_VIRTUAL_ROOT="${physdir}"
       fi
-      exekutor cd "${MULLE_VIRTUAL_ROOT}" ||
-         fail  "Virtual root directory \"${MULLE_VIRTUAL_ROOT}\" missing \
-or inaccessible"
+      physdir="${MULLE_VIRTUAL_ROOT}"
    fi
 
    # ensure that we are in physical
-   cd "`pwd -P`" || fail "could not enter physical virtual root (${MULLE_VIRTUAL_ROOT})"
+   if [ "${physdir}" != "${PWD}" ]
+   then
+      rexekutor cd "${physdir}" || fail "could not enter physical virtual root (${MULLE_VIRTUAL_ROOT})"
+   fi
 
    # set MULLE_VIRTUAL_ROOT to physical (can have changed above intermittently)
    MULLE_VIRTUAL_ROOT="${PWD}"
@@ -630,9 +635,9 @@ main()
          # commands where we want to start a subshell
          case "${cmd}" in
             callback|clean|craft|craftinfo|craftorder|craftstatus|crun|doctor|\
-dependency|definition|environment|fetch|files|find|library|linkorder|list|log|\
+dependency|definition|environment|fetch|files|find|ignore|library|linkorder|list|log|\
 mark|match|monitor|patternfile|project|reflect|run|\
-subproject|style|task|template|tool|treestatus|unmark|update)
+subproject|style|task|tool|treestatus|unmark|update)
                exec_command_in_subshell "$@"
             ;;
 
@@ -789,6 +794,7 @@ extension
 fetch
 files
 find
+ignore
 init
 init-and-enter
 libexec-dir
@@ -810,7 +816,6 @@ subproject
 stash-dir
 style
 task
-template
 test
 tool
 treestatus
@@ -920,6 +925,13 @@ version"
 
       hostname)
          rexekutor printf "%s\n" "${MULLE_HOSTNAME}"
+      ;;
+
+      ignore)
+         # shellcheck source=src/mulle-sde-ignore.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-ignore.sh"
+
+         sde_ignore_main "$@"
       ;;
 
       init)
@@ -1133,15 +1145,6 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh"
 
          sde_subproject_main "$@"
-      ;;
-
-      template)
-         cd_virtual_root "${cmd}"
-
-         # shellcheck source=src/mulle-sde-template.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh"
-
-         sde_template_main "$@"
       ;;
 
       test)

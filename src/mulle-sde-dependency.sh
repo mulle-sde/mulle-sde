@@ -147,9 +147,10 @@ sde_dependency_set_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency set [options] <dep> <key> <value>
 
-   Modify a dependency's settings. The dependency is referenced by its url or
-   address. It's pretty common to change the include header and the library
-   name of a dependency.
+   Modify a dependency's sourcetree settings. The dependency is specified by
+   url or address. It's a pretty common task to change the include header and
+   the library name of a dependency. To change compile and link options use
+   the \`${MULLE_USAGE_NAME} dependency craftinfo\" command.
 
    Examples:
       ${MULLE_USAGE_NAME} dependency set --append pthreads aliases pthread
@@ -539,7 +540,8 @@ _sde_enhance_url()
 
          case "${url}" in
             # format .../tag.tar.gz or so
-            *github.com/*)
+            #  https://github.com/Codeon-GmbH/mulle-clang/archive/10.0.0.2.tar.gz
+            *github.com*/archive/*)
                last="${url##*/}"         # basename
                leading="${url%${last}}"  # dirname
                tag="${last%%.tar*}"
@@ -558,6 +560,29 @@ _sde_enhance_url()
                extension="${last#${tag}.}"    # dirname
 
                url="${leading}\${MULLE_TAG}.${extension}"
+            ;;
+
+            # ex.
+            # https://github.com/harfbuzz/harfbuzz/releases/download/2.6.5/harfbuzz-2.6.5.tar.xz
+            #
+            *github.com*/download/*)
+               last="${url##*/}"         # basename
+               leading="${url%${last}}"  # dirname
+               tag="${leading##*/}"      # basename
+               case "${last}" in
+                  *-${tag}.*)
+                     name=${last%-${tag}.*}
+                     extension="${last#${tag}.}"
+                     url="${leading}${name}\${MULLE_TAG}.${extension}"
+                  ;;
+
+                  *)
+                     name=${last%%\.*}
+                     extension="${last#*\.}"
+                     url="${leading}${name}\${MULLE_TAG}.${extension}"
+                  ;;
+               esac
+               fail "TODO"
             ;;
 
             # format .../tag

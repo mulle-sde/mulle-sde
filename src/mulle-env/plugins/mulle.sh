@@ -65,9 +65,9 @@ case "\${MULLE_SHELL_MODE}" in
          alias log="mulle-sde log"
          alias match="mulle-sde match"
          alias monitor="mulle-sde monitor"
+         alias reflect="mulle-sde reflect"
          alias patternfile="mulle-sde patternfile"
          alias subproject="mulle-sde subproject"
-         alias reflect="mulle-sde reflect"
       fi
 
       if [ -z "${MULLE_SDE_NO_QUICK_ALIAS}" ]
@@ -359,6 +359,7 @@ env_setup_mulle_tools()
       env_link_mulle_tool "mulle-platform"   "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-sde"        "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-sourcetree" "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-template"   "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-test"       "${bindir}" "${libexecdir}" "tool" "optional"
    ) || return 1
 }

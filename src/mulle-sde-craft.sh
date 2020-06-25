@@ -189,6 +189,7 @@ sde_perform_reflects()
    esac
 }
 
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
@@ -314,9 +315,9 @@ sde_craft_main()
    #  4. possibly clean build
    #
    sde_perform_reflects "${target}" \
-                       "${_craftorderfile}" \
-                       "${_cachedir}" \
-                       "${OPTION_REFLECT}"
+                        "${_craftorderfile}" \
+                        "${_cachedir}" \
+                        "${OPTION_REFLECT}"
 
    #
    # by default, we don't want to see the craftorder verbosity
@@ -348,11 +349,17 @@ sde_craft_main()
    then
       case "${PROJECT_DIALECT}" in
          objc)
-            project_cmdline="${MULLE_SCAN_BUILD:-mulle-scan-build} ${MULLE_SCAN_BUILD_OPTIONS} -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' ${project_cmdline}"
+            project_cmdline="${MULLE_SCAN_BUILD:-mulle-scan-build} \
+                                 ${MULLE_SCAN_BUILD_OPTIONS} \
+                                 -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' \
+                                 ${project_cmdline}"
          ;;
 
          *)
-            project_cmdline="${MULLE_SCAN_BUILD:-scan-build} ${MULLE_SCAN_BUILD_OPTIONS} -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' ${project_cmdline}"
+            project_cmdline="${MULLE_SCAN_BUILD:-scan-build} \
+                                 ${MULLE_SCAN_BUILD_OPTIONS} \
+                                 -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' \
+                                 ${project_cmdline}"
          ;;
       esac
    fi

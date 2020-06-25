@@ -1,0 +1,92 @@
+#! /usr/bin/env bash
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+
+# the tests here are wrong, mulle-craft shouldn't b
+run_mulle_sde()
+{
+   log_fluff "####################################"
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################"
+
+   exekutor "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+}
+
+
+expect()
+{
+   local expected_filename="$1"
+   local filename="$2"
+
+   local result
+   local diff
+
+   diff="`diff "${expected_filename}" "${filename}"`"
+   case $? in
+      0)
+      ;;
+
+      1)
+         fail "${filename}:
+${diff}"
+      ;;
+
+      *)
+         fail "diff '${expected_filename}' '${filename}' failed"
+      ;;
+   esac
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@"
+
+   MULLE_SDE_EXTENSION_PATH="${PWD}"
+   export MULLE_SDE_EXTENSION_PATH
+
+   local directory
+
+   directory="`make_tmp_directory`" || exit 1
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s -DLOCAL_KEY="hello" \
+                 init --project-name "FooBar" \
+                      --project-source-dir "source" \
+                      --project-language "gumba" \
+                      --project-dialect "mumba" \
+                      --github-user "marten" \
+                      --no-post-init -d "${directory}" \
+                      -e test-vendor/extra none
+
+   [ ! -d "${directory}/.mulle" ] && fail ".mulle directory failed"
+
+   [ ! -f "${directory}/source/file" ]       && fail "\"${directory}/file\" not present"
+
+   expect "extra.txt" "${directory}/source/file"
+
+   log_verbose "----- #1 PASSED -----"
+
+   log_info "----- ALL PASSED -----"
+
+   rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "file" || exit 1
+
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
+

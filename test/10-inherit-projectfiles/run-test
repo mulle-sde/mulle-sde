@@ -100,7 +100,10 @@ main()
    directory="`make_tmp_directory`"
    directory="${directory:-/tmp/build}"
 
-   run_mulle_sde -s init -d "${directory}" executable
+   run_mulle_sde -s init --no-post-init \
+                         --project-source-dir "" \
+                         -d "${directory}" \
+                         executable
    (
       cd "${directory}" &&
       run_mulle_sde -s extension add test-vendor/b
@@ -157,7 +160,7 @@ init()
 {
    MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir`" || exit 1
 
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "file" || exit 1
 
    MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
 }

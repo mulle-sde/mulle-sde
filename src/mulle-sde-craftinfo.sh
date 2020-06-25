@@ -53,7 +53,8 @@ Usage:
    mulle-sde uses a "oneshot" extension mulle-sde/craftinfo to create that
    subproject. This extension also simplifies the use of build scripts.
 
-   See the \`craftinfo set\` command for more information and typical usage.
+   See the \`${MULLE_USAGE_NAME} dependency craftinfo set\` command help for
+   more information and typical usage examples.
 
 EOF
 
@@ -100,11 +101,13 @@ sde_dependency_craftinfo_set_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo set [option] <dep> <key> <value>
 
-   Change a setting value for key. This will automatically create a proper
-   "craftinfo" subproject for you, if there is none yet.
+   Change a craft setting value for key. Typically these are compile or link
+   options. For this "craftinfo" maintains mulle-make "definitions", that
+   are then passed to mulle-make during a crft. See
+   \`mulle-make definition help\` for more info.
 
-   See \`mulle-make definition help\` for more info about manipulating
-   craftinfo settings.
+   This command will automatically create a proper "craftinfo" subproject,
+   if there is none yet.
 
 Examples:
    Set preprocessor flag -DX=0 for all platforms on dependency "nng":
@@ -124,6 +127,9 @@ Examples:
       ${MULLE_USAGE_NAME} dependency craftinfo --os linux \\
          set curl \\
             CMAKEFLAGS "-DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF"
+
+   Set mujs to build with -fPIC:
+      mulle-sde dependency craftinfo --os linux set mujs XCFLAGS -fPIC
 
 Options:
    --append : value will be appended to key instead (e.g. CPPFLAGS += )
@@ -322,7 +328,7 @@ sde_add_craftinfo_subproject_if_needed()
    then
       if [ "${clobber}" = "DEFAULT" ]
       then
-         return 4
+         return 2
       fi
       if [ "${clobber}" = "YES" ]
       then
@@ -499,7 +505,13 @@ sde_dependency_craftinfo_create_main()
    sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                           "${_name}" \
                                           "${OPTION_COPY}" \
-                                          "${OPTION_CLOBBER}" || exit 1
+                                          "${OPTION_CLOBBER}"
+   case "$?" in
+      0|2)
+         return 0
+      ;;
+   esac
+   exit 1
 }
 
 
@@ -765,7 +777,15 @@ sde_dependency_craftinfo_set_main()
    sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                           "${_name}" \
                                           "${OPTION_COPY}" \
-                                          "DEFAULT" || exit 1
+                                          "DEFAULT"
+   case "$?" in
+      0|2)
+      ;;
+
+      *)
+         exit 1
+      ;;
+   esac
 
    local setflags
 

@@ -51,7 +51,7 @@ sde_add_usage()
    FILE_USAGE_NAME="${FILE_USAGE_NAME:-${MULLE_USAGE_NAME} add}"
 
    COMMON_OPTIONS="\
-   -e <extension>          : oneshot extension to use
+   -e <extension>          : oneshot extension to use in vendor/extension form
    -t <type>               : type of file to create (file)
    --file-extension <name> : force file extension"
 
@@ -105,11 +105,6 @@ sde_add_include()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "include fail"
    fi
 
-   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
-   fi
-
    if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "include fail"
@@ -122,49 +117,6 @@ sde_add_include()
 }
 
 
-#
-# this has to move to templating really...
-#
-r_add_template_named_file()
-{
-   local extension="${1:-default}"
-   local name="$2"
-   local envvar="$3"
-
-   #
-   # figure out if we want to add a header
-   #
-   RVAL="${!envvar}"
-   rexekutor [ -f "${RVAL}" ] && return 0
-
-   RVAL="${MULLE_SDE_ETC_DIR}/${name}.${extension}"
-   rexekutor [ -f "${RVAL}" ] && return 0
-
-   RVAL="${MULLE_SDE_ETC_DIR}/${name}.default"
-   rexekutor [ -f "${RVAL}" ] && return 0
-
-   RVAL="${HOME}/.mulle/etc/sde/${name}.${extension}"
-   rexekutor [ -f "${RVAL}" ] && return 0
-
-   RVAL="${HOME}/.mulle/etc/sde/${name}.default"
-   rexekutor [ -f "${RVAL}" ] && return 0
-
-   RVAL=""
-   return 1
-}
-
-
-r_add_template_header_file()
-{
-   r_add_template_named_file "$1" "header" "MULLE_SDE_FILE_HEADER"
-}
-
-
-r_add_template_footer_file()
-{
-   r_add_template_named_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
-}
-
 
 _sde_add_oneshot_extension()
 {
@@ -175,41 +127,19 @@ _sde_add_oneshot_extension()
    local class="$3"
    local category="$4"
 
-   local headerfile
-   local ext
+   if [ -z "${MULLE_SDE_PROJECT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
+   fi
 
-   ext="${filepath##*.}"
-
-   r_add_template_header_file "${ext}"
-   headerfile="${RVAL}"
-
-   r_add_template_footer_file "${ext}"
-   footerfile="${RVAL}"
-
-   #
-   # We use this hacky way, so we can add oneshot extensions without
-   # the need for a project to exist already
-   #
    (
-      export ONESHOT_FILENAME="${filepath}"
-      export ONESHOT_FILENAME_NO_EXT="${filepath%.*}"
-      r_extensionless_basename "${ONESHOT_FILENAME}"
-      export ONESHOT_NAME="${RVAL}"
+      #
+      # Use this hacky way, so we can add oneshot extensions without
+      # the need for a project to exist already
+      #
+      set_oneshot_variables "${filepath}" "${class}" "${category}"
+      export_oneshot_environment "${filepath}" "${class}" "${category}"
 
-      r_identifier "${ONESHOT_NAME}"
-      export ONESHOT_IDENTIFIER="${RVAL}"
-      r_lowercase "${ONESHOT_IDENTIFIER}"
-      export ONESHOT_DOWNCASE_IDENTIFIER="${RVAL}"
-      r_uppercase "${ONESHOT_IDENTIFIER}"
-      export ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
-
-      r_basename "${ONESHOT_FILENAME}"
-      export ONESHOT_BASENAME="${RVAL}"
-      export ONESHOT_CLASS="${class}"
-      export ONESHOT_CATEGORY="${category}"
-      # hack!!
-      export OPTION_TEMPLATE_HEADER_FILE="${headerfile}"
-      export OPTION_TEMPLATE_FOOTER_FILE="${footerfile}"
       export VENDOR_NAME="${extension%%/*}"
 
       install_oneshot_extensions "${extension}"
@@ -233,6 +163,8 @@ _sde_add_file_via_oneshot_extension()
    #
    # now try to find a oneshot extension in our vendors list that fits
    #
+
+   log_debug "Looking for direct name hit"
    set -o noglob; IFS=$'\n'
    for vendor in ${vendors}
    do
@@ -248,6 +180,8 @@ _sde_add_file_via_oneshot_extension()
 
    if [ ! -z "${genericname}" -a "${genericname}" != "${name}" ]
    then
+
+      log_debug "Looking for non-specialized files"
       #
       # fall back to non-specialized files
       #
@@ -299,16 +233,19 @@ _r_sde_get_class_category_genericname()
    then
       r_path_extension "${filepath}"
       extension="${RVAL}"
-      if [ -z "${extension}" ]
-      then
-         fail "Can not determine file type because of missing extension"
-      fi
    fi
 
    local filename
 
    r_extensionless_basename "${filepath}"
    filename="${RVAL}"
+
+   if [ -z "${extension}" ]
+   then
+      log_verbose "Can not determine file type because of missing extension"
+      RVAL="${name}"
+      return
+   fi
 
    #
    # If user specified the type, lets use this
@@ -374,7 +311,11 @@ sde_add_file_via_oneshot_extension()
    local _class
 
    _r_sde_get_class_category_genericname "${filepath}" "${name}" "${type}" "${ext}"
-   name="${RVAL}"
+
+   if [ -z "${name}" ]
+   then
+      name="${RVAL}"
+   fi
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
@@ -404,12 +345,7 @@ sde_add_in_project()
    local ext="$5"
    local all="$6"
 
-   if ! mulle-match match --quiet "${filepath}"
-   then
-      log_warning "\"${filepath}\" does not match any patternfiles"
-   fi
-
-   local  absfilepath
+   local absfilepath
 
    absfilepath="${filepath}"
    if ! is_absolutepath "${filepath}"
@@ -427,6 +363,25 @@ sde_add_in_project()
    then
       log_verbose "File already exists, just updating"
    else
+      #
+      # mulle-match can only deal with relative filepaths though
+
+      local relpath
+
+      relpath="${absfilepath#${MULLE_VIRTUAL_ROOT}/}"
+      case "${relpath}" in
+         /*)
+            # don't check absolute paths then
+         ;;
+
+         *)
+            if ! mulle-match match --quiet "${relpath}"
+            then
+               log_warning "\"${filepath}\" does not match any patternfiles"
+            fi
+         ;;
+      esac
+
       #
       # get currently installed runtime vendors, theses are the ones we
       # query for the file to produce, if none are given
@@ -465,18 +420,21 @@ sde_add_in_project()
       esac
    fi
 
-   exekutor mulle-sde reflect || exit 1
+   log_info "Added \"${filepath#${MULLE_USER_PWD}/}\""
 
    local found
 
-   found="`rexekutor mulle-match list | fgrep -x "${filepath}" `"
+   found="`rexekutor mulle-match list | fgrep -x "${absfilepath#${MULLE_USER_PWD}/}"`"
    if [ -z "${found}" ]
    then
-      log_warning "The file is not in a place to be found by the patternfiles"
+      log_warning "The new file \"${absfilepath#${MULLE_USER_PWD}/}\" will not be found by \`reflect\`.
+${C_INFO}Tip: The PROJECT_SOURCE_DIR environment variable is ${C_RESET_BOLD}${PROJECT_SOURCE_DIR}.
+${C_INFO}Maybe remove the generated file and try anew with:
+${C_RESET_BOLD}mulle-sde add \"${PROJECT_SOURCE_DIR}/${relpath}\""
       return
    fi
 
-   log_info "Added \"${filepath#${MULLE_USER_PWD}/}\""
+   exekutor mulle-sde reflect || exit 1
 }
 
 
@@ -640,6 +598,20 @@ sde_add_main()
 
    [ $# -ne 1  ] && sde_add_usage
 
+   local filepath
+
+   filepath="$1"
+   case "${filepath}" in
+      /*|~*)
+      ;;
+
+      *)
+         r_filepath_concat "${MULLE_USER_PWD}" "${filepath}"
+         filepath="${RVAL}"
+      ;;
+   esac
+
+
    if rexekutor mulle-sde -s status --clear --project
    then
       if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -650,17 +622,19 @@ sde_add_main()
                                       --file-extension "${OPTION_FILE_EXTENSION}" \
                                       "$@" || exit 1
       else
-         sde_add_in_project "$1" "${OPTION_VENDOR}" \
-                                 "${OPTION_NAME}" \
-                                 "${OPTION_TYPE}" \
-                                 "${OPTION_FILE_EXTENSION}" \
-                                 "${OPTION_ALL_VENDORS}"
+         sde_add_in_project "${filepath}" \
+                            "${OPTION_VENDOR}" \
+                            "${OPTION_NAME}" \
+                            "${OPTION_TYPE}" \
+                            "${OPTION_FILE_EXTENSION}" \
+                            "${OPTION_ALL_VENDORS}"
       fi
    else
-      sde_add_no_project "$1" "${OPTION_VENDOR}" \
-                              "${OPTION_NAME}" \
-                              "${OPTION_TYPE}" \
-                              "${OPTION_FILE_EXTENSION}"
+      sde_add_no_project "${filepath}" \
+                         "${OPTION_VENDOR}" \
+                         "${OPTION_NAME}" \
+                         "${OPTION_TYPE}" \
+                         "${OPTION_FILE_EXTENSION}"
    fi
 }
 

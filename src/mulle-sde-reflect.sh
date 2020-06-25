@@ -345,13 +345,6 @@ sde_reflect_main()
       shift
    done
 
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
-
-   set_projectname_environment
-
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"

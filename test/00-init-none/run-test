@@ -1,0 +1,79 @@
+#! /usr/bin/env bash
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+
+# the tests here are wrong, mulle-craft shouldn't b
+run_mulle_sde()
+{
+   log_fluff "####################################"
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################"
+
+   exekutor "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+}
+
+
+expect()
+{
+   local expected="$1"
+   local filename="$2"
+
+   local result
+
+   result="`cat "${filename}"`"
+   log_debug "${filename}: ${result}"
+   if [ "${expected}" != "${result}" ]
+   then
+      fail "${filename}: \"${result}\" != \"${expected}\""
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@"
+
+   MULLE_SDE_EXTENSION_PATH="${PWD}"
+   export MULLE_SDE_EXTENSION_PATH
+
+   local directory
+
+   directory="`make_tmp_directory`"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" none
+
+   [ ! -d "${directory}/.mulle" ] && fail ".mulle directory failed"
+
+   files="`( cd "${directory}" ; ls )`"
+
+   if [ ! -z "${files}" ]
+   then
+      fail "none produced files: ${files}"
+   fi
+
+   log_verbose "----- #1 PASSED -----"
+
+   log_info "----- ALL PASSED -----"
+
+   rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
+

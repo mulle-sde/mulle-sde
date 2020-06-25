@@ -1,6 +1,6 @@
-# <|ONESHOT_NAME|>
+# <|ONESHOT_NAME|>-craftinfo
 
-[<|ONESHOT_NAME|>](//github.com/<|GITHUB_USER|>/<|ONESHOT_NAME|>)
+Craftinfo for mulle-sde to build [<|ONESHOT_NAME|>](//github.com/<|GITHUB_USER|>/<|ONESHOT_NAME|>)
 
 ```
 mulle-sde dependency add --github <|GITHUB_USER|> <|ONESHOT_NAME|>

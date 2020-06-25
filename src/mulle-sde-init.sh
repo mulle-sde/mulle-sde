@@ -134,7 +134,6 @@ _copy_extension_dir()
       flags="${flags} -n"  # don't clobber
    fi
 
-
    local name
 
    r_basename "${directory}"
@@ -230,90 +229,6 @@ _append_to_motd()
       log_fluff "Append \"${extensiondir}/motd\" to motd"
       _MOTD="`add_line "${_MOTD}" "${text}" `"
    fi
-}
-
-
-_template_file_arguments()
-{
-   log_entry "_template_file_arguments" "$@"
-
-   local projectdir="$1"
-   local force="$2"
-   local onlyfilename="$3"
-
-   #
-   # copy and expand stuff from project folder. Be extra careful not to
-   # clobber project files, except if -f is given
-   #
-   _arguments="--embedded \
-               --template-dir '${projectdir}' \
-\
-               --name '${PROJECT_NAME}' \
-               --language '${PROJECT_LANGUAGE}' \
-               --dialect '${PROJECT_DIALECT}' \
-               --extensions '${PROJECT_EXTENSIONS}' \
-               --header-file '${OPTION_TEMPLATE_HEADER_FILE}' \
-               --footer-file '${OPTION_TEMPLATE_FOOTER_FILE}' \
-               --source-dir '${PROJECT_SOURCE_DIR}'"
-
-   if [ "${force}" = 'YES' ]
-   then
-      _arguments="${_arguments} -f"
-   fi
-
-   if [ ! -z "${onlyfilename}" ]
-   then
-      _arguments="${_arguments} --file '${onlyfilename}'"
-   fi
-
-   _arguments="${_arguments} ${OPTION_USERDEFINES}"
-}
-
-
-_copy_extension_template_files()
-{
-   log_entry "_copy_extension_template_files" "$@"
-
-   local extensiondir="$1"; shift
-   local subdirectory="$1"; shift
-   local projecttype="$1"; shift
-   local force="$1"; shift
-   local onlyfilename="$1"; shift
-   local file_seds="$1"; shift
-
-   local projectdir
-
-   projectdir="${extensiondir}/${subdirectory}/${projecttype}"
-
-   _check_dir "${projectdir}" || return 0
-
-   #
-   # copy and expand stuff from project folder. Be extra careful not to
-   # clobber project files, except if -f is given
-   #
-   log_fluff "Copying \"${projectdir}\" with template expansion"
-
-   local _arguments
-
-   _template_file_arguments "${projectdir}" "${force}" "${onlyfilename}"
-
-   #
-   # Normally the base projet files will be copied first, then we can not
-   # inherit properly because they are already there and we can not clobber
-   # them. So we collect TEMPLATE_DIRECTORIES in reverse order.
-   #
-   # If force is set, the dlast file file will win, in this case we use the
-   # "natural" order
-   #
-   if [ "${force}" = 'YES' ]
-   then
-      TEMPLATE_DIRECTORIES="${TEMPLATE_DIRECTORIES}
-${_arguments}"
-      return
-   fi
-
-   TEMPLATE_DIRECTORIES="${_arguments}
-${TEMPLATE_DIRECTORIES}"
 }
 
 
@@ -458,7 +373,6 @@ environmenttext_to_mset()
    local line
    local comment
 
-
    while IFS=$'\n' read -r line
    do
       line="`tr -d '\0015' <<< "${line}"`"
@@ -547,7 +461,7 @@ r_sde_githubname()
    name="${RVAL}"
 
    # github don't like underscores, so we adapt here
-   name="`tr '_' '-' <<< "${name}"`"
+   name="${name//_/-}"
 
    # is it a github identifier (engl.) ?
    filtered="`tr -d -c 'A-Z0-9a-z-' <<< "${name}"`"
@@ -569,6 +483,16 @@ r_sde_githubname()
 }
 
 
+import_template_generate()
+{
+   if [ -z "${MULLE_TEMPLATE_GENERATE_SH}" ]
+   then
+      MULLE_TEMPLATE_LIBEXEC_DIR="`mulle-template libexec-dir`" || fail "mulle-template not in PATH ($PATH)"
+      . "${MULLE_TEMPLATE_LIBEXEC_DIR}/mulle-template-generate.sh" || internal_fail "include fail"
+   fi
+}
+
+
 #
 # expensive
 #
@@ -578,10 +502,7 @@ read_template_expanded_file()
 
    local filename="$1"
 
-   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
-   fi
+   import_template_generate
 
    #
    # CLUMSY HACKS:
@@ -589,7 +510,6 @@ read_template_expanded_file()
    #
    local PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY:-Foundation-startup}"
    local GITHUB_USER="${GITHUB_USER:-${LOGNAME}}"
-
    local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
 
    r_uppercase "${PREFERRED_STARTUP_LIBRARY}"
@@ -600,9 +520,9 @@ read_template_expanded_file()
    GITHUB_USER="${GITHUB_USER}" \
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
    PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
-      r_template_contents_replacement_command
+      r_template_contents_replacement_seds "<|" "|>" "template_is_interesting_key"
 
-   eval_rexekutor "${RVAL}" "${filename}" | egrep -v '^#'
+   eval_rexekutor "'${SED:-sed}'" "${RVAL}" "${filename}" | egrep -v '^#'
 }
 
 
@@ -817,7 +737,7 @@ run_init()
                               "${flags}" \
                               "${auxflags}" \
                            --marks "'${marks}'" \
-                                  "${projecttype}"
+                                   "${projecttype}"
    ) || fail "init script \"${RVAL}\" failed"
 }
 
@@ -984,6 +904,72 @@ install_version()
 }
 
 
+#
+# In mulle-sde-init when we are using template files we are installing
+# into `src` (as of now). If no src is defined we use PWD, basically just
+# for testing though.
+#
+_copy_extension_template_files()
+{
+   log_entry "_copy_extension_template_files" "$@"
+
+   local extensiondir="$1"; shift
+   local subdirectory="$1"; shift
+   local projecttype="$1"; shift
+   local force="$1"; shift
+   local onlyfilename="$1"; shift
+   local file_seds="$1"; shift
+
+   local sourcedir
+
+   sourcedir="${extensiondir}/${subdirectory}/${projecttype}"
+
+   _check_dir "${sourcedir}" || return 0
+
+   #
+   # copy and expand stuff from project folder. Be extra careful not to
+   # clobber project files, except if -f is given
+   #
+   log_fluff "Copying \"${sourcedir}\" with template expansion"
+
+   local arguments
+   local dstdir
+
+   dstdir="${PWD}"
+
+   arguments="write --embedded --without-template-dir --no-boring-environment"
+   if [ ! -z "${onlyfilename}" ]
+   then
+      arguments="${arguments} --file '${onlyfilename}'"
+   fi
+
+   if [ "${force}" = 'YES' ]
+   then
+      arguments="${arguments} --overwrite"
+   fi
+
+   arguments="${arguments} '${sourcedir}' '${dstdir}'"
+
+   #
+   # Normally the base projet files will be copied first, then we can not
+   # inherit properly because they are already there and we can not clobber
+   # them. So we collect _TEMPLATE_DIRECTORIES in reverse order.
+   #
+   # If force is set, the dlast file file will win, in this case we use the
+   # "natural" order
+   #
+   if [ "${force}" = 'YES' ]
+   then
+      _TEMPLATE_DIRECTORIES="${_TEMPLATE_DIRECTORIES}
+${arguments}"
+      return
+   fi
+
+   _TEMPLATE_DIRECTORIES="${arguments}
+${_TEMPLATE_DIRECTORIES}"
+}
+
+
 _copy_extension_template_directory()
 {
    log_entry "_copy_extension_template_directory" "$@"
@@ -1086,6 +1072,24 @@ _delete_extension_template_directory()
 }
 
 
+set_projectlanguage()
+{
+   set_projectlanguage_variables
+
+   log_fluff "Project language set to \"${PROJECT_LANGUAGE}\""
+   log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
+   log_fluff "Project extensions set to \"${PROJECT_EXTENSIONS}\""
+
+   export PROJECT_EXTENSIONS
+
+   export PROJECT_DOWNCASE_DIALECT
+   export PROJECT_UPCASE_DIALECT
+   export PROJECT_DIALECT
+
+   export PROJECT_LANGUAGE
+   export PROJECT_DOWNCASE_LANGUAGE
+   export PROJECT_UPCASE_LANGUAGE
+}
 
 #
 # With "marks" you control what should be installed:
@@ -1136,7 +1140,7 @@ _install_extension()
    then
       if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         log_info "Extension \"${vendor}/${extname}\" is already installed"
+         log_fluff "Extension \"${vendor}/${extname}\" is already installed"
          return
       fi
    else
@@ -1197,16 +1201,8 @@ ${C_INFO}Possible ways to fix this:
                IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
                [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
-               PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
-               if [ -z "${PROJECT_EXTENSIONS}" ]
-               then
-                  r_lowercase "${PROJECT_DIALECT}"
-                  PROJECT_EXTENSIONS="${RVAL}"
-               fi
 
-               log_fluff "Project language set to \"${PROJECT_DIALECT}\""
-               log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
-               log_fluff "Project extensions set to \"${PROJECT_EXTENSIONS}\""
+               set_projectlanguage
 
                LANGUAGE_SET='YES'
            fi
@@ -1489,6 +1485,33 @@ ${C_INFO}Possible ways to fix this:
 }
 
 
+#
+# could do this once
+#
+define_hacky_template_variables()
+{
+   log_entry "define_additional_template_variables" "$@"
+
+   PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS:-${PROJECT_DOWNCASE_DIALECT}}"
+   export PROJECT_EXTENSIONS
+
+   PROJECT_EXTENSION="${PROJECT_EXTENSION:-${PROJECT_EXTENSIONS%%:*}}"
+   export PROJECT_EXTENSION
+
+   case "${PROJECT_DIALECT}" in
+      objc)
+         INCLUDE_COMMAND=import
+      ;;
+
+      *)
+         INCLUDE_COMMAND=include
+      ;;
+   esac
+   export INCLUDE_COMMAND
+}
+
+
+
 # Will exit on error. Always returns 0
 install_extension()
 {
@@ -1502,47 +1525,60 @@ install_extension()
    local onlyfilename="$6"
    local force="$7"
 
-   local TEMPLATE_DIRECTORIES # will be set by _install_extension
+   local _TEMPLATE_DIRECTORIES # will be set by _install_extension
 
    local extensiondir
 
    _install_extension "$@"
    extensiondir="${RVAL}"
 
-   if [ -z "${MULLE_SDE_TEMPLATE_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-template.sh" || internal_fail "include fail"
-   fi
+   #
+   # Now install collected templates
+   #
+   import_template_generate
 
-   [ -z "${TEMPLATE_DIRECTORIES}" ] && return
+   [ -z "${_TEMPLATE_DIRECTORIES}" ] && return
 
    if [ -z "${onlyfilename}" ]
    then
       log_verbose "Installing project files for \"${vendor}/${extname}\""
    fi
 
-   #
-   # using the --embedded option, the template generator keeps state in
-   # CONTENTS_SED and FILENAME_SED, since that is expensive to recalculate
-   #
    (
+      export_projectname_environment "${PROJECT_NAME}"
+      export_projectlanguage_environment "${PROJECT_LANGUAGE}"
+
+      #
+      # Read what extensions added to the project so far. environment-project
+      # is under our mulle-sde control and it's not complete yet.
+      #
+      if [ -f ".mulle/share/env/environment-extension.sh" ]
+      then
+         . ".mulle/share/env/environment-extension.sh"
+      fi
+
+      define_hacky_template_variables
+
+      #
+      # using the --embedded option, the template generator keeps state in
+      # CONTENTS_SED and FILENAME_SED, since that is expensive to recalculate
+      #
       local CONTENTS_SED
       local FILENAME_SED
 
-      log_debug "TEMPLATE_DIRECTORIES: ${TEMPLATE_DIRECTORIES}"
+      log_debug "_TEMPLATE_DIRECTORIES: ${_TEMPLATE_DIRECTORIES}"
 
       set -o noglob; IFS=$'\n'
-      for arguments in ${TEMPLATE_DIRECTORIES}
+      for arguments in ${_TEMPLATE_DIRECTORIES}
       do
          IFS="${DEFAULT_IFS}"; set +o noglob
 
          if [ ! -z "${arguments}" ]
          then
-            eval_rexekutor _template_main "${arguments}" || exit 1
+            eval_rexekutor template_generate_main "${arguments}" || exit 1
          fi
       done
    ) || exit 1
-
 
    if [ -z "${onlyfilename}" ]
    then
@@ -1591,7 +1627,6 @@ install_extension()
 
    log_verbose "${C_RESET_BOLD}${verb}${C_VERBOSE} ${exttype} extension \"${vendor}/${extname}\""
 }
-
 
 
 install_motd()
@@ -1726,7 +1761,6 @@ recall_installed_extensions()
       esac
    fi
 
-
    log_debug "Checking MULLE_SDE_INSTALLED_EXTENSIONS environment variable"
 
    #
@@ -1787,29 +1821,6 @@ env_set_var()
                   environment \
                      --scope "${scope}" \
                      set "${key}" "${value}" || internal_fail "failed env set"
-}
-
-#
-# also pre-compute variations needed for scripts
-#
-memorize_project_name()
-{
-   log_entry "memorize_project_name" "$@"
-
-   local name="$1"
-
-   if [ -z "${MULLE_CASE_SH}" ]
-   then
-      # shellcheck source=mulle-case.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
-   fi
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
-   fi
-
-   set_projectname_variables "${name}"
-   save_projectname_variables "--no-protect"
 }
 
 
@@ -1978,16 +1989,18 @@ install_project()
    local LANGUAGE_SET
 
    LANGUAGE_SET='NO'
-   PROJECT_NAME="${projectname}"
-   if [ -z "${PROJECT_NAME}" ]
-   then
-      r_basename "${PWD}"
-      PROJECT_NAME="${RVAL}"
-   fi
 
-   PROJECT_LANGUAGE="${language}"
-   PROJECT_DIALECT="${dialect}"
-   PROJECT_EXTENSIONS="${extensions}"
+   PROJECT_NAME="${projectname}"
+   export PROJECT_NAME
+
+   if [ ! -z "${language}" ]
+   then
+      PROJECT_LANGUAGE="${language}"
+      PROJECT_DIALECT="${dialect}"
+      PROJECT_EXTENSIONS="${extensions}"
+
+      set_projectlanguage
+   fi
 
    # check that PROJECT_NAME looks usable as an identifier
    case "${PROJECT_NAME}" in
@@ -2007,21 +2020,29 @@ install_project()
    # the project language is actually determined by the runtime
    # extension
    #
-   PROJECT_SOURCE_DIR="${projectsourcedir:-src}"
-   PROJECT_TYPE="${projecttype}"
+   project_add_envscope_if_missing
 
-   # TODO: this is clumsy and needs to be rewritten
-   # put these first, so extensions can draw on these in their definitions
-   #
-   memorize_project_name "${PROJECT_NAME}"
+   PROJECT_TYPE="${projecttype}"
+   PROJECT_SOURCE_DIR="${projectsourcedir}"
 
    env_set_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
-
-   if [ "${PROJECT_TYPE}" != "none" ]
+   if [ ! -z "${PROJECT_SOURCE_DIR}" ]
    then
+      #
+      # For projects that are not "none", we use save PROJECT_SOURCE_DIR
+      #
       env_set_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
    fi
 
+   export PROJECT_SOURCE_DIR
+   export PROJECT_TYPE
+
+   #
+   # TODO: this is clumsy and needs to be rewritten
+   # put these first, so extensions can draw on these in their definitions
+   #
+   set_projectname_variables "${PROJECT_NAME}"
+   save_projectname_variables "--no-protect"
 
    local _MOTD
    local _INSTALLED_EXTENSIONS
@@ -2040,9 +2061,7 @@ install_project()
       return
    fi
 
-   [ ! -z "${PROJECT_LANGUAGE}" ]    && env_set_var PROJECT_LANGUAGE "${PROJECT_LANGUAGE}" "project"
-   [ ! -z "${PROJECT_DIALECT}" ]     && env_set_var PROJECT_DIALECT "${PROJECT_DIALECT}" "project"
-   [ ! -z "${PROJECT_EXTENSIONS}" ]  && env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "project"
+   save_projectlanguage_variables "--no-protect"
 
    if [ -z "${_INSTALLED_EXTENSIONS}" -a "${OPTION_UPGRADE}" != 'YES' ]
    then
@@ -2625,10 +2644,30 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
                     patternfile repair --add
       fi
    else
+      case "${OPTION_PROJECT_SOURCE_DIR}" in
+         DEFAULT)
+            if [ "${PROJECT_TYPE}" != "none" ]
+            then
+               OPTION_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
+            fi
+         ;;
+      esac
+
+      case "${OPTION_NAME}" in
+         DEFAULT)
+            OPTION_NAME="${PROJECT_NAME}"
+            if [ -z "${OPTION_NAME}" ]
+            then
+               r_basename "${PWD}"
+               OPTION_NAME="${RVAL}"
+            fi
+         ;;
+      esac
+
       if ! (
-         install_project "${OPTION_NAME:-${PROJECT_NAME}}" \
+         install_project "${OPTION_NAME}" \
                          "${PROJECT_TYPE}" \
-                         "${OPTION_PROJECT_SOURCE_DIR:-${PROJECT_SOURCE_DIR}}" \
+                         "${OPTION_PROJECT_SOURCE_DIR}" \
                          "${OPTION_MARKS}" \
                          "${OPTION_PROJECT_FILE}" \
                          "${MULLE_FLAG_MAGNUM_FORCE}" \
@@ -2783,7 +2822,7 @@ _sde_init_main()
 {
    log_entry "_sde_init_main" "$@"
 
-   local OPTION_NAME
+   local OPTION_NAME='DEFAULT'
    local OPTION_EXTRAS
    local OPTION_ONESHOTS
    local OPTION_COMMON="sde"
@@ -2806,12 +2845,12 @@ _sde_init_main()
    local OPTION_REINIT
    local OPTION_EXTENSION_FILE=".mulle/share/sde/extension"
    local OPTION_PROJECT_FILE
-   local OPTION_PROJECT_SOURCE_DIR
+   local OPTION_PROJECT_SOURCE_DIR='DEFAULT'
    local OPTION_POST_INIT='YES'
    local OPTION_UPGRADE_SUBPROJECTS
    local PURGE_PWD_ON_ERROR='NO'
-   local OPTION_TEMPLATE_HEADER_FILE
-   local OPTION_TEMPLATE_FOOTER_FILE
+   local TEMPLATE_HEADER_FILE
+   local TEMPLATE_FOOTER_FILE
    local OPTION_INIT_TYPE="project"
    local OPTION_REFLECT='YES'
    local line
@@ -2905,21 +2944,6 @@ _sde_init_main()
 
             ONESHOT_FILENAME="$1"
             export ONESHOT_FILENAME
-
-            r_basename "${ONESHOT_FILENAME}"
-            ONESHOT_BASENAME="${RVAL}"
-            export ONESHOT_BASENAME
-
-            r_extensionless_basename "${ONESHOT_FILENAME}"
-            ONESHOT_NAME="${RVAL}"
-            export ONESHOT_NAME
-
-            r_identifier "${ONESHOT_NAME}"
-            export ONESHOT_IDENTIFIER="${RVAL}"
-            r_lowercase "${ONESHOT_IDENTIFIER}"
-            export ONESHOT_DOWNCASE_IDENTIFIER="${RVAL}"
-            r_uppercase "${ONESHOT_IDENTIFIER}"
-            export ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
          ;;
 
          --oneshot-class)
@@ -2942,14 +2966,14 @@ _sde_init_main()
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_TEMPLATE_HEADER_FILE="$1"
+            TEMPLATE_HEADER_FILE="$1" # same name as in mulle-template
          ;;
 
          --template-footer-file)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_TEMPLATE_FOOTER_FILE="$1"
+            TEMPLATE_FOOTER_FILE="$1" # same name as in mulle-template
          ;;
 
          -m|--meta)
@@ -2963,6 +2987,7 @@ _sde_init_main()
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
+            [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable project-name during init (rename to it later)"
             OPTION_NAME="$1"
          ;;
 
@@ -2972,6 +2997,7 @@ _sde_init_main()
             shift
 
             GITHUB_USER="$1"
+            export GITHUB_USER
          ;;
 
          --project-file|--upgrade-project-file)
@@ -3013,11 +3039,14 @@ _sde_init_main()
             shift
 
             PROJECT_TYPE="$1"
+            export PROJECT_TYPE
          ;;
 
          --project-source-dir|--source-dir)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
+
+            [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable PROJECT_SOURCE_DIR value during init (rename to it later)"
 
             OPTION_PROJECT_SOURCE_DIR="$1"
          ;;
@@ -3113,6 +3142,15 @@ _sde_init_main()
 
       shift
    done
+
+   if [ -z "${MULLE_SDE_PROJECT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
+   fi
+
+   # export to environment
+   set_oneshot_variables "${ONESHOT_FILENAME}" "${ONESHOT_CLASS}" "${ONESHOT_CATEGORY}"
+   export_oneshot_environment "${ONESHOT_FILENAME}" "${ONESHOT_CLASS}" "${ONESHOT_CATEGORY}"
 
    # old version will be used for migrate
    local oldversion

@@ -76,6 +76,301 @@ EOF
 }
 
 
+set_projectname_variables()
+{
+   log_entry "set_projectname_variables" "$@"
+
+   PROJECT_NAME="${1:-${PROJECT_NAME}}"
+
+   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty.
+${C_INFO}Are you running inside a mulle-sde environment ?"
+
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
+   fi
+
+   r_identifier "${PROJECT_NAME}"
+   PROJECT_IDENTIFIER="${RVAL}"
+
+   r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+   r_lowercase "${RVAL}"
+   PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+   r_uppercase "${PROJECT_DOWNCASE_IDENTIFIER}"
+   PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+}
+
+
+set_projectlanguage_variables()
+{
+   log_entry "set_projectlanguage_variables" "$@"
+
+   PROJECT_LANGUAGE="${1:-${PROJECT_LANGUAGE}}"
+
+   if [ -z "${PROJECT_LANGUAGE}" ]
+   then
+      # it's OK could be project type "none"
+      return
+   fi
+
+   r_lowercase "${PROJECT_LANGUAGE}"
+   PROJECT_DOWNCASE_LANGUAGE="${RVAL}"
+   r_uppercase "${PROJECT_LANGUAGE}"
+   PROJECT_UPCASE_LANGUAGE="${RVAL}"
+
+   PROJECT_DIALECT="${PROJECT_DIALECT:-${PROJECT_LANGUAGE}}"
+   r_lowercase "${PROJECT_DIALECT}"
+   PROJECT_DOWNCASE_DIALECT="${RVAL}"
+   r_uppercase "${PROJECT_DIALECT}"
+   PROJECT_UPCASE_DIALECT="${RVAL}"
+
+   PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS:-${PROJECT_DOWNCASE_DIALECT}}"
+}
+
+
+#
+# this has to move to templating really...
+#
+r_add_template_named_file()
+{
+   local extension="${1:-default}"
+   local name="$2"
+   local envvar="$3"
+
+   #
+   # figure out if we want to add a header
+   #
+   RVAL="${!envvar}"
+   rexekutor [ -f "${RVAL}" ] && return 0
+
+   RVAL="${MULLE_SDE_ETC_DIR}/${name}.${extension}"
+   rexekutor [ -f "${RVAL}" ] && return 0
+
+   RVAL="${MULLE_SDE_ETC_DIR}/${name}.default"
+   rexekutor [ -f "${RVAL}" ] && return 0
+
+   RVAL="${HOME}/.mulle/etc/sde/${name}.${extension}"
+   rexekutor [ -f "${RVAL}" ] && return 0
+
+   RVAL="${HOME}/.mulle/etc/sde/${name}.default"
+   rexekutor [ -f "${RVAL}" ] && return 0
+
+   RVAL=""
+   return 1
+}
+
+
+r_add_template_header_file()
+{
+   r_add_template_named_file "$1" "header" "MULLE_SDE_FILE_HEADER"
+}
+
+
+r_add_template_footer_file()
+{
+   r_add_template_named_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
+}
+
+
+set_oneshot_variables()
+{
+   log_entry "set_oneshot_variables" "$@"
+
+   local filepath="$1"
+   local class="$2"
+   local category="$3"
+
+   if [ ! -z "${class}" ]
+   then
+      ONESHOT_CLASS="${class}"
+   fi
+   if [ ! -z "${category}" ]
+   then
+      ONESHOT_CATEGORY="${category}"
+   fi
+
+   if [ -z "${filepath}" ]
+   then
+      return
+   fi
+
+   ONESHOT_FILENAME="${filepath}"
+
+   ONESHOT_FILENAME_NO_EXT="${filepath%.*}"
+   r_extensionless_basename "${ONESHOT_FILENAME}"
+   ONESHOT_NAME="${RVAL}"
+
+   r_identifier "${ONESHOT_NAME}"
+   ONESHOT_IDENTIFIER="${RVAL}"
+   r_lowercase "${ONESHOT_IDENTIFIER}"
+   ONESHOT_DOWNCASE_IDENTIFIER="${RVAL}"
+   r_uppercase "${ONESHOT_IDENTIFIER}"
+   ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
+
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh" || return 1
+   fi
+
+   r_de_camel_case_upcase_identifier "${ONESHOT_NAME}"
+   ONESHOT_UPCASE_C_IDENTIFIER="${RVAL}"
+   r_lowercase "${ONESHOT_UPCASE_C_IDENTIFIER}"
+   ONESHOT_DOWNCASE_C_IDENTIFIER="${RVAL}"
+
+   r_basename "${ONESHOT_FILENAME}"
+   ONESHOT_BASENAME="${RVAL}"
+
+   # hack!!
+
+   local ext
+   local headerfile
+   local footerfile
+
+   ext="${filepath##*.}"
+
+   r_add_template_header_file "${ext}"
+   headerfile="${RVAL}"
+
+   r_add_template_footer_file "${ext}"
+   footerfile="${RVAL}"
+
+   TEMPLATE_HEADER_FILE="${headerfile}"
+   TEMPLATE_FOOTER_FILE="${footerfile}"
+}
+
+
+export_oneshot_environment()
+{
+   log_entry "export_oneshot_environment" "$@"
+
+   local filepath="$1"
+   local class="$2"
+   local category="$3"
+
+
+   if [ ! -z "${class}" ]
+   then
+      export ONESHOT_CLASS
+   fi
+   if [ ! -z "${category}" ]
+   then
+      export ONESHOT_CATEGORY
+   fi
+
+   if [ -z "${filepath}" ]
+   then
+      return
+   fi
+
+   export ONESHOT_FILENAME \
+          ONESHOT_FILENAME_NO_EXT \
+          ONESHOT_NAME \
+          ONESHOT_IDENTIFIER \
+          ONESHOT_DOWNCASE_IDENTIFIER \
+          ONESHOT_UPCASE_IDENTIFIER \
+          ONESHOT_UPCASE_C_IDENTIFIER \
+          ONESHOT_DOWNCASE_C_IDENTIFIER \
+          ONESHOT_BASENAME
+
+#   export TEMPLATE_HEADER_FILE \
+#          TEMPLATE_FOOTER_FILE
+}
+
+
+export_projectname_environment()
+{
+   log_entry "export_projectname_environment" "$@"
+
+   export PROJECT_NAME  \
+          PROJECT_IDENTIFIER \
+          PROJECT_DOWNCASE_IDENTIFIER \
+          PROJECT_UPCASE_IDENTIFIER
+}
+
+
+export_projectlanguage_environment()
+{
+   log_entry "export_projectlanguage_environment" "$@"
+
+   if [ -z "${PROJECT_LANGUAGE}" ]
+   then
+      return
+   fi
+
+   export PROJECT_LANGUAGE \
+          PROJECT_UPCASE_LANGUAGE \
+          PROJECT_DOWNCASE_LANGUAGE \
+ \
+          PROJECT_DIALECT \
+          PROJECT_UPCASE_DIALECT \
+          PROJECT_DOWNCASE_DIALECT
+}
+
+
+
+project_add_envscope_if_missing()
+{
+   log_entry "save_projectname_variables" "$@"
+
+   #
+   # save it into /etc now, use -f flag to create the project scope
+   # see mulle-env-scope for the meaning of 20
+   #
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                     --search-as-is \
+                     -s \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                  scope \
+                     add --if-missing --priority 20 project
+}
+
+project_env_set_var()
+{
+   local key="$1"; shift
+   local value="$1"; shift
+
+   log_verbose "Environment: ${key}=\"${value}\""
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                     --search-as-is \
+                     -s \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     "$@" \
+                  environment \
+                     --scope project \
+                     set "${key}" "${value}" || internal_fail "failed env set"
+}
+
+
+# those affected by renames
+save_projectname_variables()
+{
+  log_entry "save_projectname_variables" "$@"
+
+  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}"  "$@"
+  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "$@"
+  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "$@"
+  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "$@"
+}
+
+
+#
+# not saving case conversions here
+#
+save_projectlanguage_variables()
+{
+   log_entry "save_projectlanguage_variables" "$@"
+
+   if [ ! -z "${PROJECT_LANGUAGE}" ]
+   then
+      project_env_set_var PROJECT_LANGUAGE   "${PROJECT_LANGUAGE}"  "$@"
+      project_env_set_var PROJECT_DIALECT    "${PROJECT_DIALECT}" "$@"
+      project_env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "$@"
+   fi
+}
+
+
 rename_old_to_new_filename()
 {
    log_entry "rename_old_to_new_filename" "$@"
@@ -276,9 +571,9 @@ r_rename_current_project()
    unset PROJECT_DOWNCASE_IDENTIFIER
    unset PROJECT_IDENTIFIER
 
-   if [ -z "${MULLE_SDE_PROJECTNAME_SH}" ]
+   if [ -z "${MULLE_SDE_PROJECT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-projectname.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
    fi
 
    set_projectname_variables "${newname}"
@@ -395,6 +690,7 @@ sde_rename_main()
             shift
 
             PROJECT_NAME="$1"
+            export PROJECT_NAME
          ;;
 
          --save-environment)
