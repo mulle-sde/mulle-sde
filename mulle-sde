@@ -65,11 +65,13 @@ print_commands()
 
    else
       SHOWN_COMMANDS="\
+   add            : create a source file from templates
    craftorder     : show craftorder of dependencies
    clean          : clean various parts of the project
    craft          : craft the project using mulle-craft
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
+   ignore         : remove files from getting crafted
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (files matching patternfiles)
@@ -133,7 +135,13 @@ _usage()
 Usage:
    ${MULLE_USAGE_NAME} [flags] [command] [options]
 
-   The commandline IDE.
+   The commandline IDE. The development cycle is:
+
+      Edit -> Reflect -> Craft/Test -> Edit.
+
+   Edit    : mulle-sde has no facility for editing, use your preferred editor.
+   Reflect : Create necessary files for cmake (or others)
+   Craft   : Crafts (runs cmake) on dependencies and the project itself
 
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -1112,7 +1120,12 @@ version"
          # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
-         sde_extension_main show meta
+         if [ $# -ne 0 ]
+         then
+            sde_extension_main show "$@"
+         else
+            sde_extension_main show meta
+         fi
       ;;
 
       stash-dir)

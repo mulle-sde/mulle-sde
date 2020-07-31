@@ -63,15 +63,12 @@ sde_init_usage()
 Usage:
    ${INIT_USAGE_NAME} [options] <type>
 
-   Initialize a project.
-
-   You typically initialize a project with a meta extension. A meta extension
-   combines buildtool, runtime and extra extensions to configure your project.
+   Initializes a project, typically by specifiying an extension.
    Extensions are plugins containing scripts and data to setup the project
    for the desired programming language and build system.
 
-   To see available meta extensions use \`mulle-sde extension show meta\`.
-   Pick a meta extension and choose a project type like "library",
+   To see available (meta-)extensions use \`mulle-sde extension show\`.
+   Pick an extension and choose a project type like "library",
    "executable" or "none". Optionally choose a directory to create and install
    into with the \'-d\' option:
 

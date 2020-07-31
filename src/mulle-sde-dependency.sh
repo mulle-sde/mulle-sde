@@ -318,6 +318,10 @@ sde_dependency_set_main()
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                        ${MULLE_TECHNICAL_FLAGS} \
+                   "${cmd}" "${address}" "cmakeloader" &&
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                       ${MULLE_TECHNICAL_FLAGS} \
                    "${cmd}" "${address}" "import"
       return $?
    fi
@@ -377,6 +381,7 @@ sde_dependency_list_main()
    log_entry "sde_dependency_list_main" "$@"
 
    local marks
+   local qualifier
    local formatstring
 
    formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
@@ -405,6 +410,14 @@ sde_dependency_list_main()
 
             r_comma_concat "${marks}" "$1"
             marks="${RVAL}"
+         ;;
+
+
+         --qualifier)
+            [ "$#" -eq 1 ] && sde_dependency_list_usage "Missing argument to \"$1\""
+            shift
+
+            qualifier="${RVAL}"
          ;;
 
          --output-format)
@@ -437,6 +450,7 @@ sde_dependency_list_main()
                ${MULLE_TECHNICAL_FLAGS} \
             list \
                --marks "${DEPENDENCY_LIST_MARKS}" \
+               --qualifier "${qualifier}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --output-eval \
                --output-format cmd2 \
@@ -453,6 +467,7 @@ sde_dependency_list_main()
             list \
                --format "${formatstring}\\n" \
                --marks "${DEPENDENCY_LIST_MARKS}" \
+               --qualifier "${qualifier}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --output-no-marks "${DEPENDENCY_MARKS}" \
                "$@"

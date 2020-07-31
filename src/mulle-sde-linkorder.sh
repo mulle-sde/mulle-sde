@@ -438,6 +438,11 @@ r_linkorder_collect()
    esac
 
    case ",${marks}," in
+      *,no-actual-link,*)
+         log_fluff "headerless library ${name} with dependencies not linked"
+         return 4
+      ;;
+
       *,no-dynamic-link,*)
          requirement="static"
       ;;

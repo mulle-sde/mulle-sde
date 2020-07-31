@@ -651,78 +651,6 @@ collect_extension_inherits()
 }
 
 
-_extension_get_version()
-{
-   log_entry "_extension_get_version" "$@"
-
-   local vendor="$1"
-   local name="$2"
-
-   local directory
-   r_find_extension "${vendor}" "${name}"
-   directory="${RVAL}"
-
-   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
-
-   local versionfile
-
-   versionfile="${directory}/share/version/${vendor}/${name}"
-
-   if [ ! -f "${versionfile}" ]
-   then
-      log_debug "File \"${versionfile}\" is missing or unreadable"
-      log_warning "Extension \"${vendor}/${name}\" is unversioned and therefore not usable"
-   fi
-
-   LC_ALL=C egrep -v '^#' < "${versionfile}"
-}
-
-
-extension_get_version()
-{
-   log_entry "_extension_get_version" "$@"
-
-   local extension="$1"
-
-   _extension_get_version "${extension%%/*}" "${extension##*/}"
-}
-
-
-emit_extension()
-{
-   log_entry "emit_extension" "$@"
-
-   local result="$1"
-   local extensiontype="$2"
-   local comment="$3"
-
-   if [ -z "${result}" ]
-   then
-      return
-   fi
-
-   local extension
-   local version
-
-   log_info "Available ${extensiontype} extensions ${comment}:"
-
-   IFS=$'\n'
-   for extension in `sort -u <<< "${result}"`
-   do
-      IFS="${DEFAULT_IFS}"
-
-      if [ "${OPTION_VERSION}" = 'YES' ]
-      then
-         version="`extension_get_version "${extension}"`"
-         printf "%s\n" "${extension}" "${version}"
-      else
-         printf "%s\n" "${extension}"
-      fi
-   done
-   IFS="${DEFAULT_IFS}"
-}
-
-
 sde_extension_find_main()
 {
    log_entry "sde_extension_find_main" "$@"
@@ -816,6 +744,131 @@ sde_extension_find_main()
 }
 
 
+_extension_get_usage()
+{
+   log_entry "_extension_get_usage" "$@"
+
+   local vendor="$1"
+   local name="$2"
+
+   local directory
+
+   r_find_extension "${vendor}" "${name}"
+   directory="${RVAL}"
+
+   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
+
+   local usagefile
+
+   usagefile="${directory}/usage"
+
+   if [ ! -f "${usagefile}" ]
+   then
+      log_debug "File \"${usagefile}\" is missing or unreadable"
+      return 1
+   fi
+
+   LC_ALL=C egrep -v '^#' < "${usagefile}"
+}
+
+
+extension_get_usage()
+{
+   log_entry "extension_get_usage" "$@"
+
+   local extension="$1"
+
+   _extension_get_usage "${extension%%/*}" "${extension##*/}"
+}
+
+
+_extension_get_version()
+{
+   log_entry "_extension_get_version" "$@"
+
+   local vendor="$1"
+   local name="$2"
+
+   local directory
+   r_find_extension "${vendor}" "${name}"
+   directory="${RVAL}"
+
+   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
+
+   local versionfile
+
+   versionfile="${directory}/version"
+
+   if [ ! -f "${versionfile}" ]
+   then
+      log_debug "File \"${versionfile}\" is missing or unreadable"
+      log_warning "Extension \"${vendor}/${name}\" is unversioned and therefore not usable"
+      return 1
+   fi
+
+   LC_ALL=C egrep -v '^#' < "${versionfile}"
+}
+
+
+extension_get_version()
+{
+   log_entry "extension_get_version" "$@"
+
+   local extension="$1"
+
+   _extension_get_version "${extension%%/*}" "${extension##*/}"
+}
+
+
+emit_extension()
+{
+   log_entry "emit_extension" "$@"
+
+   local result="$1"
+   local extensiontype="$2"
+   local comment="$3"
+   local with_version="$4"
+   local with_usage="$5"
+
+   if [ -z "${result}" ]
+   then
+      return
+   fi
+
+   local extension
+   local version
+   local output
+
+   log_info "Available ${extensiontype} extensions ${comment}:"
+
+   (
+      IFS=$'\n'
+      for extension in `sort -u <<< "${result}"`
+      do
+         IFS="${DEFAULT_IFS}"
+
+         output="${extension}"
+         if [ "${with_version}" = 'YES' ]
+         then
+            version="`extension_get_version "${extension}"`"
+            r_concat "${output}" "${version}" ";"
+            output="${RVAL}"
+         fi
+
+         if [ "${with_usage}" = 'YES' ]
+         then
+            usage="`extension_get_usage "${extension}" | head -1`"
+            r_concat "${output}" "${usage}" ";"
+            output="${RVAL}"
+         fi
+
+         printf "%s\n" "${output}"
+      done
+      IFS="${DEFAULT_IFS}"
+   ) | column -t -s';'
+}
+
+
 
 sde_extension_show_main()
 {
@@ -823,6 +876,7 @@ sde_extension_show_main()
 
    local OPTION_VERSION='NO'
    local OPTION_OUTPUT_RAW='NO'
+   local OPTION_USAGE='YES'
 
    #
    # handle options
@@ -832,6 +886,14 @@ sde_extension_show_main()
       case "$1" in
          -h*|--help|help)
             sde_extension_show_usage
+         ;;
+
+         --usage)
+            OPTION_USAGE='YES'
+         ;;
+
+         --no-usage)
+            OPTION_USAGE='NO'
          ;;
 
          --version)
@@ -970,11 +1032,11 @@ sde_extension_show_main()
    done
    IFS="${DEFAULT_IFS}"; set +o noglob
 
-   emit_extension "${meta_extension}" "meta" "[-m <extension>]"
-   emit_extension "${runtime_extension}" "runtime" "[-r <extension>]"
-   emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]"
-   emit_extension "${extra_extension}" "extra" "[-e <extension>]*"
-   emit_extension "${oneshot_extension}" "oneshot" "[-o <extension>]*"
+   emit_extension "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
+   emit_extension "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
+   emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]" "${OPTION_VERSION}" "${OPTION_USAGE}"
+   emit_extension "${extra_extension}"     "extra" "[-e <extension>]*"    "${OPTION_VERSION}" "${OPTION_USAGE}"
+   emit_extension "${oneshot_extension}"   "oneshot" "[-o <extension>]*"  "${OPTION_VERSION}" "${OPTION_USAGE}"
 
   :
 }

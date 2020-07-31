@@ -409,6 +409,7 @@ sde_library_list_main()
    log_entry "sde_library_list_main" "$@"
 
    local marks
+   local qualifier
 
    marks="${LIBRARY_FILTER_MARKS}"
 
@@ -425,6 +426,13 @@ sde_library_list_main()
 
             r_comma_concat "${marks}" "$1"
             marks="${RVAL}"
+         ;;
+
+         --qualifier)
+            [ "$#" -eq 1 ] && sde_library_list_usage "Missing argument to \"$1\""
+            shift
+
+            qualifier="${RVAL}"
          ;;
 
          --)
@@ -453,6 +461,7 @@ sde_library_list_main()
                list \
                   --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
                   --marks "${marks}" \
+                  --qualifier "${qualifier}" \
                   --nodetypes "${LIBRARY_FILTER_NODETYPES}" \
                   --output-no-marks "${LIBRARY_MARKS}" \
                   "$@"
