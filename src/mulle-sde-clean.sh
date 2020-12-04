@@ -91,21 +91,21 @@ sde_clean_usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} clean [domain]
+   ${MULLE_USAGE_NAME} clean [options] [domain|dependency]
 
-   Cleans various parts of the mulle-sde system. You can specify multiple
-   domains. Clean will rebuild your project including subprojects.
+   Cleans various parts of the mulle-sde system. After a clean all, mulle-sde
+   will rebuild your project including subprojects and dependencies.
    Use \`${MULLE_USAGE_NAME} -v -n -lx clean\` to preview, what will be
    cleaned.
+
+   Instead of a domain, you can also specify a dependency to clean. Your
+   project will be built from this point. (Does not work well on OS X, due
+   to clean deleting objc-loader.inc)
+
+Options:
+   --no-graveyard : do not create backups in graveyard
+   --no-test      : do not check, if a dependecy exists
 EOF
-   if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
-   then
-      cat <<EOF >&2
-
-
-
-EOF
-   fi
 
    cat <<EOF >&2
 
@@ -486,7 +486,7 @@ sde_clean_main()
    local domain
    local domains
 
-   [ $# -gt 1 ] && shift && sde_clean_usage "superflous arguments $*"
+   [ $# -gt 1 ] && shift && sde_clean_usage "superflous arguments \"$*\""
 
    case "${1:-default}" in
       'domains')
@@ -608,10 +608,24 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
             fi
          fi
 
+         local target
+
+         target="$1"
+
+         case "${MULLE_UNAME}" in
+            darwin)
+               if [ ! -z "${target}" -a "${target}" != "${PROJECT_NAME}" ]
+               then
+                  fail "Cleaning of a dependency by name leads to misery on Mac OS.
+${C_INFO}Work around: ${C_RESET_BOLD}clean all"
+               fi
+            ;;
+         esac
+
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      clean \
-                        "$1"
+                        "${target}"
          return $?
       ;;
    esac

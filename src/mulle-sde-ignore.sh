@@ -98,7 +98,7 @@ sde_ignore_main()
    filepath="`rexekutor "${MULLE_MATCH:-mulle-match}" -s patternfile -i path -p 00 'user'`"
    if [ ! -z "${filepath}" ]
    then
-      merge_line_into_file "${filepath}" "$1"
+      merge_line_into_file "$1" "${filepath}"
    else
       echo "$1" | exekutor "${MULLE_MATCH:-mulle-match}" \
                                     ${MULLE_TECHNICAL_FLAGS} \

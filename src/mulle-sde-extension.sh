@@ -147,7 +147,7 @@ Usage:
 
 EOF
 
-   sde_extension_show_main extra | sed -e 's|^mulle-sde/||' | sort >&2
+   sde_extension_show_main extra >&2
 
    exit 1
 }
@@ -415,6 +415,7 @@ _extension_list_vendor_extensions()
    local vendor="$1"
 
    local searchpaths
+
    r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
    searchpaths="${RVAL}"
 
@@ -453,7 +454,11 @@ Use / separator"
       ;;
    esac
 
-   RVAL="`eval_rexekutor find -H "${searchpath}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -name "${name}" -print | head -1`"
+   RVAL="`eval_rexekutor find -H "${searchpath}" \
+                                    -mindepth 1 -maxdepth 1 \
+                                    '\(' -type d -o -type l '\)' \
+                                    -name "${name}" \
+                                    -print | head -1`"
 
    if [ -z "${RVAL}" ]
    then
@@ -651,6 +656,60 @@ collect_extension_inherits()
 }
 
 
+extension_list_installed_vendors()
+{
+   log_entry "extension_list_installed_vendors" "$@"
+
+   if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
+   then
+      rexekutor cut -d/ -f1 "${MULLE_SDE_SHARE_DIR}/extension" | remove_duplicate_lines_stdin
+   fi
+}
+
+
+sde_extension_vendors_main()
+{
+   log_entry "sde_extension_vendors_main" "$@"
+
+   local OPTION_INSTALLED='NO'
+
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_extension_vendors_usage
+         ;;
+
+         --installed)
+            OPTION_INSTALLED='YES'
+         ;;
+
+         -*)
+            sde_extension_vendors_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -gt 0 ] && sde_extension_vendors_usage "Superflous arguments \"$*\""
+
+   if [ "${OPTION_INSTALLED}" = 'YES' ]
+   then
+      extension_list_installed_vendors
+   else
+      extension_list_vendors
+   fi
+}
+
+
 sde_extension_find_main()
 {
    log_entry "sde_extension_find_main" "$@"
@@ -843,7 +902,7 @@ emit_extension()
 
    (
       IFS=$'\n'
-      for extension in `sort -u <<< "${result}"`
+      for extension in `remove_duplicate_lines "${result}"`
       do
          IFS="${DEFAULT_IFS}"
 
@@ -877,6 +936,7 @@ sde_extension_show_main()
    local OPTION_VERSION='NO'
    local OPTION_OUTPUT_RAW='NO'
    local OPTION_USAGE='YES'
+   local OPTION_ALL='NO'
 
    #
    # handle options
@@ -902,6 +962,10 @@ sde_extension_show_main()
 
          --no-version)
             OPTION_VERSION='NO'
+         ;;
+
+         --all)
+            OPTION_ALL='YES'
          ;;
 
          --output-format)
@@ -944,22 +1008,31 @@ sde_extension_show_main()
    local vendor
 
    local all_vendors
-
-   all_vendors="`extension_list_vendors`"
+   local installed_vendors
+   local vendors
 
    case "${cmd}" in
       vendor|vendors)
          log_info "Available vendors"
-         printf "%s\n" "${all_vendors}"
+         printf "%s\n" "`extension_list_vendors`"
          return
       ;;
    esac
 
-   log_verbose "Available vendors:"
-   log_verbose "`LC_ALL=C sort -u <<< "${all_vendors}" | sed 's/^/  /'`"
+   if [ "${OPTION_ALL}" != 'YES' ]
+   then
+      vendors="`extension_list_installed_vendors`"
+   fi
+   if [ -z "${vendors}" -o "${OPTION_ALL}" = 'YES' ]
+   then
+      vendors="`extension_list_vendors`"
+   fi
+
+   log_verbose "Vendors:"
+   log_verbose "`LC_ALL=C sort -u <<< "${vendors}" | sed 's/^/  /' `"
 
    set -o noglob; IFS=$'\n'
-   for vendor in ${all_vendors}
+   for vendor in ${vendors}
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
 
@@ -988,7 +1061,7 @@ sde_extension_show_main()
          continue
       fi
 
-      log_debug "vendorextensions: ${vendorextensions}"
+      log_debug "Vendor ${C_RESET}${vendor}${C_DEBUG} extensions: ${vendorextensions}"
 
       case "${cmd}" in
          all|default|meta)
@@ -1502,6 +1575,7 @@ hack_option_and_single_quote_everything()
 
    local i
    local last
+
    local first='YES'
 
    for i in "$@"
@@ -1516,6 +1590,81 @@ hack_option_and_single_quote_everything()
 
    printf "%s\n" "${option}"
    echo "'${last}'"
+}
+
+
+
+sde_extension_add_main()
+{
+   log_entry "sde_extension_add_main" "$@"
+
+   while :
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_extension_add_usage
+         ;;
+
+         -*)
+            sde_extension_add_usage "Unknown option \"$1\""
+            ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   # shellcheck source=src/mulle-sde-init.sh
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+
+   local extension
+   local args
+   local installed_vendors
+   local found
+
+   installed_vendors="`extension_list_installed_vendors`"
+
+   for extension in "$@"
+   do
+      case "${extension}" in
+         */*)
+            r_add_line "${args}" "${extension}"
+            args="${RVAL}"
+         ;;
+
+         *)
+            found='NO'
+            set -o noglob; IFS=$'\n'
+            for installed in ${installed_vendors}
+            do
+               IFS="${DEFAULT_IFS}"; set +o noglob
+               if r_find_extension "${installed}" "${extension}"
+               then
+                  log_info "Selecting \"${installed}/${extension}\""
+
+                  r_add_line "${args}" "${installed}/${extension}"
+                  args="${RVAL}"
+                  found='YES'
+                  break
+               fi
+            done
+            IFS="${DEFAULT_IFS}"; set +o noglob
+
+            if [ "${found}" = 'NO' ]
+            then
+               fail "You need to prefix extension \"${extension}\" with a vendor"
+            fi
+         ;;
+      esac
+   done
+
+   args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
+
+   INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
+      eval sde_init_main --no-blurb --no-env --add "${args}"
 }
 
 
@@ -1577,28 +1726,27 @@ sde_extension_main()
    fi
 
    case "${cmd}" in
-      add|pimp)
-         [ $# -eq 0 ] && sde_extension_${cmd}_usage
+      add)
+         [ $# -eq 0 ] && sde_extension_add_usage
+
+         sde_extension_add_main "$@"
+      ;;
+
+      pimp)
+         [ $# -eq 0 ] && sde_extension_pimp_usage
 
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-         local option
          local args
 
-         option="--extra"
-         if [ "${cmd}" = "pimp" ]
-         then
-            option="--oneshot"
-         fi
-
-         args="`hack_option_and_single_quote_everything "${option}" "$@" | tr '\012' ' '`"
+         args="`hack_option_and_single_quote_everything "--oneshot" "$@" | tr '\012' ' '`"
 
          INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
             eval sde_init_main --no-blurb --no-env --add "${args}"
       ;;
 
-      find|show)
+      find|show|usage|vendors)
          sde_extension_${cmd}_main "$@"
       ;;
 
@@ -1671,14 +1819,6 @@ sde_extension_main()
                r_extension_get_vendor_path "$1"
 
          printf "%s\n" "${RVAL}"
-      ;;
-
-      vendors)
-         extension_list_vendors
-      ;;
-
-      usage)
-         sde_extension_usage_main "$@"
       ;;
 
       "")

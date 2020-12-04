@@ -510,9 +510,9 @@ read_template_expanded_file()
    local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
 
    r_uppercase "${PREFERRED_STARTUP_LIBRARY}"
-   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${RVAL}"
-   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER//-/_}"
+   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${RVAL//-/_}"
 
+   PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY}" \
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
    GITHUB_USER="${GITHUB_USER}" \
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
@@ -1130,9 +1130,7 @@ _install_extension()
       return
    fi
 
-   # just to catch idiots early
-   assert_sane_extension_values "${exttype}" "${vendor}" "${extname}"
-
+   # duplicate check
    if egrep -q -s "^${vendor}/${extname};" <<< "${_INSTALLED_EXTENSIONS}"
    then
       if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
@@ -1148,6 +1146,9 @@ _install_extension()
          _INSTALLED_EXTENSIONS="${RVAL}"
       fi
    fi
+
+   # just to catch idiots early
+   assert_sane_extension_values "${exttype}" "${vendor}" "${extname}"
 
    local extensiondir
    local searchpath
@@ -3264,7 +3265,8 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
                      ${MULLE_TECHNICAL_FLAGS} \
                   environment \
                      --scope "plugin" \
-                     set "MULLE_SDE_INSTALLED_VERSION" "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
+                     set "MULLE_SDE_INSTALLED_VERSION" \
+                         "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
       fi
    )
    rval=$?

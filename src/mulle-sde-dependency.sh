@@ -108,7 +108,7 @@ Examples:
 
    Add a remote hosted file to your project:
 
-      ${MULLE_USAGE_NAME} dependency add --embedded --scm file \
+      ${MULLE_USAGE_NAME} dependency add --embedded --scm file \\
                   --address src/foo.c https://foo.com/foo_2.11.c
 
 Options:
@@ -613,7 +613,7 @@ _sde_enhance_url()
    esac
 
    _tag="\${${upcaseid}_TAG:-${tag}}"
-   _branch="\${${upcaseid}_BRANCH}"
+   _branch="\${${upcaseid}_BRANCH:-${branch}}"
 
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"
@@ -925,7 +925,7 @@ sde_dependency_add_main()
 
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
-      r_comma_concat "${marks}" "no-build,no-header,no-link,no-share"
+      r_comma_concat "${marks}" "no-build,no-header,no-link,no-share,no-readwrite"
       marks="${RVAL}"
    fi
 
@@ -984,6 +984,34 @@ sde_dependency_add_main()
       return 1
    fi
 
+   local dependency
+
+   dependency="${address:-${originalurl}}"
+
+   if [ "${OPTION_EMBEDDED}" != 'YES' ]
+   then
+      case "${OPTION_DIALECT}" in
+         c)
+            if [ "${OPTION_PRIVATE}" = 'YES' ]
+            then
+               case "${MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE}" in
+                  'NONE'|'DISABLE')
+                     log_warning "MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE is set to DISABLE.
+${C_INFO}The library header of ${dependency} may not be available automatically."
+                  ;;
+               esac
+            else
+               case "${MULLE_SOURCETREE_TO_C_INCLUDE_FILE}" in
+                  'NONE'|'DISABLE')
+                     log_warning "MULLE_SOURCETREE_TO_C_INCLUDE_FILE is set to DISABLE.
+${C_INFO}The library header of ${dependency} may not be available automatically."
+                  ;;
+               esac
+            fi
+         ;;
+      esac
+   fi
+
    if [ "${OPTION_FETCH}" = 'NO' ]
    then
       return 0
@@ -995,9 +1023,7 @@ sde_dependency_add_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
    fi
 
-   local dependency
 
-   dependency="${address:-${originalurl}}"
    if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
    then
       return 0

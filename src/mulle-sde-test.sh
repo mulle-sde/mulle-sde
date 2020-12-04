@@ -112,7 +112,7 @@ sde_hack_test_environment()
       problems="`env | egrep -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' | grep -e grep -e "${pattern}"`"
       if [ ! -z "${problems}" ]
       then
-         log_warning "These environment variables may be problematic"
+         log_warning "These environment variables may or may not be problematic, as this is a \"wild\" environment."
          printf "%s\n" "${problems}" >&2
       fi
    fi

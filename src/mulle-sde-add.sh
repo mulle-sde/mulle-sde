@@ -243,7 +243,7 @@ _r_sde_get_class_category_genericname()
    if [ -z "${extension}" ]
    then
       log_verbose "Can not determine file type because of missing extension"
-      RVAL="${name}"
+      RVAL="${name:-${filename}}"
       return
    fi
 
@@ -292,7 +292,7 @@ _r_sde_get_class_category_genericname()
          ;;
       esac
    fi
-   RVAL="${name}"
+   RVAL="${name:-${filename}}"
 }
 
 
@@ -311,7 +311,6 @@ sde_add_file_via_oneshot_extension()
    local _class
 
    _r_sde_get_class_category_genericname "${filepath}" "${name}" "${type}" "${ext}"
-
    if [ -z "${name}" ]
    then
       name="${RVAL}"
@@ -377,7 +376,7 @@ sde_add_in_project()
          *)
             if ! mulle-match match --quiet "${relpath}"
             then
-               log_warning "\"${filepath}\" does not match any patternfiles"
+               log_warning "\"${filepath}\" will not be matched by reflect"
             fi
          ;;
       esac
