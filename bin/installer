@@ -63,9 +63,6 @@ _installer_prepend_path_if_relative()
 
 installer_resolve_symlinks()
 {
-   local dir_context
-   local path
-
    path="`readlink "$1"`"
    if [ $? -eq 0 ]
    then
@@ -85,9 +82,6 @@ installer_canonicalize_path()
       cd "$1" 2>/dev/null && pwd -P
    )
    else
-      local dir
-      local file
-
       dir="`dirname -- "$1"`"
       file="`basename -- "$1"`"
       (
@@ -106,8 +100,6 @@ installer_realpath()
 
 installer_get_windows_path()
 {
-   local directory
-
    directory="$1"
    if [ -z "${directory}" ]
    then
@@ -121,8 +113,6 @@ installer_get_windows_path()
 
 installer_get_sh_windows_path()
 {
-   local directory
-
    directory="`which sh`"
    directory="`dirname -- "${directory}"`"
    directory="`installer_get_windows_path "${directory}"`"
@@ -143,9 +133,6 @@ installer_sed_mangle_escape_slashes()
 
 main()
 {
-   local prefix
-   local mode
-
    prefix=${1:-"/usr/local"}
    [ $# -eq 0 ] || shift
    mode=${1:-755}
@@ -156,8 +143,6 @@ main()
       installer_fail "usage: install.sh [prefix] [mode]"
    fi
 
-   local directory
-
    directory="`dirname -- "$0"`"
    cd "${directory}" || installer_fail "Could not cd to \"$directory\" ($PWD)"
    cd .. || installer_fail "Could not cd to \"..\" ($PWD)"  # compensate for installer being in bin
@@ -167,10 +152,6 @@ main()
    then
       installer_fail "\"${prefix}\" does not exist"
    fi
-
-   local bin
-   local libexec
-   local share
 
    bin="${prefix}/bin"
    libexec="${prefix}/libexec/mulle-sde"
@@ -197,8 +178,6 @@ main()
    EXTENSION_DIR="${share}/extensions"
    mkdir -p "${EXTENSION_DIR}" || exit 1
    cp -Ra ${VERBOSE} "src/mulle-sde" "${EXTENSION_DIR}/" || exit 1
-
-   local share
 
    share="${prefix}/share/mulle-env"
 

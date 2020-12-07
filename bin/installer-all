@@ -43,38 +43,33 @@ fi
 
 install_project()
 {
-   local vendor="$1"
-   local project="$2"
-
-   [ -z "${project}" ] && return
-
-   local name
-   local version
-   local url
-
-   name="${project%%;*}"   # first part
-
-   version="${project#*;}" # remaining part
-   if [ "${version}" = "${project}" ]
-   then
-      version=""
-   fi
-   version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
-   url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
-
-   echo "Install ${version} version of \"${name}\" from \"${url}\"" >&2
-
    (
-      curl -L "${url}" | tar xfz - && cd "${name}-${version}" && \
-            ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+      vendor="$1"
+      project="$2"
+
+      [ -z "${project}" ] && exit 0
+
+      name="${project%%;*}"   # first part
+
+      version="${project#*;}" # remaining part
+      if [ "${version}" = "${project}" ]
+      then
+         version=""
+      fi
+      version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
+      url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
+
+      echo "Install ${version} version of \"${name}\" from \"${url}\"" >&2
+
+      curl -L "${url}" | tar xfz - && \
+         cd "${name}-${version}" && \
+         ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
    ) || exit 1
 }
 
 
 main()
 {
-   local project
-
    mkdir -p "${PREFIX}" || exit 1
 
    for project in ${MULLE_NAT_PROJECTS}
@@ -86,10 +81,6 @@ main()
    do
       install_project "mulle-sde" "${project}"
    done
-
-   local vendorproject
-   local vendor
-   local project
 
    for vendorproject in ${OTHER_PROJECTS}
    do
