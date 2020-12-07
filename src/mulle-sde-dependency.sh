@@ -152,13 +152,19 @@ Usage:
    the library name of a dependency. To change compile and link options use
    the \`${MULLE_USAGE_NAME} dependency craftinfo\" command.
 
-   Examples:
+Examples:
+   Find a library named "pthreads" in addition to "pthread", which is the
+   default name:
+
       ${MULLE_USAGE_NAME} dependency set --append pthreads aliases pthread
+
+   Use <libdill.h> as the header to include, instead of <libdill/libdill.h>
+   which is the default
       ${MULLE_USAGE_NAME} dependency set libdill include libdill.h
 
-   Note: Specifiying aliases works nicely in the generated cmake files. The
-         'linkorder' command though will have a problem, as it doesn't use
-         cmake's find_library to locate libraries.
+   Specifiying aliases works nicely in the generated cmake files. The
+   'linkorder' command though will have a problem, as it doesn't use
+   cmake's find_library to locate libraries.
 
    See the Wiki for more information:
       https://github.com/mulle-sde/mulle-sde/wiki
@@ -167,14 +173,19 @@ Options:
    --append    : append value instead of set
 
 Keys:
-   aliases     : names of library to search for, separated by comma
-                 you can prefix a name with "Debug:" or "Release:" to
-                 narrow the use to these cmake build types
-   include     : include filename to use
-   os-excludes : names of OSes to exclude, separated by comma
-   tag         : tag or version to fetch
-
+   aliases      : names of library to search for, separated by comma
+                  you can prefix a name with "Debug:" or "Release:" to
+                  narrow the use to these cmake build types
 EOF
+   (
+      cat <<EOF
+   include      : include filename to use
+   os-excludes  : names of OSes to exclude, separated by comma
+EOF
+      "${MULLE_SOURCETREE:-mulle-sourcetree}" -s set --print-common-keys "   "
+   ) | sort >&2
+
+  echo "" >&2
   exit 1
 }
 

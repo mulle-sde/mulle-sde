@@ -1,3 +1,16 @@
+## 0.44.0
+
+* experimental command 'steal' added
+* improve extension user experience a bit
+* added —qualifier option to „dependency list“ command
+* added —usage option to „extension show“
+* added —qualifier option to „library list“ command
+* new „no-actual-link“ mark for dependencies, that want to bequeath their dependencies but are header only (mulle-dlfcn for instance)
+* add `ignore` command
+* t emplate generation is done via the external project mulle-template now
+* support github.com download URLs
+
+
 ### 0.43.2
 
 * fix migration code

@@ -14,23 +14,33 @@ then
 fi
 
 
-MULLE_NAT_PROJECTS="
-${MULLE_NAT_PROJECTS}
-mulle-bashfunctions;${MULLE_BASHFUNCTIONS_VERSION}"
+if [ "${MULLE_NAT_PROJECTS}" != "NONE" ]
+then
+   MULLE_NAT_PROJECTS="
+   ${MULLE_NAT_PROJECTS}
+   mulle-bashfunctions;${MULLE_BASHFUNCTIONS_VERSION}"
+else
+   MULLE_NAT_PROJECTS=""
+fi
 
-SDE_PROJECTS="
-${SDE_PROJECTS}
-mulle-craft;${MULLE_CRAFT_VERSION}
-mulle-dispense;${MULLE_DISPENSE_VERSION}
-mulle-env;${MULLE_ENV_VERSION}
-mulle-fetch;${MULLE_FETCH_VERSION}
-mulle-make;${MULLE_MAKE_VERSION}
-mulle-match;${MULLE_MATCH_VERSION}
-mulle-monitor;${MULLE_MONITOR_VERSION}
-mulle-platform;${MULLE_PLATFORM_VERSION}
-mulle-sde;${MULLE_SDE_VERSION}
-mulle-sourcetree;${MULLE_SOURCETREE_VERSION}
-"
+if [ "${SDE_PROJECTS}" != "NONE" ]
+then
+   SDE_PROJECTS="
+   ${SDE_PROJECTS}
+   mulle-craft;${MULLE_CRAFT_VERSION}
+   mulle-dispense;${MULLE_DISPENSE_VERSION}
+   mulle-env;${MULLE_ENV_VERSION}
+   mulle-fetch;${MULLE_FETCH_VERSION}
+   mulle-make;${MULLE_MAKE_VERSION}
+   mulle-match;${MULLE_MATCH_VERSION}
+   mulle-monitor;${MULLE_MONITOR_VERSION}
+   mulle-platform;${MULLE_PLATFORM_VERSION}
+   mulle-sde;${MULLE_SDE_VERSION}
+   mulle-sourcetree;${MULLE_SOURCETREE_VERSION}
+   "
+else
+   SDE_PROJECTS=""
+fi
 
 
 install_project()
@@ -46,7 +56,11 @@ install_project()
 
          name="${project%%;*}"   # first part
          version="${project#*;}" # remaining part
-         version="${version:-latest}"
+         if [ "${version}" = "${project}" ]
+         then
+            version=""
+         fi
+         version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
 
          echo "Install ${version} version of \"${name}\"" 2>&1
 

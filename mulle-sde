@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.43.2
+MULLE_EXECUTABLE_VERSION=0.44.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -92,6 +92,7 @@ print_commands()
    patternfile    : manage patternfiles
    project-dir    : print project root directory
    project        : rename a project and its files
+   steal          : download and flatten source files from mulle-c projects
    subproject     : manage local subprojects
    task           : manage reflect tasks
    test           : run tests using mulle-test
@@ -661,7 +662,7 @@ subproject|style|task|tool|treestatus|unmark|update)
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|extension|init|init-and-enter|reinit|\
 status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
-stash-dir|test|upgrade)
+stash-dir|steal|test|upgrade)
             ;;
 
             enter)
@@ -822,6 +823,7 @@ run
 show
 subproject
 stash-dir
+steal
 style
 task
 test
@@ -1139,6 +1141,13 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-status.sh"
 
          sde_status_main "$@"
+      ;;
+
+      steal)
+         # shellcheck source=src/mulle-sde-steal.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-steal.sh"
+
+         sde_steal_main "$@"
       ;;
 
       style)

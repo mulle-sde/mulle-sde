@@ -100,10 +100,15 @@ sde_list_files()
 
       for category in ${categories}
       do
-         printf "%s" "${separator}"
-         separator=$'\n'
-         log_info "   $(tr '[:lower:]' '[:upper:]' <<< ${category:0:1})${category:1}"
-         rexekutor sed -n "s|^${category}: |      |p" <<< "${subtext}"
+         if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+         then
+            rexekutor sed -n "s|^${category}: ||p" <<< "${subtext}"
+         else
+            printf "%s" "${separator}"
+            separator=$'\n'
+            log_info "   $(tr '[:lower:]' '[:upper:]' <<< ${category:0:1})${category:1}"
+            rexekutor sed -n "s|^${category}: |      |p" <<< "${subtext}"
+         fi
       done
    done
 }
@@ -123,12 +128,18 @@ sde_list_dependencies()
                   list --output-no-header \
                        --marks dependency,fs
    `"
+
    if [ ! -z "${text}" ]
    then
-      printf "%s" "${separator}"
-      separator=$'\n'
-      log_info "${C_MAGENTA}${C_BOLD}Dependencies"
-      sed 's|^|   |' <<< "${text}"
+      if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+      then
+         echo "${text}"
+      else
+         printf "%s" "${separator}"
+         separator=$'\n'
+         log_info "${C_MAGENTA}${C_BOLD}Dependencies"
+         sed 's|^|   |' <<< "${text}"
+      fi
    fi
 
    text="`
@@ -140,10 +151,15 @@ sde_list_dependencies()
    `"
    if [ ! -z "${text}" ]
    then
-      printf "%s" "${separator}"
-      separator=$'\n'
-      log_info "${C_MAGENTA}${C_BOLD}Libraries"
-      sed 's|^|   |' <<< "${text}"
+      if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+      then
+         echo "${text}"
+      else
+         printf "%s" "${separator}"
+         separator=$'\n'
+         log_info "${C_MAGENTA}${C_BOLD}Libraries"
+         sed 's|^|   |' <<< "${text}"
+      fi
    fi
 }
 
@@ -185,8 +201,13 @@ sde_list_environment()
    text="`mulle-env -s environment list --output-eval `"
    if [ ! -z "${text}" ]
    then
-      log_info "${C_MAGENTA}${C_BOLD}Environment"
-      sed 's|^|   |' <<< "${text}"
+      if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+      then
+         echo "${text}"
+      else
+         log_info "${C_MAGENTA}${C_BOLD}Environment"
+         sed 's|^|   |' <<< "${text}"
+      fi
    fi
 }
 
