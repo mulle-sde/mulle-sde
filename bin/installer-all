@@ -66,7 +66,7 @@ install_project()
    (
       curl -L "${url}" | tar xfz - && cd "${name}-${version}" && \
             ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
-   )
+   ) || exit 1
 }
 
 
