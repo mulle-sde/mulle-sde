@@ -157,7 +157,7 @@ sde_test_generate()
 
    if ! rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool get mulle-testgen > /dev/null
    then
-      exekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool add --optional mulle-testgen || exit 1
+      exekutor mulle-env ${MULLE_TECHNICAL_FLAGS} -s tool add --optional mulle-testgen || exit 1
       exekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool link || exit 1
    fi
 

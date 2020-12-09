@@ -52,6 +52,7 @@ Commands:
    list       : list installed extensions
    meta       : print the installed meta extension
    pimp       : pimp up your your project with a one-shot extension
+   remove     : remove an extension from your project
    searchpath : show locations where extensions are searched
    show       : show available extensions
    usage      : show usage information for an extension
@@ -151,6 +152,27 @@ EOF
 
    exit 1
 }
+
+
+sde_extension_remove_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension remove <extension>
+
+   Remove an "extra" extension from the list of installed extension. This means
+   the extension will not be upgraded anymore. The files and environment values
+   placed into your project by the extension are not removed though.
+
+EOF
+
+   sde_extension_show_main extra >&2
+
+   exit 1
+}
+
 
 
 sde_extension_pimp_usage()
@@ -1668,6 +1690,117 @@ sde_extension_add_main()
 }
 
 
+sde_extension_remove_main()
+{
+   log_entry "sde_extension_remove_main" "$@"
+
+   while :
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_extension_remove_usage
+         ;;
+
+         -*)
+            sde_extension_remove_usage "Unknown option \"$1\""
+            ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
+   fi
+
+   local extension
+   local installed
+   local changed
+   local matches
+
+   if [ ! -f "${MULLE_SDE_SHARE_DIR}/extension" ]
+   then
+      log_verbose "No extensions are installed"
+      return 0
+   fi
+
+   installed="`rexekutor cat "${MULLE_SDE_SHARE_DIR}/extension"`"
+   changed="${installed}"
+   removed=""
+
+   local vendor
+   local name
+
+   for extension in "$@"
+   do
+      case "${extension}" in
+         */*)
+            vendor="${extension%%/*}"
+            name="${extension##*/}"
+         ;;
+
+         *)
+            vendor=""
+            name="${extension}"
+         ;;
+      esac
+
+      # paranoia of user input breaking  egrep
+      r_identifier "${vendor}"
+      vendor="${RVAL}"
+
+      r_identifier "${name}"
+      name="${name}"
+
+      matches="`rexekutor egrep -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
+      r_add_line "${removed}" "${matches}"
+      removed="${RVAL}"
+      if [ ! -z "${matches}" ]
+      then
+         changed="`rexekutor egrep -v -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
+      else
+         log_warning "Did not find extra extension ${extension}"
+      fi
+   done
+
+   if [ -z "${removed}" ]
+   then
+      log_info "Nothing found to remove"
+      return
+   fi
+
+   # remove from list of extensions
+   exekutor chmod -R +w "${MULLE_SDE_SHARE_DIR}" || exit 1
+
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/extension" echo "${changed}" &&
+
+   # remove from installed versions
+   local line
+
+   IFS=$'\n'; set -f
+   for line in ${removed}
+   do
+      line="${line%%;*}"
+      vendor="${line%%/*}"
+      name="${line##*/}"
+
+      remove_file_if_present "${MULLE_SDE_SHARE_DIR}/version/${vendor}/${name}"
+      rmdir_if_empty "${MULLE_SDE_SHARE_DIR}/version/${vendor}"
+   done
+   IFS="${DEFAULT_IFS}"; set +f
+
+   rmdir_if_empty "${MULLE_SDE_SHARE_DIR}/version"
+
+   exekutor chmod -R -w "${MULLE_SDE_SHARE_DIR}"
+}
+
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1726,10 +1859,10 @@ sde_extension_main()
    fi
 
    case "${cmd}" in
-      add)
-         [ $# -eq 0 ] && sde_extension_add_usage
+      add|remove)
+         [ $# -eq 0 ] && sde_extension_${cmd}_usage
 
-         sde_extension_add_main "$@"
+         sde_extension_${cmd}_main "$@"
       ;;
 
       pimp)
@@ -1803,7 +1936,6 @@ sde_extension_main()
          fi
          printf "%s\n" "${extensions}"
       ;;
-
 
       searchpath)
          log_info "Extension searchpath"

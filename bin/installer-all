@@ -59,11 +59,25 @@ install_project()
       version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
       url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
 
-      echo "Install ${version} version of \"${name}\" from \"${url}\"" >&2
+      echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
+      if ! curl -L "${url}" | tar xfz -
+      then
+         echo "Download failed" >&2
+         exit 1
+      fi
 
-      curl -L "${url}" | tar xfz - && \
-         cd "${name}-${version}" && \
-         ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+      if ! cd "${name}-${version}"
+      then
+         echo "Unpack into \"${name}-${version}\" failed" >&2
+         ls -CF >&2
+         exit 1
+      fi
+
+      if ! ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+      then
+         echo "Installation failed" >&2
+         exit 1
+      fi
    ) || exit 1
 }
 

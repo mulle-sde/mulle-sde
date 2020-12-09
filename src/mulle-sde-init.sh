@@ -628,6 +628,7 @@ _add_to_tools()
       eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
                            --search-nearest \
                            "${MULLE_TECHNICAL_FLAGS}" \
+                           -s \
                            --no-protect \
                         tool \
                            --os "'${os:-DEFAULT}'" \
@@ -2788,7 +2789,8 @@ sde_protect_unprotect()
       IFS="${DEFAULT_IFS}"
       [ ! -e "${i}" ] && continue
 
-      exekutor chmod -R ${mode} "${i}"
+      # can only read protect files, because otherwise git freaks out
+      exekutor find "${i}" -type f -exec chmod ${mode} {} \;
    done
    IFS="${DEFAULT_IFS}"
 }
@@ -3223,77 +3225,82 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
    eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
    eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
 
-   if [ "${tmp_file}" = 'YES' ]
-   then
-      remove_file_if_present .mulle/share/env/environment.sh
-   fi
-
-   sde_protect_unprotect "Unprotect" "ug+wX"
-
-   # figure out a GITHUB user name for later
-   r_sde_githubname
-   GITHUB_USER="${RVAL}"
-   log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
-
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
-      log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
-      log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
-      log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
-      log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
-      log_trace2 "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
-      log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
-      log_trace2 "GITHUB_USER=\"${GITHUB_USER}\""
-      log_trace2 "PWD=\"${PWD}\""
-   fi
-
-
-   (
-      if [ "${OPTION_ADD}" = 'YES' ]
+   sde_protect_unprotect "Unprotect" "ug+w"
+   ### BEGIN
+      if [ "${tmp_file}" = 'YES' ]
       then
-         __sde_init_add "$@"
-      else
-         # we use the protected version of mulle-env here, because it doesn't
-         # matter and we can circumvent a protection bug
-         # we protect afterwards anyway
-         #
-         __sde_init_main "$@" &&
-         exekutor "${MULLE_ENV:-mulle-env}" \
-                     --search-as-is \
-                     -s \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                  environment \
-                     --scope "plugin" \
-                     set "MULLE_SDE_INSTALLED_VERSION" \
-                         "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
+         remove_file_if_present .mulle/share/env/environment.sh
       fi
-   )
-   rval=$?
 
-   #
-   # for these post processing steps load up the environment if present
-   if [ $rval -eq 0 ]
-   then
+      # figure out a GITHUB user name for later
+      r_sde_githubname
+      GITHUB_USER="${RVAL}"
+
+      log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
+
+      if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
+      then
+         log_trace2 "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
+         log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
+         log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
+         log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
+         log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
+         log_trace2 "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
+         log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+         log_trace2 "GITHUB_USER=\"${GITHUB_USER}\""
+         log_trace2 "PWD=\"${PWD}\""
+      fi
+
+
       (
-         if [ "${OPTION_UPGRADE}" = 'YES' ]
+         if [ "${OPTION_ADD}" = 'YES' ]
          then
-            # shellcheck source=src/mulle-sde-migrate.sh
-            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
-
-            sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || return 1
-         fi
-
-         if [ "${OPTION_REFLECT}" = 'YES' ]
-         then
-            exekutor "${MULLE_SDE:-mulle-sde}" \
+            __sde_init_add "$@"
+         else
+            # we use the protected version of mulle-env here, because it doesn't
+            # matter and we can circumvent a protection bug
+            # we protect afterwards anyway
+            #
+            __sde_init_main "$@" &&
+            exekutor "${MULLE_ENV:-mulle-env}" \
+                        --search-as-is \
+                        -s \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        -N \
-                     reflect
+                     environment \
+                        --scope "plugin" \
+                        set "MULLE_SDE_INSTALLED_VERSION" \
+                            "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
          fi
       )
       rval=$?
-   fi
+
+      #
+      # for these post processing steps load up the environment if present
+      if [ $rval -eq 0 ]
+      then
+         (
+            if [ "${OPTION_UPGRADE}" = 'YES' ]
+            then
+               # shellcheck source=src/mulle-sde-migrate.sh
+               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
+
+               sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || return 1
+            fi
+
+            if [ "${OPTION_REFLECT}" = 'YES' ]
+            then
+               exekutor "${MULLE_SDE:-mulle-sde}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           -N \
+                        reflect
+            fi
+         )
+         rval=$?
+      fi
+   ### END
+
+   sde_protect_unprotect "Protect" "-w"
+
    return $rval
 }
 

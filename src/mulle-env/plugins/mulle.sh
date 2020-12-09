@@ -288,14 +288,17 @@ print_mulle_tools_sh()
    # for people doing mulle-sde init none
    # have an assortment of tools ready so one can at least fetch stuff
    # and build stuff
-   #
+   # sysctl and uptime are used by mulle-bashfunctions/parallel
+
    MULLE_SDE_BINARIES="\
 column;optional
 curl;optional
 make;optional
 ninja;optional
 wget;optional
+sysctl;optional
 sw_vers;optional
+uptime;optional
 xcrun;optional
 xcodebuild;optional
 autoconf;optional
