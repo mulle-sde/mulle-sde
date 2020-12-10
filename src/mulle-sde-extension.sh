@@ -1775,7 +1775,7 @@ sde_extension_remove_main()
    fi
 
    # remove from list of extensions
-   exekutor chmod -R +w "${MULLE_SDE_SHARE_DIR}" || exit 1
+   exekutor find "${MULLE_SDE_SHARE_DIR}" -type f -exec chmod +w {} \;
 
    redirect_exekutor "${MULLE_SDE_SHARE_DIR}/extension" echo "${changed}" &&
 
@@ -1796,7 +1796,7 @@ sde_extension_remove_main()
 
    rmdir_if_empty "${MULLE_SDE_SHARE_DIR}/version"
 
-   exekutor chmod -R -w "${MULLE_SDE_SHARE_DIR}"
+   exekutor find "${MULLE_SDE_SHARE_DIR}" -type f -exec chmod a-w {} \;
 }
 
 

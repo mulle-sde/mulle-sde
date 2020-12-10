@@ -1,3 +1,7 @@
+### 0.44.1
+
+* fix extension add changing directory permissions
+
 ## 0.44.0
 
 * experimental command 'steal' added
