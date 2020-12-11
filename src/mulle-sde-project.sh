@@ -177,7 +177,7 @@ set_oneshot_variables()
 {
    log_entry "set_oneshot_variables" "$@"
 
-   local filepath="$1"
+   local filename="$1"
    local class="$2"
    local category="$3"
 
@@ -190,14 +190,19 @@ set_oneshot_variables()
       ONESHOT_CATEGORY="${category}"
    fi
 
-   if [ -z "${filepath}" ]
+   if [ -z "${filename}" ]
    then
       return
    fi
 
-   ONESHOT_FILENAME="${filepath}"
+   if is_absolutepath "${filename}"
+   then
+      internal_fail "filename \"${filename}\" must be relative"
+   fi
 
-   ONESHOT_FILENAME_NO_EXT="${filepath%.*}"
+   ONESHOT_FILENAME="${filename}"
+
+   ONESHOT_FILENAME_NO_EXT="${filename%.*}"
    r_extensionless_basename "${ONESHOT_FILENAME}"
    ONESHOT_NAME="${RVAL}"
 
@@ -228,7 +233,7 @@ set_oneshot_variables()
    local headerfile
    local footerfile
 
-   ext="${filepath##*.}"
+   ext="${filename##*.}"
 
    r_add_template_header_file "${ext}"
    headerfile="${RVAL}"

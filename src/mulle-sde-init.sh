@@ -3299,11 +3299,10 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
       fi
    ### END
 
-   sde_protect_unprotect "Protect" "-w"
+   sde_protect_unprotect "Protect" "a-w"
 
    return $rval
 }
-
 
 
 sde_init_main()
@@ -3322,3 +3321,6 @@ sde_init_main()
 
    return $rval
 }
+
+
+

@@ -300,7 +300,7 @@ sde_add_file_via_oneshot_extension()
 {
    log_entry "sde_add_file_via_oneshot_extension" "$@"
 
-   local filepath="$1"
+   local filename="$1"
    local vendors="$2"
    local name="$3"
    local type="$4"
@@ -310,7 +310,7 @@ sde_add_file_via_oneshot_extension()
    local _category
    local _class
 
-   _r_sde_get_class_category_genericname "${filepath}" "${name}" "${type}" "${ext}"
+   _r_sde_get_class_category_genericname "${filename}" "${name}" "${type}" "${ext}"
    if [ -z "${name}" ]
    then
       name="${RVAL}"
@@ -318,13 +318,14 @@ sde_add_file_via_oneshot_extension()
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
+      log_trace2 "filename:    ${filename}"
       log_trace2 "name:        ${name}"
       log_trace2 "class:       ${_class}"
       log_trace2 "category:    ${_category}"
       log_trace2 "genericname: ${_genericname}"
    fi
 
-   _sde_add_file_via_oneshot_extension "${filepath}" \
+   _sde_add_file_via_oneshot_extension "${filename}" \
                                        "${vendors}" \
                                        "${name}" \
                                        "${_class}" \
@@ -333,24 +334,24 @@ sde_add_file_via_oneshot_extension()
 }
 
 
+#
+# filepath is relative
+#
 sde_add_in_project()
 {
    log_entry "sde_add_in_project" "$@"
 
-   local filepath="$1"
+   local filename="$1"
    local vendors="$2"
    local name="$3"
    local type="$4"
    local ext="$5"
    local all="$6"
 
-   local absfilepath
 
-   absfilepath="${filepath}"
-   if ! is_absolutepath "${filepath}"
+   if is_absolutepath "${filename}"
    then
-      r_filepath_concat "${MULLE_USER_PWD}" "${filepath}"
-      absfilepath="${RVAL}"
+      fail "filename \"${filename}\" must be relative"
    fi
 
    #
@@ -358,29 +359,10 @@ sde_add_in_project()
    # TODO: check that extension is handled in patternfiles and optionally
    #       generate a new rule for it
    #
-   if [ -e "${absfilepath}" ]
+   if [ -e "${filename}" ]
    then
-      log_verbose "File already exists, just updating"
+      log_verbose "File already exists"
    else
-      #
-      # mulle-match can only deal with relative filepaths though
-
-      local relpath
-
-      relpath="${absfilepath#${MULLE_VIRTUAL_ROOT}/}"
-      case "${relpath}" in
-         /*)
-            # don't check absolute paths then
-         ;;
-
-         *)
-            if ! mulle-match match --quiet "${relpath}"
-            then
-               log_warning "\"${filepath}\" will not be matched by reflect"
-            fi
-         ;;
-      esac
-
       #
       # get currently installed runtime vendors, theses are the ones we
       # query for the file to produce, if none are given
@@ -399,7 +381,7 @@ sde_add_in_project()
 
       local rval
 
-      sde_add_file_via_oneshot_extension "${absfilepath#${MULLE_USER_PWD}/}" \
+      sde_add_file_via_oneshot_extension "${filename}" \
                                          "${vendors}" \
                                          "${name}" \
                                          "${type}" \
@@ -407,7 +389,7 @@ sde_add_in_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create \"${absfilepath#${MULLE_USER_PWD}/}\""
+            fail "No matching template found to create \"${filename}\""
          ;;
 
          0)
@@ -417,19 +399,19 @@ sde_add_in_project()
             exit $rval
          ;;
       esac
-   fi
 
-   log_info "Added \"${filepath#${MULLE_USER_PWD}/}\""
+      log_info "Added \"${filename}\""
+   fi
 
    local found
 
-   found="`rexekutor mulle-match list | fgrep -x "${absfilepath#${MULLE_USER_PWD}/}"`"
+   found="`rexekutor mulle-match list | fgrep -x "${filename}"`"
    if [ -z "${found}" ]
    then
-      log_warning "The new file \"${absfilepath#${MULLE_USER_PWD}/}\" will not be found by \`reflect\`.
+      log_warning "The new file \"${filename}\" will not be found by \`reflect\`.
 ${C_INFO}Tip: The PROJECT_SOURCE_DIR environment variable is ${C_RESET_BOLD}${PROJECT_SOURCE_DIR}.
 ${C_INFO}Maybe remove the generated file and try anew with:
-${C_RESET_BOLD}mulle-sde add \"${PROJECT_SOURCE_DIR}/${relpath}\""
+${C_RESET_BOLD}mulle-sde add \"${PROJECT_SOURCE_DIR}/${filename}\""
       return
    fi
 
@@ -462,15 +444,29 @@ sde_add_no_project()
       vendors="`extension_list_vendors`" || exit 1
    fi
 
+   local directory
+   local filename
+
+   r_dirname "${filepath}"
+   directory="${RVAL}"
+
+   r_basename "${filepath}"
+   filename="${RVAL}"
+
+   mkdir_if_missing "${directory}"
+
    # fake some variables to make it happen
    (
-      r_extensionless_basename "${PWD}"
+      cd "${directory}" || fail "Could not enter \"${directory}\""
+
+      r_extensionless_basename "${directory}"
       export PROJECT_NAME="${RVAL}"
       export PROJECT_LANGUAGE="c"
       export PROJECT_DIALECT="objc"
       export TEMPLATE_NO_ENVIRONMENT="YES" # hacky
 
-      sde_add_file_via_oneshot_extension "${filepath}" \
+
+      sde_add_file_via_oneshot_extension "${filename}" \
                                          "${vendors}" \
                                          "${name}" \
                                          "${type}" \
@@ -597,20 +593,8 @@ sde_add_main()
 
    [ $# -ne 1  ] && sde_add_usage
 
-   local filepath
 
-   filepath="$1"
-   case "${filepath}" in
-      /*|~*)
-      ;;
-
-      *)
-         r_filepath_concat "${MULLE_USER_PWD}" "${filepath}"
-         filepath="${RVAL}"
-      ;;
-   esac
-
-
+   # if we are in a project, but not not really within yet, rexecute
    if rexekutor mulle-sde -s status --clear --project
    then
       if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -620,20 +604,50 @@ sde_add_main()
                                       --type "${OPTION_TYPE}" \
                                       --file-extension "${OPTION_FILE_EXTENSION}" \
                                       "$@" || exit 1
-      else
-         sde_add_in_project "${filepath}" \
-                            "${OPTION_VENDOR}" \
-                            "${OPTION_NAME}" \
-                            "${OPTION_TYPE}" \
-                            "${OPTION_FILE_EXTENSION}" \
-                            "${OPTION_ALL_VENDORS}"
       fi
-   else
-      sde_add_no_project "${filepath}" \
-                         "${OPTION_VENDOR}" \
-                         "${OPTION_NAME}" \
-                         "${OPTION_TYPE}" \
-                         "${OPTION_FILE_EXTENSION}"
    fi
+
+   local filename
+
+   filename="$1"
+
+   # check if destination is within our project, decide on where to go
+
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      filepath="${filename}"
+      if ! is_absolutepath "${filepath}"
+      then
+         r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
+         filepath="${RVAL}"
+      fi
+
+      # make comparable
+      r_resolve_all_path_symlinks "${filepath}"
+      filepath="${RVAL}"
+
+      r_relative_path_between "${filepath}" "${MULLE_VIRTUAL_ROOT}"
+      log_debug "${C_RED}${filepath} - ${MULLE_VIRTUAL_ROOT} = relative=${RVAL}"
+      case "${RVAL}" in
+         ../*)
+         ;;
+
+         *)
+            sde_add_in_project "${filename}" \
+                               "${OPTION_VENDOR}" \
+                               "${OPTION_NAME}" \
+                               "${OPTION_TYPE}" \
+                               "${OPTION_FILE_EXTENSION}" \
+                               "${OPTION_ALL_VENDORS}"
+            return $?
+         ;;
+      esac
+   fi
+
+   sde_add_no_project "${filename}" \
+                      "${OPTION_VENDOR}" \
+                      "${OPTION_NAME}" \
+                      "${OPTION_TYPE}" \
+                      "${OPTION_FILE_EXTENSION}"
 }
 
