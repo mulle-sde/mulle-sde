@@ -228,8 +228,14 @@ Usage:
    single entries between projects.
 
 Options:
-   --        : pass remaining arguments to mulle-sourcetree list
+   -l        : output long information
+   -ll       : output full information
+   -r        : recursive list
+   -g        : output branch/tag information (use -G for raw output)
+   -u        : output URL information  (use -U for raw output)
    --url     : show URL
+   --        : pass remaining arguments to mulle-sourcetree list
+
 
 EOF
    exit 1
@@ -251,6 +257,16 @@ EOF
    exit 1
 }
 
+r_upcaseid()
+{
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"  || return 1
+   fi
+
+   r_de_camel_case_upcase_identifier "$1"
+}
 
 #
 #
@@ -261,6 +277,7 @@ sde_dependency_set_main()
 
    local OPTION_APPEND='NO'
    local OPTION_DIALECT=''
+   local OPTION_ENHANCE='YES'
 
    while :
    do
@@ -275,6 +292,14 @@ sde_dependency_set_main()
 
          -m|--objc)
             OPTION_DIALECT='objc'
+         ;;
+
+         --enhance)
+            OPTION_ENHANCE='YES'
+         ;;
+
+         --plain)
+            OPTION_ENHANCE='NO'
          ;;
 
          -*)
@@ -344,6 +369,7 @@ sde_dependency_set_main()
                                      "${value}" \
                                      "${DEPENDENCY_MARKS}" \
                                      "${OPTION_APPEND}"
+         return $?
       ;;
 
       aliases|include)
@@ -351,15 +377,47 @@ sde_dependency_set_main()
                                         "${field}" \
                                         "${value}" \
                                         "${OPTION_APPEND}"
+         return $?
       ;;
 
-      *)
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                          ${MULLE_TECHNICAL_FLAGS} \
-                      set "${address}" "${field}" "${value}"
+      url)
+         if [ "${OPTION_ENHANCE}" = 'YES' ]
+         then
+            local upcaseid
+            local nodetype
+
+            r_upcaseid "${address}" || return 1
+            upcaseid="${RVAL}"
+
+            if [ -z "${nodetype}" ]
+            then
+               nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
+            fi
+
+            _sde_enhance_url "${value}" "" "${nodetype}" "${address}" ""
+
+            value="\${${upcaseid}_URL:-${value}}"
+         fi
+      ;;
+
+      tag|branch|nodetype)
+         if [ "${OPTION_ENHANCE}" = 'YES' ]
+         then
+            local upcaseid
+
+            r_upcaseid "${address}" || return 1
+            upcaseid="${RVAL}"
+
+            r_uppercase "${field}"
+            value="\${${upcaseid}_${RVAL}:-${value}}"
+         fi
       ;;
    esac
+
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                    ${MULLE_TECHNICAL_FLAGS} \
+                set "${address}" "${field}" "${value}"
 }
 
 
@@ -399,6 +457,7 @@ sde_dependency_list_main()
    marks="${DEPENDENCY_MARKS}"
 
    local OPTION_OUTPUT_COMMAND='NO'
+   local OPTIONS
 
    while :
    do
@@ -436,6 +495,11 @@ sde_dependency_list_main()
             OPTION_OUTPUT_COMMAND='YES'
          ;;
 
+         -l|-ll|-r|-g|-u|-G|-U)
+            r_concat "${OPTIONS}" "$1"
+            OPTIONS="${RVAL}"
+         ;;
+
          --)
             # pass rest to mulle-sourcetree
             shift
@@ -470,6 +534,7 @@ sde_dependency_list_main()
                --output-no-header \
                --output-no-marks "${DEPENDENCY_MARKS}" \
                --output-cmdline "${MULLE_USAGE_NAME} dependency add" \
+               ${OPTIONS} \
                "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
@@ -481,6 +546,7 @@ sde_dependency_list_main()
                --qualifier "${qualifier}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --output-no-marks "${DEPENDENCY_MARKS}" \
+               ${OPTIONS} \
                "$@"
    fi
 }
@@ -488,11 +554,13 @@ sde_dependency_list_main()
 
 #
 # return values in globals
-#    _url
+#
 #    _address
-#    _nodetype
-#    _address
+#    _branch
 #    _marks
+#    _nodetype
+#    _tag
+#    _url
 #
 _sde_enhance_url()
 {
@@ -522,12 +590,12 @@ _sde_enhance_url()
       fi
    fi
 
-   _url=""
-   _tag=""
-   _branch=""
    _address=""
+   _branch=""
    _marks=""
    _nodetype=""
+   _tag=""
+   _url=""
 
    #
    # create a convenient URL that can be substituted with env
@@ -535,15 +603,8 @@ _sde_enhance_url()
    #
    local upcaseid
 
-   if [ -z "${MULLE_CASE_SH}" ]
-   then
-      # shellcheck source=mulle-case.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
-   fi
-
-   r_de_camel_case_upcase_identifier "${address}"
+   r_upcaseid "${address}" || return 1
    upcaseid="${RVAL}"
-
 
    #
    # TODO: move this part of the code to mulle-fetch ?
@@ -818,6 +879,10 @@ sde_dependency_add_main()
 
          --optional)
             OPTION_OPTIONAL='YES'
+         ;;
+
+         --enhance)
+            OPTION_ENHANCE='YES'
          ;;
 
          --plain)
