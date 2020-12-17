@@ -2131,9 +2131,9 @@ changes into your subshell"
 }
 
 
-__sde_init_add()
+sde_run_add()
 {
-   log_entry "__sde_init_add" "$@"
+   log_entry "sde_run_add" "$@"
 
    [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
 
@@ -2398,52 +2398,12 @@ warn_if_unknown_mark()
 }
 
 
-__sde_init_main()
+# stupid old code
+_sde_validate_projecttype()
 {
-   log_entry "__sde_init_main" "$@"
+   local projecttype="$1"
 
-   if [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ]
-   then
-      if [ -z "${OPTION_PROJECT_FILE}" ]
-      then
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           --no-protect \
-                           upgrade || exit 1
-      fi
-
-      if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
-      then
-         fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
-      fi
-
-      read_project_environment
-
-      if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
-      then
-         case "${PROJECT_TYPE}" in
-            "none")
-               if [ "${PWD}" != "${MULLE_USER_PWD}" ]
-               then
-                  log_verbose "Nothing to upgrade in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
-               else
-                  log_verbose "Nothing to upgrade, as no extensions have been installed."
-               fi
-               return 0
-            ;;
-         esac
-
-         fail "Could not retrieve previous extension information.
-This may hurt, but you have to init again."
-      fi
-   else
-      [ $# -eq 0 ] && sde_init_usage "Missing project type"
-      [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
-
-      PROJECT_TYPE="$1"
-   fi
-
-   case "${PROJECT_TYPE}" in
+   case "${projecttype}" in
       "")
          fail "Project type is empty"
       ;;
@@ -2451,28 +2411,373 @@ This may hurt, but you have to init again."
       executable|extension|framework|library|none|unknown)
       ;;
 
-      show)
-         [ -z "${MULLE_SDE_EXTENSION_SH}" ] && \
-            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
-         sde_extension_show_main meta
-         return $?
-      ;;
 
       *)
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
          then
-            fail "\"${PROJECT_TYPE}\" is not a standard project type.
-${C_INFO}Use -f to use \"${PROJECT_TYPE}\""
+            fail "\"${projecttype}\" is not a standard project type.
+${C_INFO}Use -f to use \"${projecttype}\""
+         fi
+      ;;
+   esac
+}
+
+
+_sde_run_upgrade()
+{
+   log_entry "_sde_run_upgrade" "$@"
+
+   rexekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     --no-protect \
+                     upgrade || exit 1
+
+   if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
+   then
+      fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
+   fi
+
+   read_project_environment
+
+   if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
+   then
+      case "${PROJECT_TYPE}" in
+         "none")
+            if [ "${PWD}" != "${MULLE_USER_PWD}" ]
+            then
+               log_verbose "Nothing to upgrade in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
+            else
+               log_verbose "Nothing to upgrade, as no extensions have been installed."
+            fi
+            return 0
+         ;;
+      esac
+
+      fail "Could not retrieve previous extension information.
+This may hurt, but you have to init again."
+   fi
+
+
+   _sde_validate_projecttype "${PROJECT_TYPE}"
+
+
+   log_fluff "Erasing share/env contents to be written by upgrade anew"
+
+   if ! is_disabled_by_marks "${marks}" "no-env"
+   then
+      # should be part of mulle-env to clear a scope
+      remove_file_if_present ".mulle/share/env/environment-extension.sh"
+
+      local file
+
+      shopt -s nullglob
+      for file in ".mulle/share/env/tool-extension" ".mulle/share/env/tool-extension".*
+      do
+         shopt -u nullglob
+         remove_file_if_present "${file}"
+      done
+      shopt -u nullglob
+   fi
+
+   add_environment_variables "${OPTION_DEFINES}"
+
+
+   # rmdir_safer ".mulle-env"
+   if ! install_extensions "${OPTION_MARKS}" \
+                           "${OPTION_PROJECT_FILE}" \
+                           "${MULLE_FLAG_MAGNUM_FORCE}"
+   then
+      return 1
+   fi
+
+   # upgrade identifiers if missing
+   #
+   # TODO: compare old version to new, and run custom pre/postscripts
+   #
+   # Not doing this anymore, as project moved to etc
+   # memorize_project_name "${PROJECT_NAME}"
+
+   #
+   # repair patternfiles as a "bonus" with -add option
+   #
+   exekutor "${MULLE_MATCH:-mulle-match}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_MATCH_FLAGS} \
+              patternfile repair --add
+
+   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+
+   # only remove if empty
+   exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
+   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
+
+   return 0
+}
+
+
+_sde_run_upgrade_projectfile()
+{
+   log_entry "_sde_run_upgrade_projectfile" "$@"
+
+   if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
+   then
+      fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
+   fi
+
+   read_project_environment
+
+   if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
+   then
+      case "${PROJECT_TYPE}" in
+         "none")
+            if [ "${PWD}" != "${MULLE_USER_PWD}" ]
+            then
+               log_verbose "Nothing to upgrade in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
+            else
+               log_verbose "Nothing to upgrade, as no extensions have been installed."
+            fi
+            return 0
+         ;;
+      esac
+
+      fail "Could not retrieve previous extension information.
+This may hurt, but you have to init again."
+   fi
+
+
+   _sde_validate_projecttype "${PROJECT_TYPE}"
+   add_environment_variables "${OPTION_DEFINES}"
+
+
+   # rmdir_safer ".mulle-env"
+   if ! install_extensions "${OPTION_MARKS}" \
+                           "${OPTION_PROJECT_FILE}" \
+                           "${MULLE_FLAG_MAGNUM_FORCE}"
+   then
+      return 1
+   fi
+
+   return 0
+}
+
+
+_sde_pre_initenv()
+{
+   log_entry "_sde_pre_initenv" "$@"
+
+   #
+   # if we init env now, then extensions can add environment
+   # variables and tools
+   #
+   local flags
+
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+   then
+      flags="-f"
+   fi
+
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${flags} \
+                  --no-protect \
+                  --style "${OPTION_ENV_STYLE}" \
+               init \
+                  --no-blurb
+   case $? in
+      0)
+      ;;
+
+      4)
+         log_fluff "mulle-env warning noted, but ignored"
+      ;;
+
+      *)
+         if [ "${purge_mulle_on_error}" = 'YES' -a -d .mulle ]
+         then
+            internal_fail "mulle-env should have cleaned up after itself after init failure"
+         fi
+         exit 1
+      ;;
+   esac
+}
+
+
+_sde_post_initenv()
+{
+   log_entry "_sde_post_initenv" "$@"
+
+   if [ "${OPTION_INIT_TYPE}" = "subproject" ]
+   then
+      exekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     --no-protect \
+                  tweak \
+                     climb
+   fi
+
+   if [ "${OPTION_POST_INIT}" = 'YES' ]
+   then
+      run_user_post_init_script "${PROJECT_LANGUAGE}" \
+                                "${PROJECT_DIALECT}" \
+                                "${PROJECT_TYPE}"
+   fi
+
+   if [ "${OPTION_BLURB}" = 'YES' ]
+   then
+      log_info "Enter the environment:
+   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
+   fi
+}
+
+
+_sde_run_reinit()
+{
+   log_entry "_sde_run_reinit" "$@"
+
+   if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
+   then
+      fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
+   fi
+
+   if [ -z "${OPTION_PROJECT_FILE}" ]
+   then
+      rexekutor "${MULLE_ENV:-mulle-env}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        --no-protect \
+                        upgrade || exit 1
+   fi
+
+
+   read_project_environment
+
+   [ $# -eq 0 ] && sde_init_usage "Missing project type"
+   [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
+
+   PROJECT_TYPE="$1"
+
+   _sde_validate_projecttype "${PROJECT_TYPE}"
+
+   if [ "${OPTION_INIT_ENV}" = 'YES' ]
+   then
+      _sde_pre_initenv
+   fi
+
+   add_environment_variables "${OPTION_DEFINES}"
+
+   # rmdir_safer ".mulle-env"
+   case "${OPTION_PROJECT_SOURCE_DIR}" in
+      DEFAULT)
+         if [ "${PROJECT_TYPE}" != "none" ]
+         then
+            OPTION_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
          fi
       ;;
    esac
 
-   #
-   # An upgrade is an "inplace" refresh of the extensions
-   #
-   if [ "${OPTION_REINIT}" != 'YES' -a \
-        "${OPTION_UPGRADE}" != 'YES' -a \
-        -d "${MULLE_SDE_SHARE_DIR}" ]
+   case "${OPTION_NAME}" in
+      DEFAULT)
+         OPTION_NAME="${PROJECT_NAME}"
+         if [ -z "${OPTION_NAME}" ]
+         then
+            r_basename "${PWD}"
+            OPTION_NAME="${RVAL}"
+         fi
+      ;;
+   esac
+
+   if ! install_project "${OPTION_NAME}" \
+                       "${PROJECT_TYPE}" \
+                       "${OPTION_PROJECT_SOURCE_DIR}" \
+                       "${OPTION_MARKS}" \
+                       "${OPTION_PROJECT_FILE}" \
+                       "${MULLE_FLAG_MAGNUM_FORCE}" \
+                       "${OPTION_LANGUAGE}"  \
+                       "${OPTION_DIALECT}"  \
+                       "${OPTION_EXTENSIONS}"
+   then
+      return 1
+   fi
+
+   if [ "${OPTION_INIT_ENV}" = 'YES' ]
+   then
+      _sde_pre_initenv
+   fi
+
+   return 0
+}
+
+
+
+_sde_run_init()
+{
+   log_entry "_sde_run_init" "$@"
+
+   [ $# -eq 0 ] && sde_init_usage "Missing project type"
+   [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
+
+   PROJECT_TYPE="$1"
+
+   _sde_validate_projecttype "${PROJECT_TYPE}"
+
+   if [ "${OPTION_INIT_ENV}" = 'YES' ]
+   then
+      _sde_pre_initenv
+   fi
+
+   add_environment_variables "${OPTION_DEFINES}"
+
+
+   case "${OPTION_PROJECT_SOURCE_DIR}" in
+      DEFAULT)
+         if [ "${PROJECT_TYPE}" != "none" ]
+         then
+            OPTION_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
+         fi
+      ;;
+   esac
+
+   case "${OPTION_NAME}" in
+      DEFAULT)
+         OPTION_NAME="${PROJECT_NAME}"
+         if [ -z "${OPTION_NAME}" ]
+         then
+            r_basename "${PWD}"
+            OPTION_NAME="${RVAL}"
+         fi
+      ;;
+   esac
+
+   if ! install_project "${OPTION_NAME}" \
+                        "${PROJECT_TYPE}" \
+                        "${OPTION_PROJECT_SOURCE_DIR}" \
+                        "${OPTION_MARKS}" \
+                        "${OPTION_PROJECT_FILE}" \
+                        "${MULLE_FLAG_MAGNUM_FORCE}" \
+                        "${OPTION_LANGUAGE}"  \
+                        "${OPTION_DIALECT}"  \
+                        "${OPTION_EXTENSIONS}"
+   then
+      return 1
+   fi
+
+   if [ "${OPTION_INIT_ENV}" = 'YES' ]
+   then
+      _sde_post_initenv
+   fi
+
+   return 0
+}
+
+
+#
+# These funtions should save state and revert to previous state if the
+# init/upgrade failed.
+#
+sde_check_dot_init()
+{
+   log_entry "sde_check_dot_init" "$@"
+
+   if [ -d "${MULLE_SDE_SHARE_DIR}" ]
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
       then
@@ -2487,262 +2792,191 @@ ${C_INFO}In case you wanted to upgrade it:
 ${C_RESET_BOLD}   mulle-sde upgrade"
       fi
    fi
+}
 
-   local purge_mulle_on_error='NO'
+
+sde_save_mulle_in_old()
+{
+   log_entry "sde_save_mulle_in_old" "$@"
+
+   rmdir_safer ".mulle.old"
+   exekutor mv ".mulle" ".mulle.old"
+
+   # copy stuff we may need for the upgrade back,
+   mkdir_if_missing ".mulle" || exit 1
+   exekutor cp -Ra ".mulle.old/etc" ".mulle" || exit 1
+   exekutor cp -Ra ".mulle.old/share" ".mulle" || exit 1
+
+   mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
+   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
+}
+
+
+sde_restore_mulle_from_old()
+{
+   log_entry "sde_restore_mulle_from_old" "$@"
+
+   if [ ! -d ".mulle.old" ]
+   then
+      fail "Things went really bad, can't restore old configuration"
+   fi
+
+   if [ -d ".mulle.old" ]
+   then
+      rmdir_safer ".mulle"
+      exekutor mv ".mulle.old" ".mulle" || exit 1
+      log_info "Restored old configuration"
+   fi
+}
+
+
+sde_run_init()
+{
+   log_entry "sde_run_init" "$@"
+
+   log_verbose "Init start"
+
+   sde_check_dot_init
+
+   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start init `date` in $PWD on ${MULLE_HOSTNAME}"
+
+   local rval
+   (
+      _sde_run_init "$@"
+   )
+   rval="$?"
+
+   if [ $rval != 0 ]
+   then
+      rmdir_safer ".mulle"
+
+      if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
+      then
+         rmdir_safer "${PWD}"
+      fi
+   fi
+
+   # remove if empty
+   exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
+   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
+
+   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+
+   log_verbose "Init end"
+
+   return $rval
+}
+
+
+
+sde_run_reinit()
+{
+   # reinit, save the old
+   log_entry "sde_run_reinit" "$@"
+
+   log_verbose "Reinit start"
+
+   sde_check_dot_init
+
+   sde_save_mulle_in_old
+
+   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start reinit `date` in $PWD on ${MULLE_HOSTNAME}"
+
+   local rval
+   (
+      _sde_run_reinit "$@"
+   )
+   rval="$?"
+
+   # rmdir_safer ".mulle-env"
+   if [ $rval -ne 0 ]
+   then
+      log_info "The reinit failed. Restoring old configuration."
+
+      sde_restore_mulle_from_old
+   else
+      rmdir_safer ".mulle.old"
+   fi
+
+   # remove if empty
+   exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
+   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
+
+   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+
+   log_verbose "Reinit end"
+
+   return $rval
+}
+
+
+sde_run_upgrade_projectfile()
+{
+   log_entry "sde_run_upgrade_projectfile" "$@"
+
+   log_verbose "Upgrade projectfile start"
+   # probably nothing to do here (could save source but we don't)
+   local rval
+   (
+      _sde_run_upgrade_projectfile "$@"
+   )
+   rval="$?"
+
+   log_verbose "Upgrade projectfile end"
+   return $rval
+}
+
+
+sde_run_upgrade()
+{
+   log_entry "sde_run_upgrade" "$@"
+
+   log_verbose "Upgrade start"
+
+   if [ -d ".mulle.old" -a ! -d ".mulle" ]
+   then
+      fail "Old .mulle.old folder of a possibly failed upgrade present, remove it manually"
+   fi
 
    if [ ! -d ".mulle" ]
    then
-      purge_mulle_on_error='YES'
+      fail "No .mulle folder present, nothing to upgrade"
    fi
 
    #
-   # if we init env now, then extensions can add environment
-   # variables and tools
+   # always wipe these for clean upgrades
+   # except if we are just updating a specific project file
+   # (i.e. CMakeLists.txt). Keep "extension" file around in case something
+   # goes wrong. Also temporarily keep old share
    #
-   if [ "${OPTION_INIT_ENV}" = 'YES' ]
-   then
-      local flags
+   sde_save_mulle_in_old
 
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
-      then
-         flags="-f"
-      fi
+   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start upgrade `date` in $PWD on ${MULLE_HOSTNAME}"
 
-      exekutor "${MULLE_ENV:-mulle-env}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${flags} \
-                     --no-protect \
-                     --style "${OPTION_ENV_STYLE}" \
-                  init \
-                     --no-blurb
-      case $? in
-         0)
-         ;;
-
-         4)
-            log_fluff "mulle-env warning noted, but ignored"
-         ;;
-
-         *)
-            if [ "${purge_mulle_on_error}" = 'YES' -a -d .mulle ]
-            then
-               internal_fail "mulle-env should have cleaned up after itself after init failure"
-            fi
-            exit 1
-         ;;
-      esac
-   else
-      if [ "${OPTION_UPGRADE}" = 'YES' -a -z "${OPTION_PROJECT_FILE}" ]
-      then
-         log_fluff "Erasing share/env contents to be written by upgrade anew"
-
-         if ! is_disabled_by_marks "${marks}" "no-env"
-         then
-            # should be part of mulle-env to clear a scope
-            remove_file_if_present ".mulle/share/env/environment-extension.sh"
-
-            local file
-
-            shopt -s nullglob
-            for file in ".mulle/share/env/tool-extension" ".mulle/share/env/tool-extension".*
-            do
-               shopt -u nullglob
-               remove_file_if_present "${file}"
-            done
-            shopt -u nullglob
-         fi
-      else
-         log_debug "Not touching files as OPTION_UPGRADE is ${OPTION_UPGRADE} and OPTION_PROJECT_FILE is ${OPTION_PROJECT_FILE}"
-      fi
-   fi
-
-   local purge_sde_on_error='NO'
-   local purge_env_on_error='NO'
-   local purge_sourcetree_on_error='NO'
-
-   add_environment_variables "${OPTION_DEFINES}"
-
-   if [ ! -d "${MULLE_SDE_SHARE_DIR}" ]
-   then
-      purge_sde_on_error='YES'
-   fi
-   if [ ! -d ".mulle/share/env" ]
-   then
-      purge_env_on_error='YES'
-   fi
-   if [ ! -d ".mulle/etc/sourcetree" ]
-   then
-      purge_sourcetree_on_error='YES'
-   fi
-
-   if [ -z "${OPTION_PROJECT_FILE}" ]
-   then
-      #
-      # always wipe these for clean upgrades
-      # except if we are just updating a specific project file
-      # (i.e. CMakeLists.txt). Keep "extension" file around in case something
-      # goes wrong. Also temporarily keep old share
-      #
-      rmdir_safer "${MULLE_MATCH_SHARE_DIR}.old"
-      if [ -d "${MULLE_MATCH_SHARE_DIR}" ]
-      then
-         exekutor mv "${MULLE_MATCH_SHARE_DIR}" "${MULLE_MATCH_SHARE_DIR}.old"
-      fi
-      rmdir_safer "${MULLE_MATCH_VAR_DIR}"
-      mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
-
-      rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
-      if [ -d "${MULLE_SDE_SHARE_DIR}" ]
-      then
-         exekutor mv "${MULLE_SDE_SHARE_DIR}" "${MULLE_SDE_SHARE_DIR}.old"
-      fi
-      rmdir_safer "${MULLE_SDE_VAR_DIR}"
-
-      mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
-      redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start init `date` in $PWD on ${MULLE_HOSTNAME}"
-   fi
+   local rval
+   (
+      _sde_run_upgrade "$@"
+   )
+   rval="$?"
 
    # rmdir_safer ".mulle-env"
-   if [ "${OPTION_UPGRADE}" = 'YES' ]
+   if [ $rval -ne 0 ]
    then
-      if ! ( install_extensions "${OPTION_MARKS}" \
-                                "${OPTION_PROJECT_FILE}" \
-                                "${MULLE_FLAG_MAGNUM_FORCE}"
-      )
-      then
-         if [ ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
-         then
-            fail "Things went really bad, can't restore old configuration"
-         fi
+      log_info "The upgrade failed. Restoring old configuration."
 
-         log_info "The upgrade failed. Restoring old configuration."
-
-         rmdir_safer "${MULLE_SDE_SHARE_DIR}"
-         exekutor mv "${MULLE_SDE_SHARE_DIR}.old" "${MULLE_SDE_SHARE_DIR}"
-         rmdir_safer "${MULLE_MATCH_SHARE_DIR}"
-         exekutor mv "${MULLE_MATCH_SHARE_DIR}.old" "${MULLE_MATCH_SHARE_DIR}"
-         remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
-         exit 1
-      fi
-
-      # upgrade identifiers if missing
-      #
-      # TODO: compare old version to new, and run custom pre/postscripts
-      #
-      # Not doing this anymore, as project moved to etc
-      # memorize_project_name "${PROJECT_NAME}"
-
-      if [ -z "${OPTION_PROJECT_FILE}" ]
-      then
-         #
-         # repair patternfiles as a "bonus" with -add option
-         #
-         exekutor "${MULLE_MATCH:-mulle-match}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_MATCH_FLAGS} \
-                    patternfile repair --add
-      fi
+      sde_restore_mulle_from_old
    else
-      case "${OPTION_PROJECT_SOURCE_DIR}" in
-         DEFAULT)
-            if [ "${PROJECT_TYPE}" != "none" ]
-            then
-               OPTION_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
-            fi
-         ;;
-      esac
-
-      case "${OPTION_NAME}" in
-         DEFAULT)
-            OPTION_NAME="${PROJECT_NAME}"
-            if [ -z "${OPTION_NAME}" ]
-            then
-               r_basename "${PWD}"
-               OPTION_NAME="${RVAL}"
-            fi
-         ;;
-      esac
-
-      if ! (
-         install_project "${OPTION_NAME}" \
-                         "${PROJECT_TYPE}" \
-                         "${OPTION_PROJECT_SOURCE_DIR}" \
-                         "${OPTION_MARKS}" \
-                         "${OPTION_PROJECT_FILE}" \
-                         "${MULLE_FLAG_MAGNUM_FORCE}" \
-                         "${OPTION_LANGUAGE}"  \
-                         "${OPTION_DIALECT}"  \
-                         "${OPTION_EXTENSIONS}"
-      )
-      then
-         log_error "Cleaning up after error"
-
-         if [ "${purge_mulle_on_error}" = 'YES' ]
-         then
-            rmdir_safer ".mulle"
-         else
-            if [ "${purge_sde_on_error}" = 'YES' ]
-            then
-               rmdir_safer "${MULLE_SDE_SHARE_DIR}"
-               rmdir_safer "${MULLE_SDE_ETC_DIR}" # ???
-            fi
-            if [ "${purge_env_on_error}" = 'YES' ]
-            then
-               rmdir_safer ".mulle/share/env"
-               rmdir_safer ".mulle/etc/env" # ???
-            fi
-            if [ "${purge_sourcetree_on_error}" = 'YES' ]
-            then
-               rmdir_safer ".mulle/share/sourcetree"
-               rmdir_safer ".mulle/etc/sourcetree" # ???
-            fi
-         fi
-         if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
-         then
-            rmdir_safer "${PWD}"
-         fi
-         exit 1
-      fi
+      rmdir_safer ".mulle.old"
    fi
 
-   if [ -z "${OPTION_PROJECT_FILE}" ]
-   then
-      rmdir_safer "${MULLE_MATCH_SHARE_DIR}.old"
-      rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
-      remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
 
-      # only remove if empty
-      exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
-      exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
-   fi
+   log_verbose "Upgrade end"
 
-   if [ "${OPTION_INIT_ENV}" = 'YES'  ]
-   then
-      if [ "${OPTION_INIT_TYPE}" = "subproject" ]
-      then
-         exekutor "${MULLE_ENV:-mulle-env}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        --no-protect \
-                     tweak \
-                        climb
-      fi
-
-      if [ "${OPTION_POST_INIT}" = 'YES' ]
-      then
-         run_user_post_init_script "${PROJECT_LANGUAGE}" \
-                                   "${PROJECT_DIALECT}" \
-                                   "${PROJECT_TYPE}"
-      fi
-
-      if [ -z "${OPTION_PROJECT_FILE}" ]
-      then
-         if [ "${OPTION_BLURB}" = 'YES' ]
-         then
-            log_info "Enter the environment:
-   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
-         fi
-      fi
-   fi
+   return $rval
 }
 
 
@@ -3211,22 +3445,23 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done
 
-   local tmp_file
-
-   if [ ! -f ".mulle/share/env/environment.sh" ]
-   then
-      mkdir_if_missing .mulle/share/env
-      exekutor touch .mulle/share/env/environment.sh
-      tmp_file='YES'
-   fi
-
-   # get environments for some tools we manage share files and want
-   # to upgrade
-   eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
-   eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
-
    sde_protect_unprotect "Unprotect" "ug+w"
    ### BEGIN
+      local tmp_file
+
+      if [ ! -f ".mulle/share/env/environment.sh" ]
+      then
+         mkdir_if_missing .mulle/share/env
+         exekutor touch .mulle/share/env/environment.sh
+         tmp_file='YES'
+      fi
+
+      # get environments for some tools we manage share files and want
+      # to upgrade
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` || exit 1
+
       if [ "${tmp_file}" = 'YES' ]
       then
          remove_file_if_present .mulle/share/env/environment.sh
@@ -3255,13 +3490,29 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
       (
          if [ "${OPTION_ADD}" = 'YES' ]
          then
-            __sde_init_add "$@"
+            sde_run_add "$@"
          else
+            if [ "${OPTION_UPGRADE}" = 'YES' ]
+            then
+               if [ -z "${OPTION_PROJECT_FILE}" ]
+               then
+                  sde_run_upgrade "$@" || exit $?
+               else
+                  sde_run_upgrade_projectfile "$@" || exit $?
+               fi
+            else
+               if [ "${OPTION_REINIT}" = 'YES' ]
+               then
+                  sde_run_reinit "$@" || exit $?
+               else
+                  sde_run_init "$@" || exit $?
+               fi
+            fi
+
             # we use the protected version of mulle-env here, because it doesn't
             # matter and we can circumvent a protection bug
             # we protect afterwards anyway
             #
-            __sde_init_main "$@" &&
             exekutor "${MULLE_ENV:-mulle-env}" \
                         --search-as-is \
                         -s \
@@ -3276,6 +3527,7 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
 
       #
       # for these post processing steps load up the environment if present
+      #
       if [ $rval -eq 0 ]
       then
          (
@@ -3284,7 +3536,7 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
                # shellcheck source=src/mulle-sde-migrate.sh
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
 
-               sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || return 1
+               sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
             fi
 
             if [ "${OPTION_REFLECT}" = 'YES' ]
@@ -3292,7 +3544,7 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
                exekutor "${MULLE_SDE:-mulle-sde}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            -N \
-                        reflect
+                        reflect || exit 1
             fi
          )
          rval=$?

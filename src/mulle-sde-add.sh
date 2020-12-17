@@ -51,7 +51,7 @@ sde_add_usage()
    FILE_USAGE_NAME="${FILE_USAGE_NAME:-${MULLE_USAGE_NAME} add}"
 
    COMMON_OPTIONS="\
-   -e <extension>          : oneshot extension to use in vendor/extension form
+   -o <extension>          : oneshot extension to use in vendor/extension form
    -t <type>               : type of file to create (file)
    --file-extension <name> : force file extension"
 
@@ -537,7 +537,7 @@ sde_add_main()
             OPTION_FILE_EXTENSION="$1"
          ;;
 
-         -e|--extension)
+         -o|--oneshot-extension|-e|--extension)
             [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
             shift
 

@@ -521,7 +521,7 @@ sde_dependency_list_main()
    if [ "${OPTION_OUTPUT_COMMAND}" = 'YES' ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
                ${MULLE_TECHNICAL_FLAGS} \
             list \
                --marks "${DEPENDENCY_LIST_MARKS}" \
@@ -538,7 +538,7 @@ sde_dependency_list_main()
                "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
                ${MULLE_TECHNICAL_FLAGS} \
             list \
                --format "${formatstring}\\n" \
