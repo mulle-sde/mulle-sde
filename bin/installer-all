@@ -8,6 +8,7 @@
 PREFIX="${1:-/usr/local}"
 SUDO="${2:-sudo}"
 
+
 if [ "${SUDO}" = "no" ]
 then
    SUDO=""
@@ -60,7 +61,7 @@ install_project()
       url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
 
       echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
-      if ! curl -L "${url}" | tar xfz -
+      if ! "${CURL}" ${CURLFLAGS} "${url}" | tar xfz -
       then
          echo "Download failed" >&2
          exit 1
@@ -104,6 +105,19 @@ main()
       install_project "${vendor}" "${project}"
    done
 }
+
+
+#
+# wget is OK as well, but defaults to curl
+#
+if [ -z "${CURL}" -a ! -z "`command -v wget`" ]
+then
+   CURL="wget"
+   CURLFLAGS="${CURLFLAGS:--O -}"
+else
+   CURL="curl"
+   CURLFLAGS="${CURLFLAGS:--L}"
+fi
 
 main "$@"
 
