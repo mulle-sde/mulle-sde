@@ -116,7 +116,7 @@ then
    CURLFLAGS="${CURLFLAGS:--O -}"
 else
    CURL="curl"
-   CURLFLAGS="${CURLFLAGS:--L}"
+   CURLFLAGS="${CURLFLAGS:--L -S}"
 fi
 
 main "$@"
