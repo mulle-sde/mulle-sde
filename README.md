@@ -32,7 +32,7 @@ to install mulle-sde.
 
 ## Quick Start
 
-If you want to compile some dependencies without setting up a mulle-sde project, 
+If you want to compile some dependencies without setting up a mulle-sde project,
 you can do an *install* with an archive. Here is an example where the latest *mulle-allocator*
 and its dependencies is installed into `/tmp/foo`:
 
@@ -40,7 +40,7 @@ and its dependencies is installed into `/tmp/foo`:
 mulle-sde install --prefix /tmp/foo https://github.com/mulle-c/mulle-allocator/archive/latest.tar.gz
 ```
 
-If you don't want to use the mulle-sde project management features, but would like to 
+If you don't want to use the mulle-sde project management features, but would like to
 keep the dependencies local to your project, you can use a `none` project type:
 
 ```
@@ -108,7 +108,7 @@ $ ./kitchen/Debug/hello
 ```
 
 Update your source or project files manually. Then let mulle-sde reflect your
-changes back into the Makefiles and build again:
+changes back into the Makefiles and into header files and build again:
 
 ```
 $ mulle-sde reflect
@@ -340,8 +340,9 @@ mulle-sde tool add nroff
 ![](dox/mulle-sde-reflect.png)
 
 This command **reflects** changes made in the filesystem back into the
-build-system "Makefiles". You don't edit them manually, but let them be created
-for your.
+build-system "Makefiles", typically the `cmake/reflect` folder. In a C
+language family based project, the reflection will also create header files
+for inclusion in the `src/reflect` folder:
 
 ```
 rm src/foo.*
@@ -350,7 +351,6 @@ mulle-sde reflect
 
 mulle-sde executes the tasks returned by the *callbacks* `source` and
 `sourcetree`. The actual work is done by *tasks* of the chosen *extensions*.
-
 
 
 ## mulle-sde linkorder

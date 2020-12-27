@@ -112,11 +112,12 @@ print_flags()
 {
    local delimiter
 
-   delimiter="          : "
+   delimiter="             : "
 
-   echo "   -e   ${delimiter}bypass mulle-env check"
-   echo "   -f   ${delimiter}force operation"
-   echo "   -N   ${delimiter}do not search for enclosing environment"
+   echo "   -d <dir> ${delimiter}change to dir before executing commands"
+   echo "   -e       ${delimiter}bypass mulle-env check"
+   echo "   -f       ${delimiter}force operation"
+   echo "   -N       ${delimiter}do not search for enclosing environment"
    echo "   -DKEY=VALUE    : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -610,6 +611,12 @@ main()
 
             r_add_line "${defines}" "$1"
             defines="${RVAL}"
+         ;;
+
+         -d)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+            exekutor cd "$1" || exit 1
          ;;
 
          -*)

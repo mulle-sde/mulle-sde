@@ -552,7 +552,7 @@ sde_dependency_craftinfo_exists_main()
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "$1" "" 'NO'
+   if ! __sde_craftinfo_vars_with_url_or_address "$1" ""
    then
       return 1
    fi

@@ -731,6 +731,10 @@ sde_dependency_add_main()
    local OPTION_TAG
    local OPTION_FILTER
 
+   local argc
+
+   argc=$#
+
    #
    # grab options for mulle-sourcetree
    # interpret sde options
@@ -947,6 +951,19 @@ sde_dependency_add_main()
 
    [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
 
+   #
+   # want to support just saying "add x" and it means a sister project in
+   # the same directory. So we make it a fake git project that will get
+   # symlinked.
+   #
+   if [ "${nodetype}" = "none" -a ${argc} -eq 1 ]
+   then
+      nodetype="git"
+      address="${originalurl}"
+      url="https://github.com/${GITHUB_USER:${LOGNAME:-whoever}}/${originalurl}"
+      log_verbose "Adding this as a fake github project ${url} for symlink fetch"
+   fi
+
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
       case "${nodetype}" in
@@ -966,6 +983,7 @@ sde_dependency_add_main()
          ;;
       esac
    fi
+
 
    # is a good idea for test though
    # if [ "${address}" = "${PROJECT_NAME}" ]
