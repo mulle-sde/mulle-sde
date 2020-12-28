@@ -1,8 +1,3 @@
-## 0.45.0
-
-* Various small improvements
-
-
 ### 0.44.1
 
 * fix extension add changing directory permissions
