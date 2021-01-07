@@ -38,7 +38,7 @@ MULLE_SDE_LIBRARY_SH="included"
 # no-all-load: not expected to contain ObjC code
 # no-cmakeinherit: not expected to publish cmake find_library calls
 #
-LIBRARY_INIT_MARKS="no-fs,no-dependency,no-build,no-update,no-delete,no-cmakeinherit"
+LIBRARY_INIT_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 LIBRARY_FILTER_MARKS="no-dependency"
 LIBRARY_FILTER_NODETYPES="none"
@@ -263,8 +263,12 @@ sde_library_add_main()
 
    case "${OPTION_DIALECT}" in
       c)
-         r_comma_concat "${marks}" "no-import,no-all-load,no-cmakeinherit"
+         # prepend is better in this case
+         r_comma_concat "no-import,no-all-load,no-cmakeinherit,no-cmakesearchpath" "${marks}"
          marks="${RVAL}"
+      ;;
+
+      objc)
       ;;
    esac
 

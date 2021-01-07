@@ -714,14 +714,14 @@ sde_dependency_add_main()
    local marks="${DEPENDENCY_MARKS}"
 
    local OPTION_ENHANCE='YES'     # enrich URL
-   local OPTION_DIALECT="c"
+   local OPTION_DIALECT=
    local OPTION_PRIVATE='NO'
    local OPTION_EMBEDDED='NO'
    local OPTION_EXECUTABLE='NO'
    local OPTION_STARTUP='NO'
    local OPTION_SHARE='YES'
    local OPTION_OPTIONAL='NO'
-   local OPTION_SINGLEPHASE='NO' # more common default for me :)
+   local OPTION_SINGLEPHASE=
    local OPTION_CLEAN='NO'
    local OPTION_FETCH='YES'
 
@@ -947,21 +947,19 @@ sde_dependency_add_main()
    if [ -z "${nodetype}" ]
    then
       nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
-   fi
 
-   [ -z "${nodetype}" ] && fail "Specify --nodetype with this kind of URL"
-
-   #
-   # want to support just saying "add x" and it means a sister project in
-   # the same directory. So we make it a fake git project that will get
-   # symlinked.
-   #
-   if [ "${nodetype}" = "none" -a ${argc} -eq 1 ]
-   then
-      nodetype="git"
-      address="${originalurl}"
-      url="https://github.com/${GITHUB_USER:${LOGNAME:-whoever}}/${originalurl}"
-      log_verbose "Adding this as a fake github project ${url} for symlink fetch"
+      #
+      # want to support just saying "add x" and it means a sister project in
+      # the same directory. So we make it a fake git project that will get
+      # symlinked.
+      #
+      if [ "${nodetype}" = "none" ]
+      then
+         nodetype="git"  # nodetype none is only valid for libraries
+         address="${originalurl}"
+         url="https://github.com/${GITHUB_USER:${LOGNAME:-whoever}}/${originalurl}"
+         log_verbose "Adding this as a fake github project ${url} for symlink fetch"
+      fi
    fi
 
    if [ "${OPTION_ENHANCE}" = 'YES' ]
@@ -991,13 +989,50 @@ sde_dependency_add_main()
    #    fail "Adding your own project as a dependency is not a good idea"
    # fi
 
+   if [ -z "${OPTION_DIALECT}" ]
+   then
+      case "${address##*/}" in
+         *_*)
+            log_info "Assumed to be a C dependency (use --objc to override)"
+            OPTION_DIALECT='c'
+         ;;
+
+         [A-Z]*)
+            log_info "Assumed to be an Objective-C dependency (use --c to override)"
+            OPTION_DIALECT='objc'
+         ;;
+
+         *)
+            log_info "Assumed to be a C dependency (use --c to override)"
+            OPTION_DIALECT='c'
+         ;;
+      esac
+   fi
    case "${OPTION_DIALECT}" in
       c)
          # prepend is better in this case
-         r_comma_concat "no-import,no-all-load" "${marks}"
+         r_comma_concat "no-import,no-all-load,no-cmakeinherit,no-cmakesearchpath" "${marks}"
          marks="${RVAL}"
       ;;
    esac
+
+   if [ -z "${OPTION_SINGLEPHASE}" ]
+   then
+      if [ "${OPTION_DIALECT}" = 'objc' ]
+      then
+         OPTION_SINGLEPHASE='YES'
+      else
+         case "${address##*/}" in
+            mulle_*|Mulle*)
+               OPTION_SINGLEPHASE='YES'
+            ;;
+
+            *)
+               OPTION_SINGLEPHASE='NO'
+            ;;
+         esac
+      fi
+   fi
 
    if [ "${OPTION_SINGLEPHASE}" = 'NO' ]
    then

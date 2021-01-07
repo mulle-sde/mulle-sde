@@ -61,15 +61,20 @@ sde_init_usage()
 
    cat <<EOF >&2
 Usage:
-   ${INIT_USAGE_NAME} [options] <type>
+   ${INIT_USAGE_NAME} [options] [type]
 
-   Initializes a project, typically by specifiying an extension.
-   Extensions are plugins containing scripts and data to setup the project
-   for the desired programming language and build system.
+   Initializes a mulle-sde project in the current directory. This will
+   minimally create a .mulle folder if the project type is left out. Choose a
+   project type like "library" or "executable" if you are starting a new
+   project.
 
+   Typically you specifiy a meta-extension in the options. Extensions are
+   plugins that contain scripts and files to setup the project for the desired
+   programming language and build system. And a meta-extension is a wrapper
+   around multiple such extensions.
    To see available (meta-)extensions use \`mulle-sde extension show\`.
-   Pick an extension and choose a project type like "library",
-   "executable" or "none". Optionally choose a directory to create and install
+
+   Optionally choose a directory to create and install
    into with the \'-d\' option:
 
    Example:
@@ -91,7 +96,6 @@ EOF
    echo "      (\`${MULLE_USAGE_NAME} -v init help\` for more options)" >&2
 
    cat <<EOF >&2
-Usage:
 Environment:
    MULLE_SDE_EXTENSION_PATH      : Overrides searchpath for extensions
    MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath for extensions
@@ -1286,7 +1290,7 @@ ${C_INFO}Possible ways to fix this:
 
    if [ -z "${onlyfilename}" ]
    then
-      log_verbose "${C_RESET_BOLD}${verb}${C_VERBOSE} ${exttype} extension \"${vendor}/${extname}\""
+      log_verbose "${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
    fi
 
 
@@ -1528,6 +1532,14 @@ install_extension()
 
    local extensiondir
 
+   verb="Installing"
+   if [ "${OPTION_UPGRADE}" = 'YES' ]
+   then
+      verb="Ugrading"
+   fi
+
+   log_verbose "${verb} extension dependencies of ${C_RESET_BOLD}${vendor}/${extname}"
+
    _install_extension "$@"
    extensiondir="${RVAL}"
 
@@ -1624,7 +1636,7 @@ install_extension()
       verb="Ugraded"
    fi
 
-   log_verbose "${C_RESET_BOLD}${verb}${C_VERBOSE} ${exttype} extension \"${vendor}/${extname}\""
+   log_verbose "${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
 }
 
 
@@ -2712,10 +2724,9 @@ _sde_run_init()
 {
    log_entry "_sde_run_init" "$@"
 
-   [ $# -eq 0 ] && sde_init_usage "Missing project type"
-   [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
+   [ $# -le 1 ] || sde_init_usage "Superflous arguments \"$*\""
 
-   PROJECT_TYPE="$1"
+   PROJECT_TYPE="${1:-none}"
 
    _sde_validate_projecttype "${PROJECT_TYPE}"
 
@@ -3485,7 +3496,6 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
          log_trace2 "GITHUB_USER=\"${GITHUB_USER}\""
          log_trace2 "PWD=\"${PWD}\""
       fi
-
 
       (
          if [ "${OPTION_ADD}" = 'YES' ]

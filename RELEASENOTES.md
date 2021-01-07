@@ -1,3 +1,9 @@
+## 0.45.0
+
+* allow mulle-sde init without giving a type
+* make dependency add command more convenient by infering from address name
+
+
 ### 0.44.1
 
 * fix extension add changing directory permissions
