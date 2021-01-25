@@ -611,8 +611,9 @@ sde_add_main()
 
    filename="$1"
 
+   #
    # check if destination is within our project, decide on where to go
-
+   #
    if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       filepath="${filename}"
@@ -633,7 +634,7 @@ sde_add_main()
          ;;
 
          *)
-            sde_add_in_project "${filename}" \
+            sde_add_in_project "${filepath#${MULLE_VIRTUAL_ROOT}/}" \
                                "${OPTION_VENDOR}" \
                                "${OPTION_NAME}" \
                                "${OPTION_TYPE}" \

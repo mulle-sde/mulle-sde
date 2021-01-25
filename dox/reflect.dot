@@ -1,0 +1,34 @@
+digraph y {
+   node [ shape=box];
+
+
+   "mulle-sde" -> "mulle-monitor" [ label=" executes" ]
+
+   "mulle-monitor" -> "mulle-sourcetree-to-cmake"  [ label=" executes" ]
+   "mulle-monitor" -> "mulle-sourcetree-to-c"      [ label=" executes" ]
+   "mulle-monitor" -> "mulle-match-to-cmake"  [ label=" executes" ]
+   "mulle-monitor" -> "mulle-match-to-c"      [ label=" executes" ]
+
+   "mulle-sourcetree-to-cmake" -> ".mulle/etc/sourcetree/config" [ label=" reads" ]
+   "mulle-sourcetree-to-cmake" -> "cmake/reflect/"      [ label=" writes" ]
+   "mulle-sourcetree-to-c" -> ".mulle/etc/sourcetree/config" [ label=" reads" ]
+   "mulle-sourcetree-to-c" -> "src/reflect/"            [ label=" writes" ]
+
+   "mulle-match-to-cmake" -> "Filesystem"               [ label=" reads" ]
+   "mulle-match-to-cmake" -> "cmake/reflect/"           [ label=" writes" ]
+   "mulle-match-to-c"     -> "Filesystem"               [ label=" reads" ]
+   "mulle-match-to-c"     -> "src/reflect/"             [ label=" writes" ]
+
+   "mulle-sde"                   [ penwidth=3, color="blue", fontcolor="blue" ]
+   "mulle-monitor"               [ penwidth=2, color="magenta", fontcolor="magenta" ]
+   "mulle-sourcetree-to-cmake"   [ penwidth=2, color="#fa8231", fontcolor="#fa8231" ]
+   "mulle-sourcetree-to-c"       [ penwidth=2, color="#fa8231", fontcolor="#fa8231" ]
+   "mulle-match-to-cmake"        [ penwidth=2, color="#fa8231", fontcolor="#fa8231" ]
+   "mulle-match-to-c"            [ penwidth=2, color="#fa8231", fontcolor="#fa8231" ]
+
+   ".mulle/etc/sourcetree/config"  [ shape="note", style="filled", fontcolor="white", color="orange", fillcolor="brown" ]
+
+   "Filesystem"                    [ shape="hexagon", style="filled", fontcolor="white", color="brown", fillcolor="brown" ]
+   "cmake/reflect/"                [ shape="folder" , style="filled", fontcolor="white", color="orange", fillcolor="brown"]
+   "src/reflect/"                  [ shape="folder" , style="filled", fontcolor="white", color="orange", fillcolor="brown"]
+}

@@ -40,15 +40,14 @@ sde_list_usage()
 Usage:
    ${MULLE_USAGE_NAME} list [options]
 
-   List definitions,environment,files,dependencies to give an overview of
+   List definitions, environment, files, dependencies to give an overview of
    your project.
 
 Options:
-   --files            : list only files
-   --no-dependencies  : do not list dependencies
-   --no-files         : do not list files
-   --no-definitions   : do not list definitions
-   --no-environment   : do not list environmnt
+   --[no-]dependencies : list dependencies
+   --[no-]definitions  : list definitions
+   --[no-]environment  : list environmnt
+   --[no-]files        : list files
 
 EOF
   exit 1
@@ -231,23 +230,32 @@ sde_list_main()
             sde_list_usage
          ;;
 
+         --dependencies)
+            OPTION_LIST_DEPENDENCIES='YES'
+         ;;
+
          --no-dependencies)
             OPTION_LIST_DEPENDENCIES='NO'
          ;;
 
          --files)
             OPTION_LIST_FILES='YES'
-            OPTION_LIST_DEFINITIONS='NO'
-            OPTION_LIST_ENVIRONMENT='NO'
-            OPTION_LIST_DEPENDENCIES='NO'
          ;;
 
          --no-files)
             OPTION_LIST_FILES='NO'
          ;;
 
+         --definitions)
+            OPTION_LIST_DEFINITIONS='YES'
+         ;;
+
          --no-definitions)
             OPTION_LIST_DEFINITIONS='NO'
+         ;;
+
+         --environment)
+            OPTION_LIST_ENVIRONMENT='YES'
          ;;
 
          --no-environment)

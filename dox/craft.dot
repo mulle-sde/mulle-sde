@@ -1,0 +1,42 @@
+digraph y {
+   node [ shape=box];
+
+
+   "mulle-sourcetree" -> ".mulle/etc/sourcetree/config"  [ label=" reads" ]
+
+   "mulle-sourcetree" -> "mulle-fetch"  [ label=" executes" ]
+   "mulle-sourcetree" -> "mulle-fetch"
+   "mulle-fetch" -> "Internet"      [ label=" reads" ]
+   "mulle-fetch" -> "stash/"        [ label=" writes" ]
+
+   "mulle-craft" -> ".mulle/var/<hostname>/sde/cache/craftorder" [ label=" reads" ]
+
+   "mulle-craft"  -> "mulle-make"  [ label=" executes" ]
+   "mulle-craft"  -> "mulle-make"
+   "mulle-make" -> "stash/"        [ label=" reads" ]
+   "mulle-make" -> "kitchen/"      [ label=" writes" ]
+
+   "mulle-craft"  -> "mulle-dispense"  [ label=" executes" ]
+   "mulle-craft"  -> "mulle-dispense"
+
+   "mulle-dispense" -> "kitchen/"     [ label=" reads" ]
+   "mulle-dispense" -> "dependency/"  [ label=" writes" ]
+
+   "mulle-sde" -> "mulle-sourcetree" [ label=" executes" ]
+   "mulle-sde" -> ".mulle/var/<hostname>/sde/cache/craftorder" [ label=" writes" ]
+   "mulle-sde" -> "mulle-craft"      [ label=" executes" ]
+
+   "mulle-sde"         [ penwidth=3, color="blue", fontcolor="blue" ]
+   "mulle-craft"       [ penwidth=2, color="magenta", fontcolor="magenta" ]
+   "mulle-make"        [ penwidth=2, color="magenta", fontcolor="magenta" ]
+   "mulle-fetch"       [ penwidth=2, color="magenta", fontcolor="magenta" ]
+   "mulle-dispense"    [ penwidth=2, color="magenta", fontcolor="magenta" ]
+   "mulle-sourcetree"  [ penwidth=2, color="magenta", fontcolor="magenta" ]
+
+   ".mulle/etc/sourcetree/config"   [ shape="note" , style="filled", fontcolor="white", color="orange", fillcolor="brown" ]
+   ".mulle/var/<hostname>/sde/cache/craftorder"  [ shape="note" , style="filled", fontcolor="white", color="orange", fillcolor="brown" ]
+   "kitchen/"                       [ shape="folder" , style="filled", fontcolor="white", color="orange", fillcolor="brown" ]
+   "dependency/"                    [ shape="folder" , style="filled", fontcolor="white", color="orange", fillcolor="brown" ]
+   "stash/"                         [ shape="folder" , style="filled", fontcolor="white", color="orange", fillcolor="brown" ]
+   "Internet"                       [ shape="hexagon",  style="filled", fontcolor="white", color="white", fillcolor="green" ]
+}

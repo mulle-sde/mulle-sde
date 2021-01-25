@@ -12,8 +12,7 @@ mulle-sde reflect the changed filesystem back to the "Makefile".
 An important aspect of a mulle-sde project is, that your project
 can still be built without mulle-sde being installed.
 
-As mulle-sde is a bunch of scripts, a positive side effect is, that
-it is inherently scriptable. See the
+As mulle-sde is a bunch of scripts, it is inherently scriptable. See the
 [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for
 a more indepth introduction on what **mulle-sde** is.
 
@@ -40,12 +39,13 @@ and its dependencies is installed into `/tmp/foo`:
 mulle-sde install --prefix /tmp/foo https://github.com/mulle-c/mulle-allocator/archive/latest.tar.gz
 ```
 
-If you don't want to use the mulle-sde project management features, but would like to
-keep the dependencies local to your project, you can use a `none` project type:
+If you don't want to use the mulle-sde project management features to
+maintain dependencies local to your existing project, you can use a `none`
+project type:
 
 ```
-mulle-sde init none
-mulle-sde dependency add --c --github mulle-c mulle-allocator
+mulle-sde init
+mulle-sde dependency add --github madler zlib
 mulle-sde craft
 ```
 
@@ -62,7 +62,30 @@ This will create four folders:
 
 ## Documentation
 
-There is quite a bit of documentation in the [mulle-sde WiKi](//github.com/mulle-sde/mulle-sde/wiki).
+
+The basic principle in mulle-sde is the Edit-Reflect-Craft cycle
+
+### ERC : Edit - Reflect - Craft
+
+#### Edit
+You use the editor of your choice and any GUI or terminal to manage the
+project files.
+
+#### Reflect
+
+Changes in the filesystem are picked up by `mulle-sde reflect` and are used
+to update build system files and programming lanuage headers.
+
+#### Craft
+
+`mulle-sde` fetches dependencies, builds them and installs them local to your
+project. Then it will optionally also build your project.
+
+All commands have `help` command for usage information. Most commands have
+subcommands, that also have further help. E.g. `mulle-sde help` and
+`mulle-sde dependency help`.
+
+There is also quite a bit of documentation in the [mulle-sde WiKi](//github.com/mulle-sde/mulle-sde/wiki).
 
 
 # Commands
@@ -70,7 +93,7 @@ There is quite a bit of documentation in the [mulle-sde WiKi](//github.com/mulle
 
 ## mulle-sde init
 
-Create a mulle-sde project.
+Creates a mulle-sde project.
 
 As the various tools that comprise mulle-sde are configured with
 environment variables, `mulle-sde init` will create  a virtual environment
@@ -79,19 +102,30 @@ can coexist on a filesystem with minimized interference.
 
 This is an example, that creates a cmake project for C (this is the default):
 
-```
+``` console
 $ mulle-sde init -d hello -m mulle-sde/c-developer executable
 ```
 
-Enter the environment:
+You can now enter the environment sub-shell with:
 
-```
+``` console
 $ mulle-sde hello
 ```
 
-Optionally look at the project configuration:
+or just `cd` to your project:
 
+``` console
+$ cd hello
 ```
+
+> Note: You can run mulle-sde commands inside the subshell or outside of it.
+> It's a matter of taste. Initially running commands in the subshell maybe
+> easier to get acquainted with the local environment and its restrictions.
+
+
+Maybe have a look at the project configuration:
+
+``` console
 $ mulle-sde list
 ```
 

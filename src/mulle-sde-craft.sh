@@ -46,6 +46,8 @@ Usage:
 
    The dependency folder is crafted in order of \`mulle-sde craftorder\`.
 
+   The default target is \"${MULLE_SDE_CRAFT_TARGET:-all}\"
+
 Options:
    -h                      : show this usage
    -q                      : skip uptodate checks
@@ -55,7 +57,7 @@ Options:
    --analyze               : run clang analyzer when crafting the project
 
 Targets:
-   all                     : build dependency folder, then project (default)
+   all                     : build dependency folder, then project
    craftorder              : build dependency folder
    <name>                  : name of a single entry in the craftorder
    project                 : build the project
@@ -64,6 +66,7 @@ Environment:
    MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
    MULLE_SCAN_BUILD_DIR           : output directory ($KITCHEN_DIR/analyzer)
    MULLE_CRAFT_MAKE_FLAGS         : flags to be passed to mulle-make (via craft)
+   MULLE_SDE_CRAFT_TARGET         : set default target
    MULLE_SDE_REFLECT_CALLBACKS    : callback called during reflect
    MULLE_SDE_REFLECT_BEFORE_CRAFT : force reflect before craft (${MULLE_SDE_REFLECT_BEFORE_CRAFT:-NO})
    MULLE_SDE_DEFAULT_CRAFT_STYLE  : Usually "Release" or "Debug" (Debug)
@@ -204,15 +207,17 @@ sde_craft_main()
    local OPTION_RUN='NO'
    local OPTION_SYNCFLAGS
 
-   target="${MULLE_SDE_CRAFT_TARGET}"
+   [ -z "${PROJECT_TYPE}" ] && internal_fail "PROJECT_TYPE is undefined"
+
+   log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
+
    if [ "${PROJECT_TYPE}" = "none" ]
    then
-      if [ -z "${target}" ]
-      then
-         target="craftorder"
-         OPTION_REFLECT='NO'
-      fi
+      target="craftorder"
+      OPTION_REFLECT='NO'
    fi
+
+   target="${target:-${MULLE_SDE_CRAFT_TARGET}}"
    target="${target:-all}"
 
    while :

@@ -91,10 +91,10 @@ combine_sources()
       #
       local cmdline
 
-      cmdline="find stash/*/src"
+      cmdline="find ${MULLE_SOURCETREE_STASH_DIRNAME:-stash}/*/src"
       prunes=""
 
-      for main in `rexekutor find stash/*/src -type 'f' -name "main.[cm]" -print`
+      for main in `rexekutor find ${MULLE_SOURCETREE_STASH_DIRNAME:-stash}/*/src -type 'f' -name "main.[cm]" -print`
       do
          r_dirname "${main}"
          r_concat "${prunes}" "-path '${RVAL}'" " -o "

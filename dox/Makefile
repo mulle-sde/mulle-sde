@@ -17,7 +17,9 @@ mulle-sde-overview.png \
 mulle-sde-reflect.png \
 mulle-sde-subproject.png \
 mulle-sde-status.png \
-mulle-sde-tool.png
+mulle-sde-tool.png \
+reflect.png \
+craft.png
 
 %.png: %.dot
 	dot -Tpng -o $*.png $<

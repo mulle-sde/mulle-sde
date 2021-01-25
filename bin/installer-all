@@ -35,6 +35,7 @@ mulle-match;${MULLE_MATCH_VERSION}
 mulle-monitor;${MULLE_MONITOR_VERSION}
 mulle-platform;${MULLE_PLATFORM_VERSION}
 mulle-sde;${MULLE_SDE_VERSION}
+mulle-semver;${MULLE_SEMVER_VERSION}
 mulle-sourcetree;${MULLE_SOURCETREE_VERSION}
 mulle-template;${MULLE_TEMPLATE_VERSION}"
 else

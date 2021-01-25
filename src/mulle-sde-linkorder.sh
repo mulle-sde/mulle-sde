@@ -472,7 +472,7 @@ r_linkorder_collect()
                break
             fi
          done
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         set +f; IFS="${DEFAULT_IFS}"
 
          # otherwise prefer first alias
          if [ -z "${alias}" ]
@@ -500,7 +500,7 @@ r_linkorder_collect()
       r_concat "${aliasargs}" "'${alias}'"
       aliasargs="${RVAL}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   set +f; IFS="${DEFAULT_IFS}"
 
    eval r_sde_locate_library "'${searchpath}'" "'${librarytype}'" "'${requirement}'" "${aliasargs}"
    libpath="${RVAL}"
@@ -620,7 +620,7 @@ r_remove_leading_duplicate_nodes()
       r_remove_line "${RVAL}" "${node}"
       r_add_line "${RVAL}" "${node}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   set +f; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -677,7 +677,7 @@ r_collect_emission_libs()
    IFS=$'\n' ; set -f
    for node in ${nodes}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      set +f; IFS="${DEFAULT_IFS}"
 
       IFS=";" read address marks raw_userinfo <<< "${node}"
 
@@ -707,7 +707,7 @@ r_collect_emission_libs()
       r_add_line "${RVAL}" "${line}"
       dependency_libs="${RVAL}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   set +f; IFS="${DEFAULT_IFS}"
 
    if [ "${OPTION_REVERSE}" = 'YES' ]
    then
@@ -902,8 +902,6 @@ sde_linkorder_main()
 
       shift
    done
-
-   [ -z "${DEPENDENCY_DIR}" ] && internal_fail "DEPENDENCY_DIR not defined"
 
 
    local nodes

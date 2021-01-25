@@ -331,6 +331,7 @@ project_add_envscope_if_missing()
                      add --if-missing --priority 20 project
 }
 
+
 project_env_set_var()
 {
    local key="$1"; shift
@@ -353,10 +354,8 @@ save_projectname_variables()
 {
   log_entry "save_projectname_variables" "$@"
 
-  project_env_set_var PROJECT_NAME                "${PROJECT_NAME}"  "$@"
-  project_env_set_var PROJECT_IDENTIFIER          "${PROJECT_IDENTIFIER}" "$@"
-  project_env_set_var PROJECT_DOWNCASE_IDENTIFIER "${PROJECT_DOWNCASE_IDENTIFIER}" "$@"
-  project_env_set_var PROJECT_UPCASE_IDENTIFIER   "${PROJECT_UPCASE_IDENTIFIER}" "$@"
+  project_env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
+  project_env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
 }
 
 
@@ -402,11 +401,11 @@ _local_search_and_replace_filenames()
    IFS=$'\n' ; set -f
    for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -name "*${old}*" -print`
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      set +f; IFS="${DEFAULT_IFS}"
 
       rename_old_to_new_filename "${filename}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   set +f; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -427,11 +426,11 @@ search_and_replace_filenames()
       IFS=$'\n' ; set -f
       for filename in  `eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print`
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         set +f; IFS="${DEFAULT_IFS}"
 
          rename_old_to_new_filename "${filename}"
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      set +f; IFS="${DEFAULT_IFS}"
    fi
 }
 
@@ -478,11 +477,11 @@ _local_search_and_replace_contents()
    IFS=$'\n' ; set -f
    for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -print`
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      set +f; IFS="${DEFAULT_IFS}"
 
       edit_old_to_new_content "${filename}" "$@"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   set +f; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -499,11 +498,11 @@ search_and_replace_contents()
       IFS=$'\n' ; set -f
       for filename in  `eval_rexekutor find "${dir}" -type f -print`
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         set +f; IFS="${DEFAULT_IFS}"
 
          edit_old_to_new_content "${filename}" "$@"
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      set +f; IFS="${DEFAULT_IFS}"
    fi
 }
 
@@ -568,9 +567,21 @@ r_rename_current_project()
    local changes
 
    OLD_PROJECT_NAME="${PROJECT_NAME}"
-   OLD_PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
    OLD_PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}"
+   OLD_PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
    OLD_PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}"
+
+   # used to be different so only do it on demand
+   if [ -z "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" ]
+   then
+      r_lowercase "${PROJECT_IDENTIFIER}"
+      OLD_PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+   fi
+   if [ -z "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
+   then
+      r_uppercase "${PROJECT_IDENTIFIER}"
+      OLD_PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+   fi
 
    unset PROJECT_UPCASE_IDENTIFIER
    unset PROJECT_DOWNCASE_IDENTIFIER

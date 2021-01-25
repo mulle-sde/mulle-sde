@@ -52,12 +52,16 @@ sde_init_usage()
    -o <oneshot>       : specify oneshot extensions. Multiple uses are possible"
 
    HIDDEN_OPTIONS="\
-   --allow-<name>     : reenable specific pieces of initialization (see source)
-   --no-<name>        : turn off specific pieces of initialization (see source)
-   -b <buildtool>     : specify the buildtool extension to use
-   -r <runtime>       : specify runtime extension to use
-   -v <vendor>        : extension vendor to use (mulle-sde)
-   --source-dir <dir> : specify source directory location (src)"
+   --allow-<name>         : reenable specific initializations (see source)
+   --no-<name>            : turn off specific initializations (see source)
+   -b <buildtool>         : specify the buildtool extension to use
+   -r <runtime>           : specify runtime extension to use
+   -v <vendor>            : extension vendor to use (mulle-sde)
+   --addiction-dir <dir>  : specify addiction directory (addiction)
+   --dependency-dir <dir> : specify dependency directory (dependency)
+   --kitchen-dir <dir>    : specify kitchen directory (kitchen)
+   --stash-dir <dir>      : specify stash directory (stash)
+   --source-dir <dir>     : specify source directory location (src)"
 
    cat <<EOF >&2
 Usage:
@@ -2577,6 +2581,18 @@ _sde_pre_initenv()
 {
    log_entry "_sde_pre_initenv" "$@"
 
+   local style="$1"
+   local projecttype="$2"
+
+   if [ "${style}" = 'DEFAULT' ]
+   then
+      if [ "${projecttype}" = 'none' ]
+      then
+         style="none/wild"
+      else
+         style="mulle/relax"
+      fi
+   fi
    #
    # if we init env now, then extensions can add environment
    # variables and tools
@@ -2592,7 +2608,7 @@ _sde_pre_initenv()
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${flags} \
                   --no-protect \
-                  --style "${OPTION_ENV_STYLE}" \
+                  --style "${style}" \
                init \
                   --no-blurb
    case $? in
@@ -2617,6 +2633,14 @@ _sde_pre_initenv()
 _sde_post_initenv()
 {
    log_entry "_sde_post_initenv" "$@"
+
+   local projecttype="$1"
+
+   if [ "${projecttype}" = 'none' ]
+   then
+      project_env_set_var "MULLE_SDE_CRAFT_TARGET" "craftorder" --no-protect
+      OPTION_BLURB='NO'
+   fi
 
    if [ "${OPTION_INIT_TYPE}" = "subproject" ]
    then
@@ -2669,9 +2693,13 @@ _sde_run_reinit()
 
    _sde_validate_projecttype "${PROJECT_TYPE}"
 
+   #
+   # If someone uses a "none" project style, assume he is not really
+   # interested in a restricted tool set. Otherwise use "relax"
+   #
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
-      _sde_pre_initenv
+      _sde_pre_initenv "${OPTION_ENV_STYLE}" "${PROJECT_TYPE}"
    fi
 
    add_environment_variables "${OPTION_DEFINES}"
@@ -2712,7 +2740,7 @@ _sde_run_reinit()
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
-      _sde_pre_initenv
+      _sde_post_initenv "${PROJECT_TYPE}"
    fi
 
    return 0
@@ -2732,7 +2760,7 @@ _sde_run_init()
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
-      _sde_pre_initenv
+      _sde_pre_initenv "${OPTION_ENV_STYLE}" "${PROJECT_TYPE}"
    fi
 
    add_environment_variables "${OPTION_DEFINES}"
@@ -2743,6 +2771,8 @@ _sde_run_init()
          if [ "${PROJECT_TYPE}" != "none" ]
          then
             OPTION_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
+         else
+            OPTION_PROJECT_SOURCE_DIR=""
          fi
       ;;
    esac
@@ -2773,7 +2803,7 @@ _sde_run_init()
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
-      _sde_post_initenv
+      _sde_post_initenv "${PROJECT_TYPE}"
    fi
 
    return 0
@@ -3076,7 +3106,7 @@ _sde_init_main()
    local OPTION_BUILDTOOL=""
    local OPTION_VENDOR="mulle-sde"
    local OPTION_INIT_ENV='YES'
-   local OPTION_ENV_STYLE="mulle/relax"
+   local OPTION_ENV_STYLE='DEFAULT'
    local OPTION_BLURB='YES'
    local OPTION_TEMPLATE_FILES='YES'
    local OPTION_INIT_FLAGS
@@ -3102,6 +3132,8 @@ _sde_init_main()
    local mark
 
    sde_init_include
+
+   OPTION_META="${MULLE_SDE_DEFAULT_META_EXTENSION}"
 
    #
    # handle options
@@ -3138,6 +3170,14 @@ _sde_init_main()
             shift
 
             OPTION_BUILDTOOL="$1"
+         ;;
+
+         -c)
+            OPTION_META="c-developer"
+         ;;
+
+         -objc)
+            OPTION_META="objc-developer"
          ;;
 
          -d|--directory)
@@ -3376,6 +3416,51 @@ _sde_init_main()
             OPTION_MARKS="${RVAL}"
          ;;
 
+         --addiction-dir)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            r_escaped_doublequotes "$1"
+            r_concat "${OPTION_DEFINES}" "'MULLE_CRAFT_ADDICTION_DIRNAME=\"$1\"'"
+            OPTION_DEFINES="${RVAL}"
+         ;;
+
+         --dependency-dir)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            r_escaped_doublequotes "$1"
+            r_concat "${OPTION_DEFINES}" "'MULLE_CRAFT_DEPENDENCY_DIRNAME=\"$1\"'"
+            OPTION_DEFINES="${RVAL}"
+         ;;
+
+         --kitchen-dir)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            r_escaped_doublequotes "$1"
+            r_concat "${OPTION_DEFINES}" "'MULLE_CRAFT_KITCHEN_DIRNAME=\"$1\"'"
+            OPTION_DEFINES="${RVAL}"
+         ;;
+
+         --stash-dir)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            r_escaped_doublequotes "$1"
+            r_concat "${OPTION_DEFINES}" "'MULLE_SOURCETREE_STASH_DIRNAME=\"$1\"'"
+            OPTION_DEFINES="${RVAL}"
+         ;;
+
+         --source-dir)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            r_escaped_doublequotes "$1"
+            r_concat "${OPTION_DEFINES}" "'MULLE_PROJECT_DIR=\"$1\"'"
+            OPTION_DEFINES="${RVAL}"
+         ;;
+
          -*)
             sde_init_usage "Unknown option \"$1\""
          ;;
@@ -3526,6 +3611,7 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
             exekutor "${MULLE_ENV:-mulle-env}" \
                         --search-as-is \
                         -s \
+                        -f \
                         ${MULLE_TECHNICAL_FLAGS} \
                      environment \
                         --scope "plugin" \

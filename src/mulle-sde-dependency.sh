@@ -118,6 +118,7 @@ Options:
    --embedded      : the dependency becomes part of the local project
    --domain <name> : create an URL for a known domain, e.g. github
    --github <name> : a shortcut for --domain github --user <name>
+                     works also for other known domains (e.g. --gitlab)
    --headerless    : has no headerfile
    --headeronly    : has no library
    --no-fetch      : do not attempt to find a matching craftinfo on github
@@ -597,14 +598,6 @@ _sde_enhance_url()
    _tag=""
    _url=""
 
-   #
-   # create a convenient URL that can be substituted with env
-   # variables. Easy to do for git. For tar archives not so much
-   #
-   local upcaseid
-
-   r_upcaseid "${address}" || return 1
-   upcaseid="${RVAL}"
 
    #
    # TODO: move this part of the code to mulle-fetch ?
@@ -612,77 +605,37 @@ _sde_enhance_url()
    local last
    local leading
    local extension
+
+   local scheme
+   local domain
+   local user
+   local repo
+   local branch
    local tag
+   local scm
 
-   case "${nodetype}" in
-      tar|zip)
-         case "${url}" in
-            *\$\{MULLE_TAG\}*)
-            ;;
+   local composed_url
+   
+   if eval `mulle-fetch parse-url "${url}"`
+   then
+      composed_url="`mulle-fetch compose-url --scheme "${scheme}" \
+                                    --domain "${domain}" \
+                                    --user "${user}" \
+                                    --repo "${repo}" \
+                                    --branch "${branch}" \
+                                    --tag "\${MULLE_TAG:-${tag}}" \
+                                    --scm "${scm}" `"
+      log_verbose "URL ${url} transformed to ${composed_url}"
+   fi
 
-            *)
-#               [ ! -z "${tag}" ] && fail "The tag must be specified in the URL for archives."
-            ;;
-         esac
+   #
+   # create a convenient URL that can be substituted with env
+   # variables. 
+   #
+   local upcaseid
 
-         case "${url}" in
-            # format .../tag.tar.gz or so
-            #  https://github.com/Codeon-GmbH/mulle-clang/archive/10.0.0.2.tar.gz
-            *github.com*/archive/*)
-               last="${url##*/}"         # basename
-               leading="${url%${last}}"  # dirname
-               tag="${last%%.tar*}"
-               if [ "${tag}" = "${last}" ]
-               then
-                  tag="${last%%.zip*}"
-               fi
-               if [ "${tag}" = "${last}" ]
-               then
-                  tag="${last%%.*.*}"
-               fi
-               if [ "${tag}" = "${last}" ]
-               then
-                  tag="${last%%.*}"
-               fi
-               extension="${last#${tag}.}"    # dirname
-
-               url="${leading}\${MULLE_TAG}.${extension}"
-            ;;
-
-            # ex.
-            # https://github.com/harfbuzz/harfbuzz/releases/download/2.6.5/harfbuzz-2.6.5.tar.xz
-            #
-            *github.com*/download/*)
-               last="${url##*/}"         # basename
-               leading="${url%${last}}"  # dirname
-               tag="${leading##*/}"      # basename
-               case "${last}" in
-                  *-${tag}.*)
-                     name=${last%-${tag}.*}
-                     extension="${last#${tag}.}"
-                     url="${leading}${name}\${MULLE_TAG}.${extension}"
-                  ;;
-
-                  *)
-                     name=${last%%\.*}
-                     extension="${last#*\.}"
-                     url="${leading}${name}\${MULLE_TAG}.${extension}"
-                  ;;
-               esac
-               fail "TODO"
-            ;;
-
-            # format .../tag
-         *mulle-kybernetik*/git/*)
-               last="${url##*/}"         # basename
-               leading="${url%${last}}"  # dirname
-               tag="${last%%.*}"
-
-               url="${leading}\${MULLE_TAG}"
-            ;;
-         esac
-      ;;
-   esac
+   r_upcaseid "${address}" || return 1
+   upcaseid="${RVAL}"
 
    _tag="\${${upcaseid}_TAG:-${tag}}"
    _branch="\${${upcaseid}_BRANCH:-${branch}}"
@@ -707,33 +660,40 @@ sde_dependency_add_main()
 {
    log_entry "sde_dependency_add_main" "$@"
 
-   local options
-   local nodetype
-   local address
-   local branch
-   local marks="${DEPENDENCY_MARKS}"
 
+   local OPTION_CLEAN='NO'
    local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_DIALECT=
    local OPTION_PRIVATE='NO'
    local OPTION_EMBEDDED='NO'
    local OPTION_EXECUTABLE='NO'
-   local OPTION_STARTUP='NO'
-   local OPTION_SHARE='YES'
+   local OPTION_FETCH='YES'
+   local OPTION_MARKS="${DEPENDENCY_MARKS}"
    local OPTION_OPTIONAL='NO'
    local OPTION_SINGLEPHASE=
-   local OPTION_CLEAN='NO'
-   local OPTION_FETCH='YES'
+   local OPTION_SHARE='YES'
+   local OPTION_STARTUP='NO'
 
+   local OPTION_ADDRESS
    local OPTION_DOMAIN
    local OPTION_USER
    local OPTION_REPO
-   local OPTION_TAG
    local OPTION_FILTER
+   local OPTION_TAG
+   local OPTION_TAG_SET
+   local OPTION_BRANCH
+   local OPTION_BRANCH_SET
+
+   local OPTION_OPTIONS
 
    local argc
 
    argc=$#
+
+   local domains 
+   local name
+
+   domains="`${MULLE_FETCH:-mulle-fetch} -s domain list `"
 
    #
    # grab options for mulle-sourcetree
@@ -750,14 +710,15 @@ sde_dependency_add_main()
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            address="$1"
+            OPTION_ADDRESS="$1"
          ;;
 
          --branch)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            branch="$1"
+            OPTION_BRANCH="$1"
+            OPTION_BRANCH_SET='YES'
          ;;
 
          --clean)
@@ -775,14 +736,6 @@ sde_dependency_add_main()
 
          --executable)
             OPTION_EXECUTABLE='YES'
-         ;;
-
-         --github)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_DOMAIN="github"
-            OPTION_USER="$1"
          ;;
 
          --domain)
@@ -811,6 +764,7 @@ sde_dependency_add_main()
             shift
 
             OPTION_TAG="$1"
+            OPTION_TAG_SET='YES'
          ;;
 
          --user)
@@ -820,28 +774,27 @@ sde_dependency_add_main()
             OPTION_USER="$1"
          ;;
 
-
          --header-less|--headerless)
-            r_comma_concat "${marks}" "no-header"
-            marks="${RVAL}"
+            r_comma_concat "${OPTION_MARKS}" "no-header"
+            OPTION_MARKS="${RVAL}"
          ;;
 
          --header-only|--headeronly)
-            r_comma_concat "${marks}" "no-link"
-            marks="${RVAL}"
+            r_comma_concat "${OPTION_MARKS}" "no-link"
+            OPTION_MARKS="${RVAL}"
          ;;
 
          --if-missing)
-            r_concat "${options}" "--if-missing"
-            options="${RVAL}"
+            r_concat "${OPTION_OPTIONS}" "--if-missing"
+            OPTION_OPTIONS="${RVAL}"
          ;;
 
          --marks)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            r_comma_concat "${marks}" "$1"
-            marks="${RVAL}"
+            r_comma_concat "${OPTION_MARKS}" "$1"
+            OPTION_MARKS="${RVAL}"
          ;;
 
          --startup)
@@ -870,7 +823,7 @@ sde_dependency_add_main()
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
             shift
 
-            nodetype="$1"
+            OPTION_NODETYPE="$1"
          ;;
 
          --no-fetch)
@@ -908,9 +861,19 @@ sde_dependency_add_main()
          --*)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
 
-            r_concat "${options}" "$1 '$2'"
-            options="${RVAL}"
-            shift
+            set -x
+            name="${1#--}"
+            if find_line "${domains}" "${name}"
+            then
+               OPTION_DOMAIN="${name}"
+               shift
+               OPTION_USER="$1"
+            else
+               r_concat "${OPTION_OPTIONS}" "$1 '$2'"
+               OPTION_OPTIONS="${RVAL}"
+               shift
+            fi
+            set +x
          ;;
 
          *)
@@ -927,9 +890,22 @@ sde_dependency_add_main()
    shift
    [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
 
+   local options
+   local nodetype
+   local address
+   local branch
+   local user
+
    local originalurl
 
    originalurl="${url}"
+
+   nodetype="${OPTION_NODETYPE}"
+   user="${OPTION_USER}"
+   tag="${OPTION_TAG}"
+   branch="${OPTION_BRANCH}"
+   address="${OPTION_ADDRESS}"
+   options="${OPTION_OPTIONS}"
 
    if [ ! -z "${OPTION_DOMAIN}" ]
    then
@@ -973,8 +949,14 @@ sde_dependency_add_main()
             _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}" "${marks}"
 
             url="${_url}"
-            branch="${_branch}"
-            tag="${_tag}"
+            if [ "${OPTION_BRANCH_SET}" != 'YES' ]
+            then
+               branch="${_branch}"
+            fi
+            if [ "${OPTION_BRANCH_SET}" != 'YES' ]
+            then
+               tag="${_tag}"
+            fi
             nodetype="${_nodetype}"
             address="${_address}"
             marks="${_marks}"
@@ -991,19 +973,20 @@ sde_dependency_add_main()
 
    if [ -z "${OPTION_DIALECT}" ]
    then
+      # order is important here!
       case "${address##*/}" in
          *_*)
-            log_info "Assumed to be a C dependency (use --objc to override)"
+            log_info "C dependency assumed (if wrong use --objc )"
             OPTION_DIALECT='c'
          ;;
 
          [A-Z]*)
-            log_info "Assumed to be an Objective-C dependency (use --c to override)"
+            log_info "Objective-C dependency assumed (if wrong use --c)"
             OPTION_DIALECT='objc'
          ;;
 
          *)
-            log_info "Assumed to be a C dependency (use --c to override)"
+            log_info "C dependency assumed (if wrong use --objc )"
             OPTION_DIALECT='c'
          ;;
       esac

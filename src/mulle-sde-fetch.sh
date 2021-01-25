@@ -48,9 +48,10 @@ Options:
    --recurse|flat|share    : specify mode to sync sourcetree with
 
 Environment:
-   MULLE_FETCH_ARCHIVE_DIR : local cache of archives
-   MULLE_FETCH_MIRROR_DIR  : local mirror of git repositories
-   MULLE_FETCH_SEARCH_PATH : specify local directories to search, : separated
+   MULLE_FETCH_ARCHIVE_DIR      : local cache of archives
+   MULLE_FETCH_MIRROR_DIR       : local mirror of git repositories
+   MULLE_FETCH_SEARCH_PATH      : specify local search directories, : separated
+   MULLE_SOURCETREE_RESOLVE_TAG : inhibit tags resolver before fetch with NO
 
 EOF
   exit 1
