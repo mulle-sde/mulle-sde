@@ -248,7 +248,6 @@ emit_node_output()
 }
 
 
-
 #
 # If we are inside dynamic or standalone we just want to list the
 # libraries, but not the linked dependencies.
@@ -257,7 +256,7 @@ linkorder_will_recurse()
 {
    log_entry "linkorder_will_recurse" "$@"
 
-   if ! nodemarks_contain "${_marks}" "static-link"
+   if nodemarks_disable "${_marks}" "static-link"
    then
        INSIDE_DYNAMIC="${INSIDE_DYNAMIC}x"
    fi
@@ -275,15 +274,17 @@ linkorder_did_recurse()
 {
    log_entry "linkorder_did_recurse" "$@"
 
-   if ! nodemarks_contain "${_marks}" "static-link"
+   if nodemarks_disable "${_marks}" "static-link"
    then
        INSIDE_DYNAMIC="${INSIDE_DYNAMIC%x}"
    fi
 
-   if nodemarks_contain "${_marks}" "only-standalone"
+   if nodemarks_enable "${_marks}" "standalone"
    then
       INSIDE_STANDALONE="${INSIDE_STANDALONE%x}"
    fi
+
+   return 0
 }
 
 
@@ -294,13 +295,13 @@ linkorder_callback()
    #
    # collect libraries not marked as dependencies
    #
-   if [ ! -z "${INSIDE_STANDALONE}" -o ! -z "${INSIDE_DYNAMIC}"  ] && \
-      nodemarks_contain "${_marks}" "dependency"
+   if [ ! -z "${INSIDE_STANDALONE}" -o ! -z "${INSIDE_DYNAMIC}" ] && \
+      nodemarks_enable "${_marks}" "dependency"
    then
       # but hit me again later
       walk_remove_from_visited "${WALK_MODE}"
       # walk_remove_from_deduped "${MULLE_DATASOURCE}"
-      log_debug "${_address}: skipped emit of dependency due to dynamic/standalone"
+      log_fluff "Skipped dependency \"${_address}\" as it's inside dynamic/standalone"
       return
    fi
 
@@ -327,7 +328,7 @@ r_sde_linkorder_all_nodes()
    local INSIDE_STANDALONE
    local INSIDE_DYNAMIC
 
-   mode="`"${MULLE_SOURCETREE:-mulle-sourcetree}" mode`"
+   mode="`"${MULLE_SOURCETREE:-mulle-sourcetree}" mode`"  || exit 1
 
    local qualifier
 
@@ -337,7 +338,11 @@ r_sde_linkorder_all_nodes()
       qualifier='MATCHES link AND MATCHES intermediate-link'
    fi
 
-   r_make_craftorder_qualifier "${qualifier}"
+   local craft_qualifier
+
+   craft_qualifier="`"${MULLE_CRAFT:-mulle-craft}" qualifier print-no-build`" || exit 1
+
+   r_concat "${qualifier}" "${craft_qualifier}" $'\n'"AND "
    qualifier="${RVAL}"
 
    sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
@@ -507,14 +512,22 @@ r_linkorder_collect()
 
    if [ -z "${libpath}" ]
    then
+      #
+      # require is per platform or os ?
+      #
       case ",${marks},*" in
-         *,no-require,*)
+         *,no-require,*|*,no-require-os-${MULLE_UNAME},*)
             log_fluff "\"${libpath}\" is not found, but it is not required"
             return 4
          ;;
       esac
 
-      fail "Did not find a linkable ${aliasfail} ${requirement} ${librarytype} in searchpath \"${searchpath}\".
+      r_concat "Did not find a linkable" "${aliasfail}"
+      r_concat "${RVAL}" "${requirement}"
+      r_concat "${RVAL}" "${librarytype}"
+      r_concat "${RVAL}" "in searchpath \"${searchpath}\""
+
+      fail "${RVAL}.
 ${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
@@ -624,7 +637,6 @@ r_remove_leading_duplicate_nodes()
 }
 
 
-
 r_remove_line_by_first_field()
 {
    local lines="$1"
@@ -650,7 +662,6 @@ r_remove_line_by_first_field()
    done
    IFS="${DEFAULT_IFS}" ; set +o noglob
 }
-
 
 
 r_collect_emission_libs()

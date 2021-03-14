@@ -65,67 +65,29 @@ Targets:
 Environment:
    MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
    MULLE_SCAN_BUILD_DIR           : output directory ($KITCHEN_DIR/analyzer)
-   MULLE_CRAFT_MAKE_FLAGS         : flags to be passed to mulle-make (via craft)
-   MULLE_SDE_CRAFT_TARGET         : set default target
-   MULLE_SDE_REFLECT_CALLBACKS    : callback called during reflect
+   MULLE_SDE_MAKE_FLAGS           : flags to be passed to mulle-make (via craft)
+   MULLE_SDE_TARGET               : default target (all)
+   PLATFORMS                      : default platforms to build (${MULLE_UNAME})
+   SDKS                           : default sdks to build (Default)
+   CONFIGURATIONS                 : default configurations to build (Debug)
+   MULLE_SDE_REFLECT_CALLBACKS    : callbacks called during reflect
    MULLE_SDE_REFLECT_BEFORE_CRAFT : force reflect before craft (${MULLE_SDE_REFLECT_BEFORE_CRAFT:-NO})
-   MULLE_SDE_DEFAULT_CRAFT_STYLE  : Usually "Release" or "Debug" (Debug)
 EOF
    exit 1
 }
 
 
-sde_perform_reflects()
+sde_perform_fetch_if_needed()
 {
-   log_entry "sde_perform_reflects" "$@"
+   log_entry "sde_perform_fetch_if_needed" "$@"
 
-   local target="$1"
-   local craftorderfile="$2"
-   local cachedir="$3"
-   local OPTION_REFLECT="$4"
-
-   local dbrval
-
-   dbrval=0
-
-   local reflectflags
-   local tasks
-
-   reflectflags="--if-needed"
-
-   case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
-      *:source:*)
-         tasks="source"
-      ;;
-   esac
+   local dbrval="$1"
 
    #
-   # Make a quick estimate if this is a virgin checkout scenario, by checking
-   # the craftorder file exist
-   # If yes, then lets reflect once. If there is no craftorder file, let's
-   # do it
-   #
-   if [ "${MULLE_SDE_REFLECT_BEFORE_CRAFT}" = 'YES' ]
-   then
-      log_debug "MULLE_SDE_REFLECT_BEFORE_CRAFT forces reflect"
-      reflectflags="" # "force" reflect
-   fi
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                 -V \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
-                 -s \
-                  dbstatus
-   dbrval="$?"
-   log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
-
-   #
-   # Check if we need to reflect the sourcetree.
    # This could fetch dependencies if required.
    # A 1 here means we have no sourcetree.
    #
-   if [ ${dbrval} -eq 4 ]
+   if [ ${dbrval} -eq 2 ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
@@ -145,6 +107,48 @@ sde_perform_reflects()
          # up too often (not doing this since mulle-sde doctor is OK now)
          # exekutor mulle-sde status --stash-only
       fi
+   fi
+}
+
+
+
+sde_perform_reflect_if_needed()
+{
+   log_entry "sde_perform_reflect_if_needed" "$@"
+
+   local target="$1"
+   local dbrval="$2"
+
+   local reflectflags
+   local tasks
+
+   reflectflags="--if-needed"
+
+   case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
+      *:source:*)
+         tasks="source"
+      ;;
+   esac
+
+   #
+   # Make a quick estimate if this is a virgin checkout scenario, by checking
+   # if the craftorder file exists.
+   # If yes, then lets reflect once. If there is no craftorder file, let's
+   # do it
+   #
+   if [ "${MULLE_SDE_REFLECT_BEFORE_CRAFT}" = 'YES' ]
+   then
+      log_debug "MULLE_SDE_REFLECT_BEFORE_CRAFT forces reflect"
+      reflectflags="" # "force" reflect
+   fi
+
+   #
+   # Check if we need to reflect the sourcetree.
+   # This could fetch dependencies if required.
+   # A 1 here means we have no sourcetree.
+   #
+   if [ ${dbrval} -eq 2 ]
+   then
       reflectflags='' # db "force" reflect
    fi
 
@@ -165,33 +169,124 @@ sde_perform_reflects()
 
       sde_reflect_main ${reflectflags} ${tasks} || exit 1
    fi
+}
+
+
+
+sde_perform_clean_if_needed()
+{
+   log_entry "sde_perform_clean_if_needed" "$@"
+
+   local dbrval="$1"
 
    #
    # at this point, it's better to clean, because cmake caches might
    # get outdated (sourcetree syncs don't run this often)
    #
-   if [ ${dbrval} -eq 4 ]
+   if [ ${dbrval} -eq 2 ]
    then
       [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
 
       sde_clean_main --no-test
    fi
+}
+
+
+sde_create_craftorder_if_needed()
+{
+   log_entry "sde_create_craftorder_if_needed" "$@"
+
+   local target="$1"
+   local craftorderfile="$2"
+   local cachedir="$3"
+   local dbrval="$4"
 
    #
    # Possibly build a new craftorder file for sourcetree changes
    #
-   case ${dbrval} in
-      0)
-         create_craftorder_file_if_needed "${craftorderfile}" "${cachedir}"
-      ;;
+   case "${target}" in
+      'craftorder'|'all')
+         case ${dbrval} in
+            0)
+               create_craftorder_file_if_needed "${craftorderfile}" "${cachedir}"
+            ;;
 
-      4)
-         create_craftorder_file "${craftorderfile}" "${cachedir}"
+            2)
+               create_craftorder_file "${craftorderfile}" "${cachedir}"
+            ;;
+         esac
       ;;
    esac
 }
 
+
+sde_craft_target()
+{
+   log_entry "sde_craft_target" "$@"
+
+   local target="$1"
+   local project_cmdline="$2"
+   local craftorder_cmdline="$3"
+   local craftorderfile="$4"
+   local flags="$5"
+   local arguments="$6"
+
+   [ $# -eq 6 ] || internal_fail "API error"
+
+   case "${target}" in
+      'all')
+         if [ -f "${craftorderfile}" ]
+         then
+            eval_exekutor "${craftorder_cmdline}" \
+                                 --craftorder-file "'${craftorderfile}'" \
+                              craftorder \
+                                 --no-memo-makeflags "'${flags}'" \
+                                 "${arguments}" || return 1
+         else
+            log_fluff "No craftorderfile so skipping craftorder craft step"
+         fi
+      ;;
+
+      'craftorder')
+         if [ -f "${craftorderfile}" ]
+         then
+            eval_exekutor "${craftorder_cmdline}" \
+                                 --craftorder-file "'${craftorderfile}'" \
+                              craftorder \
+                                 --no-memo-makeflags "'${flags}'" \
+                                 "${arguments}"  || return 1
+         else
+            log_info "There are no dependencies or libraries to build"
+            log_fluff "${craftorderfile} does not exist"
+         fi
+      ;;
+
+      "")
+         internal_fail "target is empty"
+      ;;
+
+      *)
+         if [ -f "${craftorderfile}" ]
+         then
+            eval_exekutor "${craftorder_cmdline}" \
+                                 --craftorder-file "'${craftorderfile}'" \
+                              "${target}" \
+                                 --no-memo-makeflags "'${flags}'" \
+                                 "${arguments}"  || return 1
+         else
+            log_info "There are no dependencies or libraries to build"
+            log_fluff "${craftorderfile} does not exist"
+         fi
+      ;;
+   esac
+
+   case "${target}" in
+      'project'|'all')
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
+            eval_exekutor "${project_cmdline}" project "${arguments}"  || return 1
+   esac
+}
 
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
@@ -217,7 +312,9 @@ sde_craft_main()
       OPTION_REFLECT='NO'
    fi
 
-   target="${target:-${MULLE_SDE_CRAFT_TARGET}}"
+   MULLE_SDE_TARGET="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET}}"
+
+   target="${target:-${MULLE_SDE_TARGET}}"
    target="${target:-all}"
 
    while :
@@ -276,8 +373,29 @@ sde_craft_main()
             OPTION_MOTD='NO'
          ;;
 
+         --platforms|--platform)
+            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SDE_PLATFORMS="$1"
+         ;;
+
          --run)
             OPTION_RUN='YES'
+         ;;
+
+         --sdks|--sdk)
+            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SDE_SDKS="$1"
+         ;;
+
+         --configuration|--configurations)
+            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SDE_CONFIGURATIONS="$1"
          ;;
 
          -V)
@@ -297,7 +415,6 @@ sde_craft_main()
       esac
       shift
    done
-
 
    #
    # our craftorder is specific to a host
@@ -319,10 +436,30 @@ sde_craft_main()
    #  3. possibly create a new craftorder file
    #  4. possibly clean build
    #
-   sde_perform_reflects "${target}" \
-                        "${_craftorderfile}" \
-                        "${_cachedir}" \
-                        "${OPTION_REFLECT}"
+   local dbrval
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                 -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS} \
+                 -s \
+                  dbstatus
+   dbrval="$?"
+   log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
+
+   sde_perform_fetch_if_needed "${dbrval}"
+
+   if [ "${OPTION_REFLECT}" != 'NO' ]
+   then
+      sde_perform_reflect_if_needed "${target}" "${dbrval}"
+   fi
+
+   sde_perform_clean_if_needed  "${dbrval}"
+
+   sde_create_craftorder_if_needed "${target}" \
+                                   "${_craftorderfile}" \
+                                   "${_cachedir}" \
+                                   "${dbrval}"
 
    #
    # by default, we don't want to see the craftorder verbosity
@@ -439,58 +576,12 @@ sde_craft_main()
 
 #   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
-   case "${target}" in
-      'all')
-         if [ -f "${_craftorderfile}" ]
-         then
-            eval_exekutor "${craftorder_cmdline}" \
-                                 --craftorder-file "'${_craftorderfile}'" \
-                              craftorder \
-                                 --no-memo-makeflags "'${flags}'" \
-                                 "${arguments}" || return 1
-         else
-            log_fluff "No craftorderfile so skipping craftorder craft step"
-         fi
-      ;;
-
-      'craftorder')
-         if [ -f "${_craftorderfile}" ]
-         then
-            eval_exekutor "${craftorder_cmdline}" \
-                                 --craftorder-file "'${_craftorderfile}'" \
-                              craftorder \
-                                 --no-memo-makeflags "'${flags}'" \
-                                 "${arguments}" || return 1
-         else
-            log_info "There are no dependencies or libraries to build"
-            log_fluff "${_craftorderfile} does not exist"
-         fi
-      ;;
-
-      "")
-         internal_fail "target is empty"
-      ;;
-
-      *)
-         if [ -f "${_craftorderfile}" ]
-         then
-            eval_exekutor "${craftorder_cmdline}" \
-                                 --craftorder-file "'${_craftorderfile}'" \
-                              "${target}" \
-                                 --no-memo-makeflags "'${flags}'" \
-                                 "${arguments}" || return 1
-         else
-            log_info "There are no dependencies or libraries to build"
-            log_fluff "${_craftorderfile} does not exist"
-         fi
-      ;;
-   esac
-
-   case "${target}" in
-      'project'|'all')
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
-            eval_exekutor "${project_cmdline}" project "${arguments}" || return 1
-   esac
+   sde_craft_target "${target}"  \
+                    "${project_cmdline}" \
+                    "${craftorder_cmdline}" \
+                    "${_craftorderfile}" \
+                    "${flags}" \
+                    "${arguments}" || return 1
 
    log_verbose "Craft was successful"
    if [ "${OPTION_RUN}" = 'YES' ]

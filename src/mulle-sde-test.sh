@@ -127,7 +127,6 @@ sde_test_generate()
    local flags
    local OPTION_FULL_TEST='NO'
 
-
    while :
    do
       case "$1" in
@@ -363,6 +362,37 @@ sde_test_path_environment()
 }
 
 
+r_sde_test_init()
+{
+   log_entry "r_sde_test_init" "$@"
+
+   RVAL=
+   if ! exekutor "mulle-test" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_TEST_FLAGS} \
+                  init "$@"
+   then
+      return 1
+   fi
+
+   local value
+
+   # copy some basic settings if init was successful
+   value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get MULLE_SOURCETREE_RESOLVE_TAG`"
+   # load current project settings
+   if [ ! -z "${value}" ]
+   then
+      rexekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} \
+                     -d test \
+                  environment set MULLE_SOURCETREE_RESOLVE_TAG NO
+   fi
+
+   RVAL="DONE"
+}
+
+
 #
 # Problem: if you start mulle-sde test inside the project folder
 #          it will pickup the environment there including PATH and
@@ -451,14 +481,7 @@ r_sde_test_main()
       # no environment needed to run these properly
       init)
          shift
-         exekutor mulle-test \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_TEST_FLAGS} \
-                     init \
-                        "$@"
-         rval=$?
-         RVAL="DONE"
-         return $rval
+         r_sde_test_init "$@"
       ;;
 
       *)

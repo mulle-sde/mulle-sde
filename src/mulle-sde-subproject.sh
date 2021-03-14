@@ -117,14 +117,14 @@ Usage:
    Modify a subproject settings, which is referenced by its name.
 
    Examples:
-      ${MULLE_USAGE_NAME} subproject set src/mylib os-excludes darwin
+      ${MULLE_USAGE_NAME} subproject set src/mylib platform-excludes darwin
 
 Options:
-   --append    : append value instead of set
+   --append          : append value instead of set
 
 Keys:
-   os-excludes : names of OSes to exclude, separated by comma
-   aliases     : alternative names
+   platform-excludes : names of platforms to exclude, separated by comma
+   aliases           : alternative names
 EOF
   exit 1
 }
@@ -141,10 +141,10 @@ Usage:
    Retrieve subproject settings by its name.
 
    Examples:
-      ${MULLE_USAGE_NAME} subproject get subproject/mylib os-excludes
+      ${MULLE_USAGE_NAME} subproject get subproject/mylib platform-excludes
 
 Keys:
-   os-excludes : names of OSes to exclude, separated by comma
+   platform-excludes : names of platform to exclude, separated by comma
 EOF
   exit 1
 }
@@ -216,7 +216,7 @@ sde_subproject_set_main()
    local value="$1"
 
    case "${field}" in
-      os-excludes)
+      platform-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
                                      "${SUBPROJECT_MARKS}" \
@@ -224,7 +224,7 @@ sde_subproject_set_main()
       ;;
 
       aliases|include)
-         _sourcetree_set_userinfo_field "${address}" \
+         _sde_set_sourcetree_userinfo_field "${address}" \
                                         "${field}" \
                                         "${value}" \
                                         "${OPTION_APPEND}"
@@ -251,7 +251,7 @@ sde_subproject_get_main()
    shift
 
    case "${field}" in
-      os-excludes)
+      platform-excludes)
          sourcetree_get_os_excludes "${address}"
       ;;
 
@@ -791,7 +791,7 @@ $1"
          local flags
 
          case "$2" in
-            no-os-*|only-os-*)
+            no-platform-*|only-platform-*)
                flags="-e"
             ;;
          esac

@@ -64,9 +64,9 @@ Usage:
    project this command checks if your file can be reflected and will
    \`reflect\`.
 
-   The default type of file to create is "file", which corresponds to a class
-   in Objective-C. Filenames that contain a '+' are looking for  type
-   "category" first, before falling back on type "file".
+   The default type is "file" for C and "class" for Objective-C. Filenames
+   that contain a '+' look for a template of type "category" first, before
+   falling back on type "file".
 
    Create a "${MULLE_SDE_ETC_DIR#${MULLE_USER_PWD}/}/header.default" or
    "~/.mulle/etc/sde/header.default" file to prepend copyright information
@@ -74,7 +74,7 @@ Usage:
    to have different contents for different languages.
 
    Example:
-         ${MULLE_USAGE_NAME} add -t protocolclass src/MyClass.m
+         ${MULLE_USAGE_NAME} add -t protocolclass src/MyProtocolClass.m
 
 Options:
 EOF
@@ -217,7 +217,8 @@ _r_sde_get_class_category_genericname()
    local filepath="$1"
    local name="$2"
    local type="$3"
-   local extension="$4"
+   local type_default="$4"
+   local extension="$5"
 
    _genericname="${name}"
    _category=""
@@ -250,7 +251,7 @@ _r_sde_get_class_category_genericname()
    #
    # If user specified the type, lets use this
    #
-   if [ "${type}" != "file" ]
+   if [ ! -z "${type}" ]
    then
        r_identifier "${filename}"
        _class="${RVAL}"
@@ -284,7 +285,7 @@ _r_sde_get_class_category_genericname()
          ;;
 
          *)
-            name="file.${extension}"
+            name="${type_default}.${extension}"
 
             r_identifier "${filename}"
             _class="${RVAL}"
@@ -304,6 +305,7 @@ sde_add_file_via_oneshot_extension()
    local vendors="$2"
    local name="$3"
    local type="$4"
+   local type_default="$5"
    local ext="$5"
 
    local _genericname
@@ -345,8 +347,9 @@ sde_add_in_project()
    local vendors="$2"
    local name="$3"
    local type="$4"
-   local ext="$5"
-   local all="$6"
+   local type_default="$5"
+   local ext="$6"
+   local all="$7"
 
 
    if is_absolutepath "${filename}"
@@ -385,6 +388,7 @@ sde_add_in_project()
                                          "${vendors}" \
                                          "${name}" \
                                          "${type}" \
+                                         "${type_default}" \
                                          "${ext}"
       rval=$?
       case $rval in
@@ -499,12 +503,20 @@ sde_add_main()
 {
    log_entry "sde_add_main" "$@"
 
+   # if we are in a project, but not not really within yet, rexecute
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      if rexekutor mulle-sde -s status --clear --project
+      then
+         exec_command_in_subshell add "$@"
+      fi
+   fi
+
    local OPTION_NAME
    local OPTION_VENDOR
    local OPTION_ALL_VENDORS='NO'
    local OPTION_FILE_EXTENSION
-   local OPTION_TYPE='file'
-
+   local OPTION_TYPE
    # need includes for usage
 
    sde_add_include
@@ -571,6 +583,13 @@ sde_add_main()
             PROJECT_TYPE="$1"
          ;;
 
+         --project-dialect)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            PROJECT_DIALECT="$1"
+         ;;
+
          -v|--vendor)
             [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
             shift
@@ -594,22 +613,18 @@ sde_add_main()
    [ $# -ne 1  ] && sde_add_usage
 
 
-   # if we are in a project, but not not really within yet, rexecute
-   if rexekutor mulle-sde -s status --clear --project
-   then
-      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-      then
-         exec_command_in_subshell add --vendor "${OPTION_VENDOR}" \
-                                      --name "${OPTION_NAME}" \
-                                      --type "${OPTION_TYPE}" \
-                                      --file-extension "${OPTION_FILE_EXTENSION}" \
-                                      "$@" || exit 1
-      fi
-   fi
-
    local filename
 
    filename="$1"
+
+   local type_default
+
+   if [ "${PROJECT_DIALECT}" = 'objc' ]
+   then
+      type_default="class"
+   else
+      type_default="file"
+   fi
 
    #
    # check if destination is within our project, decide on where to go
@@ -638,6 +653,7 @@ sde_add_main()
                                "${OPTION_VENDOR}" \
                                "${OPTION_NAME}" \
                                "${OPTION_TYPE}" \
+                               "${type_default}" \
                                "${OPTION_FILE_EXTENSION}" \
                                "${OPTION_ALL_VENDORS}"
             return $?

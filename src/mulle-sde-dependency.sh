@@ -111,6 +111,13 @@ Examples:
       ${MULLE_USAGE_NAME} dependency add --embedded --scm file \\
                   --address src/foo.c https://foo.com/foo_2.11.c
 
+   Add an archive with flexible versioning to the project:
+
+      ${MULLE_USAGE_NAME} dependency add --c --address postgres --tag 11.2 \
+                                         --marks singlephase \
+'https://ftp.postgresql.org/pub/source/v${MULLE_TAG}/postgresql-${MULLE_TAG}.tar.bz2'
+      ${MULLE_USAGE_NAME} environment set POSTGRES_TAG 11.1 # look in config
+
 Options:
    --address <dst> : specify place in project for an embedded dependency
    --c             : used for C dependencies (default)
@@ -174,14 +181,14 @@ Options:
    --append    : append value instead of set
 
 Keys:
-   aliases      : names of library to search for, separated by comma
-                  you can prefix a name with "Debug:" or "Release:" to
-                  narrow the use to these cmake build types
+   aliases           : names of library to search for, separated by comma
+                       you can prefix a name with "Debug:" or "Release:" to
+                       narrow the use to these cmake build types
 EOF
    (
       cat <<EOF
-   include      : include filename to use
-   os-excludes  : names of OSes to exclude, separated by comma
+   include           : include filename to use
+   platform-excludes : names of platforms to exclude, separated by comma
 EOF
       "${MULLE_SOURCETREE:-mulle-sourcetree}" -s set --print-common-keys "   "
    ) | sort >&2
@@ -206,9 +213,9 @@ Usage:
       ${MULLE_USAGE_NAME} dependency get pthreads aliases
 
 Keys:
-   aliases     : names of library to search for, separated by comma
-   include     : include filename to use
-   os-excludes : names of OSes to exclude, separated by comma
+   aliases           : names of library to search for, separated by comma
+   include           : include filename to use
+   platform-excludes : names of platform to exclude, separated by comma
 
 EOF
   exit 1
@@ -335,6 +342,19 @@ sde_dependency_set_main()
       shift
    fi
 
+   # make sure its really a library, less surprising for the user (i.e. me)
+   local marks
+
+   if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" get "${address}" marks`"
+   then
+      return 1
+   fi
+
+   if ! sde_marks_compatible_with_marks "${marks}" "${DEPENDENCY_MARKS}"
+   then
+      fail "${address} is not a dependency"
+   fi
+
    local value="$1"
    local cmd
 
@@ -365,7 +385,7 @@ sde_dependency_set_main()
 
 
    case "${field}" in
-      os-excludes)
+      platform-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
                                      "${DEPENDENCY_MARKS}" \
@@ -374,10 +394,10 @@ sde_dependency_set_main()
       ;;
 
       aliases|include)
-         _sourcetree_set_userinfo_field "${address}" \
-                                        "${field}" \
-                                        "${value}" \
-                                        "${OPTION_APPEND}"
+         _sde_set_sourcetree_userinfo_field "${address}" \
+                                            "${field}" \
+                                            "${value}" \
+                                            "${OPTION_APPEND}"
          return $?
       ;;
 
@@ -392,10 +412,15 @@ sde_dependency_set_main()
 
             if [ -z "${nodetype}" ]
             then
-               nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
+               nodetype="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                                          ${MULLE_TECHNICAL_FLAGS} \
+                                          ${MULLE_DOMAIN_FLAGS} \
+                                       typeguess \
+                                          "${url}"`" || exit 1
+               log_debug "Nodetype guessed as \"${nodetype}\""
             fi
 
-            _sde_enhance_url "${value}" "" "${nodetype}" "${address}" ""
+            _sde_enhance_url "${value}" "${tag}" "" "${nodetype}" "${address}" ""
 
             value="\${${upcaseid}_URL:-${value}}"
          fi
@@ -418,6 +443,7 @@ sde_dependency_set_main()
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                     ${MULLE_TECHNICAL_FLAGS} \
+                    ${MULLE_SOURCETREE_FLAGS} \
                 set "${address}" "${field}" "${value}"
 }
 
@@ -426,21 +452,30 @@ sde_dependency_get_main()
 {
    log_entry "sde_dependency_get_main" "$@"
 
-   local url="$1"
-   [ -z "${url}" ]&& sde_dependency_get_usage "missing url"
+   local address="$1"
+
+   [ -z "${address}" ]&& sde_dependency_get_usage "missing address"
    shift
 
    local field="$1";
+
    [ -z "${field}" ] && sde_dependency_get_usage "missing field"
    shift
 
    case "${field}" in
-      os-excludes)
-         sourcetree_get_os_excludes "${url}"
+      platform-excludes)
+         sourcetree_get_os_excludes "${address}"
       ;;
 
       aliases|include)
-         sourcetree_get_userinfo_field "${url}" "${field}"
+         sde_get_sourcetree_userinfo_field "${address}" "${field}"
+      ;;
+
+      *)
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS} \
+                     get "${address}" "${field}"
       ;;
    esac
 }
@@ -568,14 +603,27 @@ _sde_enhance_url()
    log_entry "_sde_enhance_url" "$@"
 
    local url="$1"
-   local branch="$2"
-   local nodetype="$3"
-   local address="$4"
-   local marks="$5"
+   local tag="$2"
+   local branch="$3"
+   local nodetype="$4"
+   local address="$5"
+   local marks="$6"
+
+   local rval
 
    if [ -z "${address}" ]
    then
-      address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V nameguess --nodetype "${nodetype}" "${url}"`"  || exit 1
+      address="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_DOMAIN_FLAGS} \
+                              nameguess \
+                                 --scm "${nodetype}" \
+                                 "${url}"`"
+      rval=$?
+      [ $rval = 127 ] && exit 1
+
+      log_debug "Address guessed as \"${address}\""
+
       if [ -z "${address}" ]
       then
          if [ ! -e "${url}" ]
@@ -598,39 +646,9 @@ _sde_enhance_url()
    _tag=""
    _url=""
 
-
-   #
-   # TODO: move this part of the code to mulle-fetch ?
-   #
-   local last
-   local leading
-   local extension
-
-   local scheme
-   local domain
-   local user
-   local repo
-   local branch
-   local tag
-   local scm
-
-   local composed_url
-   
-   if eval `mulle-fetch parse-url "${url}"`
-   then
-      composed_url="`mulle-fetch compose-url --scheme "${scheme}" \
-                                    --domain "${domain}" \
-                                    --user "${user}" \
-                                    --repo "${repo}" \
-                                    --branch "${branch}" \
-                                    --tag "\${MULLE_TAG:-${tag}}" \
-                                    --scm "${scm}" `"
-      log_verbose "URL ${url} transformed to ${composed_url}"
-   fi
-
    #
    # create a convenient URL that can be substituted with env
-   # variables. 
+   # variables.
    #
    local upcaseid
 
@@ -643,7 +661,8 @@ _sde_enhance_url()
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"
    _marks="${marks}"
-   # THIS DOESN'T WORK SINCE the marks adding code bails
+   #
+   # WRAPPING MARKS DOESN'T WORK YET asthe marks adding code bails
    #
    # remedy: autogenerate let sourcetree autogenerate environment checks
    #         for MULLE_URL, MULLE_MARKS etc.
@@ -690,10 +709,10 @@ sde_dependency_add_main()
 
    argc=$#
 
-   local domains 
+   local domains
    local name
 
-   domains="`${MULLE_FETCH:-mulle-fetch} -s domain list `"
+   domains="`rexekutor ${MULLE_DOMAIN:-mulle-domain} -s list `"
 
    #
    # grab options for mulle-sourcetree
@@ -861,7 +880,6 @@ sde_dependency_add_main()
          --*)
             [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
 
-            set -x
             name="${1#--}"
             if find_line "${domains}" "${name}"
             then
@@ -873,7 +891,6 @@ sde_dependency_add_main()
                OPTION_OPTIONS="${RVAL}"
                shift
             fi
-            set +x
          ;;
 
          *)
@@ -910,8 +927,9 @@ sde_dependency_add_main()
    if [ ! -z "${OPTION_DOMAIN}" ]
    then
       nodetype="${nodetype:-tar}"
-      url="`exekutor "${MULLE_FETCH:-mulle-fetch}" ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_FETCH_FLAGS} \
+      url="`exekutor "${MULLE_DOMAIN:-mulle-domain}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_DOMAIN_FLAGS} \
             compose-url \
                --user "${OPTION_USER}" \
                --tag "${OPTION_TAG}" \
@@ -922,7 +940,12 @@ sde_dependency_add_main()
 
    if [ -z "${nodetype}" ]
    then
-      nodetype="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V typeguess "${url}"`" || exit 1
+      nodetype="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_DOMAIN_FLAGS} \
+                              typeguess "${url}"`" || exit 1
+
+      log_debug "Nodetype guessed as \"${nodetype}\""
 
       #
       # want to support just saying "add x" and it means a sister project in
@@ -946,7 +969,7 @@ sde_dependency_add_main()
          ;;
 
          *)
-            _sde_enhance_url "${url}" "${branch}" "${nodetype}" "${address}" "${marks}"
+            _sde_enhance_url "${url}" "${tag}" "${branch}" "${nodetype}" "${address}" "${marks}"
 
             url="${_url}"
             if [ "${OPTION_BRANCH_SET}" != 'YES' ]
@@ -1109,14 +1132,18 @@ sde_dependency_add_main()
                case "${MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE}" in
                   'NONE'|'DISABLE')
                      log_warning "MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE is set to DISABLE.
-${C_INFO}The library header of ${dependency} may not be available automatically."
+${C_INFO}The library header of ${dependency} may not be available automatically.
+To enable:
+${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE ON"
                   ;;
                esac
             else
                case "${MULLE_SOURCETREE_TO_C_INCLUDE_FILE}" in
                   'NONE'|'DISABLE')
                      log_warning "MULLE_SOURCETREE_TO_C_INCLUDE_FILE is set to DISABLE.
-${C_INFO}The library header of ${dependency} may not be available automatically."
+${C_INFO}The library header of ${dependency} may not be available automatically.
+To enable:
+${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
                   ;;
                esac
             fi
@@ -1294,7 +1321,7 @@ unmark"
          echo "\
 aliases
 include
-os-excludes"
+platform-excludes"
          return 0
       ;;
 

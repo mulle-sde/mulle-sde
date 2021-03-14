@@ -59,6 +59,8 @@ sde_list_files()
 {
    log_entry "sde_list_files" "$@"
 
+   local mode="${1:-cmake}"
+
    local text
 
    text="`
@@ -105,7 +107,18 @@ sde_list_files()
          else
             printf "%s" "${separator}"
             separator=$'\n'
-            log_info "   $(tr '[:lower:]' '[:upper:]' <<< ${category:0:1})${category:1}"
+
+            case "${mode}" in
+               cmake)
+                  r_identifier "${category}"
+                  r_uppercase "${RVAL}"
+                  log_info "   ${RVAL}"
+               ;;
+
+               *)
+                  log_info "   $(tr '[:lower:]' '[:upper:]' <<< ${category:0:1})${category:1}"
+               ;;
+            esac
             rexekutor sed -n "s|^${category}: |      |p" <<< "${subtext}"
          fi
       done

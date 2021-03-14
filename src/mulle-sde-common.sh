@@ -92,9 +92,9 @@ commalist_print()
 }
 
 
-os_excludes_print()
+sde_sourcetree_platform_excludes_print()
 {
-   log_entry "os_excludes_add" "$@"
+   log_entry "sde_sourcetree_platform_excludes_add" "$@"
 
    local list="$1"
 
@@ -102,8 +102,8 @@ os_excludes_print()
    for i in ${list}
    do
       case "$i" in
-         no-os-*)
-            LC_ALL=C sed -e "s/^no-os-//" <<< "${i}"
+         no-platform-*)
+            LC_ALL=C sed -e "s/^no-platform-//" <<< "${i}"
          ;;
       esac
    done
@@ -111,24 +111,25 @@ os_excludes_print()
 }
 
 
-os_excludes_validate()
+sde_sourcetree_platform_excludes_validate()
 {
-   log_entry "os_excludes_validate" "$@"
+   log_entry "sde_sourcetree_platform_excludes_validate" "$@"
 
    case "$1" in
       no-*)
-         fail "exclude-os \"$1\" must not start with \"no-\""
+         fail "exclude platform \"$1\" must not start with \"no-\""
       ;;
-      os-*)
-         fail "exclude-os \"$1\" must not start with \"os-\""
+
+      platform-*)
+         fail "exclude platform \"$1\" must not start with \"platform-\""
       ;;
    esac
 }
 
 
-os_excludes_add()
+sde_sourcetree_platform_excludes_add()
 {
-   log_entry "os_excludes_add" "$@"
+   log_entry "sde_sourcetree_platform_excludes_add" "$@"
 
    local list="$1"
    local add="$2"
@@ -141,8 +142,8 @@ os_excludes_add()
    do
       IFS="${DEFAULT_IFS}"; set +o noglob
 
-      os_excludes_validate "$1"
-      i="no-os-$i"
+      sde_sourcetree_platform_excludes_validate "$1"
+      i="no-platform-$i"
 
       if commalist_contains "${list}" "$i"
       then
@@ -159,22 +160,14 @@ os_excludes_add()
 }
 
 
-_sourcetree_set_os_excludes()
+_sde_set_sourcetree_platform_excludes()
 {
-   log_entry "_sourcetree_set_os_excludes" "$@"
+   log_entry "_sde_set_sourcetree_platform_excludes" "$@"
 
    local address="$1"
    local value="$2"
    local stdmarks="$3"
    local append="${4:-NO}"
-   local byurl="$5"
-
-   local flags
-
-   if [ "${byurl}" = "YES " ]
-   then
-      flags="--url-addressing"
-   fi
 
    local marks
 
@@ -182,108 +175,78 @@ _sourcetree_set_os_excludes()
    if [ "${append}" = 'YES' ]
    then
       marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${flags} \
+                  -V \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS}  \
                 get "${address}" "marks" `"
    fi
 
-   marks="`os_excludes_add "${marks}" "${value}" `"
+   marks="`sde_sourcetree_platform_excludes_add "${marks}" "${value}" `"
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               -V \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${flags} \
-      set "${address}" "marks" "${marks}"
+               ${MULLE_SOURCETREE_FLAGS}  \
+            set "${address}" "marks" "${marks}"
 }
 
 
-sourcetree_append_os_excludes()
+sde_append_sourcetree_platform_excludes()
 {
-   log_entry "sourcetree_append_os_excludes" "$@"
+   log_entry "sde_append_sourcetree_platform_excludes" "$@"
 
-   _sourcetree_set_os_excludes "$1" "$2" "$3" 'YES'
+   _sde_set_sourcetree_platform_excludes "$1" "$2" "$3" 
  }
 
 
-sourcetree_set_os_excludes()
+sde_set_sourcetree_platform_excludes()
 {
-   log_entry "sourcetree_set_os_excludes" "$@"
+   log_entry "sde_set_sourcetree_platform_excludes" "$@"
 
-   _sourcetree_set_os_excludes "$1" "$2" "$3" 'NO'
+   _sde_set_sourcetree_platform_excludes "$1" "$2" "$3" 
 }
 
 
-sourcetree_get_os_excludes()
+sde_get_sourcetree_platform_excludes()
 {
-   log_entry "sourcetree_get_os_excludes" "$@"
+   log_entry "sde_get_sourcetree_platform_excludes" "$@"
 
    local address="$1"
-   local byurl="$2"
-
-   local mode
-
-   if [ "${byurl}" = "YES " ]
-   then
-      mode="--url-addressing"
-   fi
 
    local marks
 
    marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               -s ${MULLE_TECHNICAL_FLAGS} ${mode} \
+               -V -s \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_SOURCETREE_FLAGS} \
             get "${address}" "marks" `"
    [ $? -eq 0 ] || return 1
 
-   os_excludes_print "${marks}"
+   sde_sourcetree_platform_excludes_print "${marks}"
 }
 
 
-sourcetree_get_os_excludes_by_url()
+
+_sde_set_sourcetree_userinfo_field()
 {
-   log_entry "sourcetree_get_os_excludes_by_url" "$@"
-
-   local address="$1"
-   local byurl="$2"
-
-   local mode
-
-   if [ "${byurl}" = "YES " ]
-   then
-      mode="--url-addressing"
-   fi
-
-   local marks
-
-   marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${mode} \
-                        get "${address}" "marks" `"
-   [ $? -eq 0 ] || return 1
-
-   os_excludes_print "${marks}"
-}
-
-
-_sourcetree_set_userinfo_field()
-{
-   log_entry "_sourcetree_set_userinfo_field" "$@"
+   log_entry "_sde_set_sourcetree_userinfo_field" "$@"
 
    local address="$1"
    local field="$2"
    local value="$3"
    local append="${4:-NO}"
-   local byurl="$5"
 
-   local mode
-
-   if [ "${byurl}" = "YES " ]
-   then
-      mode="--url-addressing"
-   fi
+   case "${value}" in
+      *$'\n'*)
+         fail "Value can't contain newlines"
+      ;;
+   esac
 
    local userinfo
 
    userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                     ${MULLE_TECHNICAL_FLAGS} ${mode} \
+                     -V \
+                     ${MULLE_TECHNICAL_FLAGS}  \
+                     ${MULLE_SOURCETREE_FLAGS}  \
                  get "${address}" "userinfo" `" || return 1
 
    if [ -z "${MULLE_ARRAY_SH}" ]
@@ -291,61 +254,52 @@ _sourcetree_set_userinfo_field()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
    fi
 
-   local list
-
    if [ "${append}" = 'YES' ]
    then
       r_assoc_array_get "${userinfo}" "${field}"
-      list="${RVAL}"
-      r_commalist_add "${list}" "${value}"
+      r_commalist_add "${RVAL}" "${value}"
       value="${RVAL}"
    fi
 
    r_assoc_array_set "${userinfo}" "${field}" "${value}"
    userinfo="${RVAL}"
+
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                       -V \
-                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_TECHNICAL_FLAGS}  \
+                     ${MULLE_SOURCETREE_FLAGS}  \
                   set "${address}" "userinfo" "${userinfo}"
 }
 
 
-sourcetree_set_userinfo_field()
+sde_set_sourcetree_userinfo_field()
 {
-   log_entry "sourcetree_set_userinfo_field" "$@"
+   log_entry "sde_set_sourcetree_userinfo_field" "$@"
 
-   _sourcetree_set_userinfo_field "$1" "$2" "$3" 'YES' "$4"
- }
-
-
-sourcetree_append_userinfo_field()
-{
-   log_entry "sourcetree_append_userinfo_field" "$@"
-
-   _sourcetree_set_userinfo_field "$1" "$2" "$3" 'NO' "$4"
+   _sde_set_sourcetree_userinfo_field "$1" "$2" "$3" 'YES' "$4"
 }
 
 
-sourcetree_get_userinfo_field()
+sde_append_sourcetree_userinfo_field()
 {
-   log_entry "sourcetree_get_userinfo_field" "$@"
+   log_entry "sde_append_sourcetree_userinfo_field" "$@"
+
+   _sde_set_sourcetree_userinfo_field "$1" "$2" "$3" 'NO' "$4"
+}
+
+
+sde_get_sourcetree_userinfo_field()
+{
+   log_entry "sde_get_sourcetree_userinfo_field" "$@"
 
    local address="$1"
    local field="$2"
-   local byurl="$3"
-
-   local mode
-
-   if [ "${byurl}" = "YES " ]
-   then
-      mode="--url-addressing"
-   fi
-
    local userinfo
 
    userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               -V \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${mode} \
+               ${MULLE_SOURCETREE_FLAGS}  \
             get "${address}" "userinfo" `"
 
    if [ $? -ne 0 ]
@@ -363,3 +317,22 @@ sourcetree_get_userinfo_field()
 }
 
 
+sde_include_nodemarks_if_needed()
+{
+   if [ -z "${MULLE_SOURCETREE_NODEMARKS_SH}" ]
+   then
+      if [ -z "${MULLE_SOURCETREE_LIBEXEC_DIR}" ]
+      then
+         MULLE_SOURCETREE_LIBEXEC_DIR="`"${MULLE_SOURCETREE:-mulle-sourcetree}" libexec-dir`"
+      fi
+      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-nodemarks.sh" || exit 1
+   fi
+}
+
+
+sde_marks_compatible_with_marks()
+{
+   sde_include_nodemarks_if_needed
+
+   nodemarks_compatible_with_nodemarks "$1" "$2"
+}

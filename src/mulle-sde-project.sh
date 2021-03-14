@@ -97,6 +97,7 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
    r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
    r_lowercase "${RVAL}"
    PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+
    r_uppercase "${PROJECT_DOWNCASE_IDENTIFIER}"
    PROJECT_UPCASE_IDENTIFIER="${RVAL}"
 }
@@ -221,6 +222,7 @@ set_oneshot_variables()
 
    r_de_camel_case_upcase_identifier "${ONESHOT_NAME}"
    ONESHOT_UPCASE_C_IDENTIFIER="${RVAL}"
+
    r_lowercase "${ONESHOT_UPCASE_C_IDENTIFIER}"
    ONESHOT_DOWNCASE_C_IDENTIFIER="${RVAL}"
 
@@ -287,6 +289,10 @@ export_oneshot_environment()
 export_projectname_environment()
 {
    log_entry "export_projectname_environment" "$@"
+
+   [ -z "${PROJECT_IDENTIFIER}" ]          && internal_fail "PROJECT_IDENTIFIER not set"
+   [ -z "${PROJECT_DOWNCASE_IDENTIFIER}" ] && internal_fail "PROJECT_DOWNCASE_IDENTIFIER not set"
+   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]   && internal_fail "PROJECT_UPCASE_IDENTIFIER not set"
 
    export PROJECT_NAME  \
           PROJECT_IDENTIFIER \
@@ -355,7 +361,7 @@ save_projectname_variables()
   log_entry "save_projectname_variables" "$@"
 
   project_env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
-  project_env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
+#  project_env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
 }
 
 
@@ -574,12 +580,14 @@ r_rename_current_project()
    # used to be different so only do it on demand
    if [ -z "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" ]
    then
-      r_lowercase "${PROJECT_IDENTIFIER}"
+      r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+      r_lowercase "${RVAL}"
       OLD_PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
    fi
    if [ -z "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
    then
-      r_uppercase "${PROJECT_IDENTIFIER}"
+      r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+      r_uppercase "${RVAL}"
       OLD_PROJECT_UPCASE_IDENTIFIER="${RVAL}"
    fi
 

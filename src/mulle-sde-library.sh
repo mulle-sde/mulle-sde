@@ -95,9 +95,9 @@ Usage:
       ${MULLE_USAGE_NAME} libraries add pthread
 
 Options:
-   --objc          : used for static Objective-C libraries
-   --optional      : is not required to exist
-   --private       : headers are not visible to API consumers
+   --objc     : used for static Objective-C libraries
+   --optional : is not required to exist
+   --private  : headers are not visible to API consumers
 EOF
   exit 1
 }
@@ -117,12 +117,12 @@ Usage:
       ${MULLE_USAGE_NAME} library set -a pthread aliases pthreads
 
 Options:
-   --append    : append value instead of set
+   --append          : append value instead of set
 
 Keys:
-   aliases     : alternate names of library, separated by comma
-   include     : alternative include filename instead of <name>.h
-   os-excludes : names of OSes to exclude, separated by comma
+   aliases           : alternate names of library, separated by comma
+   include           : alternative include filename instead of <name>.h
+   platform-excludes : names of platform to exclude, separated by comma
 EOF
   exit 1
 }
@@ -142,9 +142,9 @@ Usage:
       ${MULLE_USAGE_NAME} library get pthread aliases
 
 Keys:
-   aliases     : alternate names of library, separated by comma
-   include     : alternative include filename instead of <name>.h
-   os-excludes : names of OSes to exclude, separated by comma
+   aliases           : alternate names of library, separated by comma
+   include           : alternative include filename instead of <name>.h
+   platform-excludes : names of platforms to exclude, separated by comma
 EOF
   exit 1
 }
@@ -287,13 +287,15 @@ sde_library_add_main()
    log_verbose "Adding \"${libname}\" to libraries"
 
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
-                     "${MULLE_TECHNICAL_FLAGS}" \
-                        add \
-                           --nodetype none \
-                           --marks "'${marks}'" \
-                           "${userinfo}" \
-                           "${options}" \
-                           "'${libname}'"
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS} \
+                     ${MULLE_FWD_FLAGS} \
+                   add \
+                     --nodetype none \
+                     --marks "'${marks}'" \
+                     "${userinfo}" \
+                     "${options}" \
+                     "'${libname}'"
 }
 
 
@@ -338,15 +340,30 @@ sde_library_set_main()
 
    local value="$1"
 
+   # make sure its really a library, less surprising for the user (i.e. me)
+   local marks 
+
+   if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" get "${address}" marks`"
+   then
+      return 1
+   fi
+
+   if ! sde_marks_compatible_with_marks "${marks}" "${LIBRARY_MARKS}"
+   then
+      fail "${address} is not a library.
+${C_INFO}Tip: Check for marks and duplicates with
+${C_RESET_BOLD}   mulle-sourcetree list -l -_"
+   fi
+      
    case "${field}" in
       aliases|include)
-         _sourcetree_set_userinfo_field "${address}" \
+         _sde_set_sourcetree_userinfo_field "${address}" \
                                         "${field}" \
                                         "${value}" \
                                         "${OPTION_APPEND}"
       ;;
 
-      os-excludes)
+      platform-excludes)
          _sourcetree_set_os_excludes "${address}" \
                                      "${value}" \
                                      "${LIBRARY_INIT_MARKS}" \
@@ -394,10 +411,10 @@ sde_library_get_main()
    case "${field}" in
       # can be easily extended with more fields,
       aliases|include)
-         sourcetree_get_userinfo_field "${address}" "${field}"
+         sde_get_sourcetree_userinfo_field "${address}" "${field}"
       ;;
 
-      os-excludes)
+      platform-excludes)
          sourcetree_get_os_excludes "${address}"
       ;;
 
@@ -462,6 +479,7 @@ sde_library_list_main()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                 -V -s \
                 ${MULLE_TECHNICAL_FLAGS} \
+                ${MULLE_SOURCETREE_FLAGS} \
                list \
                   --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
                   --marks "${marks}" \
@@ -505,8 +523,12 @@ sde_library_main()
 
    [ $# -ne 0 ] && shift
 
-   # shellcheck source=src/mulle-sde-common.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+   if [ -z "${MULLE_SDE_COMMON_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-common.sh
+
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+   fi
 
    case "${cmd}" in
       add|get|list|set)

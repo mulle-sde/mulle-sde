@@ -1050,6 +1050,11 @@ sde_extension_show_main()
       vendors="`extension_list_vendors`"
    fi
 
+   if [ -z "${vendors}" ]
+   then
+      fail "No extension vendors found. Check the extension searchpath MULLE_SDE_EXTENSION_PATH."
+   fi
+   
    log_verbose "Vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${vendors}" | sed 's/^/  /' `"
 
@@ -1620,11 +1625,21 @@ sde_extension_add_main()
 {
    log_entry "sde_extension_add_main" "$@"
 
+   local args 
+
    while :
    do
       case "$1" in
          -h*|--help|help)
             sde_extension_add_usage
+         ;;
+
+         --reflect)
+            args="--reflect" 
+         ;;
+
+         --no-reflect)
+            args="--no-reflect" 
          ;;
 
          -*)
@@ -1639,8 +1654,11 @@ sde_extension_add_main()
       shift
    done
 
-   # shellcheck source=src/mulle-sde-init.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+   if [ -z "${MULLE_SDE_INIT_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-init.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+   fi
 
    local extension
    local args
@@ -1686,7 +1704,7 @@ sde_extension_add_main()
    args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
 
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-      eval sde_init_main --no-blurb --no-env --add "${args}"
+      eval sde_init_main --no-blurb --no-env ${args} --add "${args}"
 }
 
 

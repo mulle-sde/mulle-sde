@@ -45,42 +45,40 @@ fi
 
 install_project()
 {
-   (
-      vendor="$1"
-      project="$2"
+   vendor="$1"
+   project="$2"
 
-      [ -z "${project}" ] && exit 0
+   [ -z "${project}" ] && return
 
-      name="${project%%;*}"   # first part
+   name="${project%%;*}"   # first part
 
-      version="${project#*;}" # remaining part
-      if [ "${version}" = "${project}" ]
-      then
-         version=""
-      fi
-      version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
-      url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
+   version="${project#*;}" # remaining part
+   if [ "${version}" = "${project}" ]
+   then
+      version=""
+   fi
+   version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
+   url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
 
-      echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
-      if ! "${CURL}" ${CURLFLAGS} "${url}" | tar xfz -
-      then
-         echo "Download failed" >&2
-         exit 1
-      fi
+   echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
+   if ! "${CURL}" ${CURLFLAGS} "${url}" | tar xfz -
+   then
+      echo "Download failed" >&2
+      exit 1
+   fi
 
-      if ! cd "${name}-${version}"
-      then
-         echo "Unpack into \"${name}-${version}\" failed" >&2
-         ls -CF >&2
-         exit 1
-      fi
+   if ! cd "${name}-${version}"
+   then
+      echo "Unpack into \"${name}-${version}\" failed" >&2
+      ls -CF >&2
+      exit 1
+   fi
 
-      if ! ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
-      then
-         echo "Installation failed" >&2
-         exit 1
-      fi
-   ) || exit 1
+   if ! ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+   then
+      echo "Installation failed" >&2
+      exit 1
+   fi
 }
 
 

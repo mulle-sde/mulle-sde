@@ -42,47 +42,45 @@ sde_init_usage()
 
    COMMON_OPTIONS="\
    --existing         : skip demo file installation.
-   --no-sourcetree    : do not add sourcetree to project
    --style <tool/env> : specify environment style, see mulle-env init -h
    -d <dir>           : directory to populate (working directory)
    -D <key>=<val>     : specify an environment variable
    -e <extra>         : specify extra extensions. Multiple uses are possible
    -m <meta>          : specify meta extensions
-   -n <name>          : project name
-   -o <oneshot>       : specify oneshot extensions. Multiple uses are possible"
+   -n <name>          : project name"
 
    HIDDEN_OPTIONS="\
-   --allow-<name>         : reenable specific initializations (see source)
-   --no-<name>            : turn off specific initializations (see source)
-   -b <buildtool>         : specify the buildtool extension to use
-   -r <runtime>           : specify runtime extension to use
-   -v <vendor>            : extension vendor to use (mulle-sde)
    --addiction-dir <dir>  : specify addiction directory (addiction)
+   --allow-<name>         : reenable specific initializations (see source)
    --dependency-dir <dir> : specify dependency directory (dependency)
    --kitchen-dir <dir>    : specify kitchen directory (kitchen)
+   --no-<name>            : turn off specific initializations (see source)
+   --no-sourcetree        : do not add sourcetree to project
+   --source-dir <dir>     : specify source directory location (src)
    --stash-dir <dir>      : specify stash directory (stash)
-   --source-dir <dir>     : specify source directory location (src)"
+   -b <buildtool>         : specify the buildtool extension to use
+   -o <oneshot>           : specify oneshot extensions. Multiples possible
+   -r <runtime>           : specify runtime extension to use
+   -v <vendor>            : extension vendor to use (mulle-sde)"
 
    cat <<EOF >&2
 Usage:
    ${INIT_USAGE_NAME} [options] [type]
 
-   Initializes a mulle-sde project in the current directory. This will
-   minimally create a .mulle folder if the project type is left out. Choose a
-   project type like "library" or "executable" if you are starting a new
-   project.
+   Initializes a mulle-sde project in the current directory. This will create a
+   ".mulle" folder if no 'type' is given and nothing else. Or choose a
+   directory to create and install into with the '-d' option.
 
-   Typically you specifiy a meta-extension in the options. Extensions are
-   plugins that contain scripts and files to setup the project for the desired
-   programming language and build system. And a meta-extension is a wrapper
-   around multiple such extensions.
+   Choose a 'type' like "library" or "executable", when starting a new
+   project. You would typically then also specifiy a meta-extension in the
+   options, to set the desired project language and build system.
    To see available (meta-)extensions use \`mulle-sde extension show\`.
 
-   Optionally choose a directory to create and install
-   into with the \'-d\' option:
+   Extensions are plugins that contain scripts and files to setup the project.
+   A meta-extension combinest multiple extensions conveniently.
+
 
    Example:
-
       mulle-sde init -d ./my-project -m mulle-sde/c-developer executable
 
    Use \`mulle-sde extension add\` to add extra and oneshot extensions at a
@@ -156,7 +154,8 @@ _copy_extension_dir()
       ;;
    esac
 
-   log_verbose "Installing files from \"${directory#${MULLE_USER_PWD}/}\" into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
+   log_verbose "Installing files from \"${directory#${MULLE_USER_PWD}/}\" \
+into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
 
    # need L flag since homebrew creates relative links
    exekutor cp -RLa ${flags} "${directory}" "${destination}/"
@@ -252,8 +251,6 @@ install_inheritfile()
 
    text="`LC_ALL=C egrep -v '^#' "${inheritfilename}"`"
 
-   log_debug "Inherits: $text"
-
    #
    # read needs IFS set for each iteration, whereas
    # for only for the first iteration.
@@ -292,8 +289,19 @@ install_inheritfile()
       local extname
       local vendor
 
-      vendor="${extension%%/*}"
-      extname="${extension##*/}"
+      case "${extension}" in
+         */*)
+            vendor="${extension%%/*}"
+            extname="${extension##*/}"
+         ;;
+
+         *)
+            internal_fail "\"${inheritfilename}\": missing vendor for \"${extension}\" (need vendor/extension)"
+         ;;
+      esac
+
+      [ -z "${vendor}" ] &&  internal_fail "\"${inheritfilename}\": missing vendor for \"${extension}\""
+      [ -z "${extname}" ] &&  internal_fail "\"${inheritfilename}\": missing extenson name for \"${extension}\""
 
       exttype="${exttype:-${defaultexttype}}"
       if [ "${exttype}" = "meta" ]
@@ -320,6 +328,7 @@ install_inheritfile()
          ;;
       esac
 
+      # why are we using _install here ?
       _install_extension "${projecttype}" \
                          "${exttype}" \
                          "${vendor}" \
@@ -492,7 +501,7 @@ import_template_generate()
 {
    if [ -z "${MULLE_TEMPLATE_GENERATE_SH}" ]
    then
-      MULLE_TEMPLATE_LIBEXEC_DIR="`mulle-template libexec-dir`" || fail "mulle-template not in PATH ($PATH)"
+      MULLE_TEMPLATE_LIBEXEC_DIR="`"${MULLE_TEMPLATE:-mulle-template}" libexec-dir`" || fail "mulle-template not in PATH ($PATH)"
       . "${MULLE_TEMPLATE_LIBEXEC_DIR}/mulle-template-generate.sh" || internal_fail "include fail"
    fi
 }
@@ -523,6 +532,10 @@ read_template_expanded_file()
    PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY}" \
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
    GITHUB_USER="${GITHUB_USER}" \
+   PROJECT_NAME="${PROJECT_NAME}" \
+   PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}" \
+   PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}" \
+   PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}" \
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
    PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
       r_template_contents_replacement_seds "<|" "|>" "template_is_interesting_key"
@@ -552,18 +565,33 @@ add_to_sourcetree()
 
    lines="`read_template_expanded_file "${filename}"`"
 
+   MULLE_VIRTUAL_ROOT="`physicalpath "${PWD}" `"
+
    set -o noglob; IFS=$'\n'
    for line in ${lines}
    do
       set +o noglob; IFS="${DEFAULT_IFS}"
 
+      # use the force flag to allow duplicate names (for Foundation)
       if [ ! -z "${line}" ]
       then
-         MULLE_VIRTUAL_ROOT="`physicalpath "${PWD}" `" \
-            eval_exekutor mulle-sourcetree -N \
-                        "${MULLE_TECHNICAL_FLAGS}" \
-                      add \
-                        "${line}" || exit 1
+         # gotta check this
+         case "${line}" in
+            *\$\(*|*\`*)
+               fail "${filename} contains suspicious code"
+            ;;
+         esac
+
+         # shield from variable expansion
+         (
+            MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+               eval_exekutor mulle-sourcetree -N \
+                           "${MULLE_TECHNICAL_FLAGS}" \
+                           "${MULLE_SOURCETREE_FLAGS}" \
+                           -f \
+                         add \
+                           "${line}" || fail "\"${filename}\" has malformed contents: ${line}"
+         ) || exit 1
       fi
    done
    set +o noglob; IFS="${DEFAULT_IFS}"
@@ -598,15 +626,17 @@ add_to_environment()
 
    # remove lf for command line
    environment="`tr '\n' ' ' <<< "${environment}"`"
-   MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
-                           --search-nearest \
-                           -s \
-                           "${MULLE_TECHNICAL_FLAGS}" \
-                           --no-protect \
-                        environment \
-                           --scope extension \
-                           mset "${environment}" || exit 1
+   (
+      MULLE_VIRTUAL_ROOT="`pwd -P`" \
+         eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
+                              --search-nearest \
+                              -s \
+                              "${MULLE_TECHNICAL_FLAGS}" \
+                              --no-protect \
+                           environment \
+                              --scope extension \
+                              mset "${environment}"
+   ) || exit 1
 }
 
 
@@ -632,20 +662,22 @@ _add_to_tools()
 
    log_verbose "Tools: \"${quoted_args}\" ${os:+ (}${os}${os:+)}"
 
-   MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
-                           --search-nearest \
-                           "${MULLE_TECHNICAL_FLAGS}" \
-                           -s \
-                           --no-protect \
-                        tool \
-                           --os "'${os:-DEFAULT}'" \
-                           --extension \
-                           add \
-                              --no-compile-link \
-                              --if-missing \
-                              --csv \
-                              ${quoted_args}
+   (
+      MULLE_VIRTUAL_ROOT="`pwd -P`" \
+         eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
+                              --search-nearest \
+                              "${MULLE_TECHNICAL_FLAGS}" \
+                              -s \
+                              --no-protect \
+                           tool \
+                              --os "'${os:-DEFAULT}'" \
+                              --extension \
+                              add \
+                                 --no-compile-link \
+                                 --if-missing \
+                                 --csv \
+                                 ${quoted_args}
+   )
 
    if [ $? -eq 1 ] # only 1 is error, 2 is ok
    then
@@ -744,7 +776,7 @@ run_init()
                               "${auxflags}" \
                            --marks "'${marks}'" \
                                    "${projecttype}"
-   ) || fail "init script \"${RVAL}\" failed"
+   ) || fail "init script \"${executable}\" failed"
 }
 
 
@@ -752,17 +784,20 @@ is_disabled_by_marks()
 {
    log_entry "is_disabled_by_marks" "$@"
 
-   local marks="$1"; shift
-   local description="$1"; shift
+   local marks="$1"
+   local description="$2"
+
+   shift 2
+
+   [ -z "${description}" ] && internal_fail "description must not be empty"
 
    # make sure all individual marks are enlosed by ','
    # now we can check against an , enclosed pattern
-
    while [ ! -z "$1" ]
    do
       case ",${marks}," in
          *,$1,*)
-            log_fluff "${description} is disabled by \"$1\""
+            log_fluff "${description} is disabled by \"${marks}\""
             return 0
          ;;
       esac
@@ -781,13 +816,15 @@ is_directory_disabled_by_marks()
 
    local marks="$1"
    local directory="$2"
+   shift 2
 
    if ! _check_dir "${directory}"
    then
+      log_fluff "Directory \"${directory}\" not present"
       return 0 # disabled
    fi
 
-   is_disabled_by_marks "$@"
+   is_disabled_by_marks "${marks}" "${directory}" "$@"
 }
 
 
@@ -797,13 +834,15 @@ is_file_disabled_by_marks()
 
    local marks="$1"
    local filename="$2"
+   shift 2
 
    if ! _check_file "${filename}"
    then
+      log_fluff "File \"${filename}\" not present"
       return 0 # disabled
    fi
 
-   is_disabled_by_marks "$@"
+   is_disabled_by_marks "${marks}" "${filename}" "$@"
 }
 
 
@@ -814,16 +853,18 @@ is_sourcetree_file_disabled_by_marks()
    local marks="$1"
    local filename="$2"
    local projecttype="$3"
+   shift 3
 
    if ! _check_file "${filename}"
    then
       if ! _check_file "${filename}-${projecttype}"
       then
+         log_fluff "${filename} and ${filename}-${projecttype} not present"
          return 0 # disabled
       fi
    fi
 
-   is_disabled_by_marks "$@"
+   is_disabled_by_marks "${marks}" "${filename}" "$@"
 }
 
 
@@ -843,9 +884,9 @@ install_sourcetree_files()
 
    if ! is_sourcetree_file_disabled_by_marks "${marks}" \
                                              "${extensiondir}/sourcetree" \
+                                             "${projecttype}" \
                                              "no-sourcetree" \
-                                             "no-sourcetree-${vendor}-${extname}" \
-                                             "${projecttype}"
+                                             "no-sourcetree-${vendor}-${extname}"
    then
       add_to_sourcetree "${extensiondir}/sourcetree" "${projecttype}"
    fi
@@ -1097,6 +1138,40 @@ set_projectlanguage()
    export PROJECT_UPCASE_LANGUAGE
 }
 
+
+extension_has_been_installed()
+{
+   local vendor="$1"
+   local extname="$2"
+
+   # duplicate check
+   if egrep -q -s "^${vendor}/${extname};" <<< "${_INSTALLED_EXTENSIONS}"
+   then
+      if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         log_fluff "Extension \"${vendor}/${extname}\" is already installed"
+         return 0
+      fi
+   fi
+   return 1
+}
+
+set_extension_has_been_installed()
+{
+   local exttype="$1"
+   local vendor="$2"
+   local extname="$3"
+
+   # oneshots can appear multiple times ?.
+   if [ "${exttype}" != "oneshot" ]
+   then
+      log_debug "memorize extension ${vendor}/${extname} as installed"
+      r_add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"
+      _INSTALLED_EXTENSIONS="${RVAL}"
+   fi
+}
+
+
 #
 # With "marks" you control what should be installed:
 #
@@ -1139,25 +1214,14 @@ _install_extension()
       return
    fi
 
-   # duplicate check
-   if egrep -q -s "^${vendor}/${extname};" <<< "${_INSTALLED_EXTENSIONS}"
-   then
-      if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
-      then
-         log_fluff "Extension \"${vendor}/${extname}\" is already installed"
-         return
-      fi
-   else
-      if [ "${exttype}" != "oneshot" ]
-      then
-         log_debug "memorize extension ${vendor}/${extname} as installed"
-         r_add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"
-         _INSTALLED_EXTENSIONS="${RVAL}"
-      fi
-   fi
-
    # just to catch idiots early
    assert_sane_extension_values "${exttype}" "${vendor}" "${extname}"
+
+   if extension_has_been_installed "${vendor}" "${extname}"
+   then
+      return 1
+   fi
+   set_extension_has_been_installed "${exttype}" "${vendor}" "${extname}"
 
    local extensiondir
    local searchpath
@@ -1165,7 +1229,6 @@ _install_extension()
    if ! r_find_get_quoted_searchpath "${vendor}"
    then
       r_extension_get_searchpath
-      searchpath="${RVAL}"
 
       fail "Could not find any extensions of vendor \"${vendor}\" (${searchpath})!
 ${C_INFO}Show available extensions with:
@@ -1224,9 +1287,10 @@ ${C_INFO}Possible ways to fix this:
       ;;
    esac
 
-   if is_disabled_by_marks "${marks}" "${vendor}/${extname}" \
-                                      "no-extension" \
-                                      "no-extension/${vendor}/${extname}"
+   if is_disabled_by_marks "${marks}" \
+                           "${vendor}/${extname}" \
+                           "no-extension" \
+                           "no-extension/${vendor}/${extname}"
    then
       return
    fi
@@ -1260,9 +1324,10 @@ ${C_INFO}Possible ways to fix this:
       filename="${extensiondir}/inheritmarks"
       inheritmarks="${marks}"
 
-      if ! is_disabled_by_marks "${marks}" "${filename}" \
-                                           "no-inheritmarks" \
-                                           "no-inheritmarks/${vendor}/${extname}"
+      if ! is_disabled_by_marks "${marks}" \
+                                "${filename}" \
+                                "no-inheritmarks" \
+                                "no-inheritmarks/${vendor}/${extname}"
       then
          if _check_file "${filename}"
          then
@@ -1536,14 +1601,20 @@ install_extension()
 
    local extensiondir
 
+   if extension_has_been_installed "${vendor}" "${extname}"
+   then
+      return
+   fi
+
    verb="Installing"
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
-      verb="Ugrading"
+      verb="Upgrading"
    fi
 
    log_verbose "${verb} extension dependencies of ${C_RESET_BOLD}${vendor}/${extname}"
 
+   # this will memorize if extension has been installed
    _install_extension "$@"
    extensiondir="${RVAL}"
 
@@ -1552,49 +1623,53 @@ install_extension()
    #
    import_template_generate
 
-   [ -z "${_TEMPLATE_DIRECTORIES}" ] && return
-
-   if [ -z "${onlyfilename}" ]
+   if [ ! -z "${_TEMPLATE_DIRECTORIES}" ]
    then
-      log_verbose "Installing project files for \"${vendor}/${extname}\""
-   fi
-
-   (
-      export_projectname_environment "${PROJECT_NAME}"
-      export_projectlanguage_environment "${PROJECT_LANGUAGE}"
-
-      #
-      # Read what extensions added to the project so far. environment-project
-      # is under our mulle-sde control and it's not complete yet.
-      #
-      if [ -f ".mulle/share/env/environment-extension.sh" ]
+      if [ -z "${onlyfilename}" ]
       then
-         . ".mulle/share/env/environment-extension.sh"
+         log_verbose "Installing project files for \"${vendor}/${extname}\""
       fi
 
-      define_hacky_template_variables
+      (
+         export_projectname_environment "${PROJECT_NAME}"
+         export_projectlanguage_environment "${PROJECT_LANGUAGE}"
 
-      #
-      # using the --embedded option, the template generator keeps state in
-      # CONTENTS_SED and FILENAME_SED, since that is expensive to recalculate
-      #
-      local CONTENTS_SED
-      local FILENAME_SED
-
-      log_debug "_TEMPLATE_DIRECTORIES: ${_TEMPLATE_DIRECTORIES}"
-
-      set -o noglob; IFS=$'\n'
-      for arguments in ${_TEMPLATE_DIRECTORIES}
-      do
-         IFS="${DEFAULT_IFS}"; set +o noglob
-
-         if [ ! -z "${arguments}" ]
+         #
+         # Read what extensions added to the project so far. environment-project
+         # is under our mulle-sde control and it's not complete yet.
+         #
+         if [ -f ".mulle/share/env/environment-extension.sh" ]
          then
-            eval_rexekutor template_generate_main "${arguments}" || exit 1
+            . ".mulle/share/env/environment-extension.sh"
          fi
-      done
-   ) || exit 1
 
+         define_hacky_template_variables
+
+         #
+         # using the --embedded option, the template generator keeps state in
+         # CONTENTS_SED and FILENAME_SED, since that is expensive to recalculate
+         #
+         local CONTENTS_SED
+         local FILENAME_SED
+
+         log_debug "_TEMPLATE_DIRECTORIES: ${_TEMPLATE_DIRECTORIES}"
+
+         set -o noglob; IFS=$'\n'
+         for arguments in ${_TEMPLATE_DIRECTORIES}
+         do
+            IFS="${DEFAULT_IFS}"; set +o noglob
+
+            if [ ! -z "${arguments}" ]
+            then
+               eval_exekutor template_generate_main "${arguments}" || exit 1
+            fi
+         done
+      ) || exit 1
+   fi
+
+   #
+   # Init is always run last
+   #
    if [ -z "${onlyfilename}" ]
    then
       local executable
@@ -1637,7 +1712,7 @@ install_extension()
    verb="Installed"
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
-      verb="Ugraded"
+      verb="Upgraded"
    fi
 
    log_verbose "${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
@@ -1678,6 +1753,8 @@ _install_simple_extension()
    local onlyfilename="$4"
    local force="$5"
 
+   _sde_validate_projecttype "${PROJECT_TYPE}"
+
    # optionally install "extra" extensions
    # f.e. a "git" extension could auto-init the project and create
    # a .gitignore file
@@ -1686,6 +1763,9 @@ _install_simple_extension()
    local extra
    local extra_vendor
    local extra_name
+
+   set_projectname_variables "${PROJECT_NAME}"
+   add_environment_variables "${OPTION_DEFINES}"
 
    IFS=$'\n'; set -o noglob
    for extra in ${extras}
@@ -1839,6 +1919,7 @@ env_set_var()
 }
 
 
+# everything in here should exit on error not return 1
 install_extensions()
 {
    log_entry "install_extensions" "$@"
@@ -2052,13 +2133,6 @@ install_project()
    export PROJECT_SOURCE_DIR
    export PROJECT_TYPE
 
-   #
-   # TODO: this is clumsy and needs to be rewritten
-   # put these first, so extensions can draw on these in their definitions
-   #
-   set_projectname_variables "${PROJECT_NAME}"
-   save_projectname_variables "--no-protect"
-
    local _MOTD
    local _INSTALLED_EXTENSIONS
 
@@ -2068,6 +2142,14 @@ install_project()
    then
       log_verbose "Installing project extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
    fi
+
+   #
+   # TODO: this is clumsy and needs to be rewritten
+   # put these first, so extensions can draw on these in their definitions
+   #
+   # sets PROJECT_IDENTIFIER, PROJECT_UPCASE_IDENTIFIER PROJECT_DOWNCASE_IDENTIFIER
+   set_projectname_variables "${PROJECT_NAME}"
+   save_projectname_variables "--no-protect"
 
    install_extensions "${marks}" "${onlyfilename}" "${force}"
 
@@ -2093,7 +2175,7 @@ add more with:
 
    case ",${marks}," in
       *',no-motd,'*)
-         return 0
+         return
       ;;
    esac
 
@@ -2136,14 +2218,16 @@ add_environment_variables()
 changes into your subshell"
    fi
 
-   MULLE_VIRTUAL_ROOT="`pwd -P`" \
-      eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
-                           --search-nearest \
-                           "${MULLE_TECHNICAL_FLAGS}" \
-                           --no-protect \
-                        environment \
-                           --scope extension \
-                           mset "${defines}" || exit 1
+   (
+      MULLE_VIRTUAL_ROOT="`pwd -P`" \
+         eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
+                              --search-nearest \
+                              "${MULLE_TECHNICAL_FLAGS}" \
+                              --no-protect \
+                           environment \
+                              --scope extension \
+                              mset "${defines}"
+   ) || exit 1
 }
 
 
@@ -2454,6 +2538,7 @@ _sde_run_upgrade()
    fi
 
    read_project_environment
+   _sde_validate_projecttype "${PROJECT_TYPE}"
 
    if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
    then
@@ -2461,7 +2546,8 @@ _sde_run_upgrade()
          "none")
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
-               log_verbose "Nothing to upgrade in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
+               log_verbose "Nothing to upgrade in \
+${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
             else
                log_verbose "Nothing to upgrade, as no extensions have been installed."
             fi
@@ -2472,10 +2558,6 @@ _sde_run_upgrade()
       fail "Could not retrieve previous extension information.
 This may hurt, but you have to init again."
    fi
-
-
-   _sde_validate_projecttype "${PROJECT_TYPE}"
-
 
    log_fluff "Erasing share/env contents to be written by upgrade anew"
 
@@ -2495,8 +2577,8 @@ This may hurt, but you have to init again."
       shopt -u nullglob
    fi
 
+   set_projectname_variables "${PROJECT_NAME}"
    add_environment_variables "${OPTION_DEFINES}"
-
 
    # rmdir_safer ".mulle-env"
    if ! install_extensions "${OPTION_MARKS}" \
@@ -2541,6 +2623,7 @@ _sde_run_upgrade_projectfile()
    fi
 
    read_project_environment
+   _sde_validate_projecttype "${PROJECT_TYPE}"
 
    if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
    then
@@ -2560,10 +2643,8 @@ _sde_run_upgrade_projectfile()
 This may hurt, but you have to init again."
    fi
 
-
-   _sde_validate_projecttype "${PROJECT_TYPE}"
+   set_projectname_variables "${PROJECT_NAME}"
    add_environment_variables "${OPTION_DEFINES}"
-
 
    # rmdir_safer ".mulle-env"
    if ! install_extensions "${OPTION_MARKS}" \
@@ -2702,8 +2783,6 @@ _sde_run_reinit()
       _sde_pre_initenv "${OPTION_ENV_STYLE}" "${PROJECT_TYPE}"
    fi
 
-   add_environment_variables "${OPTION_DEFINES}"
-
    # rmdir_safer ".mulle-env"
    case "${OPTION_PROJECT_SOURCE_DIR}" in
       DEFAULT)
@@ -2725,17 +2804,19 @@ _sde_run_reinit()
       ;;
    esac
 
+   add_environment_variables "${OPTION_DEFINES}"
+
    if ! install_project "${OPTION_NAME}" \
-                       "${PROJECT_TYPE}" \
-                       "${OPTION_PROJECT_SOURCE_DIR}" \
-                       "${OPTION_MARKS}" \
-                       "${OPTION_PROJECT_FILE}" \
-                       "${MULLE_FLAG_MAGNUM_FORCE}" \
-                       "${OPTION_LANGUAGE}"  \
-                       "${OPTION_DIALECT}"  \
-                       "${OPTION_EXTENSIONS}"
+                        "${PROJECT_TYPE}" \
+                        "${OPTION_PROJECT_SOURCE_DIR}" \
+                        "${OPTION_MARKS}" \
+                        "${OPTION_PROJECT_FILE}" \
+                        "${MULLE_FLAG_MAGNUM_FORCE}" \
+                        "${OPTION_LANGUAGE}"  \
+                        "${OPTION_DIALECT}"  \
+                        "${OPTION_EXTENSIONS}"
    then
-      return 1
+      internal_fail "install_project should exit not return errors"
    fi
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
@@ -2763,9 +2844,6 @@ _sde_run_init()
       _sde_pre_initenv "${OPTION_ENV_STYLE}" "${PROJECT_TYPE}"
    fi
 
-   add_environment_variables "${OPTION_DEFINES}"
-
-
    case "${OPTION_PROJECT_SOURCE_DIR}" in
       DEFAULT)
          if [ "${PROJECT_TYPE}" != "none" ]
@@ -2788,6 +2866,8 @@ _sde_run_init()
       ;;
    esac
 
+   add_environment_variables "${OPTION_DEFINES}"
+
    if ! install_project "${OPTION_NAME}" \
                         "${PROJECT_TYPE}" \
                         "${OPTION_PROJECT_SOURCE_DIR}" \
@@ -2798,15 +2878,13 @@ _sde_run_init()
                         "${OPTION_DIALECT}"  \
                         "${OPTION_EXTENSIONS}"
    then
-      return 1
+      internal_fail "install_project should exit not return errors"
    fi
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
       _sde_post_initenv "${PROJECT_TYPE}"
    fi
-
-   return 0
 }
 
 
@@ -3350,15 +3428,19 @@ _sde_init_main()
             OPTION_ENV_STYLE="$1"
          ;;
 
-         --subproject)
-            OPTION_INIT_TYPE="subproject"
-         ;;
-
          -v|--vendor)
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
             OPTION_VENDOR="$1"
+         ;;
+
+         --no-env)
+            OPTION_INIT_ENV='NO'
+         ;;
+
+         --no-post-init)
+            OPTION_POST_INIT='NO'
          ;;
 
          --reinit)
@@ -3380,6 +3462,10 @@ _sde_init_main()
             OPTION_REFLECT='NO'
          ;;
 
+         --subproject)
+            OPTION_INIT_TYPE="subproject"
+         ;;
+
          --upgrade)
             OPTION_UPGRADE='YES'
             OPTION_BLURB='NO'
@@ -3392,14 +3478,6 @@ _sde_init_main()
 
          --no-blurb)
             OPTION_BLURB='NO'
-         ;;
-
-         --no-env)
-            OPTION_INIT_ENV='NO'
-         ;;
-
-         --no-post-init)
-            OPTION_POST_INIT='NO'
          ;;
 
          # keep these down here, so they don't catch flags prematurely
@@ -3487,19 +3565,25 @@ _sde_init_main()
 
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
-      oldversion="`rexekutor mulle-env --search-as-is -s environment get MULLE_SDE_INSTALLED_VERSION 2> /dev/null`"
+      oldversion="`rexekutor "${MULLE_ENV:-mulle-env}" \
+                     -f \
+                     --search-as-is \
+                     -s \
+                  environment get MULLE_SDE_INSTALLED_VERSION 2> /dev/null`"
       log_debug "Old version: ${oldversion}"
 
       case "${oldversion}" in
          [0-9]*\.[0-9]*\.[0-9]*)
             # check that old version is not actually newer than what we have
             # shellcheck source=mulle-case.sh
-            [ -z "${MULLE_VERSION_SH}" ] &&  . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-version.sh"
+            [ -z "${MULLE_VERSION_SH}" ] \
+            &&  . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-version.sh"
 
             r_version_distance "${MULLE_EXECUTABLE_VERSION}" "${oldversion}"
             if [ "${RVAL}" -gt 0 ]
             then
-               fail "Can't upgrade! The environment  was created by a newer mulle-sde version ${oldversion}.
+               fail "Can't upgrade! The environment  was created by a newer \
+mulle-sde version ${oldversion}.
 ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
             fi
          ;;
@@ -3508,11 +3592,13 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
             [ ! -d .mulle/share/sde ] &&  fail "There is no mulle-sde project here"
 
             oldversion="0.0.0"
-            log_warning "Can not get previous installed version from MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
+            log_warning "Can not get previous installed version from \
+MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
          ;;
 
          *)
-            internal_fail "Unparsable version info in MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
+            internal_fail "Unparsable version info in \
+MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
          ;;
       esac
    fi

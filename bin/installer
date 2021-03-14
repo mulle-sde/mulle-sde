@@ -179,11 +179,11 @@ main()
    mkdir -p "${EXTENSION_DIR}" || exit 1
    cp -Ra ${VERBOSE} "src/mulle-sde" "${EXTENSION_DIR}/" || exit 1
 
-   share="${prefix}/share/mulle-env"
 
    #
    # install mulle-env plugins
    #
+   share="${prefix}/share/mulle-env"
    PLUGIN_DIR="${share}/plugins"
    mkdir -p "${PLUGIN_DIR}" || exit 1
    for i in src/mulle-env/plugins/*.sh

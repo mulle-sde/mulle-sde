@@ -43,10 +43,10 @@ Usage:
    Show the craftorder of the dependencies.
 
 Options:
-   -h              : show this usage
-   --cached        : show the cached craftorder contents
-   --remaining     : show the part of the craftorder still needed to be crafted
-   --remove-cached : remove cached craftorder contents
+   -h                     : show this usage
+   --cached               : show the cached craftorder contents
+   --remaining            : show what remains uncrafted of a craftorder
+   --remove-cached        : remove cached craftorder contents
 EOF
    exit 1
 }
@@ -54,6 +54,10 @@ EOF
 
 __get_craftorder_info()
 {
+   local sdk="$1"
+   local platform="$2"
+   local configuration="$3"
+
    _cachedir="${MULLE_SDE_VAR_DIR}/cache"
    _craftorderfile="${_cachedir}/craftorder"
 }
@@ -122,7 +126,7 @@ create_craftorder_file()
             "$@"
    then
       remove_file_if_present "${craftorderfile}"
-      fail "Failed to create craftorderfile"
+      return 1
    fi
 }
 
@@ -245,7 +249,9 @@ sde_craftorder_main()
 
    if [ "${OPTION_CREATE}" = 'YES'  ]
    then
-      create_craftorder_file "${_craftorderfile}" "${_cachedir}"
+      create_craftorder_file "${_craftorderfile}" \
+                             "${_cachedir}"  || \
+         fail "Failed to create craftorderfile"
    fi
 
    if [ "${OPTION_REMAINING}" = 'NO' -a "${OPTION_CACHED}" = 'NO' ]

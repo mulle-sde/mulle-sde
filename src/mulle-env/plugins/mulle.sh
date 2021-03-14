@@ -322,6 +322,7 @@ env_setup_mulle_tools()
    (
       env_link_mulle_tool "mulle-craft"      "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-dispense"   "${bindir}" "${libexecdir}" &&
+      env_link_mulle_tool "mulle-domain"     "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-fetch"      "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-make"       "${bindir}" "${libexecdir}" &&
       env_link_mulle_tool "mulle-match"      "${bindir}" "${libexecdir}" &&

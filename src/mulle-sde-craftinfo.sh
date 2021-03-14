@@ -183,8 +183,10 @@ Usage:
 
 Options:
    --clobber         : Remove an existing craftinfo of the same name
-   --no-clobber      : Keep an existing craftinfo of the same name
-   --keep-history    : Do not remove git history from craftinfo
+   --no-clobber      : Keep an existing craftinfo of the same name (Default)
+   --git             : Keep .git folder in downloaded craftinfo
+   --no-git          : Remove .git folder in downloaded craftinfo
+   --rename-git      : Rename .git folder in downloaded craftinfo (Default)
 
 Environment:
    CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
@@ -404,10 +406,10 @@ __sde_craftinfo_vars_with_url_or_address()
    local emptyok="${3:-YES}"
 
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                              -V \
-                              -s \
+                              -V -s \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_SOURCETREE_FLAGS} \
                            get \
-                              --url-addressing \
                               "${url}"`"
    if [ -z "${_address}" ]
    then
@@ -423,8 +425,9 @@ __sde_craftinfo_vars_with_url_or_address()
    local marks
 
    marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
-                           -s \
+                              -V -s \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_SOURCETREE_FLAGS} \
                            get "${_address}" marks`"
    case ",${marks}," in
       *,no-build,*|*,no-fs,*)
@@ -574,6 +577,7 @@ sde_dependency_craftinfo_exists_main()
       IFS="${DEFAULT_IFS}"
 
       url="${repo}/${_name}-craftinfo.git"
+      log_verbose "Checking if a craftinfo URL \"${url}\" exists"
       if exekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
       then
          log_fluff "Craftinfos ${url} found"
@@ -624,7 +628,7 @@ sde_dependency_craftinfo_fetch_main()
    log_entry "sde_dependency_craftinfo_fetch_main" "$@"
 
    local OPTION_CLOBBER='NO'
-   local OPTION_KEEP_HISTORY='NO'
+   local OPTION_KEEP_HISTORY='RENAME'
 
    if [ "$1" != "DEFAULT" ]
    then
@@ -643,7 +647,15 @@ sde_dependency_craftinfo_fetch_main()
             OPTION_CLOBBER='YES'
          ;;
 
-         --keep-history)
+         --rename-git)
+            OPTION_KEEP_HISTORY='RENAME'
+         ;;
+
+         --no-keep-history|--no-git)
+            OPTION_KEEP_HISTORY='NO'
+         ;;
+
+         --keep-history|--git)
             OPTION_KEEP_HISTORY='YES'
          ;;
 
@@ -702,10 +714,15 @@ sde_dependency_craftinfo_fetch_main()
       # behave like git archive, so we can add this craftinfo to our project
       # easily. (but github don't support it)
       #
-      if [ "${OPTION_KEEP_HISTORY}" = 'NO' ]
-      then
-         remove_dir_safer "${dstdir}/.git"
-      fi
+      case "${OPTION_KEEP_HISTORY}" in
+         'NO')
+            remove_dir_safer "${dstdir}/.git"
+         ;;
+
+         'RENAME')
+            exekutor mv "${dstdir}/.git" "${dstdir}/.git.orig"
+         ;;
+      esac
       return 0
    done
    IFS="${DEFAULT_IFS}"
@@ -720,9 +737,6 @@ sde_dependency_craftinfo_set_main()
 
    local extension="$1"; shift
 
-   local OPTION_COPY='YES'
-   local OPTION_APPEND='NO'
-
    while :
    do
       case "$1" in
@@ -730,13 +744,6 @@ sde_dependency_craftinfo_set_main()
             sde_dependency_craftinfo_set_usage
          ;;
 
-         --append|-a)
-            OPTION_APPEND='YES'
-         ;;
-
-         --no-copy)
-            OPTION_COPY='NO'
-         ;;
 
          -*)
             sde_dependency_craftinfo_set_usage "Unknown option \"$1\""
@@ -787,20 +794,12 @@ sde_dependency_craftinfo_set_main()
       ;;
    esac
 
-   local setflags
-
-   if [ "${OPTION_APPEND}" = 'YES' ]
-   then
-      setflags="-+"
-   fi
-
    exekutor "${MULLE_MAKE}" \
                   ${MULLE_TECHNICAL_FLAGS} \
                definition \
-                  --definition-dir "${_folder}" \
+                     --definition-dir "${_folder}" \
                   set \
-                  ${setflags} \
-                  "$@"
+                     "$@"
 
 }
 

@@ -307,7 +307,7 @@ mulle-sde library add m
 You can exclude libraries on a per-platform level (as you can dependencies)
 
 ```
-mulle-sde library mark m no-os-windows
+mulle-sde library mark m no-platform-windows
 ```
 
 See the [mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for more

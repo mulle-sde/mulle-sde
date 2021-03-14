@@ -45,7 +45,7 @@ print_commands()
    local show_all="${1:-NO}"
 
 
-   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   if [ -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .mulle ]
    then
       SHOWN_COMMANDS="\
    add            : create a source file from templates
@@ -110,14 +110,14 @@ print_commands()
 
 print_flags()
 {
-   local delimiter
+   local delm
 
-   delimiter="             : "
+   delm="          : "
 
-   echo "   -d <dir> ${delimiter}change to dir before executing commands"
-   echo "   -e       ${delimiter}bypass mulle-env check"
-   echo "   -f       ${delimiter}force operation"
-   echo "   -N       ${delimiter}do not search for enclosing environment"
+   echo "   -d <dir>       : change to dir before executing commands"
+   echo "   -e             : bypass mulle-env check"
+   echo "   -f             : force operation"
+   echo "   -N             : do not search for enclosing environment"
    echo "   -DKEY=VALUE    : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -125,7 +125,7 @@ print_flags()
       echo "   --style <val>  : see \`mulle-env help\` for style description"
    fi
 
-   options_technical_flags_usage "${delimiter}"
+   options_technical_flags_usage "${delm}"
 }
 
 
@@ -141,12 +141,12 @@ Usage:
 
       Edit -> Reflect -> Craft/Test -> Edit.
 
-   Edit    : mulle-sde has no facility for editing, use your preferred editor.
-   Reflect : Create necessary files for cmake (or others)
-   Craft   : Crafts (runs cmake) on dependencies and the project itself
+   * Edit     mulle-sde has no facility for editing, use your preferred editor.
+   * Reflect  Create necessary files for cmake (or others)
+   * Craft    Crafts (runs cmake) on dependencies and the project itself
 
 EOF
-   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   if [ -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .mulle ]
    then
       cat <<EOF
    Create a new project with \`mulle-sde init\` or enter an existing one with
@@ -155,7 +155,7 @@ EOF
 EOF
    else
       cat <<EOF
-   To start development edit source files in '${PROJECT_SOURCE_DIR}'. When you
+   To start development edit source files in '${PROJECT_SOURCE_DIR:-src}'. When you
    add or delete a source file run \`mulle-sde reflect\`. Use
    \`mulle-sde craft\` to craft your project.
    Add binary libraries with \`mulle-sde library\` and source code libraries
@@ -387,6 +387,7 @@ exec_command_in_subshell()
    log_entry "exec_command_in_subshell" "$@"
 
    _exec_command_in_subshell "$0" "$@"
+   exit $?
 }
 
 
@@ -467,16 +468,21 @@ try_to_enter_or_download()
          *://*)
             local scm
 
-            scm="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
+            scm="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
                                  ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_DOMAIN_FLAGS} \
                               typeguess "$@"`"
-            dst="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
+            dst="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
                                  ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_DOMAIN_FLAGS} \
                               nameguess -s "${scm}" "$@"`"
+
+            local_debug "Guessed name \"${dst}\" and \"scm\" ${scm}"
             if [ ! -z "${dst}" ]
             then
                exekutor "${MULLE_FETCH:-mulle-fetch}" \
                               ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_FETCH_FLAGS} \
                               "$@" || exit 1
                MULLE_USAGE_NAME="mulle-sde" \
                   exec_mulle_env "${dst}"
@@ -548,6 +554,7 @@ main()
             MULLE_FWD_FLAGS="${RVAL}"
          ;;
 
+         # this has never been used really so far
          --git-terminal-prompt)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
 

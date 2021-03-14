@@ -231,7 +231,7 @@ sde_status_main()
             case ",${statustypes}," in
                *,database,*)
                   log_verbose "Database status:"
-                  if mulle-sourcetree -s dbstatus
+                  if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -s dbstatus
                   then
                      log_info "${indent}Nothing needs to be fetched"
                   else
@@ -243,12 +243,17 @@ sde_status_main()
 
             case ",${statustypes}," in
                *,stash,*)
-                  log_verbose "Stash status:"
 
                   local stashdir
+                  local abs_stashdir
 
                   stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
-                  if [ -d "${stashdir}" ]
+                  r_absolutepath "${stashdir}"
+                  abs_stashdir="${RVAL}"
+
+                  log_verbose "Stash status: (${abs_stashdir#${MULLE_USER_PWD}/})"
+
+                  if [ -d "${abs_stashdir}" ]
                   then
                      local file
                      local hassymlinks
