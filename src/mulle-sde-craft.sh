@@ -178,12 +178,20 @@ sde_perform_clean_if_needed()
    log_entry "sde_perform_clean_if_needed" "$@"
 
    local dbrval="$1"
+   local mode="$2"
+
+   local clean
 
    #
    # at this point, it's better to clean, because cmake caches might
    # get outdated (sourcetree syncs don't run this often)
    #
-   if [ ${dbrval} -eq 2 ]
+   if [ "${mode}" = 'DEFAULT' -a ${dbrval} -eq 2  ]
+   then
+      clean='YES'
+   fi
+
+   if [ "${clean:-${mode}}" = 'YES' ]
    then
       [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
@@ -300,6 +308,7 @@ sde_craft_main()
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
+   local OPTION_CLEAN='DEFAULT'
    local OPTION_SYNCFLAGS
 
    [ -z "${PROJECT_TYPE}" ] && internal_fail "PROJECT_TYPE is undefined"
@@ -354,9 +363,11 @@ sde_craft_main()
          ;;
 
          --clean)
-            [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
-            sde_clean_main
+            OPTION_CLEAN='YES'
+         ;;
+
+         --no-clean)
+            OPTION_CLEAN='NO'
          ;;
 
          --clean-domain)
@@ -454,7 +465,7 @@ sde_craft_main()
       sde_perform_reflect_if_needed "${target}" "${dbrval}"
    fi
 
-   sde_perform_clean_if_needed  "${dbrval}"
+   sde_perform_clean_if_needed "${dbrval}" "${OPTION_CLEAN}"
 
    sde_create_craftorder_if_needed "${target}" \
                                    "${_craftorderfile}" \

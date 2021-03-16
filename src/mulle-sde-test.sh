@@ -243,7 +243,11 @@ _sde_test_run()
    # We need to pass -Ddefine variables to mulle-test
    #
    (
-      log_info "Tests ${C_MAGENTA}${C_BOLD}${cmd} $*${C_INFO} (${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
+      r_concat "${cmd}" "$*"
+      r_concat "Tests" "${RVAL}"
+      r_concat "${RVAL}" "(${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
+
+      log_info "${RVAL}"
 
       exekutor cd "${physdir}" || exit 1
 
@@ -277,7 +281,7 @@ _sde_test_run()
          return $?
       fi
 
-      mulle-test ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
+      rexekutor "${MULLE_TEST:-mulle-test}" ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
    )
 }
 
@@ -286,13 +290,13 @@ sde_test_run()
 {
    log_entry "sde_test_run" "$@"
 
-   local harmeless='$1'; shift
+   local harmeless="$1"; shift
    local cmd="$1"; shift
 
    local defaultpath
    local projectdir
 
-   projectdir="`mulle-sde project-dir`"
+   projectdir="`"${MULLE_SDE:-mulle-sde}" project-dir 2> /dev/null`"
    if [ ! -z "${projectdir}" ]
    then
       exekutor cd "${projectdir}"

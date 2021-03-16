@@ -79,7 +79,6 @@ Usage:
    Extensions are plugins that contain scripts and files to setup the project.
    A meta-extension combinest multiple extensions conveniently.
 
-
    Example:
       mulle-sde init -d ./my-project -m mulle-sde/c-developer executable
 
@@ -582,13 +581,21 @@ add_to_sourcetree()
             ;;
          esac
 
+         [ -z "${MULLE_SOURCETREE_SHARE_DIR}" ] \
+         && internal_fail "MULLE_SOURCETREE_SHARE_DIR is undefined"
+
          # shield from variable expansion
          (
             MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-               eval_exekutor mulle-sourcetree -N \
+               eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
+                           -N \
                            "${MULLE_TECHNICAL_FLAGS}" \
                            "${MULLE_SOURCETREE_FLAGS}" \
+                           --config-dir "'${MULLE_SOURCETREE_SHARE_DIR}'" \
                            -f \
+                           -vvv \
+                           -ld \
+                           -lx \
                          add \
                            "${line}" || fail "\"${filename}\" has malformed contents: ${line}"
          ) || exit 1
@@ -609,10 +616,11 @@ add_to_environment()
 
    _check_file "${filename}" || return 0
 
-   log_debug "Environment: `cat "${filename}"`"
+   text="`cat "${filename}" `"
+
+   log_debug "Environment: ${text}"
 
    # add an empty linefeed for read
-   text="`cat "${filename}" `"
    environment="`environmenttext_to_mset "${text}"`" || exit 1
    if [ -z "${environment}" ]
    then
@@ -2603,12 +2611,6 @@ This may hurt, but you have to init again."
                ${MULLE_MATCH_FLAGS} \
               patternfile repair --add
 
-   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
-
-   # only remove if empty
-   exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
-   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
-
    return 0
 }
 
@@ -2763,7 +2765,6 @@ _sde_run_reinit()
                         --no-protect \
                         upgrade || exit 1
    fi
-
 
    read_project_environment
 
@@ -2949,16 +2950,48 @@ sde_restore_mulle_from_old()
 }
 
 
+sde_start_init()
+{
+   log_entry "sde_start_init" "$@"
+
+   log_verbose "${1:-Init} start"
+
+   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" \
+      echo "${1:-Init} start `date` in $PWD on ${MULLE_HOSTNAME}"
+
+   # we clobber these and let extension fill them back up
+   rmdir_safer "${MULLE_MATCH_SHARE_DIR}"
+   rmdir_safer "${MULLE_SOURCETREE_SHARE_DIR}"
+   rmdir_safer "${MULLE_CRAFT_SHARE_DIR}"
+   rmdir_safer "${MULLE_MONITOR_SHARE_DIR}"
+}
+
+
+sde_end_init()
+{
+   log_entry "sde_end_init" "$@"
+
+#   # remove if empty ??? Needed anymore ??
+#   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
+#   exekutor rmdir "${MULLE_CRAFT_SHARE_DIR}" 2>  /dev/null
+#   exekutor rmdir "${MULLE_SOURCETREE_SHARE_DIR}" 2>  /dev/null
+#   exekutor rmdir "${MULLE_MONITOR_SHARE_DIR}" 2>  /dev/null
+
+   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+
+   log_verbose "${1:-Init} end"
+}
+
+
+
 sde_run_init()
 {
    log_entry "sde_run_init" "$@"
 
-   log_verbose "Init start"
-
    sde_check_dot_init
 
-   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
-   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start init `date` in $PWD on ${MULLE_HOSTNAME}"
+   sde_start_init
 
    local rval
    (
@@ -2976,13 +3009,7 @@ sde_run_init()
       fi
    fi
 
-   # remove if empty
-   exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
-   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
-
-   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
-
-   log_verbose "Init end"
+   sde_end_init
 
    return $rval
 }
@@ -3000,8 +3027,7 @@ sde_run_reinit()
 
    sde_save_mulle_in_old
 
-   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
-   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start reinit `date` in $PWD on ${MULLE_HOSTNAME}"
+   sde_start_init "Reinit"
 
    local rval
    (
@@ -3019,33 +3045,11 @@ sde_run_reinit()
       rmdir_safer ".mulle.old"
    fi
 
-   # remove if empty
-   exekutor rmdir "${MULLE_SDE_SHARE_DIR}" 2>  /dev/null
-   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
-
-   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
-
-   log_verbose "Reinit end"
+   sde_end_init "Reinit"
 
    return $rval
 }
 
-
-sde_run_upgrade_projectfile()
-{
-   log_entry "sde_run_upgrade_projectfile" "$@"
-
-   log_verbose "Upgrade projectfile start"
-   # probably nothing to do here (could save source but we don't)
-   local rval
-   (
-      _sde_run_upgrade_projectfile "$@"
-   )
-   rval="$?"
-
-   log_verbose "Upgrade projectfile end"
-   return $rval
-}
 
 
 sde_run_upgrade()
@@ -3072,8 +3076,7 @@ sde_run_upgrade()
    #
    sde_save_mulle_in_old
 
-   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
-   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" echo "Start upgrade `date` in $PWD on ${MULLE_HOSTNAME}"
+   sde_start_init "Upgrade"
 
    local rval
    (
@@ -3091,10 +3094,26 @@ sde_run_upgrade()
       rmdir_safer ".mulle.old"
    fi
 
-   remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
+   sde_end_init "Upgrade"
 
-   log_verbose "Upgrade end"
+   return $rval
+}
 
+
+# this must not use start init /end init
+sde_run_upgrade_projectfile()
+{
+   log_entry "sde_run_upgrade_projectfile" "$@"
+
+   log_verbose "Upgrade projectfile start"
+   # probably nothing to do here (could save source but we don't)
+   local rval
+   (
+      _sde_run_upgrade_projectfile "$@"
+   )
+   rval="$?"
+
+   log_verbose "Upgrade projectfile end"
    return $rval
 }
 
@@ -3642,6 +3661,9 @@ MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
       # to upgrade
       eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
       eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env craft` || exit 1
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env monitor` || exit 1
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree` || exit 1
       eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` || exit 1
 
       if [ "${tmp_file}" = 'YES' ]
@@ -3659,6 +3681,8 @@ MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
       then
          log_trace2 "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
          log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
+         log_trace2 "MULLE_CRAFT_SHARE_DIR=\"${MULLE_CRAFT_SHARE_DIR}\""
+         log_trace2 "MULLE_SOURCETREE_SHARE_DIR=\"${MULLE_SOURCETREE_SHARE_DIR}\""
          log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
          log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
          log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""

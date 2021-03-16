@@ -42,7 +42,8 @@ Usage:
 
    This command manipulates mulle-make definitions for a project. A common
    definition is CC to specify the compiler to use (e.g. mulle-clang).
-   Definitions can be OS-specific, e.g. only valid for linux.
+   Definitions can be platform-specific, e.g. only valid for builds
+   targetting linux.
 
    A commonly manipulated definition setting is \"CFLAGS\".
 
@@ -50,14 +51,14 @@ Usage:
    commands.
 
    Example:
-      mulle-sde definition set CFLAGS '--no-remorse'
+      mulle-sde definition set CFLAGS '-DNO_REMORSE=1848'
 
    > To change settings of a dependency use \`mulle-sde dependency craftinfo\`
    > instead.
 
 Options:
-   --definition-dir <dir> : specify definition directory to manipulate
-   --os <name>            : use the OS specific scope instead of global
+   --definition-dir <dir> : specify the definition directory to manipulate
+   --platform <name>      : use the platform specific scope instead of global
 
 Commands:
    get    : get value of a definition
@@ -72,35 +73,56 @@ EOF
 }
 
 
+r_pick_definition_dir()
+{
+   local etcdir="$1"
+   local sharedir="$2"
+   local suffix="$3"
+
+   if [ -e "${etcdir}${suffix}" ]
+   then
+      RVAL="${etcdir}${suffix}"
+   else
+      RVAL="${sharedir}${suffix}"
+   fi
+}
+
+
 r_definition_scopes()
 {
    log_entry "sde_definition_scopes" "$@"
 
-   local option="$1"
+   local etcdir="$1"
+   local sharedir="$2"
+   local option="$3"
 
    local i
+   local scopes 
 
-   RVAL=""
+   scopes=""
    shopt -s nullglob
-   for i in .mulle/etc/craft/definition .mulle/etc/craft/definition.*
+   for i in "${etcdir}" "${etcdir}".* "${sharedir}" "${sharedir}".*
    do
       case "$i" in
-         .mulle/etc/craft/definition)
-				if [ -d .mulle/etc/craft/definition ]
-				then
-	            if [ "${option}" != "no-global" ]
-	            then
-	               r_add_line "${RVAL}" "global"
-	            fi
-	         fi
+         "${etcdir}"|"${sharedir}")
+            if [ "${option}" != "no-global" ] # && [ -d "${i}" ]
+            then
+               r_add_unique_line "${scopes}" "global"
+               scopes="${RVAL}"
+            fi
          ;;
 
          *)
-            r_add_line "${RVAL}" "${i#.mulle/etc/craft/definition.}"
+            # potentially allow .darwin.11 sometime in the future ?
+            r_basename "$i"
+            r_add_unique_line "${scopes}" "${RVAL#*\.}"
+            scopes="${RVAL}"
          ;;
       esac
    done
    shopt -u nullglob
+
+   RVAL="${scopes}"
 }
 
 
@@ -123,9 +145,10 @@ sde_call_definition()
 {
    log_entry "sde_call_definition" "$@"
 
-   local cmd="$1";       [ $# -ne 0 ] && shift
-   local flags="$1";     [ $# -ne 0 ] && shift
-   local directory="$1"; [ $# -ne 0 ] && shift
+   local cmd="$1"      
+   local flags="$2"    
+   local directory="$3"
+   shift 3
 
    MULLE_USAGE_NAME="mulle-sde" \
    MULLE_USAGE_COMMAND="definition" \
@@ -139,77 +162,63 @@ sde_call_definition()
 }
 
 
-sde_definition_set_remove()
+sde_call_definition_if_exists()
 {
-   log_entry "sde_definition_set_remove" "$@"
+   log_entry "sde_call_definition_if_exists" "$@"
 
-   local cmd="$1"           ; [ $# -ne 0 ] && shift
-   local scope="$1"         ; [ $# -ne 0 ] && shift
-   local flags="$1"         ; [ $# -ne 0 ] && shift
-   local definitiondir="$1" ; [ $# -ne 0 ] && shift
-
-   local key="$1"
-
-   if [ "${scope}" = "DEFAULT" ]
+   if [ ! -d "$3" ]
    then
-      r_definition_scopes "no-global"
-
-      local i
-
-      set -o noglob; IFS=$'\n'
-      for i in ${RVAL}
-      do
-         set +o noglob; IFS="${DEFAULT_IFS}"
-         sde_call_definition "remove" \
-                             "${flags}"  \
-                             "${definitiondir}.${i}" \
-                             "${key}"
-      done
+      return 2
    fi
-   set +o noglob; IFS="${DEFAULT_IFS}"
-
-   local directory
-
-   case "${scope}" in
-      DEFAULT|global)
-         directory="${definitiondir}"
-      ;;
-
-      *)
-         directory="${definitiondir}.${scope}"
-      ;;
-   esac
-
-   sde_call_definition "${cmd}" "${flags}" "${directory}" "$@"
+   sde_call_definition "$@"
 }
+
 
 
 _sde_definition_keys()
 {
    log_entry "_sde_definition_keys" "$@"
 
-   local cmd="$1"
-   local scope="$2"
-   local flags="$3"
-   local definitiondir="$4"
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   shift 4
 
-   if [ "${scope}" = "DEFAULT" ]
-   then
-      sde_call_definition "keys" "${flags}" "${definitiondir}.${MULLE_UNAME}"
-   fi
-
-   local directory
-
-   case "${scope}" in
-      DEFAULT|global)
-         directory="${definitiondir}"
+   case "${scope}" in 
+      "ALL")
+         internal_fail "keys can not use --all"
       ;;
 
-      *)
-         directory="${definitiondir}.${scope}"
+      "DEFAULT")
+         if ! sde_call_definition_if_exists "keys" "${flags}" "${etcdir}.${MULLE_UNAME}"
+         then
+            if sde_call_definition_if_exists "keys" "${flags}" "${sharedir}.${MULLE_UNAME}"
+            then
+               return
+            fi
+         fi
+      ;;
+   esac 
+   
+   case "${scope}" in 
+      DEFAULT|global)
+         if ! sde_call_definition_if_exists "keys" "${flags}" "${etcdir}"
+         then
+            sde_call_definition_if_exists "keys" "${flags}" "${sharedir}"
+            return $?
+         fi
+         return 0
       ;;
    esac
 
+   if ! sde_call_definition_if_exists "keys" "${flags}" "${etcdir}.${scope}"
+   then
+      if sde_call_definition_if_exists "keys" "${flags}" "${sharedir}.${scope}"
+      then
+         return
+      fi
+   fi
 }
 
 
@@ -225,30 +234,58 @@ sde_definition_get()
 {
    log_entry "sde_definition_get" "$@"
 
-   local scope="$1"; shift
-   local flags="$1"; shift
-   local definitiondir="$1"; shift
-
-   if [ "${scope}" = "DEFAULT" ]
-   then
-      if sde_call_definition "get" \
-                             "${flags}"  \
-                             "${definitiondir}.${MULLE_UNAME}" \
-                             "$@"
-      then
-         return
-      fi
-   fi
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   shift 4
 
    local directory
 
    case "${scope}" in
-      DEFAULT|global)
-         directory="${definitiondir}"
+      ALL)
+         r_pick_definition_dir "${etcdir}" "${sharedir}" 
+         directory="${RVAL}"
+         sde_call_definition "get" "${flags}" "${directory}" "$@"
+
+         r_definition_scopes "no-global"
+         scopes="${RVAL}"
+
+         local i
+
+         set -o noglob; IFS=$'\n'
+         for i in ${scopes}
+         do
+            set +o noglob; IFS="${DEFAULT_IFS}"
+
+            r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}" 
+            directory="${RVAL}"
+
+            sde_call_definition "get" "${flags}" "${directory}" "$@"
+         done
+         set +o noglob; IFS="${DEFAULT_IFS}"
+         return
+         ;;
+
+      DEFAULT)
+         r_pick_definition_dir "${etcdir}" "${sharedir}" ".${MULLE_UNAME}"
+         directory="${RVAL}"
+         if sde_call_definition "get" "${flags}" "${directory}" "$@"
+         then
+            return
+         fi
+         r_pick_definition_dir "${etcdir}" "${sharedir}" 
+         directory="${RVAL}"
+      ;;
+
+      global)
+         r_pick_definition_dir "${etcdir}" "${sharedir}" 
+         directory="${RVAL}"
       ;;
 
       *)
-         directory="${definitiondir}.${scope}"
+         r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}" 
+         directory="${RVAL}"
       ;;
    esac
 
@@ -256,62 +293,235 @@ sde_definition_get()
 }
 
 
+sde_definition_list_scope()
+{
+   log_entry "sde_definition_list_global" "$@"
+
+   local etcdir="$1"
+   local sharedir="$2"
+   local scope="$3"
+   shift 3
+
+   locaal directory
+
+   r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}"
+   directory="${RVAL}"
+
+   log_info "${scope}"
+   sde_call_definition "list" "${flags}" "${directory}" "$@" \
+   | sed 's/^/   /'
+}
+
+
+sde_definition_list_global()
+{
+   log_entry "sde_definition_list_global" "$@"
+
+   local etcdir="$1"
+   local sharedir="$2"
+   shift 2
+
+   locaal directory
+
+   r_pick_definition_dir "${etcdir}" "${sharedir}" 
+   directory="${RVAL}"
+
+   log_info "Global"
+   sde_call_definition "list" "${flags}" "${directory}" "$@" \
+   | sed 's/^/   /'
+}
+
+
+sde_definition_set()
+{
+   log_entry "sde_definition_set" "$@"
+
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   shift 4
+
+   local scopes 
+
+   case "${scope}" in
+      ALL)
+         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 
+         sde_call_definition "set" "${flags}" "${etcdir}" "$@"
+
+         r_definition_scopes "no-global"
+         scopes="${RVAL}"
+
+         local i
+
+         set -o noglob; IFS=$'\n'
+         for i in ${scopes}
+         do
+            set +o noglob; IFS="${DEFAULT_IFS}"
+
+            etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" 
+            sde_call_definition "set" "${flags}" "${etcdir}.${i}" "$@"
+         done
+         set +o noglob; IFS="${DEFAULT_IFS}"
+         return
+      ;;
+
+      DEFAULT)
+         etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" 
+         sde_call_definition "set" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
+      ;;
+
+      global)
+         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 
+         sde_call_definition "set" "${flags}" "${etcdir}" "$@"
+      ;;
+
+      *)
+         etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" 
+         sde_call_definition "set" "${flags}" "${etcdir}.${scope}" "$@"
+      ;;
+   esac
+}
+
+
+remove_etc_if_empty()
+{
+   [ -z "$1" ] && internal_fail "empty path"
+
+   local files 
+
+   files="`rexekutor "${FIND:-find}" "$1" -mindepth 1 \( ! -type d -a ! -type l \) 2> /dev/null`"
+   if [ -z "${files}" ]
+   then
+      rmdir_safer "$1"  
+   fi
+}
+
+
+
+sde_definition_remove()
+{
+   log_entry "sde_definition_remove" "$@"
+
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   shift 4
+
+   case "${scope}" in
+      ALL)
+         sde_call_definition_if_exists "set" "${flags}" "${etcdir}" "$@"
+
+         r_definition_scopes "no-global"
+         scopes="${RVAL}"
+
+         local i
+
+         set -o noglob; IFS=$'\n'
+         for i in ${scopes}
+         do
+            set +o noglob; IFS="${DEFAULT_IFS}"
+
+            sde_call_definition_if_exists "set" "${flags}" "${etcdir}.${i}" "$@"
+            remove_etc_if_empty "${etcdir}.${i}"
+         done
+         set +o noglob; IFS="${DEFAULT_IFS}"
+         return
+      ;;
+
+      DEFAULT)
+         sde_call_definition_if_exists "remove" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
+         remove_etc_if_empty "${etcdir}.${MULLE_UNAME}"
+      ;; 
+
+      global)
+         sde_call_definition_if_exists "remove" "${flags}" "${etcdir}" "$@"
+         remove_etc_if_empty "${etcdir}"
+      ;;
+
+      *)
+         sde_call_definition_if_exists "remove" "${flags}" "${etcdir}.${scope}" "$@"
+         remove_etc_if_empty "${etcdir}.${scope}"
+      ;;
+   esac
+}
+
 
 sde_definition_list()
 {
    log_entry "sde_definition_list" "$@"
 
-   local scope="$1"; shift
-   local flags="$1"; shift
-   local definitiondir="$1"; shift
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   shift 4
 
-   local firstscope
    local directory
+   local scopes 
 
    case "${scope}" in
-      DEFAULT|global)
-         firstscope="global"
-         directory="${definitiondir}"
+      ALL)
+         sde_definition_list_global  "${etcdir}" "${sharedir}" 
+
+         r_definition_scopes "no-global"
+         scopes="${RVAL}"
+
+         local i
+
+         set -o noglob; IFS=$'\n'
+         for i in ${scopes}
+         do
+            set +o noglob; IFS="${DEFAULT_IFS}"
+            sde_definition_list_scope "${etcdir}" "${sharedir}" "${i}"
+         done
+         set +o noglob; IFS="${DEFAULT_IFS}"
+         return
+         ;;
+
+      DEFAULT)
+         sde_definition_list_scope "${etcdir}" "${sharedir}" "${MULLE_UNAME}"
+         sde_definition_list_global  "${etcdir}" "${sharedir}" 
+         return
+      ;;
+
+      global)
+         sde_definition_list_global  "${etcdir}" "${sharedir}" 
+         return
       ;;
 
       *)
-         firstscope="${scope}"
-         directory="${definitiondir}.${scope}"
+         sde_definition_list_scope "${etcdir}" "${sharedir}" "${scope}"
+         r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}"
+         return
       ;;
    esac
-
-   log_info "${firstscope}"
-   sde_call_definition "list" "${flags}" "${directory}" "$@" | sed 's/^/   /'
-
-   if [ "${scope}" != "DEFAULT" ]
-   then
-      return
-   fi
-
-   r_definition_scopes "no-global"
-
-   local i
-
-   set -o noglob; IFS=$'\n'
-   for i in ${RVAL}
-   do
-      set +o noglob; IFS="${DEFAULT_IFS}"
-
-      log_info "${i}"
-      sde_call_definition "list" \
-                          "${flags}"  \
-                          "${definitiondir}.${i}" | sed 's/^/   /'
-   done
-   set +o noglob; IFS="${DEFAULT_IFS}"
 }
-
 
 
 sde_definition_main()
 {
    log_entry "sde_definition_main" "$@"
 
-   local OPTION_DEFINITION_DIR=".mulle/etc/craft/definition"
+   local OPTION_SHARE_DEFINITION_DIR=".mulle/share/craft/definition"
+   local OPTION_ETC_DEFINITION_DIR=".mulle/etc/craft/definition"
+
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      # shellcheck source=../../mulle-bashfunctions/src/mulle-path.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || exit 1
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      # shellcheck source=../../mulle-bashfunctions/src/mulle-file.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || exit 1
+   fi
+   if [ -z "${MULLE_ETC_SH}" ]
+   then
+      # shellcheck source=../../mulle-bashfunctions/src/mulle-etc.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-etc.sh" || exit 1
+   fi
 
    local argument
    local flags
@@ -331,11 +541,18 @@ sde_definition_main()
             flags="${RVAL}"
          ;;
 
-         --definition-dir)
+         --share-definition-dir)
             [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_DEFINITION_DIR="$1"
+            OPTION_SHARE_DEFINITION_DIR="$1"
+         ;;
+
+         --definition-dir|--etc-definition-dir)
+            [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_ETC_DEFINITION_DIR="$1"
          ;;
 
          --global)
@@ -344,7 +561,11 @@ sde_definition_main()
             searchflags="${RVAL}"
          ;;
 
-         --os)
+         --all)
+            scope="ALL"
+         ;;
+
+         --platform|--os)
             [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
             shift
 
@@ -390,26 +611,13 @@ sde_definition_main()
       ;;
 
 
-      keys)
-         MULLE_FLAG_LOG_TERSE="${terse}" \
-            sde_call_definition "keys"
-      ;;
-
-      get|keys|list)
+      get|keys|list|remove|set)
          MULLE_FLAG_LOG_TERSE="${terse}" \
             sde_definition_${cmd} "${scope}" \
                                   "${flags}" \
-                                  "${OPTION_DEFINITION_DIR}" \
+                                  "${OPTION_ETC_DEFINITION_DIR}" \
+                                  "${OPTION_SHARE_DEFINITION_DIR}" \
                                   "$@"
-      ;;
-
-      remove|set)
-         MULLE_FLAG_LOG_TERSE="${terse}" \
-            sde_definition_set_remove "${cmd}" \
-                                      "${scope}" \
-                                      "${flags}" \
-                                      "${OPTION_DEFINITION_DIR}" \
-                                      "$@"
       ;;
 
       '')

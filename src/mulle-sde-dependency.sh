@@ -36,6 +36,10 @@ DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
 DEPENDENCY_LIST_MARKS="dependency"
 DEPENDENCY_LIST_NODETYPES="ALL"
 
+DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmakeinherit,no-cmakesearchpath"
+DEPENDENCY_EXECUTABLE_MARKS="no-link,no-header,no-bequeath"
+DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite"
+DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmakesearchpath"
 
 sde_dependency_usage()
 {
@@ -1017,7 +1021,7 @@ sde_dependency_add_main()
    case "${OPTION_DIALECT}" in
       c)
          # prepend is better in this case
-         r_comma_concat "no-import,no-all-load,no-cmakeinherit,no-cmakesearchpath" "${marks}"
+         r_comma_concat "${DEPENDENCY_C_MARKS}" "${marks}"
          marks="${RVAL}"
       ;;
    esac
@@ -1060,21 +1064,19 @@ sde_dependency_add_main()
 
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
-      r_comma_concat "${marks}" "no-build,no-header,no-link,no-share,no-readwrite"
+      r_comma_concat "${marks}" "${DEPENDENCY_EMBEDDED_MARKS}"
       marks="${RVAL}"
    fi
 
    if [ "${OPTION_EXECUTABLE}" = 'YES' ]
    then
-      r_comma_concat "${marks}" "no-link,no-header,no-bequeath"
+      r_comma_concat "${marks}" "${DEPENDENCY_EXECUTABLE_MARKS}"
       marks="${RVAL}"
    fi
 
    if [ "${OPTION_STARTUP}" = 'YES' ]
    then
-      # as startups are not installing a header, they must be singlephase
-      # this should remove a previous add above
-      r_comma_concat "${marks}" "all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header"
+      r_comma_concat "${marks}" "${DEPENDENCY_STARTUP_MARKS}"
       marks="${RVAL}"
    fi
 

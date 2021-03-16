@@ -345,7 +345,11 @@ r_sde_linkorder_all_nodes()
    r_concat "${qualifier}" "${craft_qualifier}" $'\n'"AND "
    qualifier="${RVAL}"
 
-   sourcetree_environment "" "${MULLE_SOURCETREE_STASH_DIRNAME}" "${mode}"
+   sourcetree_environment "" \
+                          "${MULLE_SOURCETREE_STASH_DIRNAME}" \
+                          "" \
+                          "" \
+                          "${mode}"
 
    local bequeath_flag
 

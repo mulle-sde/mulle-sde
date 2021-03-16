@@ -49,10 +49,11 @@ Usage:
    as you could lose changes. Only environment variables in the "share" scope
    will be affected by an extension upgrade.
 
-   E.g. .mulle/share and cmake/share will be affected, but CMakeLists.txt
-        will not.
+   Assume that .mulle/share and cmake/share will be completely deleted and
+   loaded with new content. Files like CMakeLists.txt will not be touched.
 
-   To update CMakeLists.txt run upgrade again with --project-file CMakeLists.txt
+   To upgrade CMakeLists.txt run another upgrade with
+   --project-file CMakeLists.txt
 
 Options:
    --project-file <file> : update a single project file to newest verion
