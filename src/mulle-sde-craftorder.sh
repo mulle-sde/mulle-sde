@@ -146,7 +146,16 @@ create_craftorder_file_if_needed()
    #
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
 
-   sourcetreefile="${MULLE_VIRTUAL_ROOT}/.mulle/etc/sourcetree/config"
+   if [ -z "${MULLE_SOURCETREE_ETC_DIR}" ]
+   then
+      eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`
+   fi
+
+   sourcetreefile="${MULLE_SOURCETREE_ETC_DIR}/config"
+   if [ ! -f "${sourcetreefile}" ]
+   then
+      sourcetreefile="${MULLE_SOURCETREE_SHARE_DIR}/config"
+   fi
 
    #
    # produce a craftorderfile, if absent or old
@@ -155,7 +164,7 @@ create_craftorder_file_if_needed()
    then
       create_craftorder_file "${craftorderfile}" "${cachedir}"
    else
-      log_fluff "Craftorder file \"${craftorderfile}\" is up-to-date"
+      log_fluff "Craftorder file \"${craftorderfile#${MULLE_USER_PWD}/}\" is up-to-date"
    fi
 }
 

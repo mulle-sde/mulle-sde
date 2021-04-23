@@ -530,7 +530,7 @@ sde_subproject_map()
       [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
       [ -z "${MULLE_FILE_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
-      _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "up-sub"
+      _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "up-sub" || exit 1
       statusfile="${RVAL}"
    fi
 

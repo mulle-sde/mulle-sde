@@ -393,7 +393,7 @@ sde_add_in_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create \"${filename}\""
+            fail "No matching template found to create file \"${filename}\""
          ;;
 
          0)
@@ -479,7 +479,7 @@ sde_add_no_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create \"${filepath#${MULLE_USER_PWD}/}\""
+            fail "No matching template found to create file \"${filepath#${MULLE_USER_PWD}/}\""
          ;;
 
          0)

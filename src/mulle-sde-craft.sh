@@ -87,7 +87,7 @@ sde_perform_fetch_if_needed()
    # This could fetch dependencies if required.
    # A 1 here means we have no sourcetree.
    #
-   if [ ${dbrval} -eq 2 ]
+   if [ ${dbrval} -ge 2 ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
@@ -106,6 +106,16 @@ sde_perform_fetch_if_needed()
          # run this quickly, because incomplete previous fetches trip me
          # up too often (not doing this since mulle-sde doctor is OK now)
          # exekutor mulle-sde status --stash-only
+
+         if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        -V \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                         ${MULLE_SOURCETREE_FLAGS} \
+                       -s \
+                     dbstatus
+         then
+            internal_fail "Database not clean after sync"
+         fi
       fi
    fi
 }
@@ -147,7 +157,7 @@ sde_perform_reflect_if_needed()
    # This could fetch dependencies if required.
    # A 1 here means we have no sourcetree.
    #
-   if [ ${dbrval} -eq 2 ]
+   if [ ${dbrval} -ge 2 ]
    then
       reflectflags='' # db "force" reflect
    fi
@@ -186,7 +196,7 @@ sde_perform_clean_if_needed()
    # at this point, it's better to clean, because cmake caches might
    # get outdated (sourcetree syncs don't run this often)
    #
-   if [ "${mode}" = 'DEFAULT' -a ${dbrval} -eq 2  ]
+   if [ "${mode}" = 'DEFAULT' -a ${dbrval} -ge 2  ]
    then
       clean='YES'
    fi
@@ -220,7 +230,10 @@ sde_create_craftorder_if_needed()
                create_craftorder_file_if_needed "${craftorderfile}" "${cachedir}"
             ;;
 
-            2)
+            1)
+            ;;
+
+            *)
                create_craftorder_file "${craftorderfile}" "${cachedir}"
             ;;
          esac
@@ -449,14 +462,22 @@ sde_craft_main()
    #
    local dbrval
 
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                 -V \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
-                 -s \
-                  dbstatus
-   dbrval="$?"
-   log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+   then
+      dbrval=3
+   else
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                    -V \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS} \
+                    -s \
+                     dbstatus
+      dbrval="$?"
+      log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
+   fi
+
+   # do the clean first as it wipes the database
+   sde_perform_clean_if_needed "${dbrval}" "${OPTION_CLEAN}"
 
    sde_perform_fetch_if_needed "${dbrval}"
 
@@ -464,8 +485,6 @@ sde_craft_main()
    then
       sde_perform_reflect_if_needed "${target}" "${dbrval}"
    fi
-
-   sde_perform_clean_if_needed "${dbrval}" "${OPTION_CLEAN}"
 
    sde_create_craftorder_if_needed "${target}" \
                                    "${_craftorderfile}" \

@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.46.0
+MULLE_EXECUTABLE_VERSION=0.47.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -251,6 +251,7 @@ set_custom_environment()
 }
 
 
+
 exec_mulle_env()
 {
    rexekutor exec "${MULLE_ENV:-mulle-env}" \
@@ -269,6 +270,22 @@ run_mulle_env()
                   ${MULLE_FWD_FLAGS} \
                   --defines "${MULLE_DEFINE_FLAGS}" "$@"
 }
+
+
+#
+# here we are just bouncing through mulle-env, we don't want
+# to pass -n, so mulle-env does nothing. So pushing MULLE_TECHNICAL_FLAGS
+# unfiltered isn't good
+#
+exec_mulle_env_bounce()
+{
+   rexekutor exec "${MULLE_ENV:-mulle-env}" \
+                       ${MULLE_ENV_FLAGS} \
+                       ${MULLE_FWD_FLAGS} \
+                       --defines "${MULLE_DEFINE_FLAGS}" "$@"
+}
+
+
 
 
 r_determine_project_dir()
@@ -348,7 +365,9 @@ ${C_INFO}It should be upgradable with:
 ${C_RESET_BOLD}   mulle-sde upgrade
 ${C_RESET_BOLD}   mulle-sde clean tidy"
       fi
-      fail "There is no mulle-sde project here ($current)"
+      fail "There is no mulle-sde project here ($current)
+${C_INFO}Create an initial empty one with:
+${C_RESET_BOLD}   mulle-sde init"
    fi
 
    if [ "${current}" != "${RVAL}" ]
@@ -357,6 +376,9 @@ ${C_RESET_BOLD}   mulle-sde clean tidy"
       exekutor cd "${RVAL}"
    fi
 
+   # These flags are eventually passed to mulle-sde again, they aren't
+   # picked up by MULLE_ENV
+   #
    local flag
 
    set -o noglob # keep it
@@ -373,7 +395,7 @@ $1"
       shift
    done
 
-   MULLE_USAGE_NAME="mulle-sde" exec_mulle_env -C "${cmdline}"
+   MULLE_USAGE_NAME="mulle-sde" exec_mulle_env_bounce -C "${cmdline}"
 }
 
 
@@ -466,27 +488,19 @@ try_to_enter_or_download()
    then
       case "$1" in
          *://*)
-            local scm
-
-            scm="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-                                 ${MULLE_TECHNICAL_FLAGS} \
-                                 ${MULLE_DOMAIN_FLAGS} \
-                              typeguess "$@"`"
-            dst="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-                                 ${MULLE_TECHNICAL_FLAGS} \
-                                 ${MULLE_DOMAIN_FLAGS} \
-                              nameguess -s "${scm}" "$@"`"
-
-            local_debug "Guessed name \"${dst}\" and \"scm\" ${scm}"
-            if [ ! -z "${dst}" ]
-            then
-               exekutor "${MULLE_FETCH:-mulle-fetch}" \
+            dst="`exekutor "${MULLE_FETCH:-mulle-fetch}" \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_FETCH_FLAGS} \
-                              "$@" || exit 1
+                              convenient-fetch "$@"`" || exit 1
+            if [ -d "${dst}/.mulle" ]
+            then
                MULLE_USAGE_NAME="mulle-sde" \
-                  exec_mulle_env "${dst}"
+               exec_mulle_env "${dst}"
             fi
+
+            # just warn, but quit anyway
+            log_warning "\"${dst#${MULLE_USER_PWD}/}\" is not a mulle-sde project"
+            exit 1
          ;;
 
          *)

@@ -74,7 +74,6 @@ Usage:
    Choose a 'type' like "library" or "executable", when starting a new
    project. You would typically then also specifiy a meta-extension in the
    options, to set the desired project language and build system.
-   To see available (meta-)extensions use \`mulle-sde extension show\`.
 
    Extensions are plugins that contain scripts and files to setup the project.
    A meta-extension combinest multiple extensions conveniently.
@@ -100,7 +99,10 @@ EOF
 Environment:
    MULLE_SDE_EXTENSION_PATH      : Overrides searchpath for extensions
    MULLE_SDE_EXTENSION_BASE_PATH : Augments searchpath for extensions
+
 EOF
+
+   sde_extension_show_main meta >&2
 
    exit 1
 }
@@ -492,7 +494,6 @@ r_sde_githubname()
    fi
 
    RVAL="${LOGNAME:-unknown}"
-   return
 }
 
 
@@ -500,8 +501,11 @@ import_template_generate()
 {
    if [ -z "${MULLE_TEMPLATE_GENERATE_SH}" ]
    then
-      MULLE_TEMPLATE_LIBEXEC_DIR="`"${MULLE_TEMPLATE:-mulle-template}" libexec-dir`" || fail "mulle-template not in PATH ($PATH)"
-      . "${MULLE_TEMPLATE_LIBEXEC_DIR}/mulle-template-generate.sh" || internal_fail "include fail"
+      MULLE_TEMPLATE_LIBEXEC_DIR="`"${MULLE_TEMPLATE:-mulle-template}" libexec-dir`" \
+      || fail "mulle-template not in PATH ($PATH)"
+
+      . "${MULLE_TEMPLATE_LIBEXEC_DIR}/mulle-template-generate.sh" \
+      || internal_fail "include fail"
    fi
 }
 
@@ -517,12 +521,13 @@ read_template_expanded_file()
 
    import_template_generate
 
+   [ -z "${GITHUB_USER}" ] && internal_fail "GITHUB_USER undefined"
+
    #
    # CLUMSY HACKS:
    # for the benefit of test we have to define some stuff now
    #
    local PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY:-Foundation-startup}"
-   local GITHUB_USER="${GITHUB_USER:-${LOGNAME}}"
    local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
 
    r_uppercase "${PREFERRED_STARTUP_LIBRARY}"
@@ -559,49 +564,22 @@ add_to_sourcetree()
       filename="${filename}-${projecttype}"
    fi
 
-   local line
    local lines
 
-   lines="`read_template_expanded_file "${filename}"`"
+   lines="`read_template_expanded_file "${filename}" | egrep -v '^#' `"
+   if [ -z "${lines}" ]
+   then
+      log_warning "${filename} contains no dependency information"
+      return
+   fi
 
-   MULLE_VIRTUAL_ROOT="`physicalpath "${PWD}" `"
-
-   set -o noglob; IFS=$'\n'
-   for line in ${lines}
-   do
-      set +o noglob; IFS="${DEFAULT_IFS}"
-
-      # use the force flag to allow duplicate names (for Foundation)
-      if [ ! -z "${line}" ]
-      then
-         # gotta check this
-         case "${line}" in
-            *\$\(*|*\`*)
-               fail "${filename} contains suspicious code"
-            ;;
-         esac
-
-         [ -z "${MULLE_SOURCETREE_SHARE_DIR}" ] \
-         && internal_fail "MULLE_SOURCETREE_SHARE_DIR is undefined"
-
-         # shield from variable expansion
-         (
-            MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-               eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                           -N \
-                           "${MULLE_TECHNICAL_FLAGS}" \
-                           "${MULLE_SOURCETREE_FLAGS}" \
-                           --config-dir "'${MULLE_SOURCETREE_SHARE_DIR}'" \
-                           -f \
-                           -vvv \
-                           -ld \
-                           -lx \
-                         add \
-                           "${line}" || fail "\"${filename}\" has malformed contents: ${line}"
-         ) || exit 1
-      fi
-   done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     -N \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS} \
+                     --use-fallback \
+                  eval-add --filename "${filename}" -- "${lines}" || exit 1
 }
 
 
@@ -769,6 +747,7 @@ run_init()
       eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
                     OPTION_REINIT="${OPTION_REINIT}" \
                     OPTION_INIT_TYPE="${OPTION_INIT_TYPE}" \
+                    GITHUB_USER="${GITHUB_USER}" \
                     PROJECT_DIALECT="${PROJECT_DIALECT}" \
                     PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}" \
                     PROJECT_LANGUAGE="${PROJECT_LANGUAGE}" \
@@ -1898,10 +1877,7 @@ memorize_installed_extensions()
    log_entry "memorize_installed_extensions" "$@"
 
    local extensions="$1"
-
-   local filename
-
-   filename="${MULLE_SDE_SHARE_DIR}/extension"
+   local filename="$2"
 
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
    redirect_exekutor "${filename}" printf "%s\n" "${extensions}" || exit 1
@@ -2059,7 +2035,8 @@ install_extensions()
    #
    # remember type and installed extensions
    #
-   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
+   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
+                                 "${OPTION_EXTENSION_FILE}"
 
    # oneshots aren't memorized
    install_oneshot_extensions "${OPTION_ONESHOTS}" \
@@ -2284,7 +2261,8 @@ ${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#${MULLE_USER_PWD}/}\" not present)"
       return 1
    fi
 
-   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}"
+   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
+                                 "${OPTION_EXTENSION_FILE}"
 
    install_oneshot_extensions "${OPTION_ONESHOTS}" \
                               "${PROJECT_TYPE}" \
@@ -2555,7 +2533,8 @@ _sde_run_upgrade()
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
                log_verbose "Nothing to upgrade in \
-${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
+${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have \
+been installed."
             else
                log_verbose "Nothing to upgrade, as no extensions have been installed."
             fi
@@ -2633,7 +2612,9 @@ _sde_run_upgrade_projectfile()
          "none")
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
-               log_verbose "Nothing to upgrade in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have been installed."
+               log_verbose "Nothing to upgrade in \
+${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have \
+been installed."
             else
                log_verbose "Nothing to upgrade, as no extensions have been installed."
             fi
@@ -2749,94 +2730,12 @@ _sde_post_initenv()
 }
 
 
-_sde_run_reinit()
+_sde_run_init_reinit_common()
 {
-   log_entry "_sde_run_reinit" "$@"
-
-   if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
-   then
-      fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
-   fi
-
-   if [ -z "${OPTION_PROJECT_FILE}" ]
-   then
-      rexekutor "${MULLE_ENV:-mulle-env}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        --no-protect \
-                        upgrade || exit 1
-   fi
-
-   read_project_environment
-
-   [ $# -eq 0 ] && sde_init_usage "Missing project type"
-   [ $# -eq 1 ] || sde_init_usage "Superflous arguments \"$*\""
-
-   PROJECT_TYPE="$1"
-
-   _sde_validate_projecttype "${PROJECT_TYPE}"
-
-   #
-   # If someone uses a "none" project style, assume he is not really
-   # interested in a restricted tool set. Otherwise use "relax"
-   #
-   if [ "${OPTION_INIT_ENV}" = 'YES' ]
-   then
-      _sde_pre_initenv "${OPTION_ENV_STYLE}" "${PROJECT_TYPE}"
-   fi
-
-   # rmdir_safer ".mulle-env"
-   case "${OPTION_PROJECT_SOURCE_DIR}" in
-      DEFAULT)
-         if [ "${PROJECT_TYPE}" != "none" ]
-         then
-            OPTION_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR:-src}"
-         fi
-      ;;
-   esac
-
-   case "${OPTION_NAME}" in
-      DEFAULT)
-         OPTION_NAME="${PROJECT_NAME}"
-         if [ -z "${OPTION_NAME}" ]
-         then
-            r_basename "${PWD}"
-            OPTION_NAME="${RVAL}"
-         fi
-      ;;
-   esac
-
-   add_environment_variables "${OPTION_DEFINES}"
-
-   if ! install_project "${OPTION_NAME}" \
-                        "${PROJECT_TYPE}" \
-                        "${OPTION_PROJECT_SOURCE_DIR}" \
-                        "${OPTION_MARKS}" \
-                        "${OPTION_PROJECT_FILE}" \
-                        "${MULLE_FLAG_MAGNUM_FORCE}" \
-                        "${OPTION_LANGUAGE}"  \
-                        "${OPTION_DIALECT}"  \
-                        "${OPTION_EXTENSIONS}"
-   then
-      internal_fail "install_project should exit not return errors"
-   fi
-
-   if [ "${OPTION_INIT_ENV}" = 'YES' ]
-   then
-      _sde_post_initenv "${PROJECT_TYPE}"
-   fi
-
-   return 0
-}
-
-
-
-_sde_run_init()
-{
-   log_entry "_sde_run_init" "$@"
-
-   [ $# -le 1 ] || sde_init_usage "Superflous arguments \"$*\""
+   log_entry "_sde_run_init_reinit_common" "$@"
 
    PROJECT_TYPE="${1:-none}"
+   [ $# -lt 1 ] && shift && sde_init_usage "Superflous arguments \"$*\""
 
    _sde_validate_projecttype "${PROJECT_TYPE}"
 
@@ -2886,6 +2785,38 @@ _sde_run_init()
    then
       _sde_post_initenv "${PROJECT_TYPE}"
    fi
+}
+
+
+_sde_run_reinit()
+{
+   log_entry "_sde_run_reinit" "$@"
+
+   if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
+   then
+      fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
+   fi
+
+   if [ -z "${OPTION_PROJECT_FILE}" ]
+   then
+      rexekutor "${MULLE_ENV:-mulle-env}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        --no-protect \
+                        upgrade || exit 1
+   fi
+
+   read_project_environment
+
+   _sde_run_init_reinit_common "$@"
+}
+
+
+
+_sde_run_init()
+{
+   log_entry "_sde_run_init" "$@"
+
+   _sde_run_init_reinit_common "$@"
 }
 
 
@@ -2954,17 +2885,26 @@ sde_start_init()
 {
    log_entry "sde_start_init" "$@"
 
-   log_verbose "${1:-Init} start"
-
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
    redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" \
       echo "${1:-Init} start `date` in $PWD on ${MULLE_HOSTNAME}"
 
+   # we clobber these just to be safe
+
+   rmdir_safer "${MULLE_CRAFT_VAR_DIR}"
+   rmdir_safer "${MULLE_MATCH_VAR_DIR}"
+   rmdir_safer "${MULLE_MONITOR_VAR_DIR}"
+   rmdir_safer "${MULLE_SOURCETREE_VAR_DIR}"
+   rmdir_safer "${MULLE_SDE_VAR_DIR}"
+
    # we clobber these and let extension fill them back up
-   rmdir_safer "${MULLE_MATCH_SHARE_DIR}"
-   rmdir_safer "${MULLE_SOURCETREE_SHARE_DIR}"
    rmdir_safer "${MULLE_CRAFT_SHARE_DIR}"
+   rmdir_safer "${MULLE_MATCH_SHARE_DIR}"
    rmdir_safer "${MULLE_MONITOR_SHARE_DIR}"
+   rmdir_safer "${MULLE_SOURCETREE_SHARE_DIR}"
+
+   # we like to keep the extension file around so don't clobber completely
+   rmdir_safer "${MULLE_SDE_SHARE_DIR}/version"
 }
 
 
@@ -2979,8 +2919,6 @@ sde_end_init()
 #   exekutor rmdir "${MULLE_MONITOR_SHARE_DIR}" 2>  /dev/null
 
    remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
-
-   log_verbose "${1:-Init} end"
 }
 
 
@@ -2989,7 +2927,10 @@ sde_run_init()
 {
    log_entry "sde_run_init" "$@"
 
+
    sde_check_dot_init
+
+   log_verbose "Init start"
 
    sde_start_init
 
@@ -3010,6 +2951,8 @@ sde_run_init()
    fi
 
    sde_end_init
+
+   log_verbose "Init end"
 
    return $rval
 }
@@ -3045,28 +2988,29 @@ sde_run_reinit()
       rmdir_safer ".mulle.old"
    fi
 
-   sde_end_init "Reinit"
+   sde_end_init
+
+   log_verbose "Reinit end"
 
    return $rval
 }
-
 
 
 sde_run_upgrade()
 {
    log_entry "sde_run_upgrade" "$@"
 
-   log_verbose "Upgrade start"
-
    if [ -d ".mulle.old" -a ! -d ".mulle" ]
    then
-      fail "Old .mulle.old folder of a possibly failed upgrade present, remove it manually"
+      fail "Old .mulle.old folder of a possibly failed upgrade present, restore or remove it manually"
    fi
 
    if [ ! -d ".mulle" ]
    then
       fail "No .mulle folder present, nothing to upgrade"
    fi
+
+   log_verbose "Upgrade start"
 
    #
    # always wipe these for clean upgrades
@@ -3095,6 +3039,8 @@ sde_run_upgrade()
    fi
 
    sde_end_init "Upgrade"
+
+   log_verbose "Upgrade end"
 
    return $rval
 }
@@ -3165,6 +3111,54 @@ sde_protect_unprotect()
       exekutor find "${i}" -type f -exec chmod ${mode} {} \;
    done
    IFS="${DEFAULT_IFS}"
+}
+
+
+r_sde_get_old_version()
+{
+   log_entry "r_sde_get_old_version" "$@"
+
+   local oldversion
+
+   oldversion="`rexekutor "${MULLE_ENV:-mulle-env}" \
+                  -f \
+                  --search-as-is \
+                  -s \
+               environment get MULLE_SDE_INSTALLED_VERSION 2> /dev/null`"
+   log_debug "Old version: ${oldversion}"
+
+   case "${oldversion}" in
+      [0-9]*\.[0-9]*\.[0-9]*)
+         # check that old version is not actually newer than what we have
+         # shellcheck source=mulle-case.sh
+         [ -z "${MULLE_VERSION_SH}" ] \
+         &&  . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-version.sh"
+
+         r_version_distance "${MULLE_EXECUTABLE_VERSION}" "${RVAL}"
+         if [ "${RVAL}" -gt 0 ]
+         then
+            fail "Can't upgrade! The environment  was created by a newer \
+mulle-sde version ${RVAL}.
+${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
+         fi
+      ;;
+
+      "")
+         [ ! -d .mulle/share/sde ] \
+         && fail "There is no mulle-sde project here"
+
+         oldversion="0.0.0"
+         log_warning "Can not get previous installed version from \
+MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
+      ;;
+
+      *)
+         internal_fail "Unparsable version info in \
+MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
+      ;;
+   esac
+
+   RVAL="${oldversion}"
 }
 
 
@@ -3468,7 +3462,6 @@ _sde_init_main()
             r_comma_concat "${OPTION_MARKS}" "no-demo"
             r_comma_concat "${RVAL}" "no-project"
             r_comma_concat "${RVAL}" "no-project-oneshot"
-            r_comma_concat "${RVAL}" "no-sourcetree"
             OPTION_MARKS="${RVAL}"
             OPTION_INIT_ENV='NO'
          ;;
@@ -3490,7 +3483,6 @@ _sde_init_main()
             OPTION_BLURB='NO'
             r_comma_concat "${OPTION_MARKS}" "no-demo"
             r_comma_concat "${RVAL}" "no-project-oneshot"
-            r_comma_concat "${RVAL}" "no-sourcetree"
             OPTION_MARKS="${RVAL}"
             OPTION_INIT_ENV='NO'
          ;;
@@ -3584,42 +3576,8 @@ _sde_init_main()
 
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
-      oldversion="`rexekutor "${MULLE_ENV:-mulle-env}" \
-                     -f \
-                     --search-as-is \
-                     -s \
-                  environment get MULLE_SDE_INSTALLED_VERSION 2> /dev/null`"
-      log_debug "Old version: ${oldversion}"
-
-      case "${oldversion}" in
-         [0-9]*\.[0-9]*\.[0-9]*)
-            # check that old version is not actually newer than what we have
-            # shellcheck source=mulle-case.sh
-            [ -z "${MULLE_VERSION_SH}" ] \
-            &&  . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-version.sh"
-
-            r_version_distance "${MULLE_EXECUTABLE_VERSION}" "${oldversion}"
-            if [ "${RVAL}" -gt 0 ]
-            then
-               fail "Can't upgrade! The environment  was created by a newer \
-mulle-sde version ${oldversion}.
-${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
-            fi
-         ;;
-
-         "")
-            [ ! -d .mulle/share/sde ] &&  fail "There is no mulle-sde project here"
-
-            oldversion="0.0.0"
-            log_warning "Can not get previous installed version from \
-MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
-         ;;
-
-         *)
-            internal_fail "Unparsable version info in \
-MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
-         ;;
-      esac
+      r_sde_get_old_version
+      oldversion="${RVAL}"
    fi
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
@@ -3650,25 +3608,29 @@ MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
    ### BEGIN
       local tmp_file
 
+      #
+      # this is done so that mulle-env works, even if nothing is there
+      #
       if [ ! -f ".mulle/share/env/environment.sh" ]
       then
-         mkdir_if_missing .mulle/share/env
-         exekutor touch .mulle/share/env/environment.sh
+         mkdir_if_missing ".mulle/share/env"
+         exekutor touch ".mulle/share/env/environment.sh"
          tmp_file='YES'
       fi
 
       # get environments for some tools we manage share files and want
       # to upgrade
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` || exit 1
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env craft` || exit 1
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env monitor` || exit 1
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree` || exit 1
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` || exit 1
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env craft`  \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env monitor`  \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`  \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` \
+      || exit 1
 
       if [ "${tmp_file}" = 'YES' ]
       then
-         remove_file_if_present .mulle/share/env/environment.sh
+         remove_file_if_present ".mulle/share/env/environment.sh"
       fi
 
       # figure out a GITHUB user name for later
@@ -3737,11 +3699,13 @@ MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
       if [ $rval -eq 0 ]
       then
          (
-            if [ "${OPTION_UPGRADE}" = 'YES' ]
+            if [ "${OPTION_UPGRADE}" = 'YES' -a "${oldversion}" != "${MULLE_EXECUTABLE_VERSION}" ]
             then
                # shellcheck source=src/mulle-sde-migrate.sh
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
 
+               log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
+${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
                sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
             fi
 

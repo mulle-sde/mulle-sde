@@ -220,7 +220,20 @@ sde_status_main()
 
    case ",${statustypes}," in
       *,sourcetree,*)
-         if [ ! -f .mulle/etc/sourcetree/config ]
+         if [ -z "${MULLE_SOURCETREE_ETC_DIR}" ]
+         then
+            eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`
+         fi
+
+         local sourcetreefile
+
+         sourcetreefile="${MULLE_SOURCETREE_ETC_DIR}/config"
+         if [ ! -f "${sourcetreefile}" ]
+         then
+            sourcetreefile="${MULLE_SOURCETREE_SHARE_DIR}/config"
+         fi
+
+         if [ ! -f "${sourcetreefile}" ]
          then
             log_verbose "Sourcetree status:"
             log_info "${indent}There is no sourcetree ($PWD)"

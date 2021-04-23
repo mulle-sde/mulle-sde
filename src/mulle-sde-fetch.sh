@@ -123,7 +123,7 @@ sde_fetch_main()
                     ${MULLE_TECHNICAL_FLAGS} \
                     status --is-uptodate
       rval=$?
-      log_fluff "is-uptodate returned with $rval"
+      log_fluff "Sourcetree status --is-uptodate returned with $rval"
 
       if [ ${rval} -ne 0 ]
       then

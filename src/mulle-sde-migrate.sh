@@ -37,7 +37,10 @@ sde_migrate_from_v0_41_to_v42()
 {
    log_entry "sde_migrate_from_v0_41_to_v42" "$@"
 
-   mulle-sde reflect
+   exekutor "${MULLE_SDE:-mulle-sde}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               -N \
+            reflect || exit 1
 
    local i
 
@@ -88,6 +91,38 @@ list( INSERT CMAKE_MODULE_PATH 0 \"\${PROJECT_SOURCE_DIR}/cmake/reflect\")" CMak
 }
 
 
+sde_migrate_from_v0_46_to_v47()
+{
+   log_entry "sde_migrate_from_v0_46_to_v47" "$@"
+
+   (
+      shopt -s nullglob
+
+      local i
+      local name
+
+      for i in .mulle/etc/match/*.d/*-source--*headers .mulle/share/match/*.d/*-source--*headers
+      do
+         name="${i//-source--/-header--}"
+         exekutor mv "$i" "${name}"
+      done
+
+      for i in .mulle/*/sourcetree
+      do
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakeall-load cmake-all-load
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakeintermediate-link cmake-intermediate-link
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakesearchpath cmake-searchpath
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakedependency cmake-dependency
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakeadd cmake-add
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakeinherit cmake-inherit
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakeloader cmake-loader
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks suppress-system-path cmake-suppress-system-path
+         exekutor mulle-sourcetree --config-dir "$i" -N rename-marks cmakeplatform-darwin cmake-platform-darwin
+      done
+   )
+}
+
+
 sde_migrate()
 {
    log_entry "sde_migrate" "$@"
@@ -126,12 +161,21 @@ sde_migrate()
       oldminor=42
    fi
 
+   if [ "${oldmajor}" -eq 0 -a "${major}" -eq 0 -a "${oldminor}" -lt 47 ]
+   then
+      (
+         sde_migrate_from_v0_46_to_v47
+      ) || exit 1
+      oldmajor=0
+      oldminor=47
+   fi
+
    #
    # if craft etc is same as share now, we can remove etc
    #
    if diff -q .mulle/etc/craft .mulle/share/craft > /dev/null 2>&1
    then
-      log_info "Removing .mulle/etc/craft as its no different from .mulle/share/craft"
+      log_info "Removing .mulle/etc/craft as it's not different from .mulle/share/craft"
       rmdir_safer .mulle/etc/craft
    fi
 }

@@ -66,9 +66,11 @@ r_sde_locate_library()
 {
    log_entry "r_sde_locate_library" "$@"
 
-   local searchpath="$1"; shift
-   local libstyle="$1"; shift
-   local require="$1"; shift
+   local searchpath="$1"
+   local libstyle="$2"
+   local require="$3"
+
+   shift 3
 
    r_platform_search "${searchpath}" \
                      "${libstyle}" \
@@ -77,6 +79,21 @@ r_sde_locate_library()
                      "$@"
 }
 
+
+r_sde_locate_framework()
+{
+   log_entry "r_sde_locate_library" "$@"
+
+   local searchpath="$1"
+
+   shift 1
+
+   r_platform_search "${searchpath}" \
+                     "framework" \
+                     "" \
+                     "" \
+                     "$@"
+}
 
 _emit_file_output()
 {
@@ -135,11 +152,13 @@ _emit_ld_output()
 {
    log_entry "_emit_ld_output" "$@"
 
-   local sep="$1"; shift
-   local quote="$1"; shift
-   local withldpath="$1"; shift
-   local withrpath="$1"; shift
-   local wholearchiveformat="$1"; shift
+   local sep="$1"
+   local quote="$2"
+   local withldpath="$3"
+   local withrpath="$4"
+   local wholearchiveformat="$5"
+
+   shift 5 
 
    [ -z "${wholearchiveformat}" ] && internal_fail "wholearchiveformat is empty"
 
@@ -345,8 +364,10 @@ r_sde_linkorder_all_nodes()
    r_concat "${qualifier}" "${craft_qualifier}" $'\n'"AND "
    qualifier="${RVAL}"
 
-   sourcetree_environment "" \
+   # scope,stash_dir,config_dir,fallback,defer,mode
+   sourcetree_environment "mulle-sde-install.sh" \
                           "${MULLE_SOURCETREE_STASH_DIRNAME}" \
+                          "" \
                           "" \
                           "" \
                           "${mode}"
@@ -418,8 +439,9 @@ r_linkorder_collect()
    local address="$1"
    local marks="$2"
    local aliases="$3"
-   local collect_libraries="$4"
-   local searchpath="$5"
+   local library_searchpath="$4"
+   local framework_searchpath="$5"
+   local collect_libraries="$6"
 
    local name
 
@@ -511,33 +533,55 @@ r_linkorder_collect()
    done
    set +f; IFS="${DEFAULT_IFS}"
 
-   eval r_sde_locate_library "'${searchpath}'" "'${librarytype}'" "'${requirement}'" "${aliasargs}"
+   # TODO: libraries are preferred over frameworks, which is arbitrary
+
+   eval r_sde_locate_library "'${library_searchpath}'" \
+                             "'${librarytype}'" \
+                             "'${requirement}'" \
+                             "${aliasargs}"
    libpath="${RVAL}"
 
    if [ -z "${libpath}" ]
    then
-      #
-      # require is per platform or os ?
-      #
-      case ",${marks},*" in
-         *,no-require,*|*,no-require-os-${MULLE_UNAME},*)
-            log_fluff "\"${libpath}\" is not found, but it is not required"
-            return 4
-         ;;
-      esac
+      if [ ! -z "${framework_searchpath}" ]
+      then
+         eval r_sde_locate_framework "'${framework_searchpath}'"  "${aliasargs}"
+         libpath="${RVAL}"
+      fi
 
-      r_concat "Did not find a linkable" "${aliasfail}"
-      r_concat "${RVAL}" "${requirement}"
-      r_concat "${RVAL}" "${librarytype}"
-      r_concat "${RVAL}" "in searchpath \"${searchpath}\""
+      if [ -z "${libpath}" ]
+      then
+         #
+         # require is per platform or os ? neither
+         #
+         case ",${marks},*" in
+            *,no-require,*|*,no-require-os-${MULLE_UNAME},*)
+               log_fluff "\"${libpath}\" is not found, but it is not required"
+               return 4
+            ;;
+         esac
 
-      fail "${RVAL}.
+         r_concat "Did not find a linkable" "${aliasfail}"
+         r_concat "${RVAL}" "${requirement}"
+         r_concat "${RVAL}" "${librarytype}"
+         r_concat "${RVAL}" "in searchpath \"${library_searchpath}\""
+         if [ ! -z "${framework_searchpath}" ]
+         then
+            r_concat "${RVAL}" "or \"${framework_searchpath}\""
+         fi
+
+         fail "${RVAL}.
 ${C_INFO}The linkorder will only be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
+      fi
+
+      # make it distinguishable as framework
+      r_comma_concat "${marks}" "only-framework" 
+      marks="${RVAL}"
    fi
 
-   log_fluff "Found library \"${name}\" at \"${libpath}\""
+   log_fluff "Found ${what:-library} \"${name}\" at \"${libpath}\""
 
    r_concat "${libpath}" "${marks}" ";"
 }
@@ -572,6 +616,35 @@ ${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
 }
 
 
+r_framework_searchpath()
+{
+   log_entry "r_framework_searchpath" "$@"
+
+   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
+      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+
+   local searchpath
+   local configuration
+
+   configuration="${OPTION_CONFIGURATION:-Release}"
+   searchpath="`rexekutor mulle-craft \
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                                 -s \
+                              searchpath \
+                                 --if-exists \
+                                 --configuration "${configuration}" \
+                                 framework`"
+   if [ -z "${searchpath}" ]
+   then
+      log_warning "The framework searchpath is empty.
+${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
+   fi
+
+   log_fluff "Framework searchpath is: ${searchpath}"
+   RVAL="${searchpath}"
+}
+
+
 r_get_emission_lib()
 {
    log_entry "r_get_emission_lib" "$@"
@@ -579,8 +652,9 @@ r_get_emission_lib()
    local address="$1"
    local marks="$2"
    local raw_userinfo="$3"
-   local searchpath="$4"
-   local collect_libraries="$5"
+   local library_searchpath="$4"
+   local framework_searchpath="$5"
+   local collect_libraries="$6"
 
    local aliases
    local userinfo
@@ -620,8 +694,9 @@ r_get_emission_lib()
    r_linkorder_collect "${address%#*}" \
                        "${marks}" \
                        "${aliases}" \
-                       "${collect_libraries}" \
-                       "${searchpath}"
+                       "${library_searchpath}" \
+                       "${framework_searchpath}" \
+                       "${collect_libraries}" 
 }
 
 
@@ -673,9 +748,10 @@ r_collect_emission_libs()
    log_entry "r_collect_emission_libs" "$@"
 
    local nodes="$1"
-   local searchpath="$2"
-   local collect_libraries="$3"
-   local omit="$4"
+   local library_searchpath="$2"
+   local framework_searchpath="$3"
+   local collect_libraries="$4"
+   local omit="$5"
 
    local dependency_libs
 
@@ -709,7 +785,8 @@ r_collect_emission_libs()
          if ! r_get_emission_lib "${address}" \
                                  "${marks}" \
                                  "${raw_userinfo}" \
-                                 "${searchpath}" \
+                                 "${library_searchpath}" \
+                                 "${framework_searchpath}" \
                                  "${collect_libraries}"
          then
             continue
@@ -936,15 +1013,27 @@ sde_linkorder_main()
 
    log_debug "nodes: ${nodes}"
 
-   local searchpath
+   local library_searchpath
+   local framework_searchpath
 
    if [ "${OPTION_OUTPUT_FORMAT}" != "node" ]
    then
       r_library_searchpath
-      searchpath="${RVAL}"
+      library_searchpath="${RVAL}"
+
+      case "${MULLE_UNAME}" in 
+         darwin)
+            r_framework_searchpath
+            framework_searchpath="${RVAL}"
+         ;;
+      esac
    fi
 
-   r_collect_emission_libs "${nodes}" "${searchpath}" "${collect_libraries}" "${OPTION_OUTPUT_OMIT}"
+   r_collect_emission_libs "${nodes}" \
+                           "${library_searchpath}" \
+                           "${framework_searchpath}" \
+                           "${collect_libraries}" \
+                           "${OPTION_OUTPUT_OMIT}"
    dependency_libs="${RVAL}"
 
    emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \

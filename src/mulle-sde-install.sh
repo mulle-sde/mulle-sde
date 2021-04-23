@@ -139,7 +139,8 @@ install_in_tmp()
 
    add='YES'
 
-   if mulle-sourcetree -s --no-defer dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+   if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -s --no-defer \
+                        dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       log_verbose "Reusing previous .mulle-sourcetree folder unchanged. \
 Use -f flag to clobber."
@@ -159,7 +160,7 @@ Use -f flag to clobber."
          #
          log_verbose "Build local repositories (with symlinks if possible)"
 
-         url="https://localhost${RVAL}"
+         url="file://${RVAL}"
          r_dirname "${RVAL}"
 
          r_colon_concat "${RVAL}" "${MULLE_FETCH_SEARCH_PATH}"
@@ -172,6 +173,7 @@ Use -f flag to clobber."
                      add --nodetype git \
                          --marks "${marks}" \
                          "${url}"  || return 1
+
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${MULLE_FETCH_SEARCH_PATH}'" \
                            "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                                  ${MULLE_TECHNICAL_FLAGS}  \
@@ -198,6 +200,7 @@ Use -f flag to clobber."
                            add \
                               "${options}" \
                               "'${url}'"  || return 1
+
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            --no-defer \
@@ -332,6 +335,8 @@ sde_install_main()
    local OPTION_ONLY_PROJECT='NO'
    local PREFIX_DIR="/tmp"
 
+   local URL 
+
    while [ $# -ne 0 ]
    do
       case "$1" in
@@ -428,6 +433,13 @@ sde_install_main()
             OPTION_CONFIGURATION='Test'
          ;;
 
+         --url)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            URL="$1"
+         ;;
+
          --)
             shift
             break
@@ -445,9 +457,13 @@ sde_install_main()
       shift
    done
 
-   [ "$#" -eq 0 ] && sde_install_usage "Missing url argument"
-   URL="$1"
-   shift
+   if [ -z "${URL}" ]
+   then
+      [ "$#" -eq 0 ] && sde_install_usage "Missing url argument"
+
+      URL="$1"
+      shift
+   fi 
 
    if [ -z "${MULLE_STRING_SH}" ]
    then

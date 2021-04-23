@@ -36,10 +36,10 @@ DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
 DEPENDENCY_LIST_MARKS="dependency"
 DEPENDENCY_LIST_NODETYPES="ALL"
 
-DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmakeinherit,no-cmakesearchpath"
+DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmake-inherit,no-cmake-searchpath"
 DEPENDENCY_EXECUTABLE_MARKS="no-link,no-header,no-bequeath"
 DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite"
-DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmakesearchpath"
+DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-searchpath"
 
 sde_dependency_usage()
 {
@@ -68,6 +68,7 @@ Commands:
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
    get        : retrieve a dependency settings from the sourcetree
+   info       : for some dependencies there might be online help available
    list       : list dependencies in the sourcetree (default)
    mark       : add marks to a dependency in the sourcetree
    move       : reorder dependencies in the sourcetree
@@ -94,6 +95,10 @@ Usage:
    mulle-fetch plugins are installed). But you can also embed remote source
    files into your source tree.
 
+   There is a list of known projects on https://github.com/craftinfo. If the
+   URL is craftinfo:name, then the respective craftinfo is searched and if 
+   a "sourcetree" file is found, this will be used to create the dependency.
+
    The default dependency is a C library with header files. You need to use
    the appropriate options to build Objective-C libraries, header-less or
    header-only or purely embedded dependencies.
@@ -102,6 +107,10 @@ Usage:
       https://github.com/mulle-sde/mulle-sde/wiki
 
 Examples:
+   Add dependency via craftinfo:
+
+      ${MULLE_USAGE_NAME} dependency add craftinfo:openssl
+
    Add a github repository as a dependency:
 
       ${MULLE_USAGE_NAME} dependency add --github madler --scm git zlib
@@ -226,6 +235,30 @@ EOF
 }
 
 
+sde_dependency_info_usage()
+{
+   [ "$#" -ne 0 ] &&  log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency info <name>
+
+   Check online for help about a dependency. Pretty much just a README.md
+   reader for https://github.com/craftinfo repositories. The dependency
+   need not be present already.
+
+   Examples:
+      ${MULLE_USAGE_NAME} dependency info freetype
+
+Environment:
+   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
+
+EOF
+  exit 1
+}
+
+
+
 sde_dependency_list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -268,6 +301,7 @@ Usage:
 EOF
    exit 1
 }
+
 
 r_upcaseid()
 {
@@ -370,7 +404,6 @@ sde_dependency_set_main()
             cmd="unmark"
          ;;
       esac
-
 
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -662,6 +695,15 @@ _sde_enhance_url()
    _tag="\${${upcaseid}_TAG:-${tag}}"
    _branch="\${${upcaseid}_BRANCH:-${branch}}"
 
+   #
+   # so if we have a tag, we replace this in the URL with MULLE_TAG
+   # that makes our URL flexible (hopefully)
+   #
+   if [ ! -z "${tag}" ]
+   then
+      url="${url//${tag}/\${MULLE_TAG:-${tag}\}}"
+   fi
+
    # common wrapper for archive and repository
    _url="\${${upcaseid}_URL:-${url}}"
    _marks="${marks}"
@@ -676,6 +718,105 @@ _sde_enhance_url()
    # _marks="\${${upcaseid}_MARKS:-${marks}}"
    _nodetype="\${${upcaseid}_NODETYPE:-${nodetype}}"
    _address="${address}"
+}
+
+
+# like mulle_sde_init add_to_sourcetree but no templating
+sde_dependency_add_to_sourcetree()
+{
+   log_entry "sde_dependency_add_to_sourcetree" "$@"
+
+   local filename="$1"
+
+   [ -z "${filename}" ] && internal_fail "filename is empty"
+
+   local line
+   local lines
+   local arguments 
+   local arguments_list 
+
+   lines="`rexekutor egrep -v '^#' "${filename}"`" 
+   if [ -z "${lines}" ]
+   then
+      log_warning "${filename} contains no dependency information"
+      return 
+   fi
+
+   MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -N \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS} \
+                        eval-add --filename "${filename}" "${lines}" || exit 1 
+}
+
+
+sde_dependency_use_craftinfo_main()
+{
+   log_entry "sde_dependency_use_craftinfo_main" "$@"
+
+   local dependency="$1"
+   local lenient="$2"
+
+   # shellcheck source=src/mulle-sde-craftinfo.sh
+   if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+   fi
+
+   if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
+   then
+      return 0
+   fi
+
+   local args 
+
+   if [ "${lenient}"  == 'YES' ]
+   then
+      args="--lenient"
+   fi
+
+   if ! sde_dependency_craftinfo_create_main "DEFAULT" ${args} "${dependency}" 
+   then
+      return 1
+   fi
+
+   if ! sde_dependency_craftinfo_fetch_main "DEFAULT" ${args} --clobber "${dependency}"
+   then
+      return 1
+   fi
+}
+
+
+sde_dependency_add_craftinfo_url()
+{
+   log_entry "sde_dependency_add_craftinfo_url" "$@"
+
+   local dependency="$1"
+   local lenient="$2"
+
+   if [ "${OPTION_FETCH}" = 'NO' ]
+   then
+      fail "Craftinfo handling disabled by --no-fetch"
+   fi
+
+   if ! sde_dependency_use_craftinfo_main "${dependency}" "${lenient}"
+   then
+      fail "No craftinfo exists for \"${dependency}\""
+   fi
+
+   # grab sourcetree from craftinfo and apply it
+   r_filepath_concat "${RVAL}" "sourcetree"
+   sourcetree="${RVAL}"
+
+   if [ ! -f "${sourcetree}" ]
+   then
+      sde_dependency_craftinfo_remove_main "DEFAULT" "${dependency}"
+      fail "This craftinfo has no sourcetree file.
+So it can't be used with craftinfo: style add."
+   fi
+
+   sde_dependency_add_to_sourcetree "${sourcetree}"
 }
 
 
@@ -928,10 +1069,26 @@ sde_dependency_add_main()
    address="${OPTION_ADDRESS}"
    options="${OPTION_OPTIONS}"
 
+   case "${originalurl}" in 
+      craftinfo:*)
+         [ ! -z "${nodetype}" ] && log_warning "Nodetype will be ignored with craftinfo: type URLs"
+         [ ! -z "${user}" ]     && log_warning "User will be ignored with craftinfo: type URLs"
+         [ ! -z "${tag}" ]      && log_warning "Tag will be ignored with craftinfo: type URLs"
+         [ ! -z "${branch}" ]   && log_warning "Branch will be ignored with craftinfo: type URLs"
+         [ ! -z "${address}" ]  && log_warning "Address will be ignored with craftinfo: type URLs"
+         [ ! -z "${options}" ]  && log_warning "Options will be ignored with craftinfo: type URLs"
+
+         sde_dependency_add_craftinfo_url "${originalurl#craftinfo:}" "YES"
+         return $?
+   esac
+
+   #
+   # if domain is given, we compose from what's on the command line
+   #
    if [ ! -z "${OPTION_DOMAIN}" ]
    then
       nodetype="${nodetype:-tar}"
-      url="`exekutor "${MULLE_DOMAIN:-mulle-domain}" \
+      url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
                ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_DOMAIN_FLAGS} \
             compose-url \
@@ -940,6 +1097,49 @@ sde_dependency_add_main()
                --repo "${OPTION_REPO:-$url}" \
                --scm "${nodetype}" \
                "${OPTION_DOMAIN}" `" || exit 1
+   else
+      # if have only the URL, then lets mulle-domain guess us some
+      # of the stuff
+      if [ -z "${tag}" -a -z "${branch}" -a -z "${nodetype}" ]
+      then
+         local guessed_scheme
+         local guessed_domain
+         local guessed_repo
+         local guessed_user
+         local guessed_branch
+         local guessed_scm
+         local guessed_tag
+
+         eval "`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_DOMAIN_FLAGS} \
+             parse-url \
+               --prefix "guessed_" \
+               "${url}" `"
+
+         if [ ! -z "${guessed_repo}" -a -z "${address}" ]
+         then
+            log_debug "Address guessed as \"${guessed_repo}\""
+            address="${guessed_repo}"
+         fi
+         if [ ! -z "${guessed_scm}" -a -z "${scm}" ]
+         then
+            log_debug "Nodetype guessed as \"${guessed_scm}\""
+            scm="${guessed_scm}"
+         fi
+
+         if [ ! -z "${guessed_tag}" ]
+         then
+            log_debug "Tag guessed as \"${guessed_tag}\""
+            tag="${guessed_tag}"
+         else
+            if [ ! -z "${guessed_branch}" ]
+            then
+               log_debug "Branch guessed as \"${guessed_branch}\""
+               branch="${guessed_branch}"
+            fi
+         fi
+      fi
    fi
 
    if [ -z "${nodetype}" ]
@@ -1125,6 +1325,11 @@ sde_dependency_add_main()
 
    dependency="${address:-${originalurl}}"
 
+   if [ "${OPTION_FETCH}" != 'NO' ]
+   then
+      sde_dependency_use_craftinfo_main "${dependency}" "NO"
+   fi
+
    if [ "${OPTION_EMBEDDED}" != 'YES' ]
    then
       case "${OPTION_DIALECT}" in
@@ -1152,34 +1357,6 @@ ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
          ;;
       esac
    fi
-
-   if [ "${OPTION_FETCH}" = 'NO' ]
-   then
-      return 0
-   fi
-
-   # shellcheck source=src/mulle-sde-craftinfo.sh
-   if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
-   fi
-
-
-   if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
-   then
-      return 0
-   fi
-
-   if ! sde_dependency_craftinfo_create_main "DEFAULT" "${dependency}"
-   then
-      return 1
-   fi
-
-   if ! sde_dependency_craftinfo_fetch_main "DEFAULT" --clobber "${dependency}"
-   then
-      return 1
-   fi
-
 }
 
 
@@ -1287,6 +1464,8 @@ craftinfo
 duplicate
 get
 list
+help
+info
 map
 mark
 move
@@ -1294,6 +1473,11 @@ remove
 set
 source-dir
 unmark"
+      ;;
+
+      info)
+         sde_dependency_craftinfo_info_main "$@"
+         return $?
       ;;
 
       craftinfo)

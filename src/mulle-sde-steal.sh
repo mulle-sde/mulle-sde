@@ -260,7 +260,7 @@ sde_steal_main()
    #
    local tmpdir
 
-   r_make_tmp "steal" "-d"
+   r_make_tmp "steal" "-d" || exit 1
    tmpdir="${RVAL}"
 
    local name

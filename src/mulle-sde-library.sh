@@ -36,7 +36,7 @@ MULLE_SDE_LIBRARY_SH="included"
 # and will end up in dependency/
 # no-update,no-delete: does not participate in mulle-sourcetree update
 # no-all-load: not expected to contain ObjC code
-# no-cmakeinherit: not expected to publish cmake find_library calls
+# no-cmake-inherit: not expected to publish cmake find_library calls
 #
 LIBRARY_INIT_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
@@ -264,7 +264,7 @@ sde_library_add_main()
    case "${OPTION_DIALECT}" in
       c)
          # prepend is better in this case
-         r_comma_concat "no-import,no-all-load,no-cmakeinherit,no-cmakesearchpath" "${marks}"
+         r_comma_concat "no-import,no-all-load,no-cmake-inherit,no-cmake-searchpath" "${marks}"
          marks="${RVAL}"
       ;;
 

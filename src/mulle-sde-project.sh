@@ -85,12 +85,6 @@ set_projectname_variables()
    [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty.
 ${C_INFO}Are you running inside a mulle-sde environment ?"
 
-   if [ -z "${MULLE_CASE_SH}" ]
-   then
-      # shellcheck source=mulle-case.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
-   fi
-
    r_identifier "${PROJECT_NAME}"
    PROJECT_IDENTIFIER="${RVAL}"
 
@@ -213,12 +207,6 @@ set_oneshot_variables()
    ONESHOT_DOWNCASE_IDENTIFIER="${RVAL}"
    r_uppercase "${ONESHOT_IDENTIFIER}"
    ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
-
-   if [ -z "${MULLE_CASE_SH}" ]
-   then
-      # shellcheck source=mulle-case.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh" || return 1
-   fi
 
    r_de_camel_case_upcase_identifier "${ONESHOT_NAME}"
    ONESHOT_UPCASE_C_IDENTIFIER="${RVAL}"
@@ -386,12 +374,17 @@ rename_old_to_new_filename()
    log_entry "rename_old_to_new_filename" "$@"
 
    local filename="$1"
+   local old="$2"
+   local name="$3"
 
    local renamed
 
    renamed="${filename//${old}/${name}}"
-   log_verbose "Rename \"${filename}\" to \"${renamed}\""
-   exekutor mv "${filename}" "${renamed}" || exit 1
+   if [ "${filename}" != "${renamed}" ]
+   then
+      log_verbose "Rename \"${filename}\" to \"${renamed}\""
+      exekutor mv -f "${filename}" "${renamed}" || exit 1
+   fi
 }
 
 
@@ -409,7 +402,7 @@ _local_search_and_replace_filenames()
    do
       set +f; IFS="${DEFAULT_IFS}"
 
-      rename_old_to_new_filename "${filename}"
+      rename_old_to_new_filename "${filename}" "${old}" "${name}"
    done
    set +f; IFS="${DEFAULT_IFS}"
 }
@@ -424,6 +417,11 @@ search_and_replace_filenames()
    local name="$3"
    local type="$4"
 
+   [ -z "${dir}" ]  && internal_fail "dir is empty"
+   [ -z "${old}" ]  && internal_fail "old is empty"
+   [ -z "${name}" ] && internal_fail "name is empty"
+   [ -z "${type}" ] && internal_fail "type is empty"
+
    if [ -e "${dir}" ]
    then
       local filename
@@ -434,7 +432,7 @@ search_and_replace_filenames()
       do
          set +f; IFS="${DEFAULT_IFS}"
 
-         rename_old_to_new_filename "${filename}"
+         rename_old_to_new_filename "${filename}" "${old}" "${name}"
       done
       set +f; IFS="${DEFAULT_IFS}"
    fi
@@ -478,6 +476,9 @@ _local_search_and_replace_contents()
 {
    log_entry "_local_search_and_replace_contents" "$@"
 
+   local grep_statement="$1"
+   local sed_statement="$2"
+
    local filename
 
    IFS=$'\n' ; set -f
@@ -485,7 +486,7 @@ _local_search_and_replace_contents()
    do
       set +f; IFS="${DEFAULT_IFS}"
 
-      edit_old_to_new_content "${filename}" "$@"
+      edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
    done
    set +f; IFS="${DEFAULT_IFS}"
 }
@@ -497,6 +498,9 @@ search_and_replace_contents()
 
    local dir="$1" ; shift
 
+   local grep_statement="$1"
+   local sed_statement="$2"
+
    if [ -e "${dir}" ]
    then
       local filename
@@ -506,7 +510,7 @@ search_and_replace_contents()
       do
          set +f; IFS="${DEFAULT_IFS}"
 
-         edit_old_to_new_content "${filename}" "$@"
+         edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
       done
       set +f; IFS="${DEFAULT_IFS}"
    fi
@@ -570,6 +574,8 @@ r_rename_current_project()
 {
    log_entry "r_rename_current_project" "$@"
 
+   local newname="$1"
+
    local changes
 
    OLD_PROJECT_NAME="${PROJECT_NAME}"
@@ -577,16 +583,22 @@ r_rename_current_project()
    OLD_PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
    OLD_PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}"
 
+   if [ -z "${OLD_PROJECT_IDENTIFIER}" ]
+   then
+      r_identifier "${OLD_PROJECT_NAME}"
+      OLD_PROJECT_IDENTIFIER="${RVAL}"
+   fi
+
    # used to be different so only do it on demand
    if [ -z "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" ]
    then
-      r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+      r_tweaked_de_camel_case "${OLD_PROJECT_IDENTIFIER}"
       r_lowercase "${RVAL}"
       OLD_PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
    fi
    if [ -z "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
    then
-      r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+      r_tweaked_de_camel_case "${OLD_PROJECT_IDENTIFIER}"
       r_uppercase "${RVAL}"
       OLD_PROJECT_UPCASE_IDENTIFIER="${RVAL}"
    fi
@@ -638,14 +650,6 @@ r_rename_current_project()
    then
       log_verbose "Changing file contents"
 
-      if [ -z "${MULLE_PATH_SH}" ]
-      then
-         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
-      fi
-      if [ -z "${MULLE_FILE_SH}" ]
-      then
-         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
-      fi
       # create inline sed expression command
       local sed_cmdline
 
@@ -890,3 +894,26 @@ sde_project_main()
       ;;
    esac
 }
+
+
+sde_project_initialize()
+{
+   if [ -z "${MULLE_CASE_SH}" ]
+   then
+      # shellcheck source=mulle-case.sh
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
+   fi
+   if [ -z "${MULLE_PATH_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
+   fi
+   if [ -z "${MULLE_FILE_SH}" ]
+   then
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+   fi
+}
+
+sde_project_initialize
+
+:
+

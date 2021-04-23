@@ -153,6 +153,15 @@ sde_list_dependencies()
          sed 's|^|   |' <<< "${text}"
       fi
    fi
+}
+
+
+sde_list_libraries()
+{
+   log_entry "sde_list_dependencies" "$@"
+
+   local text
+   local separator
 
    text="`
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -174,6 +183,7 @@ sde_list_dependencies()
       fi
    fi
 }
+
 
 
 sde_list_definitions()
@@ -229,6 +239,7 @@ sde_list_main()
    log_entry "sde_list_main" "$@"
 
    local OPTION_LIST_DEPENDENCIES='YES'
+   local OPTION_LIST_LIBRARIES='YES'
    local OPTION_LIST_FILES='YES'
    local OPTION_LIST_DEFINITIONS='YES'
    local OPTION_LIST_ENVIRONMENT='YES'
@@ -249,6 +260,14 @@ sde_list_main()
 
          --no-dependencies)
             OPTION_LIST_DEPENDENCIES='NO'
+         ;;
+
+         --libraries)
+            OPTION_LIST_LIBRARIES='YES'
+         ;;
+
+         --no-libraries)
+            OPTION_LIST_LIBRARIES='NO'
          ;;
 
          --files)
@@ -302,10 +321,10 @@ sde_list_main()
       spacer="echo"
    fi
 
-   if [ "${OPTION_LIST_ENVIRONMENT}" = 'YES' ]
+   if [ "${OPTION_LIST_LIBRARRIES}" = 'YES' ]
    then
       eval "${spacer}"
-      sde_list_environment
+      sde_list_libraries
       spacer="echo"
    fi
 
@@ -313,6 +332,13 @@ sde_list_main()
    then
       eval "${spacer}"
       sde_list_definitions
+      spacer="echo"
+   fi
+
+   if [ "${OPTION_LIST_ENVIRONMENT}" = 'YES' ]
+   then
+      eval "${spacer}"
+      sde_list_environment
       spacer="echo"
    fi
 }

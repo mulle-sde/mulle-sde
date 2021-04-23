@@ -302,7 +302,7 @@ sde_definition_list_scope()
    local scope="$3"
    shift 3
 
-   locaal directory
+   local directory
 
    r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}"
    directory="${RVAL}"
@@ -321,7 +321,7 @@ sde_definition_list_global()
    local sharedir="$2"
    shift 2
 
-   locaal directory
+   local directory
 
    r_pick_definition_dir "${etcdir}" "${sharedir}" 
    directory="${RVAL}"
@@ -565,7 +565,7 @@ sde_definition_main()
             scope="ALL"
          ;;
 
-         --platform|--os)
+         --platform|--os|--scope)
             [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
             shift
 

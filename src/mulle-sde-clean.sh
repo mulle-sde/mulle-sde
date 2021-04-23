@@ -120,18 +120,6 @@ EOF
 # use rexekutor to show call, put pass -n flag via technical flags so
 # nothing gets actually deleted with -n
 #
-sde_clean_output_main()
-{
-   log_entry "sde_clean_output_main" "$@"
-
-   log_verbose "Cleaning \"addiction\" directory"
-   [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
-
-   sde_clean_kitchendir_main "$@"
-   sde_clean_dependencydir_main "$@"
-}
-
-
 sde_clean_kitchendir_main()
 {
    log_entry "sde_clean_kitchendir_main" "$@"
@@ -162,14 +150,15 @@ sde_clean_dependencydir_main()
 }
 
 
-sde_clean_project_main()
+sde_clean_output_main()
 {
-   log_entry "sde_clean_project_main" "$@"
+   log_entry "sde_clean_output_main" "$@"
 
-   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean \
-                  project
+   log_verbose "Cleaning \"addiction\" directory"
+   [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
+
+   sde_clean_kitchendir_main "$@"
+   sde_clean_dependencydir_main "$@"
 }
 
 
@@ -182,6 +171,17 @@ sde_clean_dependency_main()
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
                   dependency
+}
+
+
+sde_clean_project_main()
+{
+   log_entry "sde_clean_project_main" "$@"
+
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean \
+                  project
 }
 
 
@@ -332,7 +332,6 @@ sde_clean_tmp_main()
 }
 
 
-
 sde_clean_db_main()
 {
    log_entry "sde_clean_db_main" "$@"
@@ -410,7 +409,6 @@ sde_clean_graveyard_main()
 }
 
 
-
 sde_clean_test_main()
 {
    log_entry "sde_clean_test_main" "$@"
@@ -421,7 +419,6 @@ sde_clean_test_main()
                   ${MULLE_TECHNICAL_FLAGS} \
                clean
 }
-
 
 
 sde_clean_testall_main()
