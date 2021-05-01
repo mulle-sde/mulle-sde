@@ -616,15 +616,15 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
 
          target="$1"
 
-         case "${MULLE_UNAME}" in
-            darwin)
-               if [ ! -z "${target}" -a "${target}" != "${PROJECT_NAME}" ]
-               then
-                  fail "Cleaning of a dependency by name leads to misery on Mac OS.
-${C_INFO}Work around: ${C_RESET_BOLD}clean all"
-               fi
-            ;;
-         esac
+#         case "${MULLE_UNAME}" in
+#            darwin)
+#               if [ ! -z "${target}" -a "${target}" != "${PROJECT_NAME}" ]
+#               then
+#                  fail "Cleaning of a dependency by name leads to misery on Mac OS.
+#${C_INFO}Work around: ${C_RESET_BOLD}clean all"
+#               fi
+#            ;;
+#         esac
 
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \

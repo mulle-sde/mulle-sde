@@ -88,7 +88,7 @@ Options:
    --os <name>       : specify settings for a specific OS
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS   : Repo URLs seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -103,9 +103,9 @@ sde_dependency_craftinfo_set_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo set [option] <dep> <key> <value>
 
-   Change a "craftinfo" setting value for a key. Typically these are compile or 
+   Change a "craftinfo" setting value for a key. Typically these are compile or
    link options that a part of a mulle-make definition, contained in the
-   craftinfo. During a craft the appropriatedefinition is then passed to 
+   craftinfo. During a craft the appropriatedefinition is then passed to
    mulle-make during a craft. See \`mulle-make definition help\` for more info.
 
    This command will automatically create a proper "craftinfo" subproject,
@@ -641,7 +641,7 @@ sde_dependency_craftinfo_exists_main()
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "$1" 
+   if ! __sde_craftinfo_vars_with_url_or_address "$1"
    then
       return 1
    fi
@@ -1030,7 +1030,7 @@ sde_dependency_craftinfo_get_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      __sde_craftinfo_vars_with_url_or_address "${url}" 
+      __sde_craftinfo_vars_with_url_or_address "${url}"
 
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
@@ -1054,7 +1054,7 @@ sde_dependency_craftinfo_get_main()
       return $?
    fi
 
-   __sde_craftinfo_vars_with_url_or_address "${url}" 
+   __sde_craftinfo_vars_with_url_or_address "${url}"
 
    exekutor "${MULLE_MAKE}"  \
                   ${MULLE_TECHNICAL_FLAGS} \
@@ -1079,7 +1079,7 @@ _sde_dependency_craftinfo_list_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      if  __sde_craftinfo_vars_with_url_or_address "${url}" 
+      if  __sde_craftinfo_vars_with_url_or_address "${url}"
       then
          log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
          exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
@@ -1092,7 +1092,7 @@ _sde_dependency_craftinfo_list_main()
       return
    fi
 
-   if __sde_craftinfo_vars_with_url_or_address "${url}" 
+   if __sde_craftinfo_vars_with_url_or_address "${url}"
    then
       log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-Global}"
       exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
@@ -1186,11 +1186,11 @@ sde_dependency_craftinfo_show_main()
       shift
    done
 
-   local urls 
-   local url 
-   local user 
+   local urls
+   local url
+   local user
 
-   ( 
+   (
       urls="${CRAFTINFO_REPOS:-https://github.com/craftinfo}"
 
       IFS='|'
