@@ -79,7 +79,7 @@ r_pick_definition_dir()
    local sharedir="$2"
    local suffix="$3"
 
-   if [ -e "${etcdir}${suffix}" ]
+   if [ ! -z "${etcdir}" -a -e "${etcdir}${suffix}" ]
    then
       RVAL="${etcdir}${suffix}"
    else
@@ -162,9 +162,9 @@ sde_call_definition()
 }
 
 
-sde_call_definition_if_exists()
+sde_call_definition_if_dir_exists()
 {
-   log_entry "sde_call_definition_if_exists" "$@"
+   log_entry "sde_call_definition_if_dir_exists" "$@"
 
    if [ ! -d "$3" ]
    then
@@ -191,9 +191,9 @@ _sde_definition_keys()
       ;;
 
       "DEFAULT")
-         if ! sde_call_definition_if_exists "keys" "${flags}" "${etcdir}.${MULLE_UNAME}"
+         if ! sde_call_definition_if_dir_exists "keys" "${flags}" "${etcdir}.${MULLE_UNAME}"
          then
-            if sde_call_definition_if_exists "keys" "${flags}" "${sharedir}.${MULLE_UNAME}"
+            if sde_call_definition_if_dir_exists "keys" "${flags}" "${sharedir}.${MULLE_UNAME}"
             then
                return
             fi
@@ -203,18 +203,18 @@ _sde_definition_keys()
    
    case "${scope}" in 
       DEFAULT|global)
-         if ! sde_call_definition_if_exists "keys" "${flags}" "${etcdir}"
+         if ! sde_call_definition_if_dir_exists "keys" "${flags}" "${etcdir}"
          then
-            sde_call_definition_if_exists "keys" "${flags}" "${sharedir}"
+            sde_call_definition_if_dir_exists "keys" "${flags}" "${sharedir}"
             return $?
          fi
          return 0
       ;;
    esac
 
-   if ! sde_call_definition_if_exists "keys" "${flags}" "${etcdir}.${scope}"
+   if ! sde_call_definition_if_dir_exists "keys" "${flags}" "${etcdir}.${scope}"
    then
-      if sde_call_definition_if_exists "keys" "${flags}" "${sharedir}.${scope}"
+      if sde_call_definition_if_dir_exists "keys" "${flags}" "${sharedir}.${scope}"
       then
          return
       fi
@@ -332,6 +332,10 @@ sde_definition_list_global()
 }
 
 
+#
+# We don't symlink the definitions, as they are usually small. We could
+# though.
+#
 sde_definition_set()
 {
    log_entry "sde_definition_set" "$@"
@@ -346,7 +350,7 @@ sde_definition_set()
 
    case "${scope}" in
       ALL)
-         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 
+         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
          sde_call_definition "set" "${flags}" "${etcdir}" "$@"
 
          r_definition_scopes "no-global"
@@ -359,7 +363,7 @@ sde_definition_set()
          do
             set +o noglob; IFS="${DEFAULT_IFS}"
 
-            etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" 
+            etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" "NO"
             sde_call_definition "set" "${flags}" "${etcdir}.${i}" "$@"
          done
          set +o noglob; IFS="${DEFAULT_IFS}"
@@ -367,36 +371,71 @@ sde_definition_set()
       ;;
 
       DEFAULT)
-         etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" 
+         etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" "NO"
          sde_call_definition "set" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
       ;;
 
       global)
-         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 
+         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
          sde_call_definition "set" "${flags}" "${etcdir}" "$@"
       ;;
 
       *)
-         etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" 
+         etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" "NO"
          sde_call_definition "set" "${flags}" "${etcdir}.${scope}" "$@"
       ;;
    esac
 }
 
 
-remove_etc_if_empty()
+
+#
+# remove is kind of tricky, since we may need to remove a value set by
+# share, if this happens, we may need to create empty an empty etc
+# with a key "INTENTIONALLY_LEFT_BLANK" so it doesn't get erased
+#
+sde_scoped_definition_remove()
 {
-   [ -z "$1" ] && internal_fail "empty path"
+   log_entry "sde_scoped_definition_remove" "$@"
 
-   local files 
+   local flags="$1"
+   local etcdir="$2"
+   local sharedir="$3"
 
-   files="`rexekutor "${FIND:-find}" "$1" -mindepth 1 \( ! -type d -a ! -type l \) 2> /dev/null`"
-   if [ -z "${files}" ]
+   shift 3
+
+   local rval 
+
+   if [ -d "${etcdir}" ]
    then
-      rmdir_safer "$1"  
+      sde_call_definition "remove" "${flags}" "${etcdir}" "$@"
+      rval=$?
+      etc_remove_if_possible "${etcdir}" "${sharedir}"
+      return $rval
    fi
-}
 
+   # check if value exists in sharedir
+   value="`sde_call_definition "get" "${flags}" "${sharedir}" "$@" `"
+   if [ -z "${value}" ]
+   then
+      return 1
+   fi        
+
+   etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
+
+   mkdir "${OPTION_ETC_DEFINITION_DIR}/keep"
+   cat <<EOF  > "${OPTION_ETC_DEFINITION_DIR}/keep/README"
+This file is here to protect this 'etc' definition folder from vanishing.
+
+It was generated when you removed the \"$*\" definition, which was defined in
+the 'share' folder. As 'etc' folders are reaped, when their contents are 
+empty the 'keep' folder is required, to keep the \"$*\" definition 
+(and possibly other defintitions) from mysteriously reappearing after an
+upgrade.
+EOF
+
+   sde_call_definition "remove" "${flags}" "${etcdir}" "$@" # now we can remove
+}
 
 
 sde_definition_remove()
@@ -407,11 +446,15 @@ sde_definition_remove()
    local flags="$2"
    local etcdir="$3"
    local sharedir="$4"
+
    shift 4
 
    case "${scope}" in
       ALL)
-         sde_call_definition_if_exists "set" "${flags}" "${etcdir}" "$@"
+         sde_scoped_definition_remove "${flags}" \
+                                      "${etcdir}" \
+                                      "${sharedir}" \
+                                      "$@"
 
          r_definition_scopes "no-global"
          scopes="${RVAL}"
@@ -423,26 +466,40 @@ sde_definition_remove()
          do
             set +o noglob; IFS="${DEFAULT_IFS}"
 
-            sde_call_definition_if_exists "set" "${flags}" "${etcdir}.${i}" "$@"
-            remove_etc_if_empty "${etcdir}.${i}"
+            sde_scoped_definition_remove "${flags}" \
+                                         "${etcdir}.${i}" \
+                                         "${sharedir}.${i}" \
+                                         "$@"
          done
          set +o noglob; IFS="${DEFAULT_IFS}"
          return
       ;;
 
       DEFAULT)
-         sde_call_definition_if_exists "remove" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
-         remove_etc_if_empty "${etcdir}.${MULLE_UNAME}"
+         if ! sde_scoped_definition_remove "${flags}" \
+                                           "${etcdir}.${MULLE_UNAME}" \
+                                           "${sharedir}.${MULLE_UNAME}" \
+                                           "$@"
+         then
+            sde_scoped_definition_remove "${flags}" \
+                                          "${etcdir}" \
+                                          "${sharedir}" \
+                                          "$@"
+         fi
       ;; 
 
       global)
-         sde_call_definition_if_exists "remove" "${flags}" "${etcdir}" "$@"
-         remove_etc_if_empty "${etcdir}"
+         sde_scoped_definition_remove "${flags}" \
+                                      "${etcdir}"  \
+                                      "${sharedir}" \
+                                      "$@"
       ;;
 
       *)
-         sde_call_definition_if_exists "remove" "${flags}" "${etcdir}.${scope}" "$@"
-         remove_etc_if_empty "${etcdir}.${scope}"
+         sde_scoped_definition_remove "${flags}" \
+                                      "${etcdir}.${scope}" \
+                                      "${sharedir}.${scope}" \
+                                      "$@"
       ;;
    esac
 }

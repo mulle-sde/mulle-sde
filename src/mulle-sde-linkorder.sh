@@ -34,7 +34,7 @@ MULLE_SDE_LINKORDER_SH="included"
 
 sde_linkorder_usage()
 {
-   [ "$#" -ne 0 ] &&  log_error "$1"
+   [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
@@ -42,9 +42,9 @@ Usage:
 
    Emit a string suitable for linking all dependencies and libraries on the
    current platform. The dependencies must have been built, in order for this
-   to work. There is a linkorder for executables that includes all
-   startup libraries marked as \`no-intermediate-link\` and a second one that
-   excludes them for linking shared libraries.
+   to work. There is a linkorder for executables that includes all startup
+   libraries marked as \`no-intermediate-link\` and a second one that excludes
+   them for linking shared libraries.
 
    The linkorder command may produce incorrect link names, if the aliases
    feature is used by a dependency entry.
@@ -94,6 +94,7 @@ r_sde_locate_framework()
                      "" \
                      "$@"
 }
+
 
 _emit_file_output()
 {
@@ -158,7 +159,7 @@ _emit_ld_output()
    local withrpath="$4"
    local wholearchiveformat="$5"
 
-   shift 5 
+   shift 5
 
    [ -z "${wholearchiveformat}" ] && internal_fail "wholearchiveformat is empty"
 
@@ -577,7 +578,7 @@ ${C_RESET_BOLD}   mulle-sde craft"
       fi
 
       # make it distinguishable as framework
-      r_comma_concat "${marks}" "only-framework" 
+      r_comma_concat "${marks}" "only-framework"
       marks="${RVAL}"
    fi
 
@@ -696,7 +697,7 @@ r_get_emission_lib()
                        "${aliases}" \
                        "${library_searchpath}" \
                        "${framework_searchpath}" \
-                       "${collect_libraries}" 
+                       "${collect_libraries}"
 }
 
 
@@ -1021,7 +1022,7 @@ sde_linkorder_main()
       r_library_searchpath
       library_searchpath="${RVAL}"
 
-      case "${MULLE_UNAME}" in 
+      case "${MULLE_UNAME}" in
          darwin)
             r_framework_searchpath
             framework_searchpath="${RVAL}"

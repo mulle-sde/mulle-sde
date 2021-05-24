@@ -301,7 +301,6 @@ export_projectlanguage_environment()
    export PROJECT_LANGUAGE \
           PROJECT_UPCASE_LANGUAGE \
           PROJECT_DOWNCASE_LANGUAGE \
- \
           PROJECT_DIALECT \
           PROJECT_UPCASE_DIALECT \
           PROJECT_DOWNCASE_DIALECT
@@ -379,7 +378,7 @@ rename_old_to_new_filename()
 
    local renamed
 
-   renamed="${filename//${old}/${name}}"
+   renamed="${filename/${old}/${name}}"
    if [ "${filename}" != "${renamed}" ]
    then
       log_verbose "Rename \"${filename}\" to \"${renamed}\""

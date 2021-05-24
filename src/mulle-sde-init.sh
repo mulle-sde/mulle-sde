@@ -172,7 +172,7 @@ _check_file()
       log_debug "\"${filename}\" does not exist"
       return 1
    fi
-   log_fluff "File \"${filename}\" found"
+   log_fluff "File \"${filename}\" FOUND"
    return 0
 }
 
@@ -186,7 +186,7 @@ _check_dir()
       log_debug "\"${dirname}\" does not exist ($PWD)"
       return 1
    fi
-   log_fluff "Directory \"${dirname}\" found"
+   log_fluff "Directory \"${dirname}\" FOUND"
    return 0
 }
 
@@ -957,8 +957,10 @@ _copy_extension_template_files()
    local sourcedir
 
    sourcedir="${extensiondir}/${subdirectory}/${projecttype}"
-
-   _check_dir "${sourcedir}" || return 0
+   if ! _check_dir "${sourcedir}"
+   then
+      return
+   fi
 
    #
    # copy and expand stuff from project folder. Be extra careful not to
@@ -1008,10 +1010,11 @@ _copy_extension_template_directory()
 {
    log_entry "_copy_extension_template_directory" "$@"
 
-   local extensiondir="$1"; shift
-   local subdirectory="$1"; shift
-   local projecttype="$1"; shift
-   local force="$1"; shift
+   local extensiondir="$1"
+   local subdirectory="$2"
+   local projecttype="$3"
+   local force="$4"
+   shift 4
 
    local first
    local second
@@ -1194,12 +1197,23 @@ _install_extension()
    local onlyfilename="$1"; shift
    local force="$1"; shift
 
+   [ -z "${projecttype}" ] && internal_fail "Empty project type"
+
    # user can turn off extensions by passing ""
    if [ -z "${extname}" ]
    then
       log_debug "Empty extension name, so nothing to do"
       return
    fi
+
+   case "${exttype}" in
+      oneshot|runtime|meta|extra|buildtool)
+      ;;
+
+      *)
+         internal_fail "Unknown extension type \"${exttype}\""
+      ;;
+   esac
 
    # just to catch idiots early
    assert_sane_extension_values "${exttype}" "${vendor}" "${extname}"
@@ -1243,6 +1257,22 @@ ${C_INFO}Possible ways to fix this:
       fail "Extension \"${vendor}/${extname}\" is unversioned."
    fi
 
+   local actualexttype
+
+   actualexttype="`egrep -v '^#' "${extensiondir}/type" `"
+   if [ "${exttype}" != "${actualexttype}" ]
+   then
+      case "${actualexttype}" in
+         oneshot)
+            fail "Install oneshot extensions with the pimp command"
+         ;;
+
+         *)
+            fail "Expected a \"${exttype}\" extension but found a \"${actualexttype}\" extension only"
+         ;;
+      esac
+   fi
+
    case "${exttype}" in
       runtime)
          local tmp
@@ -1264,15 +1294,8 @@ ${C_INFO}Possible ways to fix this:
                LANGUAGE_SET='YES'
            fi
          fi
-      ;;
-
-      meta|extra|oneshot|buildtool)
-      ;;
-
-      *)
-         internal_fail "Unknown extension type \"${exttype}\""
-      ;;
    esac
+
 
    if is_disabled_by_marks "${marks}" \
                            "${vendor}/${extname}" \
@@ -1346,7 +1369,7 @@ ${C_INFO}Possible ways to fix this:
 
    if [ -z "${onlyfilename}" ]
    then
-      log_verbose "${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
+      log_verbose "${C_INFO}${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RESET_BOLD}${projecttype:-none}"
    fi
 
 
@@ -1375,9 +1398,11 @@ ${C_INFO}Possible ways to fix this:
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
-         if [ ! -z "${projecttype}" ]
+         if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
-            add_to_environment "${extensiondir}/environment-${projecttype}"
+            add_to_environment "${extensiondir}/environment-upgrade"
+         else
+            add_to_environment "${extensiondir}/environment-init"
          fi
          add_to_environment "${extensiondir}/environment"
 
@@ -1740,7 +1765,8 @@ _install_simple_extension()
    local onlyfilename="$4"
    local force="$5"
 
-   _sde_validate_projecttype "${PROJECT_TYPE}"
+   projecttype="${projecttype:-${PROJECT_TYPE}}"
+   _sde_validate_projecttype "${projecttype}"
 
    # optionally install "extra" extensions
    # f.e. a "git" extension could auto-init the project and create
@@ -2313,11 +2339,11 @@ __get_installed_extensions()
    extensions="`recall_installed_extensions "${extensionfile}"`" || exit 1
    if [ -z "${extensions}" ]
    then
-      log_fluff "No extensions found"
+      log_fluff "No installed extensions found"
       return 1
    fi
 
-   log_debug "Found extensions: ${extensions}"
+   log_debug "Found installed extensions: ${extensions}"
 
    local extension
 
@@ -2494,7 +2520,7 @@ _sde_validate_projecttype()
          fail "Project type is empty"
       ;;
 
-      executable|extension|framework|library|none|unknown)
+      bundle|executable|extension|framework|library|none|unknown)
       ;;
 
 
@@ -2715,13 +2741,6 @@ _sde_post_initenv()
                      climb
    fi
 
-   if [ "${OPTION_POST_INIT}" = 'YES' ]
-   then
-      run_user_post_init_script "${PROJECT_LANGUAGE}" \
-                                "${PROJECT_DIALECT}" \
-                                "${PROJECT_TYPE}"
-   fi
-
    if [ "${OPTION_BLURB}" = 'YES' ]
    then
       log_info "Enter the environment:
@@ -2785,6 +2804,13 @@ _sde_run_init_reinit_common()
    then
       _sde_post_initenv "${PROJECT_TYPE}"
    fi
+
+   if [ "${OPTION_POST_INIT}" = 'YES' ]
+   then
+      run_user_post_init_script "${PROJECT_LANGUAGE}" \
+                                "${PROJECT_DIALECT}" \
+                                "${PROJECT_TYPE}"
+   fi   
 }
 
 
@@ -2834,11 +2860,11 @@ sde_check_dot_init()
       then
          if _check_file "${MULLE_SDE_SHARE_DIR}/.init"
          then
-            fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"$PWD\". \
+            fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"${PWD}\". \
 It looks like an init gone bad."
          fi
 
-         fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"$PWD\".
+         fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"${PWD}\".
 ${C_INFO}In case you wanted to upgrade it:
 ${C_RESET_BOLD}   mulle-sde upgrade"
       fi
@@ -3288,7 +3314,8 @@ _sde_init_main()
          ;;
 
          --existing)
-            OPTION_MARKS="`comma_concat "${OPTION_MARKS}" "no-demo"`"
+            r_comma_concat "${OPTION_MARKS}" "no-demo"
+            OPTION_MARKS="${RVAL}"
             # TODO: reinit by removing .mulle in conjunction
             # with reinit ?
          ;;
@@ -3311,7 +3338,8 @@ _sde_init_main()
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            OPTION_ONESHOTS="`add_line "${OPTION_ONESHOTS}" "$1" `"
+            r_add_line "${OPTION_ONESHOTS}" "$1"
+            OPTION_ONESHOTS="${RVAL}"
          ;;
 
          --oneshot-name)
@@ -3422,7 +3450,8 @@ _sde_init_main()
             [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
             shift
 
-            [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable PROJECT_SOURCE_DIR value during init (rename to it later)"
+            [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable \
+PROJECT_SOURCE_DIR value during init (rename to it later)"
 
             OPTION_PROJECT_SOURCE_DIR="$1"
          ;;

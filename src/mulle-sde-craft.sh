@@ -48,13 +48,17 @@ Usage:
 
    The default target is \"${MULLE_SDE_CRAFT_TARGET:-all}\"
 
+   Try ${MULLE_USAGE_NAME} -v craft --serial, if you get compile errors.
+
 Options:
    -h                      : show this usage
+   -v                      : show tool output inline
    -q                      : skip uptodate checks
    --clean                 : clean before crafting (see: mulle-sde clean)
    --clean-domain <domain> : clean specific domain before crafting (s.a)
    --run                   : attempt to run produced executable
    --analyze               : run clang analyzer when crafting the project
+   --serial                : compile one file at a time
 
 Targets:
    all                     : build dependency folder, then project
@@ -67,9 +71,7 @@ Environment:
    MULLE_SCAN_BUILD_DIR           : output directory ($KITCHEN_DIR/analyzer)
    MULLE_SDE_MAKE_FLAGS           : flags to be passed to mulle-make (via craft)
    MULLE_SDE_TARGET               : default target (all)
-   PLATFORMS                      : default platforms to build (${MULLE_UNAME})
-   SDKS                           : default sdks to build (Default)
-   CONFIGURATIONS                 : default configurations to build (Debug)
+   MULLE_SDE_CRAFT_STYLE          : configuration to build (Debug)
    MULLE_SDE_REFLECT_CALLBACKS    : callbacks called during reflect
    MULLE_SDE_REFLECT_BEFORE_CRAFT : force reflect before craft (${MULLE_SDE_REFLECT_BEFORE_CRAFT:-NO})
 EOF
@@ -397,29 +399,8 @@ sde_craft_main()
             OPTION_MOTD='NO'
          ;;
 
-         --platforms|--platform)
-            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
-            shift
-
-            MULLE_SDE_PLATFORMS="$1"
-         ;;
-
          --run)
             OPTION_RUN='YES'
-         ;;
-
-         --sdks|--sdk)
-            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
-            shift
-
-            MULLE_SDE_SDKS="$1"
-         ;;
-
-         --configuration|--configurations)
-            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
-            shift
-
-            MULLE_SDE_CONFIGURATIONS="$1"
          ;;
 
          -V)
@@ -583,7 +564,7 @@ sde_craft_main()
       shopt -u nullglob
    fi
 
-   buildstyle="${buildstyle:-${MULLE_SDE_DEFAULT_CRAFT_STYLE}}"
+   buildstyle="${buildstyle:-${MULLE_SDE_CRAFT_STYLE}}"
    case "${buildstyle}" in
       [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
          runstyle="Release"

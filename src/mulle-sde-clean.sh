@@ -59,7 +59,7 @@ MULLE_SDE_CLEAN_SH="included"
 #
 #
 # craft:       project, craftorder, built, individual build, build, dependency
-# fetch:       archive cache, repository cache
+# fetch:       archive cache, mirror cache
 # make:        nothing
 # match:       patternfiles in var
 # monitor:     locks and status files in var
@@ -76,8 +76,8 @@ sde_clean_domains_usage()
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
    graveyard   : clean graveyard (which can become quite large)
+   mirror      : clean the repository mirror
    project     : clean project, keep dependencies
-   repository  : clean the repository mirror
    subprojects : clean subprojects
    test        : clean tests
    tidy        : clean everything (except archive and graveyard). It's slow!
@@ -235,7 +235,7 @@ sde_clean_subproject_main()
    subprojects="`sde_subproject_get_addresses`"
    if [ -z "${subprojects}" ]
    then
-      log_fluff "No subprojects, so done"
+      log_fluff "No subprojects, so none to clean."
       return
    fi
 
@@ -285,17 +285,19 @@ sde_clean_archive_main()
 }
 
 
-sde_clean_repository_main()
+sde_clean_mirror_main()
 {
-   log_entry "sde_clean_repository_main" "$@"
+   log_entry "sde_clean_mirror_main" "$@"
 
    if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         log_verbose "Cleaning repository cache"
+         log_verbose "Cleaning repository mirror"
 
          rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
+      else
+         log_warning "Need -f flag for mirror cleaning"
       fi
    fi
 }
@@ -505,8 +507,8 @@ default
 dependency
 fetch
 graveyard
+mirror
 project
-repository
 subprojects
 tidy
 test"
@@ -537,7 +539,7 @@ test"
       ;;
 
       cache)
-         domains="archive repository"
+         domains="archive mirror"
       ;;
 
       default)
@@ -565,8 +567,8 @@ test"
          domains="subproject"
       ;;
 
-      repository)
-         domains="repository"
+      mirror|repository)
+         domains="mirror"
       ;;
 
       test)

@@ -85,7 +85,7 @@ EOF
 
    echo >&2
 
-   sde_extension_show_main oneshot \
+   sde_extension_show_main --all oneshot \
       | sed -n -e 's|^mulle-sde/||' -e '/\.[a-z]*$/p' \
       | sort >&2
 
@@ -172,7 +172,10 @@ _sde_add_file_via_oneshot_extension()
 
       if sde_extension_find_main -q "${vendor}/${name}" "oneshot"
       then
-         _sde_add_oneshot_extension "${filepath}" "${vendor}/${name}" "${class}" "${category}"
+         _sde_add_oneshot_extension "${filepath}" \
+                                    "${vendor}/${name}" \
+                                    "${class}" \
+                                    "${category}"
          return $?
       fi
    done
@@ -192,7 +195,10 @@ _sde_add_file_via_oneshot_extension()
 
          if sde_extension_find_main -q "${vendor}/${genericname}" "oneshot"
          then
-            _sde_add_oneshot_extension "${filepath}" "${vendor}/${genericname}" "${class}" "${category}"
+            _sde_add_oneshot_extension "${filepath}" \
+                                       "${vendor}/${genericname}" \
+                                       "${class}" \
+                                       "${category}"
             return $?
          fi
       done
@@ -257,7 +263,7 @@ _r_sde_get_class_category_genericname()
        _class="${RVAL}"
 
       name="${type}.${extension}"
-      log_debug "Look for extensions named \"${RVAL}\""
+      log_debug "Look for extensions named \"${name}\""
    else
       #
       # if file name is like +Foo or -private deal with it in a special way
@@ -306,13 +312,17 @@ sde_add_file_via_oneshot_extension()
    local name="$3"
    local type="$4"
    local type_default="$5"
-   local ext="$5"
+   local ext="$6"
 
    local _genericname
    local _category
    local _class
 
-   _r_sde_get_class_category_genericname "${filename}" "${name}" "${type}" "${ext}"
+   _r_sde_get_class_category_genericname "${filename}" \
+                                         "${name}" \
+                                         "${type}" \
+                                         "${type_default}" \
+                                         "${ext}"
    if [ -z "${name}" ]
    then
       name="${RVAL}"
@@ -320,11 +330,11 @@ sde_add_file_via_oneshot_extension()
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
-      log_trace2 "filename:    ${filename}"
-      log_trace2 "name:        ${name}"
-      log_trace2 "class:       ${_class}"
-      log_trace2 "category:    ${_category}"
-      log_trace2 "genericname: ${_genericname}"
+      log_trace2 "filename:     ${filename}"
+      log_trace2 "name:         ${name}"
+      log_trace2 "class:        ${_class}"
+      log_trace2 "category:     ${_category}"
+      log_trace2 "genericname:  ${_genericname}"
    fi
 
    _sde_add_file_via_oneshot_extension "${filename}" \
@@ -350,7 +360,6 @@ sde_add_in_project()
    local type_default="$5"
    local ext="$6"
    local all="$7"
-
 
    if is_absolutepath "${filename}"
    then
@@ -393,7 +402,7 @@ sde_add_in_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create file \"${filename}\""
+            fail "No matching template \"${type:-${type_default}}\" found to create file \"${filename}\""
          ;;
 
          0)
@@ -404,7 +413,21 @@ sde_add_in_project()
          ;;
       esac
 
-      log_info "Added \"${filename}\""
+      #
+      # we don't check for actual file if its like NONE.m or something,
+      # where an add command adds a predefined filename
+      #
+      r_extensionless_basename "${filename}"
+      if [ ! -z "${RVAL}" -a "${RVAL}" != "NONE" ]
+      then
+         if [ -e "${filename}" ]
+         then
+            log_info "Added \"${filename}\""
+         else
+            log_warning "${filename} wasn't produced by the extension as expected"
+            return 0
+         fi
+      fi
    fi
 
    local found
@@ -479,7 +502,7 @@ sde_add_no_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create file \"${filepath#${MULLE_USER_PWD}/}\""
+            fail "No matching template \"${type}\" found to create file \"${filepath#${MULLE_USER_PWD}/}\""
          ;;
 
          0)

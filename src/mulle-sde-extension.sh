@@ -144,7 +144,9 @@ Usage:
 
    Add an "extra" extension to your project.
    To reconfigure your project with another runtime or buildtool, use
-   \`${MULLE_USAGE_NAME} init\` to setup anew.
+   \`mulle-sde init\` to setup anew.
+   To add a "oneshot" extension use \`mulle-sde add\` not
+   \"mulle-sde extension add\".
 
 EOF
 
@@ -565,7 +567,6 @@ r_extensionnames_from_vendorextensions()
 }
 
 
-
 r_collect_vendorextensions()
 {
    log_entry "r_collect_vendorextensions" "$@"
@@ -589,7 +590,8 @@ r_collect_vendorextensions()
 
    local vendorextensions
 
-#     log_debug "$directory: ${directory}"
+   log_fluff "Looking in ${searchpath}"
+
    IFS=$'\n' ; set -o noglob
    for extensiondir in `eval_rexekutor find -H "${searchpath}" \
                                             -mindepth 1 \
@@ -615,6 +617,7 @@ r_collect_vendorextensions()
       if [ ! -z "${searchname}" ]
       then
          r_basename "${extensiondir}"
+         #r_extensionless_basename "${extensiondir}"
          if [ "${searchname}" != "${RVAL}" ]
          then
             log_debug "\"${extensiondir}\" name \"${RVAL}\" does not match \"${searchname}\""
@@ -986,7 +989,7 @@ sde_extension_show_main()
             OPTION_VERSION='NO'
          ;;
 
-         --all)
+         -a|--all)
             OPTION_ALL='YES'
          ;;
 
@@ -1054,7 +1057,7 @@ sde_extension_show_main()
    then
       fail "No extension vendors found. Check the extension searchpath MULLE_SDE_EXTENSION_PATH."
    fi
-   
+
    log_verbose "Vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${vendors}" | sed 's/^/  /' `"
 
@@ -1625,7 +1628,7 @@ sde_extension_add_main()
 {
    log_entry "sde_extension_add_main" "$@"
 
-   local args 
+   local args
 
    while :
    do
@@ -1634,17 +1637,14 @@ sde_extension_add_main()
             sde_extension_add_usage
          ;;
 
-         --reflect)
-            args="--reflect" 
-         ;;
-
-         --no-reflect)
-            args="--no-reflect" 
+         --reflect|--no-reflect)
+            r_add_line "${args}" "1"
+            args="${RVAL}"
          ;;
 
          -*)
-            sde_extension_add_usage "Unknown option \"$1\""
-            ;;
+            sde_extension_add_usage "Unknown option $1"
+         ;;
 
          *)
             break
@@ -1704,7 +1704,7 @@ sde_extension_add_main()
    args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
 
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-      eval sde_init_main --no-blurb --no-env ${args} --add "${args}"
+      eval sde_init_main --no-blurb --no-env --add "${args}"
 }
 
 
@@ -1894,7 +1894,7 @@ sde_extension_main()
          args="`hack_option_and_single_quote_everything "--oneshot" "$@" | tr '\012' ' '`"
 
          INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-            eval sde_init_main --no-blurb --no-env --add "${args}"
+            eval sde_init_main --no-blurb --no-env --add ${args}
       ;;
 
       find|show|usage|vendors)

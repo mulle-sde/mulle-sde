@@ -38,7 +38,7 @@ sde_install_usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} install [options] <url>
+   ${MULLE_USAGE_NAME} install [options] <url> [-- [mulle-make options]]
 
    Install a remote mulle-sde project, pointed at by URL. This command must
    be run outside of a mulle-sde environment. The URL can be a repository or
@@ -72,6 +72,7 @@ Options:
    --branch <name>   : branch to checkout
    --debug           : install as debug instead of release
    --only-project    : install only the main project
+   --post-init       : run post-init on temporary project
    --prefix <prefix> : installation prefix (\$PWD)
    --linkorder       : produce linkorder output
    --keep-tmp        : don't delete temporary directory
@@ -82,7 +83,7 @@ Environment:
    MULLE_FETCH_SEARCH_PATH : specify places to search local dependencies.
 
 EOF
-  exit 1
+   exit 1
 }
 
 
@@ -104,7 +105,7 @@ do_update_sourcetree()
 }
 
 #
-# This method create a new custom project adds everythin as dependencies
+# This method create a new custom project adds everything as dependencies
 # and installs all of them by setting DEPENDENCY_DIR to --prefix
 #
 install_in_tmp()
@@ -119,6 +120,7 @@ install_in_tmp()
    local symlink="$1"; shift
    local branch="$1"; shift
    local tag="$1"; shift
+   local postinit="$1"; shift
    local arguments="$1"; shift
    local environment="$1"; shift
 
@@ -131,7 +133,12 @@ install_in_tmp()
       then
          # fake an environment for mulle-sde to run afterwards,
          # otherwise we don't need it
-         exekutor mulle-sde -s --style none/wild init --no-post-init none
+         if [ "${postinit}" = 'YES' ]
+         then
+            exekutor mulle-sde -s --style none/wild init none
+         else
+            exekutor mulle-sde -s --style none/wild init --no-post-init none
+         fi
       fi
    fi
 
@@ -142,11 +149,11 @@ install_in_tmp()
    if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -s --no-defer \
                         dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
-      log_verbose "Reusing previous .mulle-sourcetree folder unchanged. \
+      log_verbose "Reusing previous sourcetree folder unchanged. \
 Use -f flag to clobber."
       add='NO'
    else
-      rmdir_safer ".mulle-sourcetree"
+      rmdir_safer ".mulle/etc/sourcetree"
    fi
 
    if [ "${add}" = 'YES' ]
@@ -333,6 +340,7 @@ sde_install_main()
    local OPTION_TAG=
    local OPTION_OUTPUT_LINKORDER='NO'
    local OPTION_ONLY_PROJECT='NO'
+   local OPTION_POST_INIT
    local PREFIX_DIR="/tmp"
 
    local URL 
@@ -396,6 +404,10 @@ sde_install_main()
 
          --no-linkorder)
             OPTION_OUTPUT_LINKORDER='NO'
+         ;;
+
+         --post-init)
+            OPTION_POST_INIT='YES'
          ;;
 
          --prefix)
@@ -479,19 +491,27 @@ sde_install_main()
    fi
 
    local delete_tmp
-
-   # remaining arguments are passed to mulle-make (and not mulle-craft)
    local arguments
 
-   while [ $# -ne 0  ]
-   do
-      arguments="${arguments} '$1'"
-      shift
-   done
-
-   if [ ! -z "${arguments}" ]
+   #
+   # remaining arguments are passed to mulle-make (and not mulle-craft)
+   # if separated by '--'
+   #
+   if [ $# -ne 0  ] 
    then
-      arguments="-- ${arguments}"
+      if [ "$1" != "--"  ]
+      then
+         sde_install_usage "Superflous argument \"$1\" (use -- for mulle-make pass through)"
+      fi
+      arguments="--"
+      shift 
+
+      while [ $# -ne 0  ]
+      do
+         arguments="${arguments} '$1'"
+         shift
+      done
+
    fi
 
    local rval
@@ -500,11 +520,15 @@ sde_install_main()
    then
       if [ -z "${OPTION_PROJECT_DIR}" ]
       then
-         PROJECT_DIR="`make_tmp_directory`" || exit 1
+         r_make_tmp "$1" "-d" || exit 1
+         PROJECT_DIR="${RVAL}" 
+
          if [ "${OPTION_KEEP_TMP}" = 'NO' ]
          then
             delete_tmp="${PROJECT_DIR}"
          fi
+
+         log_verbose "Temporary directory is ${C_RESET_BOLD}${PROJECT_DIR}"
 
          if [ ! -d "${URL}" ]
          then
@@ -537,7 +561,9 @@ sde_install_main()
    else
       if [ -z "${OPTION_PROJECT_DIR}" ]
       then
-         PROJECT_DIR="`make_tmp_directory`" || exit 1
+         r_make_tmp "$1" "-d" || exit 1
+         PROJECT_DIR="${RVAL}" 
+
          if [ "${OPTION_KEEP_TMP}" = 'NO' ]
          then
             delete_tmp="${PROJECT_DIR}"
@@ -547,7 +573,7 @@ sde_install_main()
          PROJECT_DIR="${RVAL}"
       fi
 
-      log_verbose "Directory: \"${PROJECT_DIR}\""
+      log_verbose "Temporary build directory is ${C_RESET_BOLD}${PROJECT_DIR}"
 
       DEPENDENCY_DIR="${PREFIX_DIR}"
       KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
@@ -577,8 +603,9 @@ sde_install_main()
                      "${OPTION_SYMLINK}" \
                      "${OPTION_BRANCH}" \
                      "${OPTION_TAG}" \
+                     "${OPTION_POST_INIT}" \
                      "${arguments}" \
-                     "${environment}"
+                     "${environment}" 
    fi
 
    rval=$?

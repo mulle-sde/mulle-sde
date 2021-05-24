@@ -138,6 +138,7 @@ sde_list_dependencies()
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      ${MULLE_TECHNICAL_FLAGS} \
                   list --output-no-header \
+                       --output-no-indent \
                        --marks dependency,fs
    `"
 
@@ -168,6 +169,7 @@ sde_list_libraries()
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      list --output-no-header \
+                          --output-no-indent \
                           --marks no-dependency,no-fs
    `"
    if [ ! -z "${text}" ]

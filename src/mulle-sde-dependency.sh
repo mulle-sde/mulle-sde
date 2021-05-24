@@ -36,10 +36,23 @@ DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
 DEPENDENCY_LIST_MARKS="dependency"
 DEPENDENCY_LIST_NODETYPES="ALL"
 
-DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmake-inherit,no-cmake-searchpath"
+#
+# no-cmake-loader     : C code needs no ObjCLoader (if all-load is set)
+# no-cmake-searchpath : We don't flatten C source headers by default
+# no-all-load         : C libraries are cherrypicked for symbols
+# no-import           : use #include instead of #import
+# singlephase         : assume most C stuff is old fashioned
+#
+DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmake-loader,no-cmake-searchpath"
+#
+# no-singlephase      : assume most ObJC stuff is mulle-objc
+#
+DEPENDENCY_OBJC_MARKS="no-singlephase"
+
 DEPENDENCY_EXECUTABLE_MARKS="no-link,no-header,no-bequeath"
 DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite"
-DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-searchpath"
+DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-searchpath,no-cmake-loader"
+
 
 sde_dependency_usage()
 {
@@ -96,7 +109,7 @@ Usage:
    files into your source tree.
 
    There is a list of known projects on https://github.com/craftinfo. If the
-   URL is craftinfo:name, then the respective craftinfo is searched and if 
+   URL is craftinfo:name, then the respective craftinfo is searched and if
    a "sourcetree" file is found, this will be used to create the dependency.
 
    The default dependency is a C library with header files. You need to use
@@ -135,8 +148,9 @@ Options:
    --address <dst> : specify place in project for an embedded dependency
    --c             : used for C dependencies (default)
    --clean         : delete all previous dependencies and libraries
-   --embedded      : the dependency becomes part of the local project
    --domain <name> : create an URL for a known domain, e.g. github
+   --embedded      : the dependency becomes part of the local project
+   --framework     : a MacOS framework (macOS only)
    --github <name> : a shortcut for --domain github --user <name>
                      works also for other known domains (e.g. --gitlab)
    --headerless    : has no headerfile
@@ -191,7 +205,7 @@ Examples:
       https://github.com/mulle-sde/mulle-sde/wiki
 
 Options:
-   --append    : append value instead of set
+   --append          : append value instead of set
 
 Keys:
    aliases           : names of library to search for, separated by comma
@@ -251,7 +265,7 @@ Usage:
       ${MULLE_USAGE_NAME} dependency info freetype
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS : Repo URLS seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -273,13 +287,13 @@ Usage:
    single entries between projects.
 
 Options:
-   -l        : output long information
-   -ll       : output full information
-   -r        : recursive list
-   -g        : output branch/tag information (use -G for raw output)
-   -u        : output URL information  (use -U for raw output)
-   --url     : show URL
-   --        : pass remaining arguments to mulle-sourcetree list
+   -l    : output long information
+   -ll   : output full information
+   -r    : recursive list
+   -g    : output branch/tag information (use -G for raw output)
+   -u    : output URL information  (use -U for raw output)
+   --url : show URL
+   --    : pass remaining arguments to mulle-sourcetree list
 
 
 EOF
@@ -692,16 +706,26 @@ _sde_enhance_url()
    r_upcaseid "${address}" || return 1
    upcaseid="${RVAL}"
 
-   _tag="\${${upcaseid}_TAG:-${tag}}"
-   _branch="\${${upcaseid}_BRANCH:-${branch}}"
+   if [ -z "${tag}" ]
+   then
+      _tag="\${${upcaseid}_TAG}"
+   else
+      _tag="\${${upcaseid}_TAG:-${tag}}"
+   fi
 
+   if [ -z "${branch}" ]
+   then
+      _branch="\${${upcaseid}_BRANCH}"
+   else
+      _branch="\${${upcaseid}_BRANCH:-${branch}}"
+   fi
    #
    # so if we have a tag, we replace this in the URL with MULLE_TAG
    # that makes our URL flexible (hopefully)
    #
    if [ ! -z "${tag}" ]
    then
-      url="${url//${tag}/\${MULLE_TAG:-${tag}\}}"
+      url="${url/${tag}/\$\{MULLE_TAG\}}"
    fi
 
    # common wrapper for archive and repository
@@ -732,14 +756,14 @@ sde_dependency_add_to_sourcetree()
 
    local line
    local lines
-   local arguments 
-   local arguments_list 
+   local arguments
+   local arguments_list
 
-   lines="`rexekutor egrep -v '^#' "${filename}"`" 
+   lines="`rexekutor egrep -v '^#' "${filename}"`"
    if [ -z "${lines}" ]
    then
       log_warning "${filename} contains no dependency information"
-      return 
+      return
    fi
 
    MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
@@ -747,7 +771,7 @@ sde_dependency_add_to_sourcetree()
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_SOURCETREE_FLAGS} \
-                        eval-add --filename "${filename}" "${lines}" || exit 1 
+                        eval-add --filename "${filename}" "${lines}" || exit 1
 }
 
 
@@ -769,14 +793,14 @@ sde_dependency_use_craftinfo_main()
       return 0
    fi
 
-   local args 
+   local args
 
    if [ "${lenient}"  == 'YES' ]
    then
       args="--lenient"
    fi
 
-   if ! sde_dependency_craftinfo_create_main "DEFAULT" ${args} "${dependency}" 
+   if ! sde_dependency_craftinfo_create_main "DEFAULT" ${args} "${dependency}"
    then
       return 1
    fi
@@ -824,7 +848,6 @@ sde_dependency_add_main()
 {
    log_entry "sde_dependency_add_main" "$@"
 
-
    local OPTION_CLEAN='NO'
    local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_DIALECT=
@@ -832,7 +855,7 @@ sde_dependency_add_main()
    local OPTION_EMBEDDED='NO'
    local OPTION_EXECUTABLE='NO'
    local OPTION_FETCH='YES'
-   local OPTION_MARKS="${DEPENDENCY_MARKS}"
+   local OPTION_MARKS
    local OPTION_OPTIONAL='NO'
    local OPTION_SINGLEPHASE=
    local OPTION_SHARE='YES'
@@ -938,6 +961,11 @@ sde_dependency_add_main()
             OPTION_USER="$1"
          ;;
 
+         --framework)
+            r_comma_concat "${OPTION_MARKS}" "only-framework,singlephase"
+            OPTION_MARKS="${RVAL}"
+         ;;
+
          --header-less|--headerless)
             r_comma_concat "${OPTION_MARKS}" "no-header"
             OPTION_MARKS="${RVAL}"
@@ -965,7 +993,7 @@ sde_dependency_add_main()
             OPTION_STARTUP='YES'
          ;;
 
-         --multiphase)
+         --multiphase|--no-singlephase)
             OPTION_SINGLEPHASE='NO'
          ;;
 
@@ -1057,8 +1085,8 @@ sde_dependency_add_main()
    local address
    local branch
    local user
-
    local originalurl
+   local domain
 
    originalurl="${url}"
 
@@ -1068,8 +1096,9 @@ sde_dependency_add_main()
    branch="${OPTION_BRANCH}"
    address="${OPTION_ADDRESS}"
    options="${OPTION_OPTIONS}"
+   domain="${OPTION_DOMAIN}"
 
-   case "${originalurl}" in 
+   case "${originalurl}" in
       craftinfo:*)
          [ ! -z "${nodetype}" ] && log_warning "Nodetype will be ignored with craftinfo: type URLs"
          [ ! -z "${user}" ]     && log_warning "User will be ignored with craftinfo: type URLs"
@@ -1080,64 +1109,106 @@ sde_dependency_add_main()
 
          sde_dependency_add_craftinfo_url "${originalurl#craftinfo:}" "YES"
          return $?
+      ;;
    esac
+
+   #
+   # Special case, if we just get a name, we check if this is a project
+   # which is in MULLE_FETCH_SEARCH_PATH. If yes we pick its location and
+   # use the name of the parent directory as the user.
+   #
+
+   if [ $argc -eq 1 ]
+   then
+      local directory
+
+      log_debug "Single argument special case search of MULLE_FETCH_SEARCH_PATH"
+      IFS=":"
+      for directory in ${MULLE_FETCH_SEARCH_PATH}
+      do
+         r_filepath_concat "${directory}" "$1"
+         if [ ! -d "${RVAL}" ]
+         then
+            continue
+         fi
+
+         if [ -z "${MULLE_PATH_SH}" ]
+         then
+            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"  || return 1
+         fi
+
+         log_fluff "Found \"${RVAL}\""
+
+         r_absolutepath "${directory}"
+#         r_dirname "${RVAL}"
+         r_basename "${RVAL}"
+         user="${RVAL}"
+         nodetype="tar"
+         tag="latest"
+         domain="${domain:-github}"
+         break
+      done
+      IFS="${DEFAULT_IFS}"
+   fi
 
    #
    # if domain is given, we compose from what's on the command line
    #
-   if [ ! -z "${OPTION_DOMAIN}" ]
+   if [ ! -z "${domain}" ]
    then
       nodetype="${nodetype:-tar}"
       url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
                ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_DOMAIN_FLAGS} \
             compose-url \
-               --user "${OPTION_USER}" \
-               --tag "${OPTION_TAG}" \
+               --user "${user}" \
+               --tag "${tag}" \
                --repo "${OPTION_REPO:-$url}" \
                --scm "${nodetype}" \
-               "${OPTION_DOMAIN}" `" || exit 1
-   else
-      # if have only the URL, then lets mulle-domain guess us some
-      # of the stuff
-      if [ -z "${tag}" -a -z "${branch}" -a -z "${nodetype}" ]
+               "${domain}" `" || exit 1
+   fi
+
+   #
+   # Lets mulle-domain guess us some of the stuff, if none were given
+   #
+   if [ -z "${tag}" -a -z "${branch}" ]
+   then
+      local guessed_scheme
+      local guessed_domain
+      local guessed_repo
+      local guessed_user
+      local guessed_branch
+      local guessed_scm
+      local guessed_tag
+
+      eval "`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+            ${MULLE_TECHNICAL_FLAGS} \
+            ${MULLE_DOMAIN_FLAGS} \
+          parse-url \
+            --prefix "guessed_" \
+            "${url}" `"
+
+      if [ ! -z "${guessed_repo}" -a -z "${address}" ]
       then
-         local guessed_scheme
-         local guessed_domain
-         local guessed_repo
-         local guessed_user
-         local guessed_branch
-         local guessed_scm
-         local guessed_tag
+         log_debug "Address guessed as \"${guessed_repo}\""
+         address="${guessed_repo}"
+      fi
 
-         eval "`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-               ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_DOMAIN_FLAGS} \
-             parse-url \
-               --prefix "guessed_" \
-               "${url}" `"
+      if [ ! -z "${guessed_scm}" -a -z "${scm}" ]
+      then
+         log_debug "Nodetype guessed as \"${guessed_scm}\""
+         scm="${guessed_scm}"
+      fi
 
-         if [ ! -z "${guessed_repo}" -a -z "${address}" ]
+      if [ ! -z "${guessed_tag}" ]
+      then
+         log_debug "Tag guessed as \"${guessed_tag}\""
+         tag="${guessed_tag}"
+      else
+         if [ ! -z "${guessed_branch}" ]
          then
-            log_debug "Address guessed as \"${guessed_repo}\""
-            address="${guessed_repo}"
-         fi
-         if [ ! -z "${guessed_scm}" -a -z "${scm}" ]
-         then
-            log_debug "Nodetype guessed as \"${guessed_scm}\""
-            scm="${guessed_scm}"
-         fi
-
-         if [ ! -z "${guessed_tag}" ]
-         then
-            log_debug "Tag guessed as \"${guessed_tag}\""
-            tag="${guessed_tag}"
-         else
-            if [ ! -z "${guessed_branch}" ]
-            then
-               log_debug "Branch guessed as \"${guessed_branch}\""
-               branch="${guessed_branch}"
-            fi
+            log_debug "Branch guessed as \"${guessed_branch}\""
+            branch="${guessed_branch}"
          fi
       fi
    fi
@@ -1164,6 +1235,10 @@ sde_dependency_add_main()
          log_verbose "Adding this as a fake github project ${url} for symlink fetch"
       fi
    fi
+
+   local marks
+
+   marks="${DEPENDENCY_MARKS}"
 
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
@@ -1224,6 +1299,12 @@ sde_dependency_add_main()
          r_comma_concat "${DEPENDENCY_C_MARKS}" "${marks}"
          marks="${RVAL}"
       ;;
+
+      objc)
+         # prepend is better in this case
+         r_comma_concat "${DEPENDENCY_OBJC_MARKS}" "${marks}"
+         marks="${RVAL}"
+      ;;
    esac
 
    if [ -z "${OPTION_SINGLEPHASE}" ]
@@ -1280,6 +1361,9 @@ sde_dependency_add_main()
       marks="${RVAL}"
    fi
 
+   r_comma_concat "${marks}" "${OPTION_MARKS}"
+   marks="${RVAL}"
+
    if [ ! -z "${nodetype}" ]
    then
       r_concat "${options}" "--nodetype '${nodetype}'"
@@ -1300,7 +1384,7 @@ sde_dependency_add_main()
       r_concat "${options}" "--tag '${tag}'"
       options="${RVAL}"
    fi
-   if [ ! -z "${marks}" ]
+      if [ ! -z "${marks}" ]
    then
       r_concat "${options}" "--marks '${marks}'"
       options="${RVAL}"
@@ -1538,6 +1622,17 @@ platform-excludes"
 
          sde_dependency_set_main "$@"
          return $?
+      ;;
+
+      star-search)
+         log_info "Searching... be patient"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -V \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        walk \
+                           --dedupe-mode nodeline-no-uuid \
+                           --lenient "[ \"\${NODE_ADDRESS}\" = \"$1\" ] && \
+echo \"\${NODE_MARKS} \${NODE_TAG} \${NODE_BRANCH} \${NODE_URL} (\${WALK_DATASOURCE#\${PWD}/})\"" | sort -u
       ;;
 
       source-dir)

@@ -156,11 +156,11 @@ sde_subproject_init_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} subproject init -d <directory> ...
+   ${MULLE_USAGE_NAME} subproject init [options] <arguments>
 
    ** BEWARE: SUBPROJECTS ARE HARD TO CONFIGURE CORRECTLY **
 
-   Intitialize a subproject for mulle-sde and add it to the list of
+   Initialize a subproject for mulle-sde and add it to the list of
    subprojects. The arguments are passed to \`mulle-sde init\`.
 
    By default the subproject inherits the extensions and the environment

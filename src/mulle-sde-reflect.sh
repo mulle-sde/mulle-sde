@@ -225,7 +225,7 @@ _sde_reflect_main()
 
          if [ ! -z "${errors}" ]
          then
-            log_error "A project errored out: `cat "${statusfile}"` "
+            log_error "A project errored out: ${errors}"
             exit 1
          fi
       fi
