@@ -1268,7 +1268,8 @@ ${C_INFO}Possible ways to fix this:
          ;;
 
          *)
-            fail "Expected a \"${exttype}\" extension but found a \"${actualexttype}\" extension only"
+            fail "Expected a \"${exttype}\" extension but found only a \"${actualexttype}\" extension
+for \"${vendor}/${extname}\"."
          ;;
       esac
    fi
@@ -1306,11 +1307,14 @@ ${C_INFO}Possible ways to fix this:
    fi
 
    local verb
+   local verb_past
 
    verb="Installing"
+   verb_past="Installed"
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
       verb="Upgrading"
+      verb_past="Upgraded"
    fi
 
    #
@@ -1369,7 +1373,8 @@ ${C_INFO}Possible ways to fix this:
 
    if [ -z "${onlyfilename}" ]
    then
-      log_verbose "${C_INFO}${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RESET_BOLD}${projecttype:-none}"
+      log_verbose "${C_INFO}${verb} ${exttype} extension \
+${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RESET_BOLD}${projecttype:-none}"
    fi
 
 
@@ -1384,7 +1389,7 @@ ${C_INFO}Possible ways to fix this:
    then
       if [ -z "${onlyfilename}" ]
       then
-         log_info "${verb} ${exttype} extension \"${vendor}/${extname}\""
+         log_info "${verb_past} ${exttype} extension \"${vendor}/${extname}\""
       fi
       return
    fi
@@ -1618,10 +1623,15 @@ install_extension()
       return
    fi
 
+   local verb 
+   local verb_past
+
    verb="Installing"
+   verb_past="Installed"
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
       verb="Upgrading"
+      verb_past="Upgraded"
    fi
 
    log_verbose "${verb} extension dependencies of ${C_RESET_BOLD}${vendor}/${extname}"
@@ -1639,7 +1649,7 @@ install_extension()
    then
       if [ -z "${onlyfilename}" ]
       then
-         log_verbose "Installing project files for \"${vendor}/${extname}\""
+         log_verbose "${verb} project files for \"${vendor}/${extname}\""
       fi
 
       (
@@ -1719,15 +1729,7 @@ install_extension()
       fi
    fi
 
-   local verb
-
-   verb="Installed"
-   if [ "${OPTION_UPGRADE}" = 'YES' ]
-   then
-      verb="Upgraded"
-   fi
-
-   log_verbose "${verb} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
+   log_verbose "${verb_past} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
 }
 
 
@@ -2151,7 +2153,7 @@ install_project()
 
    if [ -z "${onlyfilename}" ]
    then
-      log_verbose "Installing project extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
+      log_info "Installing extensions in ${C_RESET_BOLD}${PWD}${C_INFO}"
    fi
 
    #
@@ -2694,6 +2696,8 @@ _sde_pre_initenv()
       flags="-f"
    fi
 
+   log_info "Initialize environment"
+
    exekutor "${MULLE_ENV:-mulle-env}" \
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${flags} \
@@ -3097,7 +3101,8 @@ sde_protect_unprotect()
    local title="$1"
    local mode="$2"
 
-   MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
+   MULLE_SDE_PROTECT_PATH="`"${MULLE_ENV:-mulle-env}" environment \
+                                 get MULLE_SDE_PROTECT_PATH 2> /dev/null`"
 
    #
    # unprotect known share directories during installation
@@ -3628,7 +3633,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
 
-   log_fluff "Setup environment"
+   log_verbose "Setup environment"
 
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done

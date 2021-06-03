@@ -142,11 +142,15 @@ sde_extension_add_usage()
 Usage:
    ${MULLE_USAGE_NAME} extension add <extension>
 
-   Add an "extra" extension to your project.
+   Add an "extra" extension to your project. A project can have as many extra 
+   extensions as you like. A typical extra extension is "sublime-text",
+   which adds a Sublime Text project file to your project.
+
+Note:
    To reconfigure your project with another runtime or buildtool, use
    \`mulle-sde init\` to setup anew.
    To add a "oneshot" extension use \`mulle-sde add\` not
-   \"mulle-sde extension add\".
+   \`mulle-sde extension add\`.
 
 EOF
 

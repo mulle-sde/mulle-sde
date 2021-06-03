@@ -43,6 +43,11 @@ Usage:
    List definitions, environment, files, dependencies to give an overview of
    your project.
 
+Tip:
+   If the files listed here do not correspond with the output of 
+   \`mulle-match list\`, then check the environment for the contents of 
+   MULLE_MATCH_FILENAMES, MULLE_MATCH_IGNORE_PATH and MULLE_MATCH_PATH.
+
 Options:
    --[no-]dependencies : list dependencies
    --[no-]definitions  : list definitions

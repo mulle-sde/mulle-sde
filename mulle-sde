@@ -669,8 +669,14 @@ main()
 
       if [ -z "${MULLE_VIRTUAL_ROOT}" ]
       then
-         # commands where we want to start a subshell
          case "${cmd}" in
+            # commands that do not need a subshell (immediately)
+            add|bash-completion|commands|extension|init|init-and-enter|reinit|\
+status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
+steal|test|upgrade)
+            ;;
+
+            # commands where we want to start a subshell
             addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir|tool-env|stash-dir)
                exec_command_in_subshell "$@"
             ;;
@@ -689,12 +695,6 @@ subproject|style|task|tool|treestatus|unmark|unprotect|update)
                shift
                sde_install_main "$@"
                return $?
-            ;;
-
-            # commands that do not need a subshell (immediately)
-            add|bash-completion|commands|extension|init|init-and-enter|reinit|\
-status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
-steal|test|upgrade)
             ;;
 
             enter)

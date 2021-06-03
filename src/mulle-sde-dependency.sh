@@ -1087,6 +1087,7 @@ sde_dependency_add_main()
    local user
    local originalurl
    local domain
+   local repo 
 
    originalurl="${url}"
 
@@ -1097,6 +1098,7 @@ sde_dependency_add_main()
    address="${OPTION_ADDRESS}"
    options="${OPTION_OPTIONS}"
    domain="${OPTION_DOMAIN}"
+   repo="${OPTION_REPO}"
 
    case "${originalurl}" in
       craftinfo:*)
@@ -1146,6 +1148,9 @@ sde_dependency_add_main()
          nodetype="tar"
          tag="latest"
          domain="${domain:-github}"
+
+         r_basename "$1"
+         repo="${repo:-${RVAL}}"
          break
       done
       IFS="${DEFAULT_IFS}"
@@ -1163,7 +1168,7 @@ sde_dependency_add_main()
             compose-url \
                --user "${user}" \
                --tag "${tag}" \
-               --repo "${OPTION_REPO:-$url}" \
+               --repo "${repo:-$url}" \
                --scm "${nodetype}" \
                "${domain}" `" || exit 1
    fi
@@ -1622,17 +1627,6 @@ platform-excludes"
 
          sde_dependency_set_main "$@"
          return $?
-      ;;
-
-      star-search)
-         log_info "Searching... be patient"
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        walk \
-                           --dedupe-mode nodeline-no-uuid \
-                           --lenient "[ \"\${NODE_ADDRESS}\" = \"$1\" ] && \
-echo \"\${NODE_MARKS} \${NODE_TAG} \${NODE_BRANCH} \${NODE_URL} (\${WALK_DATASOURCE#\${PWD}/})\"" | sort -u
       ;;
 
       source-dir)
