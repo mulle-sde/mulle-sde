@@ -977,10 +977,10 @@ version"
          sde_fetch_main "$@"
       ;;
 
-      files)
+      list|files)
          cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
-         # shellcheck source=src/mulle-sde-dependency.sh
+         # shellcheck source=src/mulle-sde-list.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
 
          sde_list_main --files --no-dependencies --no-environment --no-definitions "$@"
@@ -1040,14 +1040,6 @@ version"
          sde_linkorder_main "$@"
       ;;
 
-      list)
-         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
-
-         # shellcheck source=src/mulle-sde-dependency.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
-
-         sde_list_main "$@"
-      ;;
 
       log)
          cd_virtual_root_assert_mulle_sde "${cmd}"

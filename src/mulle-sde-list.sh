@@ -38,7 +38,7 @@ sde_list_usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} list [options]
+   ${MULLE_USAGE_NAME} project list [options]
 
    List definitions, environment, files, dependencies to give an overview of
    your project.

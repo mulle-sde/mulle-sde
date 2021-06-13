@@ -888,6 +888,14 @@ sde_project_main()
          sde_rename_main "$@"
       ;;
 
+      list)
+         # shellcheck source=src/mulle-sde-list.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
+
+         shift
+         sde_list_main --no-files "$@"
+      ;;
+
       *)
          sde_project_usage "Unknown command \"$1\""
       ;;

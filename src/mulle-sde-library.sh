@@ -264,7 +264,7 @@ sde_library_add_main()
    case "${OPTION_DIALECT}" in
       c)
          # prepend is better in this case
-         r_comma_concat "no-import,no-all-load,no-cmake-inherit,no-cmake-searchpath" "${marks}"
+         r_comma_concat "no-import,no-all-load,no-cmake-inherit" "${marks}"
          marks="${RVAL}"
       ;;
 
@@ -341,7 +341,7 @@ sde_library_set_main()
    local value="$1"
 
    # make sure its really a library, less surprising for the user (i.e. me)
-   local marks 
+   local marks
 
    if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" get "${address}" marks`"
    then
@@ -354,7 +354,7 @@ sde_library_set_main()
 ${C_INFO}Tip: Check for marks and duplicates with
 ${C_RESET_BOLD}   mulle-sourcetree list -l -_"
    fi
-      
+
    case "${field}" in
       aliases|include)
          _sde_set_sourcetree_userinfo_field "${address}" \

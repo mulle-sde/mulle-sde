@@ -637,7 +637,9 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    esac
 
    local functionname
+   local rval 
 
+   rval=0
    set -o noglob
    for domain in ${domains}
    do
@@ -647,9 +649,16 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
       if [ "`type -t "${functionname}"`" = "function" ]
       then
          "${functionname}"
+         if [ $? -ne 0 ]
+         then
+            log_debug "${functionname} failed"
+            rval=1
+         fi
       else
          sde_clean_usage "Unknown clean domain \"${domain}\""
       fi
    done
    set +o noglob
+
+   return $rval
 }

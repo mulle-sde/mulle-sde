@@ -592,8 +592,17 @@ r_library_searchpath()
 {
    log_entry "r_library_searchpath" "$@"
 
+   local if_exists="$1"
+
    [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+
+   local options
+
+   if [ "${if_exists}" = 'YES' ]
+   then
+      options="--if-exists"
+   fi
 
    local searchpath
    local configuration
@@ -603,7 +612,7 @@ r_library_searchpath()
                                  ${MULLE_TECHNICAL_FLAGS} \
                                  -s \
                               searchpath \
-                                 --if-exists \
+                                 ${options} \
                                  --configuration "${configuration}" \
                                  library`"
    if [ -z "${searchpath}" ]
@@ -621,18 +630,27 @@ r_framework_searchpath()
 {
    log_entry "r_framework_searchpath" "$@"
 
+   local if_exists="$1"
+
    [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
       . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
 
    local searchpath
    local configuration
 
+   local options
+
+   if [ "${if_exists}" = 'YES' ]
+   then
+      options="--if-exists"
+   fi
+
    configuration="${OPTION_CONFIGURATION:-Release}"
    searchpath="`rexekutor mulle-craft \
                                  ${MULLE_TECHNICAL_FLAGS} \
                                  -s \
                               searchpath \
-                                 --if-exists \
+                                 ${options} \
                                  --configuration "${configuration}" \
                                  framework`"
    if [ -z "${searchpath}" ]
@@ -1019,12 +1037,12 @@ sde_linkorder_main()
 
    if [ "${OPTION_OUTPUT_FORMAT}" != "node" ]
    then
-      r_library_searchpath
+      r_library_searchpath "YES"
       library_searchpath="${RVAL}"
 
       case "${MULLE_UNAME}" in
          darwin)
-            r_framework_searchpath
+            r_framework_searchpath # optional s
             framework_searchpath="${RVAL}"
          ;;
       esac

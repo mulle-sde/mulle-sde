@@ -594,7 +594,7 @@ r_collect_vendorextensions()
 
    local vendorextensions
 
-   log_fluff "Looking in ${searchpath}"
+   log_fluff "Looking in ${searchpath#${MULLE_USER_PWD}/} for ${vendor}/${searchname} ${searchtype}"
 
    IFS=$'\n' ; set -o noglob
    for extensiondir in `eval_rexekutor find -H "${searchpath}" \

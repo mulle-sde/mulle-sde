@@ -44,10 +44,18 @@ DEPENDENCY_LIST_NODETYPES="ALL"
 # singlephase         : assume most C stuff is old fashioned
 #
 DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmake-loader,no-cmake-searchpath"
+
 #
 # no-singlephase      : assume most ObJC stuff is mulle-objc
 #
 DEPENDENCY_OBJC_MARKS="no-singlephase"
+
+# no-cmake-all-load   : need not and can't force load frameworks
+# singlephase         : frameworks can't do multiphase
+# no-cmake-add        : we don't need info from frameworks
+# no-cmake-inherit    : we don't link against what a framework links (neccesarily)
+# only-framework      : yes it's aframework
+DEPENDENCY_FRAMEWORKS_MARKS="singlephase,no-cmake-add,no-cmake-all-load,no-cmake-inherit,only-framework"
 
 DEPENDENCY_EXECUTABLE_MARKS="no-link,no-header,no-bequeath"
 DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite"
@@ -962,7 +970,7 @@ sde_dependency_add_main()
          ;;
 
          --framework)
-            r_comma_concat "${OPTION_MARKS}" "only-framework,singlephase"
+            r_comma_concat "${OPTION_MARKS}" "${DEPENDENCY_FRAMEWORKS_MARKS}"
             OPTION_MARKS="${RVAL}"
          ;;
 
@@ -1087,7 +1095,7 @@ sde_dependency_add_main()
    local user
    local originalurl
    local domain
-   local repo 
+   local repo
 
    originalurl="${url}"
 
@@ -1119,7 +1127,6 @@ sde_dependency_add_main()
    # which is in MULLE_FETCH_SEARCH_PATH. If yes we pick its location and
    # use the name of the parent directory as the user.
    #
-
    if [ $argc -eq 1 ]
    then
       local directory
@@ -1145,6 +1152,7 @@ sde_dependency_add_main()
 #         r_dirname "${RVAL}"
          r_basename "${RVAL}"
          user="${RVAL}"
+
          nodetype="tar"
          tag="latest"
          domain="${domain:-github}"
@@ -1189,6 +1197,7 @@ sde_dependency_add_main()
       eval "`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
             ${MULLE_TECHNICAL_FLAGS} \
             ${MULLE_DOMAIN_FLAGS} \
+            -s \
           parse-url \
             --prefix "guessed_" \
             "${url}" `"
@@ -1216,6 +1225,8 @@ sde_dependency_add_main()
             branch="${guessed_branch}"
          fi
       fi
+
+      tag="${tag:-latest}"
    fi
 
    if [ -z "${nodetype}" ]
@@ -1234,9 +1245,9 @@ sde_dependency_add_main()
       #
       if [ "${nodetype}" = "none" ]
       then
-         nodetype="git"  # nodetype none is only valid for libraries
+         nodetype="tar"  # nodetype none is only valid for libraries
          address="${originalurl}"
-         url="https://github.com/${GITHUB_USER:${LOGNAME:-whoever}}/${originalurl}"
+         url="https://github.com/${GITHUB_USER:-${LOGNAME:-whoever}}/${originalurl}/archive/${tag}.tar.gz"
          log_verbose "Adding this as a fake github project ${url} for symlink fetch"
       fi
    fi
