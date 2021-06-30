@@ -727,13 +727,14 @@ _sde_enhance_url()
    else
       _branch="\${${upcaseid}_BRANCH:-${branch}}"
    fi
+
    #
    # so if we have a tag, we replace this in the URL with MULLE_TAG
    # that makes our URL flexible (hopefully)
    #
    if [ ! -z "${tag}" ]
    then
-      url="${url/${tag}/\$\{MULLE_TAG\}}"
+      url="${url//${tag}/\$\{MULLE_TAG\}}"
    fi
 
    # common wrapper for archive and repository
@@ -1127,7 +1128,7 @@ sde_dependency_add_main()
    # which is in MULLE_FETCH_SEARCH_PATH. If yes we pick its location and
    # use the name of the parent directory as the user.
    #
-   if [ $argc -eq 1 ]
+   if [ $argc -eq 1 ]  # but already consumed!
    then
       local directory
 
@@ -1135,7 +1136,7 @@ sde_dependency_add_main()
       IFS=":"
       for directory in ${MULLE_FETCH_SEARCH_PATH}
       do
-         r_filepath_concat "${directory}" "$1"
+         r_filepath_concat "${directory}" "${originalurl}"
          if [ ! -d "${RVAL}" ]
          then
             continue
@@ -1146,7 +1147,7 @@ sde_dependency_add_main()
             . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"  || return 1
          fi
 
-         log_fluff "Found \"${RVAL}\""
+         log_fluff "Found local \"${RVAL}\""
 
          r_absolutepath "${directory}"
 #         r_dirname "${RVAL}"
@@ -1157,7 +1158,7 @@ sde_dependency_add_main()
          tag="latest"
          domain="${domain:-github}"
 
-         r_basename "$1"
+         r_basename "${originalurl}"
          repo="${repo:-${RVAL}}"
          break
       done
