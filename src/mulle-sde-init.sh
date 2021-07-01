@@ -1427,7 +1427,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
    #  no-project
    #  no-clobber
    #
-   if [ "${projecttype}" != 'none' -o "${exttype}" = 'extra' ]
+   if [ "${projecttype}" != 'none' ] || [ "${exttype}" = 'extra' -o  "${exttype}" = 'oneshot' ]
    then
       if [ -z "${onlyfilename}" ]
       then
@@ -1623,7 +1623,7 @@ install_extension()
       return
    fi
 
-   local verb 
+   local verb
    local verb_past
 
    verb="Installing"
@@ -1768,6 +1768,10 @@ _install_simple_extension()
    local force="$5"
 
    projecttype="${projecttype:-${PROJECT_TYPE}}"
+   if [ -z "${projecttype}" -a "${exttype}" = "oneshot" ]
+   then
+      projecttype="executable"
+   fi
    _sde_validate_projecttype "${projecttype}"
 
    # optionally install "extra" extensions
@@ -1778,6 +1782,12 @@ _install_simple_extension()
    local extra
    local extra_vendor
    local extra_name
+
+   if [ -z "${PROJECT_NAME}" -a "${exttype}" = "oneshot" ]
+   then
+      r_basename "${MULLE_USER_PWD}"
+      PROJECT_NAME="${RVAL}"
+   fi
 
    set_projectname_variables "${PROJECT_NAME}"
    add_environment_variables "${OPTION_DEFINES}"
@@ -2814,7 +2824,7 @@ _sde_run_init_reinit_common()
       run_user_post_init_script "${PROJECT_LANGUAGE}" \
                                 "${PROJECT_DIALECT}" \
                                 "${PROJECT_TYPE}"
-   fi   
+   fi
 }
 
 
@@ -3777,6 +3787,3 @@ sde_init_main()
 
    return $rval
 }
-
-
-

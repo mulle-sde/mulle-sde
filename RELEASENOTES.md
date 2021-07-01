@@ -1,4 +1,4 @@
-## 0.47.0
+## 0.46.0
 
 * the command 'list' is now 'project list'. 'files' and 'list' are synonymous now
 * project rename is now not so overzealous in string replacement

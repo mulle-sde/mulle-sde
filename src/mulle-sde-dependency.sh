@@ -853,6 +853,21 @@ So it can't be used with craftinfo: style add."
 }
 
 
+r_option_add_mark()
+{
+   local option="$1"
+   local marks="$2"
+   local marks="$3"
+
+   if [ "${option}" = 'NO' ]
+   then
+      r_comma_concat "${marks}" "no-${mark}"
+   else
+      r_comma_concat "${marks}" "${mark}"
+   fi
+}
+
+
 sde_dependency_add_main()
 {
    log_entry "sde_dependency_add_main" "$@"
@@ -1342,11 +1357,9 @@ sde_dependency_add_main()
       fi
    fi
 
-   if [ "${OPTION_SINGLEPHASE}" = 'NO' ]
-   then
-      r_comma_concat "${marks}" "no-singlephase"
-      marks="${RVAL}"
-   fi
+   # should extend this scheme to flags below ?
+   r_option_add_mark "${OPTION_SINGLEPHASE}" 'singlephase' "${marks}"
+   marks="${RVAL}"
 
    if [ "${OPTION_PRIVATE}" = 'YES' ]
    then

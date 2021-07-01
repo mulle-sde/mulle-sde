@@ -42,9 +42,12 @@ sde_extension_usage()
 Usage:
    ${MULLE_USAGE_NAME} extension <command>
 
-   Maintain mulle-sde extensions in your project after you ran
-   mulle-sde init. Upgrade all extensions with separate
-   \`mulle-sde upgrade\` command.
+   Maintain mulle-sde extensions in your project after you ran mulle-sde init.
+   Upgrade all extensions with separate \`mulle-sde upgrade\` command.
+
+   Extra extensions that provide environment variables, need a scope
+   "extension" to be present. This is setup by all "mulle" style projects, but
+   may need manual setup with \`mulle-env scope add --share extension\`
 
 Commands:
    add        : add an extra extension to your project
@@ -142,7 +145,7 @@ sde_extension_add_usage()
 Usage:
    ${MULLE_USAGE_NAME} extension add <extension>
 
-   Add an "extra" extension to your project. A project can have as many extra 
+   Add an "extra" extension to your project. A project can have as many extra
    extensions as you like. A typical extra extension is "sublime-text",
    which adds a Sublime Text project file to your project.
 

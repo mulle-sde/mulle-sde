@@ -66,15 +66,25 @@ main()
    [ ! -d "${directory}/.mulle" ] && fail ".mulle directory failed"
 
    [ ! -f "${directory}/files/file" ]       && fail "\"${directory}/files/file\" not present"
-   [ -f "${directory}/files/another-file" ] && fail "\"${directory}/files/another-file}\" present, though shouldn't be"
+   [ -f "${directory}/files/another-file" ] && fail "\"${directory}/files/another-file\" is present, though shouldn't be"
 
    expect "extra.txt" "${directory}/files/file"
 
    log_verbose "----- #1 PASSED -----"
 
    (
+      #
+      # because MULLE_USER_PWD is already set mulle-sde will not set it on
+      # another run, but then the file will be added out of the temporary
+      # project. So set MULLE_USER_PWD manually
+      #
+      MULLE_USER_PWD="${directory}"
       rexekutor cd "${directory}" &&
-      run_mulle_sde -s add -e test-vendor/oneshot another-file.txt
+      run_mulle_sde -s add -o test-vendor/oneshot another-file.txt
+      #
+      # As the extension specifies the file to be placed into the
+      # PROJECT_SOURCE_DIR which is files, we only say another-file.txt
+      # here. (The test is a bit long in the tooth)
    ) || exit 1
 
    expect "oneshot.txt" "${directory}/files/another-file.txt"

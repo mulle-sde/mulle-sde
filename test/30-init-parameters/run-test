@@ -59,12 +59,14 @@ main()
                       --project-language "gumba" \
                       --project-dialect "mumba" \
                       --github-user "marten" \
-                      --no-post-init -d "${directory}" \
+                      --no-post-init \
+                      --style mulle/wild \
+                      -d "${directory}" \
                       -e test-vendor/extra none
 
    [ ! -d "${directory}/.mulle" ] && fail ".mulle directory failed"
 
-   [ ! -f "${directory}/source/file" ]       && fail "\"${directory}/file\" not present"
+   [ ! -f "${directory}/source/file" ] && fail "\"${directory}/file\" not present"
 
    expect "extra.txt" "${directory}/source/file"
 

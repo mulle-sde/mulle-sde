@@ -450,9 +450,9 @@ ${C_RESET_BOLD}mulle-sde add \"${PROJECT_SOURCE_DIR}/${filename}\""
 # It's sometimes nice to produce quick source files outside of a mulle-sde
 # project. We facilitate this
 #
-sde_add_no_project()
+sde_add_not_in_project()
 {
-   log_entry "sde_add_no_project" "$@"
+   log_entry "sde_add_not_in_project" "$@"
 
    local filepath="$1"
    local vendors="$2"
@@ -684,10 +684,10 @@ sde_add_main()
       esac
    fi
 
-   sde_add_no_project "${filename}" \
-                      "${OPTION_VENDOR}" \
-                      "${OPTION_NAME}" \
-                      "${OPTION_TYPE}" \
-                      "${OPTION_FILE_EXTENSION}"
+   sde_add_not_in_project "${filename}" \
+                          "${OPTION_VENDOR}" \
+                          "${OPTION_NAME}" \
+                          "${OPTION_TYPE}" \
+                          "${OPTION_FILE_EXTENSION}"
 }
 

@@ -29,5 +29,5 @@ Key                            | Value
 `ONESHOT_FILENAME_NO_EXT`      | `another-file`
 `ONESHOT_UPCASE_C_IDENTIFIER`  | `ANOTHER_FILE`
 `ONESHOT_DOWNCASE_C_IDENTIFIER`| `another_file`
-`ONESHOT_CLASS`                | `another`
+`ONESHOT_CLASS`                | `<|ONESHOT_CLASS|>`
 `ONESHOT_CATEGORY`             | `<|ONESHOT_CATEGORY|>`
