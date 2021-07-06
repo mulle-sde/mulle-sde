@@ -28,6 +28,7 @@ then
    SDE_PROJECTS="${SDE_PROJECTS}
 mulle-craft;${MULLE_CRAFT_VERSION}
 mulle-dispense;${MULLE_DISPENSE_VERSION}
+mulle-domain;${MULLE_DOMAIN_VERSION}
 mulle-env;${MULLE_ENV_VERSION}
 mulle-fetch;${MULLE_FETCH_VERSION}
 mulle-make;${MULLE_MAKE_VERSION}
