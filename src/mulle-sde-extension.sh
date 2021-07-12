@@ -926,6 +926,19 @@ emit_extension()
       return
    fi
 
+   local column 
+   local column_cmd 
+
+   column_cmd="cat"
+
+   column="`command -v column`"
+   if [ ! -z "${column}" ]
+   then
+      column_cmd="'${column}' '-t' '-s;'"
+   else
+      log_warning "column command not installed, unformatted output"
+   fi
+
    local extension
    local version
    local output
@@ -956,7 +969,7 @@ emit_extension()
          printf "%s\n" "${output}"
       done
       IFS="${DEFAULT_IFS}"
-   ) | column -t -s';'
+   ) | eval "${column_cmd}"
 }
 
 

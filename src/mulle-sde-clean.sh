@@ -278,9 +278,11 @@ sde_clean_archive_main()
 
    if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
    then
-      log_verbose "Cleaning archive cache"
+      log_verbose "Cleaning archive cache \"${MULLE_FETCH_ARCHIVE_DIR#${MULLE_USER_PWD}/}\""
 
       rmdir_safer "${MULLE_FETCH_ARCHIVE_DIR}"
+   else
+      log_warning "MULLE_FETCH_ARCHIVE_DIR is not defined"
    fi
 }
 
@@ -293,12 +295,14 @@ sde_clean_mirror_main()
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         log_verbose "Cleaning repository mirror"
+         log_verbose "Cleaning repository mirror \"${MULLE_FETCH_MIRROR_DIR#${MULLE_USER_PWD}/}\""
 
          rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
       else
          log_warning "Need -f flag for mirror cleaning"
       fi
+   else
+      log_warning "MULLE_FETCH_MIRROR_DIR is not defined"
    fi
 }
 

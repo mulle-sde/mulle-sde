@@ -46,7 +46,7 @@ DEPENDENCY_LIST_NODETYPES="ALL"
 DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmake-loader,no-cmake-searchpath"
 
 #
-# no-singlephase      : assume most ObJC stuff is mulle-objc
+# no-singlephase      : assume most ObjC stuff is mulle-objc
 #
 DEPENDENCY_OBJC_MARKS="no-singlephase"
 
@@ -1287,7 +1287,7 @@ sde_dependency_add_main()
             then
                branch="${_branch}"
             fi
-            if [ "${OPTION_BRANCH_SET}" != 'YES' ]
+            if [ "${OPTION_TAG_SET}" != 'YES' ]
             then
                tag="${_tag}"
             fi

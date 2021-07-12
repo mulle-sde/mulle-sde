@@ -502,7 +502,7 @@ sde_add_not_in_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template \"${type}\" found to create file \"${filepath#${MULLE_USER_PWD}/}\""
+            fail "No matching template found to create file \"${filepath#${MULLE_USER_PWD}/}\""
          ;;
 
          0)
