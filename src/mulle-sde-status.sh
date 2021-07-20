@@ -143,18 +143,18 @@ sde_status_main()
 
          if ! r_determine_project_dir "${directory}"
          then
-            log_warning "${indent}There is no mulle-sde project here"
+            log_warning "${indent}There is no mulle-sde project in \"${directory#${MULLE_USER_PWD}/}\"."
             if [ -d .mulle-sde ]
             then
-              log_warning "${indent}There is and old possibly upgradable mulle-sde project here"
+              log_warning "${indent}There is and old possibly upgradable mulle-sde project in \"${directory#${MULLE_USER_PWD}/}\"."
             fi
             if [ -d .mulle-env ]
             then
-              log_warning "${indent}There is and old possibly upgradable mulle-env environment here"
+              log_warning "${indent}There is and old possibly upgradable mulle-env environment in \"${directory#${MULLE_USER_PWD}/}\"."
             fi
             if [ -d .mulle-bootstrap ]
             then
-              log_warning "${indent}There is and old non-upgradable mulle-bootstrap project here"
+              log_warning "${indent}There is and old non-upgradable mulle-bootstrap project in \"${directory#${MULLE_USER_PWD}/}\"."
             fi
             exit 1
          fi

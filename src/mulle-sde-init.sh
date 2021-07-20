@@ -3071,7 +3071,7 @@ sde_run_upgrade()
    # rmdir_safer ".mulle-env"
    if [ $rval -ne 0 ]
    then
-      log_info "The upgrade failed. Restoring old configuration."
+      log_info "The upgrade failed. Restoring old configuration for \"${PWD#${MULLE_USER_PWD}/}\""
 
       sde_restore_mulle_from_old
    else
@@ -3186,7 +3186,7 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
 
       "")
          [ ! -d .mulle/share/sde ] \
-         && fail "There is no mulle-sde project here"
+         && fail "There is no mulle-sde project in \"${PWD#${MULLE_USER_PWD}/}\""
 
          oldversion="0.0.0"
          log_warning "Can not get previous installed version from \
@@ -3340,6 +3340,10 @@ _sde_init_main()
             shift
 
             OPTION_EXTENSION_FILE="$1"
+         ;;
+
+         -f)
+            MULLE_FLAG_MAGNUM_FORCE='YES'  ## do it again for extension cmd
          ;;
 
          -i|--init-flags)
@@ -3746,7 +3750,10 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
             if [ "${OPTION_UPGRADE}" = 'YES' -a "${oldversion}" != "${MULLE_EXECUTABLE_VERSION}" ]
             then
                # shellcheck source=src/mulle-sde-migrate.sh
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
+               if [ -z "${MULLE_SDE_MIGRATE_SH}" ]
+               then
+                  . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
+               fi
 
                log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"

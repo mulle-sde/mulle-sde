@@ -734,7 +734,7 @@ _sde_enhance_url()
    #
    if [ ! -z "${tag}" ]
    then
-      url="${url//${tag}/\$\{MULLE_TAG\}}"
+      url="${url//${tag}/\${MULLE_TAG}}"
    fi
 
    # common wrapper for archive and repository

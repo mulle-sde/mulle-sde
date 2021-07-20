@@ -149,7 +149,7 @@ sde_migrate()
    local minor
 
    major="${version%%.*}"
-   minor="${minor#*.}"
+   minor="${version#*.}"
    minor="${minor%%.*}"
 
    if [ "${oldmajor}" -eq 0 -a "${major}" -eq 0 -a "${oldminor}" -lt 42 ]
@@ -178,4 +178,71 @@ sde_migrate()
       log_info "Removing .mulle/etc/craft as it's not different from .mulle/share/craft"
       rmdir_safer .mulle/etc/craft
    fi
+}
+
+
+# useful for testing
+sde_migrate_main()
+{
+   log_entry "sde_extension_main" "$@"
+
+   local newversion="${MULLE_EXECUTABLE_VERSION}"
+   local oldversion
+
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_migrate_usage
+         ;;
+
+         -*)
+            sde_migrate_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ $# -gt 0 ]
+   then
+      oldversion="$1"
+      shift
+   fi
+
+   if [ $# -gt 0 ]
+   then
+      newversion="$1"
+      shift
+   fi
+
+   [ $# -ne 0 ] && sde_migrate_usage "Supeflous arguments \"$*\""
+
+   if [ -z "${MULLE_SDE_INIT_SH}" ]
+   then
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+   fi
+
+   if [ -z "${oldversion}" ]
+   then
+      r_sde_get_old_version
+      oldversion="${RVAL}"
+   fi
+
+   sde_protect_unprotect "Unprotect" "ug+w"
+   (
+      sde_migrate "${oldversion}" "${newversion}"
+   )
+   rval=$?
+
+   sde_protect_unprotect "Protect" "a-w"
+
+   return $rval
 }

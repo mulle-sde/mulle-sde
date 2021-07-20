@@ -55,6 +55,7 @@ Commands:
    list       : list installed extensions
    meta       : print the installed meta extension
    pimp       : pimp up your your project with a one-shot extension
+   freshen    : force adds extra extension, if already installed
    remove     : remove an extension from your project
    searchpath : show locations where extensions are searched
    show       : show available extensions
@@ -154,6 +155,27 @@ Note:
    \`mulle-sde init\` to setup anew.
    To add a "oneshot" extension use \`mulle-sde add\` not
    \`mulle-sde extension add\`.
+
+EOF
+
+   sde_extension_show_main extra >&2
+
+   exit 1
+}
+
+sde_extension_freshen_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension freshen <extension>
+
+   Freshen an "extra" extension to your project. This will overwrite all the
+   installed files with new versions. Project files outside of 'share' folders
+   are not overwritten during a \`mulle-sde upgrade\`. To get to newer files
+   of an extension, use the freshen command. The freshen command will only
+   work on already installed extensions.
 
 EOF
 
@@ -427,6 +449,16 @@ _extension_list_vendors()
       fi
    done
    IFS="${DEFAULT_IFS}"; shopt -u nullglob
+}
+
+
+extension_get_installed_version()
+{
+   log_entry "extension_get_installed_version" "$@"
+
+   local extension="$1"
+
+   rexekutor cat "${MULLE_SDE_SHARE_DIR}/version/${extension}" 2> /dev/null
 }
 
 
@@ -1643,6 +1675,83 @@ hack_option_and_single_quote_everything()
 }
 
 
+r_vendor_expanded_extensions()
+{
+   log_entry "r_vendor_expanded_extensions" "$@"
+
+   local if_installed="${1:-NO}" ; shift
+
+   local extension
+   local args
+   local installed_vendors
+   local found
+
+   installed_vendors="`extension_list_installed_vendors`"
+
+   for extension in "$@"
+   do
+      case "${extension}" in
+         */*)
+            if [ "${if_installed}" = 'YES' ]
+            then
+               if ! extension_get_installed_version "${extension}" > /dev/null
+               then
+                  log_verbose "Skipping non-installed extension \"${extension}\""
+                  continue
+               fi
+            fi
+         ;;
+
+         *)
+            found='NO'
+
+            # vendors aren't installed "hierarchically" though
+            # so mulle-sde can be found before mulle-foundation (in theory)
+            set -o noglob; IFS=$'\n'
+            for installed in ${installed_vendors}
+            do
+               IFS="${DEFAULT_IFS}"; set +o noglob
+               if r_find_extension "${installed}" "${extension}"
+               then
+                  if [ "${if_installed}" = 'YES' ]
+                  then
+                     if ! extension_get_installed_version "${installed}/${extension}" > /dev/null
+                     then
+                        log_fluff "\"${installed}/${extension}\" not installed"
+                        continue
+                     fi
+                  fi
+
+                  extension="${installed}/${extension}"
+                  found='YES'
+                  break
+               else
+                  log_fluff "\"${installed}/${extension}\" not found"
+               fi
+            done
+            IFS="${DEFAULT_IFS}"; set +o noglob
+
+            if [ "${found}" = 'NO' ]
+            then
+               if [ "${if_installed}" = 'YES' ]
+               then
+                  log_verbose "Skipping non-installed extension \"${extension}\""
+                  continue
+               fi
+               fail "You need to prefix extension \"${extension}\" with a vendor"
+            fi
+         ;;
+      esac
+
+
+      log_info "Selecting \"${extension}\""
+      r_add_line "${args}" "${extension}"
+      args="${RVAL}"
+   done
+
+   RVAL="${args}"
+}
+
 
 sde_extension_add_main()
 {
@@ -1658,7 +1767,7 @@ sde_extension_add_main()
          ;;
 
          --reflect|--no-reflect)
-            r_add_line "${args}" "1"
+             "${args}" "1"
             args="${RVAL}"
          ;;
 
@@ -1680,51 +1789,84 @@ sde_extension_add_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
    fi
 
-   local extension
-   local args
-   local installed_vendors
-   local found
+   local expanded_extensions
 
-   installed_vendors="`extension_list_installed_vendors`"
+   r_vendor_expanded_extensions "NO" "$@"
+   expanded_extensions="${RVAL}"
 
-   for extension in "$@"
-   do
-      case "${extension}" in
-         */*)
-            r_add_line "${args}" "${extension}"
-            args="${RVAL}"
-         ;;
-
-         *)
-            found='NO'
-            set -o noglob; IFS=$'\n'
-            for installed in ${installed_vendors}
-            do
-               IFS="${DEFAULT_IFS}"; set +o noglob
-               if r_find_extension "${installed}" "${extension}"
-               then
-                  log_info "Selecting \"${installed}/${extension}\""
-
-                  r_add_line "${args}" "${installed}/${extension}"
-                  args="${RVAL}"
-                  found='YES'
-                  break
-               fi
-            done
-            IFS="${DEFAULT_IFS}"; set +o noglob
-
-            if [ "${found}" = 'NO' ]
-            then
-               fail "You need to prefix extension \"${extension}\" with a vendor"
-            fi
-         ;;
-      esac
-   done
+   r_add_line "${args}" "${expanded_extensions}"
+   args="${RVAL}"
 
    args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
 
+   # environment variable likely to be lost.. check this
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
       eval sde_init_main --no-blurb --no-env --add "${args}"
+}
+
+
+sde_extension_freshen_main()
+{
+   log_entry "sde_extension_add_main" "$@"
+
+   local args
+
+   while :
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde_extension_freshen_usage
+         ;;
+
+         --reflect|--no-reflect)
+            r_add_line "${args}" "1"
+            args="${RVAL}"
+         ;;
+
+         -*)
+            sde_extension_freshen_usage "Unknown option $1"
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ -z "${MULLE_SDE_INIT_SH}" ]
+   then
+      # shellcheck source=src/mulle-sde-init.sh
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+   fi
+
+   local expanded_extensions
+
+   r_vendor_expanded_extensions "YES" "$@"
+   expanded_extensions="${RVAL}"
+
+   r_add_line "${args}" "${expanded_extensions}"
+   args="${RVAL}"
+   if [ -z "${args}" ]
+   then
+      log_info "Nothing to freshen"
+      return 0
+   fi
+
+   args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
+
+   # environment variable likely to be lost.. check this
+   INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension freshen" \
+      eval sde_init_main -f --no-blurb --no-env --add "${args}"
+}
+
+
+
+r_sane_vendor_name()
+{
+   # works in bash 3.2
+   RVAL="${1//[^a-zA-Z0-9-]/_}"
 }
 
 
@@ -1789,11 +1931,8 @@ sde_extension_remove_main()
       esac
 
       # paranoia of user input breaking  egrep
-      r_identifier "${vendor}"
-      vendor="${RVAL}"
-
-      r_identifier "${name}"
-      name="${name}"
+      vendor="${vendor//[^a-zA-Z0-9-]/_}"
+      name="${name//[^a-zA-Z0-9-]/_}"
 
       matches="`rexekutor egrep -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
       r_add_line "${removed}" "${matches}"
@@ -1897,7 +2036,7 @@ sde_extension_main()
    fi
 
    case "${cmd}" in
-      add|remove)
+      add|remove|freshen)
          [ $# -eq 0 ] && sde_extension_${cmd}_usage
 
          sde_extension_${cmd}_main "$@"

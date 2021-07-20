@@ -32,7 +32,7 @@
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-MULLE_EXECUTABLE_VERSION=0.46.0
+MULLE_EXECUTABLE_VERSION=0.47.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 
@@ -360,12 +360,12 @@ _exec_command_in_subshell()
    then
       if [ -d ".mulle-sde" ]
       then
-         fail "There is only an old mulle-sde project here ($current).
+         fail "There is only an old mulle-sde project in ($current#${MULLE_USER_PWD}/).
 ${C_INFO}It should be upgradable with:
 ${C_RESET_BOLD}   mulle-sde upgrade
 ${C_RESET_BOLD}   mulle-sde clean tidy"
       fi
-      fail "There is no mulle-sde project here ($current)
+      fail "There is no mulle-sde project in ($current#${MULLE_USER_PWD}/).
 ${C_INFO}Create an initial empty one with:
 ${C_RESET_BOLD}   mulle-sde init"
    fi
@@ -402,7 +402,7 @@ $1"
 
 #
 # This reruns a mulle-sde command via mulle-env, so effectively calling
-# this script with the same parameters again, but from inside the environment#
+# this script with the same parameters again, but from inside the environment
 #
 exec_command_in_subshell()
 {
@@ -682,8 +682,8 @@ steal|test|upgrade)
             ;;
 
             callback|clean|craft|craftinfo|craftorder|craftstatus|crun|doctor|\
-dependency|definition|environment|fetch|files|find|ignore|library|linkorder|list|log|\
-mark|match|monitor|patternfile|project|protect|reflect|run|\
+dependency|definition|env|environment|fetch|files|find|ignore|library|linkorder|list|log|\
+mark|match|migrate|monitor|patternfile|project|protect|reflect|run|\
 subproject|style|task|tool|treestatus|unmark|unprotect|update)
                exec_command_in_subshell "$@"
             ;;
@@ -954,11 +954,11 @@ version"
          sde_dependency_main "$@"
       ;;
 
-      environment)
-         cd_virtual_root "${cmd}" 'NO'
+     env|environment)
+         cd_virtual_root "environment" 'NO'
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exec_mulle_env -N "${cmd}" "$@"
+            exec_mulle_env -N "environment" "$@"
       ;;
 
       extension)
@@ -1081,6 +1081,17 @@ version"
 
       '')
          log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
+      ;;
+
+      migrate)
+         log_warning "Command only to be used for development of mulle-sde"
+
+         cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+
+         # shellcheck source=src/mulle-sde-migrate.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
+
+         sde_migrate_main "$@"
       ;;
 
       monitor)

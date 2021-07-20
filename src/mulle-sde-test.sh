@@ -449,7 +449,7 @@ r_sde_test_main()
       ;;
 
       # build commands
-      clean|crun|craft|build|craftorder|linkorder|log|rebuild|recraft|recrun|rerun|run)
+      clean|crun|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft|recrun|rerun|run)
          RVAL='DEFAULT'
          return 1;
       ;;

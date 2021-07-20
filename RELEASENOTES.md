@@ -1,29 +1,7 @@
-## 0.46.0
+## 0.47.0
 
-* the command 'list' is now 'project list'. 'files' and 'list' are synonymous now
-* project rename is now not so overzealous in string replacement
-* improved handling of definitions, so that old definitions dont magically reappear when all previous custom definitions get deleted
-* you can now say `mulle-sde dependency add foo` and mulle-sde will use the `MULLE_FETCH_SEARCH_PATH` to search for a local dependency
-* the post-init script is now run even if the style is none
-* libraries are now by default included in **list**
-* improved support for dependencies that produce Frameworks
-* new **dependency info** command
-* new **craftinfo list** and **craftinfo info** commands
-* improved query of sourcetree status before craft affecting a possible clean or sync, which has the net effect that crafts are faster now
-* mulle-sourcetree now looks for a share/../config file as a fallback for the etc/../config file. This makes extension upgrades much easier to handle
-* also definitions are now properly separated in etc/share
-* add mulle-domain to list of mulle-tools
-* rename anything with os- to platform- to distinguish better between target OS (platform) and host OS (os)
-* ``PROJECT_IDENTIFIER`` (as it can be derived) will not be saved into the environment anymore
-* mulle-sde list can now emit categories in their as-used-by cmake name
-* you can suppress reflection when adding an extension with --no-reflect
-* The option --keep-history for craftinfo fetch has been renamed to --no-git. But the default is now --rename-git which is more convenient. You keep the opion of pushing a revised craftinfo and keep the craftinfo in your project git.
-* `add` command will now consider `${PWD}`
-* ``DEPENDENCY_DIR`` and ``KITCHEN_DIR`` are no longer assumed to be part of the default environment set by the mulle.sh mulle-env plugin.
-* mulle-sde will now build the craftorder only, if the project type is none by default
-* improvements for project-type "none" to do the right thing, which is build dependencies only
-* `list` lists less by default
-* fix mulle.sh mulle-sde extension being in wrong format, prune a lot of settings which can be easily computed like ``ADDICTION_DIR`` or ``PROJECT_UPCASE_IDENTIIER``
+* add "test fetch" sub-command
+* add freshen sub-command to extension to update extra extension content
 
 
 ## 0.45.0

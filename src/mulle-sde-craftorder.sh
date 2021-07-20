@@ -121,7 +121,6 @@ create_craftorder_file()
             ${MULLE_TECHNICAL_FLAGS} \
          craftorder \
             --no-print-env \
-            --no-bequeath \
             --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
             "$@"
    then

@@ -497,6 +497,7 @@ sde_add_not_in_project()
                                          "${vendors}" \
                                          "${name}" \
                                          "${type}" \
+                                         "${type_default}" \
                                          "${ext}"
 
       rval=$?
