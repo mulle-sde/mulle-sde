@@ -39,12 +39,12 @@ and its dependencies is installed into `/tmp/foo`:
 mulle-sde install --prefix /tmp/foo https://github.com/mulle-c/mulle-allocator/archive/latest.tar.gz
 ```
 
-If you don't want to use the mulle-sde project management features to
-maintain dependencies local to your existing project, you can use a `none`
+If you don't want to use the mulle-sde project features to, but you only want
+to maintain dependencies of an existing project, you can use a `none`
 project type:
 
 ```
-mulle-sde init
+mulle-sde init # none is implicit
 mulle-sde dependency add --github madler zlib
 mulle-sde craft
 ```
@@ -53,10 +53,10 @@ This will create four folders:
 
 ```
 .
-├── dependency   # the desired output
+├── dependency   # the desired output will be found here
 ├── kitchen      # temporary build folder
 ├── .mulle       # internal mulle-sde maintenance
-└── stash        # download dependencies
+└── stash        # downloaded dependencies
 ```
 
 
@@ -68,20 +68,22 @@ The basic principle in mulle-sde is the Edit-Reflect-Craft cycle
 ### ERC : Edit - Reflect - Craft
 
 #### Edit
+
 You use the editor of your choice and any GUI or terminal to manage the
 project files.
 
 #### Reflect
 
 Changes in the filesystem are picked up by `mulle-sde reflect` and are used
-to update build system files and programming lanuage headers.
+to update build system files and header files.
 
 #### Craft
 
 `mulle-sde` fetches dependencies, builds them and installs them local to your
-project. Then it will optionally also build your project.
+project. Then it will build your project. A repeated craft, will then
+rebuild only your project.
 
-All commands have `help` command for usage information. Most commands have
+All commands have a `help` subcommand for usage information. Most commands have
 subcommands, that also have further help. E.g. `mulle-sde help` and
 `mulle-sde dependency help`.
 
