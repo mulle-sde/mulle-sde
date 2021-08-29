@@ -237,7 +237,8 @@ _sde_test_run()
    local directory="$1"; shift
    local cmd="$1"; shift
 
-   physdir="`physicalpath "${directory}"`"
+   r_physicalpath "${directory}"
+   physdir="${RVAL}"
 
    #
    # We need to pass -Ddefine variables to mulle-test
@@ -366,6 +367,7 @@ sde_test_path_environment()
 }
 
 
+
 r_sde_test_init()
 {
    log_entry "r_sde_test_init" "$@"
@@ -380,18 +382,38 @@ r_sde_test_init()
    fi
 
    local value
+   local keys 
+   local key 
+   
+   keys="MULLE_SOURCETREE_USE_PLATFORM_MARKS_FOR_FETCH:\
+MULLE_SOURCETREE_RESOLVE_TAG"
 
-   # copy some basic settings if init was successful
-   value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get MULLE_SOURCETREE_RESOLVE_TAG`"
-   # load current project settings
-   if [ ! -z "${value}" ]
-   then
-      rexekutor "${MULLE_ENV:-mulle-env}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_ENV_FLAGS} \
-                     -d test \
-                  environment set MULLE_SOURCETREE_RESOLVE_TAG NO
-   fi
+   IFS=":"
+   for key in ${keys}
+   do
+      IFS="${DEFAULT_IFS}"
+      # copy some basic settings if init was successful
+      value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get ${key}`"
+      # load current project settings
+      if [ ! -z "${value}" ]
+      then
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS} \
+                        -d test \
+                     environment set ${key} "${value}"
+      fi
+   done
+   IFS="${DEFAULT_IFS}"
+
+   #
+   # disable graveyards on tests
+   #
+   rexekutor "${MULLE_ENV:-mulle-env}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_ENV_FLAGS} \
+                  -d test \
+               environment set MULLE_SOURCETREE_GRAVEYARD_ENABLED NO
 
    RVAL="DONE"
 }

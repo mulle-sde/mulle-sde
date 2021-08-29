@@ -236,7 +236,7 @@ sde_status_main()
          if [ ! -f "${sourcetreefile}" ]
          then
             log_verbose "Sourcetree status:"
-            log_info "${indent}There is no sourcetree ($PWD)"
+            log_info "${indent}There is no sourcetree (${PWD#${MULLE_USER_PWD}/})"
          else
             local state
             local expect_dependencydir
@@ -274,7 +274,7 @@ sde_status_main()
                      local state
                      local color
 
-                     shopt -s nullglob
+                     shell_enable_nullglob
                      for file in "${stashdir}"/*
                      do
                         state="missing"
@@ -320,8 +320,8 @@ sde_status_main()
                         esac
                         printf "   %b\n" "${color}${file}${C_RESET}"
                      done
+                     shell_disable_nullglob
                   fi
-                  shopt -u nullglob
                ;;
             esac
 

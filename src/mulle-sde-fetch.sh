@@ -42,10 +42,13 @@ Usage:
 
    Fetch all dependencies and ensure the already fetched dependencies are the
    the correct versions (else refetch them).
-   This is the same as calling \`mulle-sourcetree sync\`.
+   This is the like calling \`mulle-sourcetree sync\`, with a quick check
+   if a sync is required.
+
+   Options are passed through to \`mulle-sourcetree sync\`.
 
 Options:
-   --recurse|flat|share    : specify mode to sync sourcetree with
+   --serial                     : don't fetch dependencies in parallel
 
 Environment:
    MULLE_FETCH_ARCHIVE_DIR      : local cache of archives
@@ -71,7 +74,8 @@ do_sync_sourcetree()
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                         "${MULLE_TECHNICAL_FLAGS}" \
                         "${OPTION_MODE}" \
-                     "sync" "$@"
+                     "sync" \
+                        "$@"
 }
 
 
@@ -97,10 +101,6 @@ sde_fetch_main()
             break
          ;;
 
-         -*)
-            sde_fetch_usage "Unknown option \"$1\""
-         ;;
-
          *)
             break
          ;;
@@ -109,19 +109,17 @@ sde_fetch_main()
       shift
    done
 
-   [ "$#" -eq 0 ] || sde_fetch_usage "superflous arguments \"$*\""
-
    local do_update
    local rval
-
 
    do_update="${MULLE_FLAG_MAGNUM_FORCE}"
    if [ "${do_update}" != 'YES' ]
    then
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                    -V \
-                    ${MULLE_TECHNICAL_FLAGS} \
-                    status --is-uptodate
+                     --virtual-root \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                    status \
+                     --is-uptodate
       rval=$?
       log_fluff "Sourcetree status --is-uptodate returned with $rval"
 

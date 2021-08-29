@@ -387,7 +387,7 @@ r_extension_get_vendor_path()
 
    RVAL=""
 
-   IFS=':'; set -o noglob
+   IFS=':'; shell_disable_glob
    for i in ${searchpath}
    do
       if [ -d "${i}/${vendor}" ]
@@ -397,7 +397,7 @@ r_extension_get_vendor_path()
          r_colon_concat "${RVAL}" "${i}"
       fi
    done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 }
 
 
@@ -417,12 +417,12 @@ r_extension_get_quoted_vendor_dirs()
 
    RVAL=""
 
-   IFS=':'; set -o noglob
+   IFS=':'; shell_disable_glob
    for i in ${vendorpath}
    do
       r_concat "${RVAL}" "${s}${i}/${vendor}${t}"
    done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 }
 
 
@@ -436,7 +436,7 @@ _extension_list_vendors()
    r_extension_get_searchpath
    searchpath="${RVAL}"
 
-   IFS=':'; shopt -s nullglob
+   IFS=':'; shell_enable_nullglob
    for i in ${searchpath}
    do
       if [ -d "${i}" ]
@@ -448,7 +448,7 @@ _extension_list_vendors()
                                   -print
       fi
    done
-   IFS="${DEFAULT_IFS}"; shopt -u nullglob
+   IFS="${DEFAULT_IFS}"; shell_disable_nullglob
 }
 
 
@@ -588,7 +588,7 @@ r_extensionnames_from_vendorextensions()
    local foundtype
    local directory
 
-   IFS=$'\n' ; set -o noglob
+   IFS=$'\n' ; shell_disable_glob
    for line in ${vendorextensions}
    do
       foundtype="${line#*;}"
@@ -600,7 +600,7 @@ r_extensionnames_from_vendorextensions()
          result="${RVAL}"
       fi
    done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 
    RVAL="${result}"
 }
@@ -631,14 +631,14 @@ r_collect_vendorextensions()
 
    log_fluff "Looking in ${searchpath#${MULLE_USER_PWD}/} for ${vendor}/${searchname} ${searchtype}"
 
-   IFS=$'\n' ; set -o noglob
+   IFS=$'\n' ; shell_disable_glob
    for extensiondir in `eval_rexekutor find -H "${searchpath}" \
                                             -mindepth 1 \
                                             -maxdepth 1 \
                                             '\(' -type d -o -type l '\)' \
                                             -print`
    do
-      IFS="${DEFAULT_IFS}"; set +o noglob
+      IFS="${DEFAULT_IFS}"; shell_enable_glob
 
       foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
       if [ -z "${foundtype}" ]
@@ -668,7 +668,7 @@ r_collect_vendorextensions()
       vendorextensions="${RVAL}"
    done
 
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 
    RVAL="${vendorextensions}"
 }
@@ -681,7 +681,7 @@ collect_extension_projecttypes()
    local extensiondir="$1"
 
    (
-      shopt -s nullglob
+      shell_enable_nullglob
       for i in "${extensiondir}/project/"*
       do
          if [ -d "$i" ]
@@ -840,16 +840,16 @@ sde_extension_find_main()
 
       all_vendors="`extension_list_vendors`" || exit 1
 
-      set -o noglob; IFS=$'\n'
+      shell_disable_glob; IFS=$'\n'
       for vendor in ${all_vendors}
       do
-         IFS="${DEFAULT_IFS}"; set +o noglob
+         IFS="${DEFAULT_IFS}"; shell_enable_glob
 
          r_collect_vendorextensions "${vendor}" "${name}" "${type}"
          r_add_line "${extensions}" "${RVAL}"
          extensions="${RVAL}"
       done
-      IFS="${DEFAULT_IFS}"; set +o noglob
+      IFS="${DEFAULT_IFS}"; shell_enable_glob
    fi
 
    if [ -z "${extensions}" ]
@@ -1113,10 +1113,10 @@ sde_extension_show_main()
    log_verbose "Vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${vendors}" | sed 's/^/  /' `"
 
-   set -o noglob; IFS=$'\n'
+   shell_disable_glob; IFS=$'\n'
    for vendor in ${vendors}
    do
-      IFS="${DEFAULT_IFS}"; set +o noglob
+      IFS="${DEFAULT_IFS}"; shell_enable_glob
 
       if [ -z "${vendor}" ]
       then
@@ -1185,7 +1185,7 @@ sde_extension_show_main()
          ;;
       esac
    done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 
    emit_extension "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
    emit_extension "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
@@ -1292,14 +1292,14 @@ collect_file_info()
 
    local directory
 
-   set -o noglob; IFS=$'\n'
+   shell_disable_glob; IFS=$'\n'
    for directory in ${extensiondirs}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       cat "${directory}/${filename}" 2> /dev/null
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -1555,10 +1555,10 @@ emit_extension_usage()
       local dependencies
 
       dependencies="`collect_extension_inherits "${extensiondir}"`"
-      set -o noglob; IFS=$'\n'
+      shell_disable_glob; IFS=$'\n'
       for dependency in ${dependencies}
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          emit_extension_usage "${dependency}"
          if [ "${OPTION_LIST_TYPES}" = 'NO' ]
@@ -1567,7 +1567,7 @@ emit_extension_usage()
             echo
          fi
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
    __emit_extension_usage "${extension}"
 }
@@ -1707,10 +1707,10 @@ r_vendor_expanded_extensions()
 
             # vendors aren't installed "hierarchically" though
             # so mulle-sde can be found before mulle-foundation (in theory)
-            set -o noglob; IFS=$'\n'
+            shell_disable_glob; IFS=$'\n'
             for installed in ${installed_vendors}
             do
-               IFS="${DEFAULT_IFS}"; set +o noglob
+               IFS="${DEFAULT_IFS}"; shell_enable_glob
                if r_find_extension "${installed}" "${extension}"
                then
                   if [ "${if_installed}" = 'YES' ]
@@ -1729,7 +1729,7 @@ r_vendor_expanded_extensions()
                   log_fluff "\"${installed}/${extension}\" not found"
                fi
             done
-            IFS="${DEFAULT_IFS}"; set +o noglob
+            IFS="${DEFAULT_IFS}"; shell_enable_glob
 
             if [ "${found}" = 'NO' ]
             then
@@ -1799,9 +1799,9 @@ sde_extension_add_main()
 
    args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
 
-   # environment variable likely to be lost.. check this
+   # --add must be very first option
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-      eval sde_init_main --no-blurb --no-env --add "${args}"
+      eval sde_init_main --add --no-blurb --no-env "${args}"
 }
 
 
@@ -1959,7 +1959,7 @@ sde_extension_remove_main()
    # remove from installed versions
    local line
 
-   IFS=$'\n'; set -f
+   IFS=$'\n'; shell_disable_glob
    for line in ${removed}
    do
       line="${line%%;*}"
@@ -1969,7 +1969,7 @@ sde_extension_remove_main()
       remove_file_if_present "${MULLE_SDE_SHARE_DIR}/version/${vendor}/${name}"
       rmdir_if_empty "${MULLE_SDE_SHARE_DIR}/version/${vendor}"
    done
-   IFS="${DEFAULT_IFS}"; set +f
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 
    rmdir_if_empty "${MULLE_SDE_SHARE_DIR}/version"
 
@@ -2016,7 +2016,7 @@ sde_extension_main()
 
    case "$1" in
       -h|--help|help)
-         if [ "`type -t "sde_extension_${cmd}_usage"`" = "function" ]
+         if shell_is_function "sde_extension_${cmd}_usage"
          then
             sde_extension_${cmd}_usage
          else

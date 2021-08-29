@@ -412,7 +412,15 @@ sde_dependency_set_main()
 
    if ! sde_marks_compatible_with_marks "${marks}" "${DEPENDENCY_MARKS}"
    then
-      fail "${address} is not a dependency"
+      if [ "${field}" != "marks" ]
+      then
+         fail "${address} is not a dependency"
+      fi
+      if ! sde_marks_compatible_with_marks "${value}" "${DEPENDENCY_MARKS}"
+      then
+         fail "${address} would not be a dependency anymore.
+${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
+      fi
    fi
 
    local value="$1"
@@ -616,7 +624,8 @@ sde_dependency_list_main()
    if [ "${OPTION_OUTPUT_COMMAND}" = 'YES' ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root -s \
                ${MULLE_TECHNICAL_FLAGS} \
             list \
                --marks "${DEPENDENCY_LIST_MARKS}" \
@@ -633,7 +642,8 @@ sde_dependency_list_main()
                "$@"
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
-         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s \
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root -s \
                ${MULLE_TECHNICAL_FLAGS} \
             list \
                --format "${formatstring}\\n" \
@@ -734,7 +744,17 @@ _sde_enhance_url()
    #
    if [ ! -z "${tag}" ]
    then
-      url="${url//${tag}/\${MULLE_TAG}}"
+      # bash weirdness
+      case "${BASH_VERSION}" in 
+         [0123].*)
+            r_escaped_sed_pattern "${tag}"
+            url="$(sed -e "s/${RVAL}/\\\${MULLE_TAG}/g" <<< "${url}" )"
+         ;;
+
+         *)
+            url="${url//${tag}/\$\{MULLE_TAG\}}"
+         ;;
+      esac
    fi
 
    # common wrapper for archive and repository
@@ -797,6 +817,11 @@ sde_dependency_use_craftinfo_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
    fi
 
+   if sde_dependency_craftinfo_exists_main "DEFAULT" --crafthelp "${dependency}"
+   then
+      sde_dependency_craftinfo_info_main --crafthelp "${dependency}"
+   fi
+
    if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
    then
       return 0
@@ -856,7 +881,7 @@ So it can't be used with craftinfo: style add."
 r_option_add_mark()
 {
    local option="$1"
-   local marks="$2"
+   local mark="$2"
    local marks="$3"
 
    if [ "${option}" = 'NO' ]
@@ -1164,7 +1189,7 @@ sde_dependency_add_main()
 
          log_fluff "Found local \"${RVAL}\""
 
-         r_absolutepath "${directory}"
+         r_simplified_absolutepath "${directory}"
 #         r_dirname "${RVAL}"
          r_basename "${RVAL}"
          user="${RVAL}"
@@ -1242,7 +1267,11 @@ sde_dependency_add_main()
          fi
       fi
 
-      tag="${tag:-latest}"
+      case "${guessed_user}" in
+         mulle*)
+            tag="${tag:-latest}"
+         ;;
+      esac
    fi
 
    if [ -z "${nodetype}" ]
@@ -1357,7 +1386,6 @@ sde_dependency_add_main()
       fi
    fi
 
-   # should extend this scheme to flags below ?
    r_option_add_mark "${OPTION_SINGLEPHASE}" 'singlephase' "${marks}"
    marks="${RVAL}"
 
@@ -1422,13 +1450,15 @@ sde_dependency_add_main()
 
    if [ "${OPTION_CLEAN}" = 'YES' ]
    then
-      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     --virtual-root \
                      "${MULLE_TECHNICAL_FLAGS}"\
                   clean --config
    fi
 
    log_verbose "URL: ${url}"
-   if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+   if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                       --virtual-root \
                       "${MULLE_TECHNICAL_FLAGS}"\
                         add "${options}" "'${url}'"
    then
@@ -1602,7 +1632,7 @@ unmark"
       duplicate|mark|move|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
+                           --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
                         "${cmd}" \
                            "$@"
@@ -1632,7 +1662,7 @@ platform-excludes"
       remove)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
+                           --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
                         "${cmd}" \
                            --if-present \
@@ -1640,7 +1670,7 @@ platform-excludes"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
+                           --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
                         "${cmd}" \
                            "$@"

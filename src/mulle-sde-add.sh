@@ -133,6 +133,9 @@ _sde_add_oneshot_extension()
    fi
 
    (
+      OPTION_ADD='YES'
+
+      clear_oneshot_variables
       #
       # Use this hacky way, so we can add oneshot extensions without
       # the need for a project to exist already
@@ -165,10 +168,10 @@ _sde_add_file_via_oneshot_extension()
    #
 
    log_debug "Looking for direct name hit"
-   set -o noglob; IFS=$'\n'
+   shell_disable_glob; IFS=$'\n'
    for vendor in ${vendors}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       if sde_extension_find_main -q "${vendor}/${name}" "oneshot"
       then
@@ -179,7 +182,7 @@ _sde_add_file_via_oneshot_extension()
          return $?
       fi
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 
    if [ ! -z "${genericname}" -a "${genericname}" != "${name}" ]
    then
@@ -188,10 +191,10 @@ _sde_add_file_via_oneshot_extension()
       #
       # fall back to non-specialized files
       #
-      set -o noglob; IFS=$'\n'
+      shell_disable_glob; IFS=$'\n'
       for vendor in ${vendors}
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          if sde_extension_find_main -q "${vendor}/${genericname}" "oneshot"
          then
@@ -202,7 +205,7 @@ _sde_add_file_via_oneshot_extension()
             return $?
          fi
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
 
    return 4  # not found
@@ -430,15 +433,18 @@ sde_add_in_project()
       fi
    fi
 
+   # this warning fails on projects with subprojects
    local found
 
    found="`rexekutor mulle-match list | fgrep -x "${filename}"`"
    if [ -z "${found}" ]
    then
+      r_filepath_concat "${PROJECT_SOURCE_DIR}" "${filename}"
+
       log_warning "The new file \"${filename}\" will not be found by \`reflect\`.
 ${C_INFO}Tip: The PROJECT_SOURCE_DIR environment variable is ${C_RESET_BOLD}${PROJECT_SOURCE_DIR}.
 ${C_INFO}Maybe remove the generated file and try anew with:
-${C_RESET_BOLD}mulle-sde add \"${PROJECT_SOURCE_DIR}/${filename}\""
+${C_RESET_BOLD}mulle-sde add \"${RVAL#${MULLE_USER_PWD}/}\""
       return
    fi
 

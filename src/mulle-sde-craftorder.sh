@@ -43,10 +43,11 @@ Usage:
    Show the craftorder of the dependencies.
 
 Options:
-   -h                     : show this usage
-   --cached               : show the cached craftorder contents
-   --remaining            : show what remains uncrafted of a craftorder
-   --remove-cached        : remove cached craftorder contents
+   -h                      : show this usage
+   --print-craftorder-file : print file path of cached craftorder file
+   --cached                : show the cached craftorder contents
+   --remaining             : show what remains uncrafted of a craftorder
+   --remove-cached         : remove cached craftorder contents
 EOF
    exit 1
 }
@@ -114,14 +115,19 @@ create_craftorder_file()
 
    log_info "Creating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} craftorder"
 
+   local callback
+
+   # get "source" of function into callback
+   callback="`declare -f r_append_mark_no_memo_to_subproject`"
    mkdir_if_missing "${cachedir}"
    if ! redirect_exekutor "${craftorderfile}" \
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-            -V -s \
+            --virtual-root \
+            -s \
             ${MULLE_TECHNICAL_FLAGS} \
          craftorder \
             --no-print-env \
-            --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
+            --callback "${callback}" \
             "$@"
    then
       remove_file_if_present "${craftorderfile}"
@@ -173,12 +179,17 @@ show_craftorder()
    log_entry "show_craftorder" "$@"
 
    log_info "Craftorder"
+
+   local callback
+
+   callback="`declare -f r_append_mark_no_memo_to_subproject`"
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                     -V -s \
+                     --virtual-root \
+                     -s \
                      ${MULLE_TECHNICAL_FLAGS} \
                   craftorder \
-                     --callback "`declare -f r_append_mark_no_memo_to_subproject`" \
+                     --callback "${callback}" \
                      "$@"
 }
 
@@ -191,7 +202,7 @@ sde_craftorder_main()
    local OPTION_REMOVE_CACHED='NO'
    local OPTION_CREATE='NO'
    local OPTION_REMAINING='NO'
-
+   local OPTION_PRINT_CACHEFILE_PATH='NO'
    #
    # handle options
    #
@@ -218,6 +229,10 @@ sde_craftorder_main()
             OPTION_REMAINING='YES'
          ;;
 
+         --print-craftorder-file)
+            OPTION_PRINT_CACHEFILE_PATH='YES'
+         ;;
+
          -*)
             sde_craftorder_usage "Unknown option \"$1\""
          ;;
@@ -239,6 +254,14 @@ sde_craftorder_main()
    local _cachedir
 
    __get_craftorder_info
+
+
+   if [ "${OPTION_PRINT_CACHEFILE_PATH}" = 'YES'  ]
+   then
+      printf "%s\n" "${_craftorderfile#${MULLE_USER_PWD}/}"
+      exit 0
+   fi
+
 
    if [ "${OPTION_REMOVE_CACHED}" = 'YES'  ]
    then

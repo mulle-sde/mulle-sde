@@ -48,7 +48,7 @@ sde_migrate_from_v0_41_to_v42()
    then
       log_info "Removing duplicates of headers now residing in \"${PROJECT_SOURCE_DIR}/reflect\""
       # remove old headers
-      shopt -s nullglob
+      shell_enable_extglob
       for i in "${PROJECT_SOURCE_DIR}"/reflect/*
       do
          r_basename "$i"
@@ -61,7 +61,7 @@ sde_migrate_from_v0_41_to_v42()
    if [ -d cmake ]
    then
       log_info "Removing duplicates of cmake files now residing in \"cmake/reflect\""
-      shopt -s nullglob
+      shell_enable_nullglob
       for i in cmake/reflect/*
       do
          r_basename "$i"
@@ -96,7 +96,7 @@ sde_migrate_from_v0_46_to_v47()
    log_entry "sde_migrate_from_v0_46_to_v47" "$@"
 
    (
-      shopt -s nullglob
+      shell_enable_nullglob
 
       local i
       local name

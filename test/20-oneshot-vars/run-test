@@ -3,15 +3,20 @@
 [ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
-# the tests here are wrong, mulle-craft shouldn't b
 run_mulle_sde()
 {
-   log_fluff "####################################"
+   log_fluff "####################################" >&2
    log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
-   log_fluff "####################################"
+   log_fluff "####################################" >&2
 
-   exekutor "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" --no-auto-shell ${MULLE_SDE_FLAGS} "$@"
+   )
 }
+
 
 
 expect()
@@ -46,15 +51,18 @@ main()
 {
    MULLE_SDE_FLAGS="$@"
 
-   _options_mini_main "$@"
+   _options_mini_main "$@" && set -x
 
    MULLE_SDE_EXTENSION_PATH="${PWD}"
    export MULLE_SDE_EXTENSION_PATH
 
    local directory
 
-   directory="`make_tmp_directory`" || exit 1
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
    directory="${directory:-/tmp/build}"
+
+
 
    run_mulle_sde -s init --project-name "FooBar" \
                          --project-source-dir "files" \

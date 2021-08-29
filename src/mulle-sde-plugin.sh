@@ -52,7 +52,13 @@ load_plugin_if_needed()
    local plugin
    local libexedir
 
-   plugin="${!varname}"
+   if [ ! -z "${ZSH_VERSION}" ]
+   then
+      plugin="${(P)varname}"
+   else
+      plugin="${!varname}"
+   fi
+
    if [ -z "${plugin}" ]
    then
       r_dirname="$0"
@@ -69,7 +75,16 @@ load_plugin_if_needed()
       fi
    fi
 
-   if [ -z "${!definename}" ]
+   local value
+
+   if [ ! -z "${ZSH_VERSION}" ]
+   then
+      value="${(P)definename}"
+   else
+      value="${!definename}"
+   fi
+
+   if [ -z "${value}" ]
    then
       . "${plugin}" || fail "could not find \"libexec/${filename}\""
       log_debug "Did load plugin \"libexec/${filename}\""
@@ -79,8 +94,5 @@ load_plugin_if_needed()
 
    printf -v "${varname}"  "%s" "${functionname}"
 
-   local value
-
-   value="${!varname}"
-   log_debug "${varname}=${value}"
+   log_debug "${varname}='${functionname}'"
 }

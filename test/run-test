@@ -10,9 +10,47 @@ PATH="${PROJECT_DIR}:$PATH"
 export PATH
 
 
+
+run_shell()
+{
+   local shell="$1"; shift
+   local script="$1" ; shift
+
+   local quote
+   local args
+
+   quote="'"
+   args=""
+   for arg in "$@"
+   do
+      arg="${arg//${quote}/${quote}\"${quote}\"${quote}}"
+      args="${args} '${arg}'"
+   done
+
+   local exe
+
+   if exe="`command -v "${shell}"`"
+   then
+      printf "%s\n" "------------------------------------------" >&2
+      printf "%s\n" "$i: ${shell}" >&2
+      printf "%s\n" "------------------------------------------" >&2
+
+      if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
+      then
+         "${exe}" -c ". \"${script}\" ${args}" "${script}"  > /dev/null 2>&1
+      else
+         "${exe}" -c ". \"${script}\" ${args}" "${script}"
+      fi
+   else
+      return 0  # not installed ok
+   fi
+}
+
+
+
 main()
 {
-   _options_mini_main "$@"
+   _options_mini_main "$@" && set -x
 
    MULLE_SDE="`which mulle-sde`" || exit 1
 
@@ -27,12 +65,34 @@ main()
          log_verbose "------------------------------------------"
          log_info    "$i:"
          log_verbose "------------------------------------------"
-         if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
-         then
-            ( cd "$i" && ./run-test "$@" > /dev/null 2>&1 ) || fail "Test \"$i\" failed"
-         else
-            ( cd "$i" && ./run-test "$@" ) || fail "Test \"$i\" failed"
-         fi
+
+         (
+            cd "$i"
+            if ! run_shell bash ./run-test "$@"
+            then
+               [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+            fi
+            if ! run_shell zsh ./run-test "$@"
+            then
+               [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+            fi
+#
+# Dash chokes on <<< as redirection. But I don't want to live without it
+# especialy for while read loop parsing
+#
+#            if ! run_shell dash ./run-test "$@"
+#            then
+#               [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+#            fi
+#
+# We can never do ksh because it chokes up on bashisms even if they are
+# 'if'ed away
+#
+#            if ! run_shell ksh ./run-test "$@"
+#            then
+#               [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+#            fi
+         ) || exit 1
       fi
    done
 }

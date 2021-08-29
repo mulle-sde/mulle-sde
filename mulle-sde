@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#! /bin/sh
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -31,6 +31,66 @@
 #
 [ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
+####
+#
+# Prelude to be placed at top of each script. Rerun this script either in
+# bash or zsh, if not already running in either (which can happen!)
+# Allows script to run on systems that either have bash (linux) or
+# zsh (macOS) only by default.
+
+if [ "$1" != --no-auto-shell ]
+then
+   if [ -z "${BASH_VERSION}" -a -z "${ZSH_VERSION}" ]
+   then
+      exe_shell="`command -v "bash" `"
+      exe_shell="${exe_shell:-`command -v "zsh" `}"
+
+      script="$0"
+
+      #
+      # Quote incoming arguments for shell expansion
+      #
+      args=""
+      for arg in "$@"
+      do
+         # True bourne sh doesn't know ${a//b/c} and <<<
+         case "${arg}" in
+            *\'*)
+               # Use cat instead of echo to avoid possible echo -n
+               # problems. Escape single quotes in string.
+               arg="`cat <<EOF | sed -e s/\'/\'\\\"\'\\\"\'/g
+${arg}
+EOF
+`"
+            ;;
+         esac
+         if [ -z "${args}" ]
+         then
+            args="'${arg}'"
+         else
+            args="${args} '${arg}'"
+         fi
+      done
+
+      #
+      # bash/zsh will use arg after -c <arg> as $0, convenient!
+      #
+
+      exec "${exe_shell:-bash}" -c ". ${script} --no-auto-shell ${args}" "${script}"
+   fi
+   if [ ! -z "${BASH_VERSION}" ]
+   then
+      set +o posix
+   fi
+else
+   shift    # get rid of --no-auto-shell
+fi
+
+
+#
+# Main script to follow, runs now either in zsh or bash
+#
+####
 
 MULLE_EXECUTABLE_VERSION=0.47.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
@@ -228,7 +288,7 @@ set_custom_define()
 
    eval "export ${key}='${value}'"
 
-   log_fluff "Set environment variable \"${key}\" to \"${!key}\""
+   log_fluff "Set environment variable \"${key}\" to '${value}'"
 }
 
 
@@ -240,14 +300,14 @@ set_custom_environment()
 
    local i
 
-   set -o noglob; IFS=$'\n'
+   shell_disable_glob; IFS=$'\n'
    for i in ${defines}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       set_custom_define "${i#-D}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -341,7 +401,7 @@ assert_test_environment()
       then
          return
       fi
-      fail "Use ${C_RESET_BOLD}mulle-sde test $cmd${C_ERROR} inside the test environment instead"
+      fail "Use ${C_RESET_BOLD}mulle-sde test $cmd${C_ERROR} instead"
    fi
 }
 
@@ -360,12 +420,12 @@ _exec_command_in_subshell()
    then
       if [ -d ".mulle-sde" ]
       then
-         fail "There is only an old mulle-sde project in ($current#${MULLE_USER_PWD}/).
+         fail "There is only an old mulle-sde project in (${current#${MULLE_USER_PWD}/}).
 ${C_INFO}It should be upgradable with:
 ${C_RESET_BOLD}   mulle-sde upgrade
 ${C_RESET_BOLD}   mulle-sde clean tidy"
       fi
-      fail "There is no mulle-sde project in ($current#${MULLE_USER_PWD}/).
+      fail "There is no mulle-sde project in (${current#${MULLE_USER_PWD}/}).
 ${C_INFO}Create an initial empty one with:
 ${C_RESET_BOLD}   mulle-sde init"
    fi
@@ -381,7 +441,7 @@ ${C_RESET_BOLD}   mulle-sde init"
    #
    local flag
 
-   set -o noglob # keep it
+   shell_disable_glob # keep it
    for flag in ${MULLE_TECHNICAL_FLAGS} ${MULLE_FWD_FLAGS}
    do
       cmdline="${cmdline}
@@ -408,7 +468,7 @@ exec_command_in_subshell()
 {
    log_entry "exec_command_in_subshell" "$@"
 
-   _exec_command_in_subshell "$0" "$@"
+   _exec_command_in_subshell "${MULLE_EXECUTABLE}" "$@"
    exit $?
 }
 
@@ -475,6 +535,11 @@ cd_virtual_root()
 cd_virtual_root_assert_mulle_sde()
 {
    cd_virtual_root "$@"
+
+   if [ "${FLAG_OUTSIDE_ENV}" = "YES" ]
+   then
+      return
+   fi
 
    [ ! -d "${MULLE_SDE_SHARE_DIR}" ] && fail "There is no ${MULLE_SDE_SHARE_DIR} here"
 }
@@ -653,7 +718,9 @@ main()
       shift
    done
 
-   options_setup_trace "${MULLE_TRACE}"
+   options_setup_trace "${MULLE_TRACE}" && set -x
+
+   local cmd
 
    if [ "${FLAG_OUTSIDE_ENV}" = 'YES' ]
    then
@@ -665,7 +732,7 @@ main()
       # a "convenient" ? shortcut to do projects w/o having to enter
       # a subshell. Starts a subshell every time though....
       #
-      local cmd="$1"
+      cmd="$1"
 
       if [ -z "${MULLE_VIRTUAL_ROOT}" ]
       then
@@ -681,7 +748,7 @@ steal|test|upgrade)
                exec_command_in_subshell "$@"
             ;;
 
-            callback|clean|craft|craftinfo|craftorder|craftstatus|crun|doctor|\
+            callback|clean|craft|craftinfo|craftorder|craftstatus|craft-status|crun|doctor|\
 dependency|definition|env|environment|fetch|files|find|ignore|library|linkorder|list|log|\
 mark|match|migrate|monitor|patternfile|project|protect|reflect|run|\
 subproject|style|task|tool|treestatus|unmark|unprotect|update)
@@ -728,52 +795,56 @@ subproject|style|task|tool|treestatus|unmark|unprotect|update)
       fi
    fi
 
-   local cmd
-
    cmd="$1"
    [ $# -ne 0 ] && shift
-
 
    #
    # think about having a second MULLE_VIRTUAL_ROOT so that the project can
    # be read only and we keep the bookkeeping somewhere on the outside
    #
-
-   eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
-   if [ -z "${MULLE_SDE_VAR_DIR}" ]
-   then
-      if [ -z "`pwd -P`" ]
-      then
-         fail "The working directory ${PWD} has been deleted"
-      else
-         fail "Mysteriously failed to acquire tool environment"
-      fi
-   fi
-
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
    fi
 
-   if [ ! -z "${defines}" ]
+   if ! eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde`
    then
-      set_custom_environment "${defines}"
-   fi
+      if [ "${FLAG_OUTSIDE_ENV}" != "YES" ]
+      then
+         return 1
+      fi
+      # assume user knows what hes doing
+   else
+      if [ -z "${MULLE_SDE_VAR_DIR}" ]
+      then
+         if [ -z "`pwd -P`" ]
+         then
+            fail "The working directory ${PWD} has been deleted"
+         else
+            fail "Mysteriously failed to acquire tool environment"
+         fi
+      fi
 
-   local hook
-   local cmdidentifier
+      if [ ! -z "${defines}" ]
+      then
+         set_custom_environment "${defines}"
+      fi
 
-   # problem here is that cmdidentifier is not validate to be sane
+      local hook
+      local cmdidentifier
 
-   if [ "${BASH_VERSINFO[0]}" -ge 4 ]
-   then
-      cmdidentifier="${cmd^^}"
-      cmdidentifier="${cmdidentifier//-/_}"
+      # problem here is that cmdidentifier is not validate to be sane
 
-      hook="MULLE_SDE_${cmdidentifier}_PRELUDE"
+      if [ "${BASH_VERSINFO[0]}" -ge 4 ]
+      then
+         cmdidentifier="${cmd^^}"
+         cmdidentifier="${cmdidentifier//-/_}"
 
-      # run hook if environment variable is set
-      eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\" >&2" >&2
+         hook="MULLE_SDE_${cmdidentifier}_PRELUDE"
+
+         # run hook if environment variable is set
+         eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\" >&2" >&2
+      fi
    fi
 
    case "${cmd}" in
@@ -792,16 +863,6 @@ subproject|style|task|tool|treestatus|unmark|unprotect|update)
 
       bash-completion)
          printf "%s\n" "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
-      ;;
-
-      craftstatus)
-         cd_virtual_root_assert_mulle_sde "${cmd}"
-
-         assert_test_environment "${cmd}"
-
-         # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
-         sde_craftstatus_main "$@"
       ;;
 
       callback|task)
@@ -929,6 +990,16 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
          sde_craftorder_main "$@"
+      ;;
+
+      craftstatus|craft-status)
+         cd_virtual_root_assert_mulle_sde "${cmd}"
+
+         assert_test_environment "${cmd}"
+
+         # shellcheck source=src/mulle-sde-craft.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         sde_craftstatus_main "$@"
       ;;
 
       definition)
@@ -1260,7 +1331,7 @@ version"
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -V \
+                           --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
                         status \
                            "$@"
@@ -1335,14 +1406,14 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
 ###
 _init()
 {
+   # leading backslash ? looks like we're getting called from
+   # mingw via a .BAT or so
    #
-   # minimal setup exit
-   #
-   if [ "$1" = "version" ]
-   then
-      printf "%s\n" "${MULLE_EXECUTABLE_VERSION}"
-      exit 0
-   fi
+   case "$PATH" in
+      '\\'*)
+         PATH="${PATH//\\/\/}"
+      ;;
+   esac
 
    if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
    then
@@ -1353,7 +1424,7 @@ _init()
          then
             echo "Fatal Error: Could not find mulle-bashfunctions-env in PATH ($PATH) - mulle-bashfunctions not installed ?" >&2
          else
-            echo "Fatal Error: Could not find libexec of mulle-bashfunctions-env ($PWD)" >&2
+            echo "Fatal Error: Could not find libexec of mulle-bashfunctions-env (${PWD}})" >&2
          fi
          exit 1
       fi
@@ -1363,24 +1434,37 @@ _init()
    . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "minimal" || \
       fail "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
 
-   r_get_libexec_dir "$0" "mulle-sde" "mulle-sde-craft.sh"
-   MULLE_SDE_LIBEXEC_DIR="${RVAL}"
+   if [ -z "${MULLE_SDE_LIBEXEC_DIR}" ]
+   then
+      r_get_libexec_dir "${MULLE_EXECUTABLE}" "mulle-sde" "mulle-sde-craft.sh"
+      MULLE_SDE_LIBEXEC_DIR="${RVAL}"
+   fi
 
    #
-   # minimal setup exit
+   # commands with minimal trap setup
    #
-   case "$1" in
-      "libexec-dir"|"library-path")
-         printf "%s\n" "${MULLE_SDE_LIBEXEC_DIR}"
-         exit 0
-      ;;
-   esac
+   if [ $# -eq 1 ]
+   then
+      case "${1}" in
+         libexec-dir|library-path)
+            printf "%s\n" "${MULLE_SDE_LIBEXEC_DIR}"
+            exit 0
+         ;;
+
+         version)
+            printf "%s\n" "${MULLE_EXECUTABLE_VERSION}"
+            exit 0
+         ;;
+      esac
+   fi
 
    #  set -e # more pain then gain in the end
    #  set -u # doesn't work with my style
 
-   set -o pipefail
-   shopt -s extglob
+   shell_enable_pipefail
+   shell_enable_extglob
+
+   call_main "${MULLE_SDE_FLAGS}" "$@"
 }
 ###
 ### INIT
@@ -1388,18 +1472,8 @@ _init()
 ########
 
 
+MULLE_EXECUTABLE="${MULLE_EXECUTABLE:-${BASH_SOURCE[0]:-${(%):-%x}}}"
 
 _init "$@" # needs params
 
-quote="'"
-args=""
-for arg in "$@"
-do
-   arg="${arg//${quote}/${quote}\"${quote}\"${quote}}"
-   args="${args} '${arg}'"
-done
 
-unset quote
-unset arg
-
-eval main "${MULLE_SDE_FLAGS}" "${args}"

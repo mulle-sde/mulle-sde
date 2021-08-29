@@ -62,7 +62,9 @@ EOF
 }
 
 
-
+#
+# this just gets "source" and "sourcetree" back 
+#
 _callback_run()
 {
    log_entry "_callback_run" "$@"
@@ -110,22 +112,21 @@ _task_run_if_needed()
 
    local task="$1"
 
-   local status
-
-   status="unknown"
-   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
-      status="`_task_status "${task}"`"
-      log_fluff "Last known status of task \"${task}\" is \"${status}\""
+      log_fluff "Forced run of \"${task}\""
+   else
+      local taskstatus
 
-      case "${status}" in
+      taskstatus="`_task_status "${task}"`"
+      log_fluff "Last known status of task \"${task}\" is \"${taskstatus}\""
+
+      case "${taskstatus}" in
          "done")
             log_fluff "Skip task"
             return
          ;;
       esac
-   else
-      log_fluff "Forced run of \"${task}\""
    fi
 
    _task_run "${task}"

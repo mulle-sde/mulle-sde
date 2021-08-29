@@ -47,7 +47,7 @@ Options:
 
 Commands:
    rename : rename the project
-
+   remove : remove the project
 EOF
    exit 1
 }
@@ -62,10 +62,10 @@ Usage:
    ${MULLE_USAGE_NAME} project rename [options] <newname>
 
    Rename an existing project. This will change environment variables in
-   the project domain. It will alsosearch/replace file names and file
+   the project domain. It will also search/replace file names and file
    contents unless options are set to the contrary.
 
-   This can be dangerous!
+   This is therefore dangerous! Use it on a copy of your project only.
 
 Options:
    --no-filenames : don't search/replace project identifiers in filenames
@@ -73,6 +73,22 @@ Options:
    -h             : show this usage
 EOF
    exit 1
+}
+
+
+clear_project_variables()
+{
+   unset PROJECT_NAME
+   unset PROJECT_IDENTIFIER
+   unset PROJECT_DOWNCASE_IDENTIFIER
+   unset PROJECT_UPCASE_IDENTIFIER
+   unset PROJECT_LANGUAGE
+   unset PROJECT_DOWNCASE_LANGUAGE
+   unset PROJECT_UPCASE_LANGUAGE
+   unset PROJECT_DIALECT
+   unset PROJECT_DOWNCASE_DIALECT
+   unset PROJECT_UPCASE_DIALECT
+   unset PROJECT_EXTENSIONS
 }
 
 
@@ -136,7 +152,13 @@ r_add_template_named_file()
    #
    # figure out if we want to add a header
    #
-   RVAL="${!envvar}"
+   if [ ! -z "${ZSH_VERSION}" ]
+   then
+      RVAL="${(P)envvar}"
+   else
+      RVAL="${!envvar}"
+   fi
+
    rexekutor [ -f "${RVAL}" ] && return 0
 
    RVAL="${MULLE_SDE_ETC_DIR}/${name}.${extension}"
@@ -165,6 +187,24 @@ r_add_template_header_file()
 r_add_template_footer_file()
 {
    r_add_template_named_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
+}
+
+
+clear_oneshot_variables()
+{
+   unset ONESHOT_CLASS
+   unset ONESHOT_CATEGORY
+   unset ONESHOT_FILENAME
+   unset ONESHOT_FILENAME_NO_EXT
+   unset ONESHOT_NAME
+   unset ONESHOT_IDENTIFIER
+   unset ONESHOT_DOWNCASE_IDENTIFIER
+   unset ONESHOT_UPCASE_IDENTIFIER
+   unset ONESHOT_UPCASE_C_IDENTIFIER
+   unset ONESHOT_DOWNCASE_C_IDENTIFIER
+   unset ONESHOT_BASENAME
+   unset TEMPLATE_HEADER_FILE
+   unset TEMPLATE_FOOTER_FILE
 }
 
 
@@ -243,7 +283,6 @@ export_oneshot_environment()
    local filepath="$1"
    local class="$2"
    local category="$3"
-
 
    if [ ! -z "${class}" ]
    then
@@ -342,10 +381,29 @@ project_env_set_var()
 }
 
 
+#
+# we allow foo-xxx_a10 but not 0x/s!2
+#
+assert_project_name()
+{
+   # check that PROJECT_NAME looks usable as an identifier
+   case "$1" in
+      *\ *)
+         fail "Project name \"$1\" contains spaces"
+      ;;
+
+      ""|*[^a-zA-Z0-9_-]*|[^a-zA-Z_]*)
+         fail "Project name \"$1\" must be an identifier"
+      ;;
+   esac
+}
+
 # those affected by renames
 save_projectname_variables()
 {
   log_entry "save_projectname_variables" "$@"
+
+  assert_project_name "${PROJECT_NAME}"
 
   project_env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
 #  project_env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
@@ -396,14 +454,14 @@ _local_search_and_replace_filenames()
 
    local filename
 
-   IFS=$'\n' ; set -f
+   IFS=$'\n' ; shell_disable_glob
    for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -name "*${old}*" -print`
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       rename_old_to_new_filename "${filename}" "${old}" "${name}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -426,14 +484,14 @@ search_and_replace_filenames()
       local filename
       local renamed
 
-      IFS=$'\n' ; set -f
+      IFS=$'\n' ; shell_disable_glob
       for filename in  `eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print`
       do
-         set +f; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          rename_old_to_new_filename "${filename}" "${old}" "${name}"
       done
-      set +f; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
 }
 
@@ -480,14 +538,14 @@ _local_search_and_replace_contents()
 
    local filename
 
-   IFS=$'\n' ; set -f
+   IFS=$'\n' ; shell_disable_glob
    for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -print`
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -504,14 +562,14 @@ search_and_replace_contents()
    then
       local filename
 
-      IFS=$'\n' ; set -f
+      IFS=$'\n' ; shell_disable_glob
       for filename in  `eval_rexekutor find "${dir}" -type f -print`
       do
-         set +f; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
       done
-      set +f; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
 }
 
@@ -524,10 +582,10 @@ walk_over_mulle_match_path()
 
    local dir
 
-   set -o noglob; IFS=':'
+   shell_disable_glob; IFS=':'
    for dir in ${MULLE_MATCH_PATH}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
       case "${dir}" in
          .*)
          ;;
@@ -537,7 +595,7 @@ walk_over_mulle_match_path()
          ;;
       esac
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -549,12 +607,12 @@ walk_over_test_paths()
 
    local dir
 
-   set -o noglob; IFS=':'
+   shell_disable_glob; IFS=':'
    for dir in *
    do
       if [ -d "${dir}" ]
       then
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          case "${dir}" in
             .*)
             ;;
@@ -565,7 +623,7 @@ walk_over_test_paths()
          esac
       fi
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -837,10 +895,10 @@ sde_rename_main()
          ;;
       esac
 
-      set -o noglob; IFS=$'\n'
+      shell_disable_glob; IFS=$'\n'
       for testdir in ${test_path}
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          (
             MULLE_VIRTUAL_ROOT=
             PROJECT_NAME=
@@ -851,10 +909,48 @@ sde_rename_main()
             exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} project rename ${cmdline} "${newname}"
          )
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
 
    log_verbose "Done"
+}
+
+
+sde_remove_main()
+{
+   log_entry "sde_remove_main" "$@"
+
+   #
+   # handle options
+   #
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_remove_usage
+         ;;
+
+         -*)
+            sde_remove_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] || sde_remove_usage "Superflous arguments \$*\""
+
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT not set"
+
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+   then
+      fail "You need to use the -f flag for wiping the whole project"
+   fi
+   rmdir_safer "${MULLE_VIRTUAL_ROOT}"
 }
 
 
@@ -886,6 +982,11 @@ sde_project_main()
       rename)
          shift
          sde_rename_main "$@"
+      ;;
+
+      remove)
+         shift
+         sde_remove_main "$@"
       ;;
 
       list)

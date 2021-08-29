@@ -286,7 +286,8 @@ sde_library_add_main()
 
    log_verbose "Adding \"${libname}\" to libraries"
 
-   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V \
+   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_SOURCETREE_FLAGS} \
                      ${MULLE_FWD_FLAGS} \
@@ -477,7 +478,7 @@ sde_library_list_main()
    log_fluff "Just pass through to mulle-sourcetree"
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                -V -s \
+                --virtual-root -s \
                 ${MULLE_TECHNICAL_FLAGS} \
                 ${MULLE_SOURCETREE_FLAGS} \
                list \
@@ -538,7 +539,12 @@ sde_library_main()
 
       mark|move|remove|unmark)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -V -s ${MULLE_TECHNICAL_FLAGS} ${cmd} "$@"
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           --virtual-root \
+                           -s  \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        ${cmd} \
+                           "$@"
       ;;
 
       "")

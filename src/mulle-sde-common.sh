@@ -42,17 +42,17 @@ commalist_contains()
    local i
 
    # is this faster than case ?
-   set -o noglob ; IFS=","
+   shell_disable_glob ; IFS=","
    for i in ${list}
    do
-      IFS="${DEFAULT_IFS}"; set +o noglob
+      IFS="${DEFAULT_IFS}"; shell_enable_glob
       if [ "${i}" = "${key}" ]
       then
          return 0
       fi
    done
 
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
    return 1
 }
 
@@ -82,13 +82,13 @@ commalist_print()
    local i
 
    # is this faster than case ?
-   set -o noglob; IFS=","
+   shell_disable_glob; IFS=","
    for i in ${list}
    do
       printf "%s\n" "$i"
    done
 
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 }
 
 
@@ -98,7 +98,7 @@ sde_sourcetree_platform_excludes_print()
 
    local list="$1"
 
-   set -o noglob ; IFS=","
+   shell_disable_glob ; IFS=","
    for i in ${list}
    do
       case "$i" in
@@ -107,7 +107,7 @@ sde_sourcetree_platform_excludes_print()
          ;;
       esac
    done
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 }
 
 
@@ -137,10 +137,10 @@ sde_sourcetree_platform_excludes_add()
    local i
 
    # is this faster than case ?
-   set -o noglob ; IFS=","
+   shell_disable_glob ; IFS=","
    for i in ${add}
    do
-      IFS="${DEFAULT_IFS}"; set +o noglob
+      IFS="${DEFAULT_IFS}"; shell_enable_glob
 
       sde_sourcetree_platform_excludes_validate "$1"
       i="no-platform-$i"
@@ -154,7 +154,7 @@ sde_sourcetree_platform_excludes_add()
       list="${RVAL}"
    done
 
-   IFS="${DEFAULT_IFS}"; set +o noglob
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
 
    printf "%s\n" "${list}"
 }
@@ -175,7 +175,7 @@ _sde_set_sourcetree_platform_excludes()
    if [ "${append}" = 'YES' ]
    then
       marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS}  \
                 get "${address}" "marks" `"
@@ -183,7 +183,7 @@ _sde_set_sourcetree_platform_excludes()
 
    marks="`sde_sourcetree_platform_excludes_add "${marks}" "${value}" `"
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               -V \
+               --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_SOURCETREE_FLAGS}  \
             set "${address}" "marks" "${marks}"
@@ -215,7 +215,8 @@ sde_get_sourcetree_platform_excludes()
    local marks
 
    marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               -V -s \
+               --virtual-root \
+               -s \
                ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_SOURCETREE_FLAGS} \
             get "${address}" "marks" `"
@@ -244,14 +245,14 @@ _sde_set_sourcetree_userinfo_field()
    local userinfo
 
    userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                     -V \
+                     --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS}  \
                      ${MULLE_SOURCETREE_FLAGS}  \
                  get "${address}" "userinfo" `" || return 1
 
    if [ -z "${MULLE_ARRAY_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || return 1
    fi
 
    if [ "${append}" = 'YES' ]
@@ -265,7 +266,7 @@ _sde_set_sourcetree_userinfo_field()
    userinfo="${RVAL}"
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                      -V \
+                      --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS}  \
                      ${MULLE_SOURCETREE_FLAGS}  \
                   set "${address}" "userinfo" "${userinfo}"
@@ -297,7 +298,7 @@ sde_get_sourcetree_userinfo_field()
    local userinfo
 
    userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               -V \
+               --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
                ${MULLE_SOURCETREE_FLAGS}  \
             get "${address}" "userinfo" `"

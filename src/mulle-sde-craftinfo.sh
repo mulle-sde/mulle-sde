@@ -318,7 +318,7 @@ clobber possibly existing .mulle/etc/craft definitions"
 
    local dstname
 
-   shopt -s nullglob
+   shell_enable_nullglob
    for i in "${srcdir}"/.mulle/etc/craft/definition*
    do
       if [ -d "${i}" ]
@@ -332,7 +332,7 @@ clobber possibly existing .mulle/etc/craft definitions"
          log_warning "${i} exists but is not a directory ?"
       fi
    done
-   shopt -u nullglob
+   shell_disable_nullglob
 }
 
 
@@ -364,16 +364,16 @@ sde_add_craftinfo_subproject_if_needed()
    if [ ! -d "${subprojectdir}" ]
    then
       (
-         local ptype
+#         local ptype
 
          # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
 
-         ptype="${PROJECT_TYPE}"
-         if [ "${ptype}" = 'none' ]
-         then
-            ptype='unknown'
-         fi
+#         ptype="${PROJECT_TYPE}"
+#         if [ "${ptype}" = 'none' ]
+#         then
+#            ptype='unknown'
+#         fi
 
          #
          # Tricky: we are in a subshell. We don't have the environment variables
@@ -383,7 +383,7 @@ sde_add_craftinfo_subproject_if_needed()
          MULLE_SDE_EXTENSION_BASE_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_BASE_PATH"'`"
          MULLE_SDE_EXTENSION_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_PATH"'`"
 
-         exekutor sde_extension_main pimp --project-type "${ptype}" \
+         exekutor sde_extension_main pimp --project-type "unknown" \
                                           --oneshot-name "${name}" \
                                           mulle-sde/craftinfo
       ) || return 1
@@ -397,7 +397,7 @@ sde_add_craftinfo_subproject_if_needed()
    fi
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS} \
                add \
@@ -407,7 +407,7 @@ sde_add_craftinfo_subproject_if_needed()
                   "${subprojectdir}"  || return 1
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS} \
                move \
@@ -430,7 +430,8 @@ __sde_craftinfo_vars_with_url_or_address()
    local emptyok="${2:-YES}"
 
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                              -V -s \
+                              --virtual-root \
+                              -s \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_SOURCETREE_FLAGS} \
                            get \
@@ -449,7 +450,8 @@ __sde_craftinfo_vars_with_url_or_address()
    local marks
 
    marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                              -V -s \
+                              --virtual-root \
+                              -s \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_SOURCETREE_FLAGS} \
                            get "${_address}" marks`"
@@ -595,7 +597,7 @@ sde_dependency_craftinfo_remove_main()
    fi
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS} \
                remove \
@@ -608,6 +610,8 @@ sde_dependency_craftinfo_exists_main()
 {
    log_entry "sde_dependency_craftinfo_exists_main" "$@"
 
+   local OPTION_SUFFIX="craftinfo"
+
    if [ "$1" != "DEFAULT" ]
    then
       fail "Exists is always global"
@@ -619,6 +623,22 @@ sde_dependency_craftinfo_exists_main()
       case "$1" in
          -h|--help|help)
             sde_dependency_craftinfo_exists_usage
+         ;;
+
+         --craftinfo)
+           OPTION_SUFFIX=craftinfo
+         ;;
+         
+         --crafthelp)
+           OPTION_SUFFIX=crafthelp
+         ;;
+
+         --suffix)
+            [ "$#" -eq 1 ] && \
+               sde_dependency_craftinfo_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_SUFFIX="$1"
          ;;
 
          -*)
@@ -651,18 +671,13 @@ sde_dependency_craftinfo_exists_main()
    local repo
 
    repos="${CRAFTINFO_REPOS:-https://github.com/craftinfo}"
-   dstdir="craftinfo/${_name}-craftinfo"
-   if [ -e "${dstdir}" ]
-   then
-      fail "${dstdir} already exists. Won't clobber."
-   fi
 
    IFS='|'
    for repo in ${repos}
    do
       IFS="${DEFAULT_IFS}"
 
-      url="${repo}/${_name}-craftinfo.git"
+      url="${repo}/${_name}-${OPTION_SUFFIX}.git"
       log_verbose "Checking if a craftinfo URL \"${url}\" exists"
       if rexekutor "${MULLE_FETCH:-mulle-fetch}" \
                 ${MULLE_TECHNICAL_FLAGS} \
@@ -725,6 +740,7 @@ sde_craftinfo_fetch_display()
    local name="$2"
    local dstdir="$3"
    local displayonly="$4"
+   local suffix="$5"
 
    local url
 
@@ -734,81 +750,85 @@ sde_craftinfo_fetch_display()
    [ -z "${MULLE_FILE_SH}" ] \
    && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
-
    if [ "${displayonly}" = 'YES' ]
    then
       local tmpdir
-
 
       r_make_tmp "craft-help" "-d" || exit 1
       dstdir="${RVAL}"
    fi
 
-   url="${repo}/${name}-craftinfo.git"
-   if rexekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
+   if [ "${suffix}" != "crafthelp" ]
    then
-      if exekutor "${MULLE_FETCH:-mulle-fetch}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_FETCH_FLAGS} \
-                        -s \
-                     fetch \
-                        "${url}" "${dstdir}"
+      url="${repo}/${name}-craftinfo.git"
+      if rexekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
       then
-         #
-         # behave like git archive, so we can add this craftinfo to our project
-         # easily. (but github don't support it)
-         #
-         case "${OPTION_KEEP_HISTORY}" in
-            'NO')
-               remove_dir_safer "${dstdir}/.git"
-            ;;
-
-            'RENAME')
-               exekutor mv "${dstdir}/.git" "${dstdir}/.git.orig"
-            ;;
-         esac
-
-         # grab a README.md and display it
-         if [ "${MULLE_FLAG_LOG_TERSE}" != 'YES' ] && [ -f "${dstdir}/README.md" ]
-         then
-            rexekutor cat "${dstdir}/README.md"
-         fi
-
-         if [ "${displayonly}" = 'YES' ]
-         then
-            rmdir_safer "${dstdir}"
-         fi
-         return 0
-      fi
-   fi
-
-   url="${repo}/${name}-crafthelp"
-   if rexekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
-   then
-      if [ "${MULLE_FLAG_LOG_TERSE}" != 'YES' ]
-      then
-         local tmpdir
-
-         r_make_tmp "craft-help" "-d" || exit 1
-         tmpdir="${RVAL}"
-
-         # since we do it in tmp, its's not really destructive to
-         rexekutor "${MULLE_FETCH:-mulle-fetch}" \
+         if exekutor "${MULLE_FETCH:-mulle-fetch}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_FETCH_FLAGS} \
                            -s \
                         fetch \
-                           "${url}" "${tmpdir}"
-         if [ -f "${tmpdir}/README.md" ]
+                           "${url}" "${dstdir}"
          then
-            rexekutor cat "${tmpdir}/README.md"
-            rmdir_safer "${tmpdir}"
-         else
-            rmdir_safer "${tmpdir}"
-            fail "No README.md found for \"${url}\". Seems broken."
+            #
+            # behave like git archive, so we can add this craftinfo to our project
+            # easily. (but github don't support it)
+            #
+            case "${OPTION_KEEP_HISTORY}" in
+               'NO')
+                  remove_dir_safer "${dstdir}/.git"
+               ;;
+
+               'RENAME')
+                  exekutor mv "${dstdir}/.git" "${dstdir}/.git.orig"
+               ;;
+            esac
+
+            # grab a README.md and display it
+            if [ "${MULLE_FLAG_LOG_TERSE}" != 'YES' ] && [ -f "${dstdir}/README.md" ]
+            then
+               rexekutor cat "${dstdir}/README.md"
+            fi
+
+            if [ "${displayonly}" = 'YES' ]
+            then
+               rmdir_safer "${dstdir}"
+            fi
+            return 0
          fi
       fi
-      return 0
+   fi
+
+   if [ "${suffix}" != "craftinfo" ]
+   then
+      url="${repo}/${name}-crafthelp"
+      if rexekutor "${MULLE_FETCH:-mulle-fetch}" exists "${url}"
+      then
+         if [ "${MULLE_FLAG_LOG_TERSE}" != 'YES' ]
+         then
+            local tmpdir
+
+            r_make_tmp "craft-help" "-d" || exit 1
+            tmpdir="${RVAL}"
+
+            # since we do it in tmp, its's not really destructive to
+            rexekutor "${MULLE_FETCH:-mulle-fetch}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_FETCH_FLAGS} \
+                              -s \
+                           fetch \
+                              "${url}" "${tmpdir}"
+            if [ -f "${tmpdir}/README.md" ]
+            then
+               rexekutor cat "${tmpdir}/README.md"
+               rmdir_safer "${tmpdir}"
+            else
+               rmdir_safer "${tmpdir}"
+               fail "No README.md found for \"${url}\". Seems broken."
+            fi
+         fi
+         return 0
+      fi
    fi
 
    return 1
@@ -1136,10 +1156,10 @@ sde_dependency_craftinfo_list_main()
 
    if [ -z "${url}" ]
    then
-      set -o noglob; IFS=$'\n'
+      shell_disable_glob; IFS=$'\n'
       for url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          case "${url}" in
             craftinfo/*)
                continue
@@ -1149,7 +1169,7 @@ sde_dependency_craftinfo_list_main()
          log_info "${url}"
          _sde_dependency_craftinfo_list_main "${url}" "   "
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
    else
       _sde_dependency_craftinfo_list_main "${url}" ""
    fi
@@ -1284,11 +1304,22 @@ sde_dependency_craftinfo_info_main()
 {
    log_entry "sde_dependency_craftinfo_info_main" "$@"
 
+   local OPTION_SUFFIX
+
+   OPTION_SUFFIX=""  # intentional!
    while :
    do
       case "$1" in
          -h|--help|help)
             sde_dependency_craftinfo_info_usage
+         ;;
+
+         --craftinfo)
+            OPTION_SUFFIX="craftinfo"
+         ;;
+
+         --crafthelp)
+            OPTION_SUFFIX="crafthelp"
          ;;
 
          -*)
@@ -1314,17 +1345,17 @@ sde_dependency_craftinfo_info_main()
    # we search through possibly multiple repos
    #
    repos="${CRAFTINFO_REPOS:-https://github.com/craftinfo}"
-   IFS='|'; set +f
+   IFS='|'; shell_enable_glob
    for repo in ${repos}
    do
-      IFS="${DEFAULT_IFS}"; set -f
+      IFS="${DEFAULT_IFS}"; shell_disable_glob
 
-      if sde_craftinfo_fetch_display "${repo}" "${address}" "" 'YES'
+      if sde_craftinfo_fetch_display "${repo}" "${address}" "" 'YES' "${OPTION_SUFFIX}"
       then
          return 0
       fi
    done
-   IFS="${DEFAULT_IFS}": set +f
+   IFS="${DEFAULT_IFS}": shell_enable_glob
 
    fail "There is no crafthelp available"
 }

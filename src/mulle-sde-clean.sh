@@ -32,10 +32,11 @@
 MULLE_SDE_CLEAN_SH="included"
 
 
-# Cleaning is a delightfully complex topic. You want to clean because you
+# Cleaning is a delightfully complex topic. You want to "clean all" because you
 # want to recompile your project fully. A symlinked dependency has changed.
 # You want your sourcetree clean again. You want to fetch newer versions from
-# repositories. mulle-sde goofed somewhere and you want to start anew.
+# repositories with "clean tidy" or mulle-sde goofed somewhere and you want to
+# start anew.
 # But you don't want to clean too much, because rebuilding takes time.
 #
 # Identifying major clean tasks:
@@ -205,17 +206,16 @@ sde_clean_craftinfo_main()
       return
    fi
 
-   local name
-   set -o noglob; IFS=$'\n'
+   shell_disable_glob; IFS=$'\n'
    for craftinfo in ${craftinfos}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
       rexekutor "${MULLE_CRAFT:-mulle-craft}" \
             ${MULLE_TECHNICAL_FLAGS} \
             clean \
                "${craftinfo}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -240,19 +240,20 @@ sde_clean_subproject_main()
    fi
 
    local name
-   set -o noglob; IFS=$'\n'
+
+   shell_disable_glob; IFS=$'\n'
    for subproject in ${subprojects}
    do
       r_basename "${subproject}"
       name="${RVAL}"
 
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
       rexekutor "${MULLE_CRAFT:-mulle-craft}" \
             ${MULLE_TECHNICAL_FLAGS} \
             clean \
                "${name}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -263,7 +264,7 @@ sde_clean_craftordercache_main()
    [ -z "${MULLE_SDE_VAR_DIR}" ] && internal_fail "MULLE_SDE_VAR_DIR not defined"
 
    log_verbose "Cleaning sde cache"
-   rmdir_safer "${MULLE_SDE_VAR_DIR}/cache"
+   remove_file_if_present "${MULLE_SDE_VAR_DIR}/cache/craftorder"
 }
 
 
@@ -323,10 +324,10 @@ sde_clean_tmp_main()
 
    local dir
 
-   shopt -s nullglob
+   shell_enable_nullglob
    for dir in .mulle/var/*/*/tmp  .mulle/var/*/tmp
    do
-      shopt -u nullglob
+      shell_disable_nullglob
       if [ -d "${dir}" ]
       then
          log_verbose "Cleaning \"${dir}\" folder"
@@ -334,7 +335,7 @@ sde_clean_tmp_main()
          rmdir_safer "${dir}"
       fi
    done
-   shopt -u nullglob
+   shell_disable_nullglob
 }
 
 
@@ -345,7 +346,7 @@ sde_clean_db_main()
    log_verbose "Cleaning sourcetree database"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                reset
 }
@@ -358,7 +359,7 @@ sde_clean_sourcetree_main()
    log_verbose "Cleaning sourcetree"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                clean
 }
@@ -371,7 +372,7 @@ sde_clean_sourcetree_share_main()
    log_verbose "Cleaning sourcetree and stash"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                clean --share
 }
@@ -409,7 +410,7 @@ sde_clean_graveyard_main()
    log_verbose "Cleaning graveyard"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  -V \
+                  --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
                desecrate
 }
@@ -482,7 +483,6 @@ sde_clean_main()
 
    KITCHEN_DIR="${KITCHEN_DIR:-${MULLE_CRAFT_KITCHEN_DIR}}"
    KITCHEN_DIR="${KITCHEN_DIR:-${MULLE_VIRTUAL_ROOT}/${MULLE_CRAFT_KITCHEN_DIRNAME:-kitchen}}"
-
 
    if [ -z "${MULLE_PATH_SH}" ]
    then
@@ -603,7 +603,7 @@ test"
             escaped_dependency="${RVAL}"
 
             targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                                       -V \
+                                       --virtual-root \
                                        -s \
                                     craftorder \
                                        --no-output-marks | sed 's|^.*/||'`"
@@ -644,13 +644,13 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    local rval 
 
    rval=0
-   set -o noglob
+   shell_disable_glob
    for domain in ${domains}
    do
-      set +o noglob
+      shell_enable_glob
 
       functionname="sde_clean_${domain}_main"
-      if [ "`type -t "${functionname}"`" = "function" ]
+      if shell_is_function "${functionname}"
       then
          "${functionname}"
          if [ $? -ne 0 ]
@@ -662,7 +662,7 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
          sde_clean_usage "Unknown clean domain \"${domain}\""
       fi
    done
-   set +o noglob
+   shell_enable_glob
 
    return $rval
 }

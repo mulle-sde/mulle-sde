@@ -100,7 +100,7 @@ r_definition_scopes()
    local scopes 
 
    scopes=""
-   shopt -s nullglob
+   shell_enable_nullglob
    for i in "${etcdir}" "${etcdir}".* "${sharedir}" "${sharedir}".*
    do
       case "$i" in
@@ -120,7 +120,7 @@ r_definition_scopes()
          ;;
       esac
    done
-   shopt -u nullglob
+   shell_disable_nullglob
 
    RVAL="${scopes}"
 }
@@ -253,17 +253,17 @@ sde_definition_get()
 
          local i
 
-         set -o noglob; IFS=$'\n'
+         shell_disable_glob; IFS=$'\n'
          for i in ${scopes}
          do
-            set +o noglob; IFS="${DEFAULT_IFS}"
+            shell_enable_glob; IFS="${DEFAULT_IFS}"
 
             r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}" 
             directory="${RVAL}"
 
             sde_call_definition "get" "${flags}" "${directory}" "$@"
          done
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
          ;;
 
@@ -358,15 +358,15 @@ sde_definition_set()
 
          local i
 
-         set -o noglob; IFS=$'\n'
+         shell_disable_glob; IFS=$'\n'
          for i in ${scopes}
          do
-            set +o noglob; IFS="${DEFAULT_IFS}"
+            shell_enable_glob; IFS="${DEFAULT_IFS}"
 
             etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" "NO"
             sde_call_definition "set" "${flags}" "${etcdir}.${i}" "$@"
          done
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
       ;;
 
@@ -461,17 +461,17 @@ sde_definition_remove()
 
          local i
 
-         set -o noglob; IFS=$'\n'
+         shell_disable_glob; IFS=$'\n'
          for i in ${scopes}
          do
-            set +o noglob; IFS="${DEFAULT_IFS}"
+            shell_enable_glob; IFS="${DEFAULT_IFS}"
 
             sde_scoped_definition_remove "${flags}" \
                                          "${etcdir}.${i}" \
                                          "${sharedir}.${i}" \
                                          "$@"
          done
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
       ;;
 
@@ -527,13 +527,13 @@ sde_definition_list()
 
          local i
 
-         set -o noglob; IFS=$'\n'
+         shell_disable_glob; IFS=$'\n'
          for i in ${scopes}
          do
-            set +o noglob; IFS="${DEFAULT_IFS}"
+            shell_enable_glob; IFS="${DEFAULT_IFS}"
             sde_definition_list_scope "${etcdir}" "${sharedir}" "${i}"
          done
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
          ;;
 

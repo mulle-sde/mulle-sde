@@ -109,17 +109,17 @@ _emit_file_output()
    local marks
    local csv
 
-   IFS=$'\n' ; set -f
+   IFS=$'\n' ; shell_disable_glob
    for csv in "$@"
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       filename="${csv%%;*}"
 
       r_concat "${result}" "${RVAL}" "${sep}"
       cmdline="${RVAL}"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 
    [ ! -z "${cmdline}" ] && rexekutor printf "%s\n" "${cmdline}"
 }
@@ -194,13 +194,13 @@ _emit_ld_output()
       local line
 
       RVAL=
-      set -o noglob; IFS=$'\n'
+      shell_disable_glob; IFS=$'\n'
       for line in ${result}
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
          r_concat "${RVAL}" "${line}" "${sep}"
       done
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       result="${RVAL}"
    fi
@@ -320,7 +320,6 @@ linkorder_callback()
    then
       # but hit me again later
       walk_remove_from_visited "${WALK_MODE}"
-      # walk_remove_from_deduped "${MULLE_DATASOURCE}"
       log_fluff "Skipped dependency \"${_address}\" as it's inside dynamic/standalone"
       return
    fi
@@ -365,8 +364,13 @@ r_sde_linkorder_all_nodes()
    r_concat "${qualifier}" "${craft_qualifier}" $'\n'"AND "
    qualifier="${RVAL}"
 
-   # scope,stash_dir,config_dir,fallback,defer,mode
-   sourcetree_environment "mulle-sde-install.sh" \
+   # local option_scope="$1"
+   # local option_sharedir="$2"
+   # local option_configdir="$3"
+   # local option_use_fallback="$4"
+   # local defer="$5"
+   # local mode="$6"
+   sourcetree_environment "" \
                           "${MULLE_SOURCETREE_STASH_DIRNAME}" \
                           "" \
                           "" \
@@ -413,16 +417,16 @@ r_search_os_library()
 
    local cmd
 
-   IFS=","; set -f
+   IFS=","; shell_disable_glob
    for alias in ${aliases}
    do
-      set +o noglob; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
       if r_platform_search "" library "" "" "${alias}"
       then
          return 0
       fi
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 
    return 1
 }
@@ -495,7 +499,7 @@ r_linkorder_collect()
          #
          #  check that library is present
          #
-         IFS=","; set -f
+         IFS=","; shell_disable_glob
          for alias in ${aliases}
          do
             alias="${alias#*:}"  # remove type if any
@@ -504,7 +508,7 @@ r_linkorder_collect()
                break
             fi
          done
-         set +f; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          # otherwise prefer first alias
          if [ -z "${alias}" ]
@@ -523,7 +527,7 @@ r_linkorder_collect()
    local aliasargs
    local aliasfail
 
-   IFS=","; set -f
+   IFS=","; shell_disable_glob
    for alias in ${aliases}
    do
       alias="${alias#*:}"  # remove type if any
@@ -532,7 +536,7 @@ r_linkorder_collect()
       r_concat "${aliasargs}" "'${alias}'"
       aliasargs="${RVAL}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 
    # TODO: libraries are preferred over frameworks, which is arbitrary
 
@@ -725,13 +729,13 @@ r_remove_leading_duplicate_nodes()
 
    RVAL=
 
-   IFS=$'\n' ; set -f
+   IFS=$'\n' ; shell_disable_glob
    for node in ${nodes}
    do
       r_remove_line "${RVAL}" "${node}"
       r_add_line "${RVAL}" "${node}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -744,7 +748,7 @@ r_remove_line_by_first_field()
    local delim
 
    RVAL=
-   set -o noglob; IFS=$'\n'
+   shell_disable_glob; IFS=$'\n'
    for line in ${lines}
    do
       case "${line}" in
@@ -758,7 +762,7 @@ r_remove_line_by_first_field()
          ;;
       esac
    done
-   IFS="${DEFAULT_IFS}" ; set +o noglob
+   IFS="${DEFAULT_IFS}" ; shell_enable_glob
 }
 
 
@@ -784,10 +788,10 @@ r_collect_emission_libs()
 
    local node
 
-   IFS=$'\n' ; set -f
+   IFS=$'\n' ; shell_disable_glob
    for node in ${nodes}
    do
-      set +f; IFS="${DEFAULT_IFS}"
+      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
       IFS=";" read address marks raw_userinfo <<< "${node}"
 
@@ -818,7 +822,7 @@ r_collect_emission_libs()
       r_add_line "${RVAL}" "${line}"
       dependency_libs="${RVAL}"
    done
-   set +f; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 
    if [ "${OPTION_REVERSE}" = 'YES' ]
    then

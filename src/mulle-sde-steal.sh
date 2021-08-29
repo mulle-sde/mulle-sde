@@ -152,7 +152,7 @@ create_include()
    rexekutor echo "#define ${identifier}_include_h__"
    rexekutor echo ""
    (
-      shopt -s nullglob
+      shell_enable_nullglob
       for header in _*-include.h
       do
          rexekutor echo "# include \"${header}\""
@@ -175,7 +175,7 @@ create_include_private()
    rexekutor echo "#define ${identifier}_include_private_h__"
    rexekutor echo ""
    (
-      shopt -s nullglob
+      shell_enable_nullglob
       for header in _*-include-private.h
       do
          rexekutor echo "#include \"${header}\""

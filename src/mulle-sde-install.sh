@@ -40,12 +40,11 @@ sde_install_usage()
 Usage:
    ${MULLE_USAGE_NAME} install [options] <url> [-- [mulle-make options]]
 
-   Install a remote mulle-sde project, pointed at by URL. This command must
-   be run outside of a mulle-sde environment. The URL can be a repository or
-   an archive. It can also be an existing project.
+   Install a remote mulle-sde project. The install destination is given by
+   --prefix and defaults to \"${TMPDIR:-/tmp}\".
 
-   You should never use this command inside an existing project. "install"
-   will create a temporary project.
+   This command must be run outside of a mulle-sde environment. The URL can be
+   a repository or an archive. It can also be an existing project.
 
    The command will output the suggested link flags for the current platform
    after the install has finished.
@@ -291,7 +290,8 @@ install_project_only_in_tmp()
 
    local build_dir
 
-   build_dir="`make_tmp_directory`" || exit 1
+   r_make_tmp_directory || exit 1
+   build_dir="${RVAL}"
 
    # just to be sure, in case we are doing an inline build, but the build_dir
    # elsehere
@@ -512,6 +512,15 @@ sde_install_main()
          shift
       done
 
+   fi
+
+   # probably Voodoo :)
+   local pdir
+
+   pdir="`mulle-sde project-dir `"
+   if [ ! -z "${pdir}" ]
+   then
+      fail "Don't run this command with the current directory inside a mulle-sde project (${pdir})"
    fi
 
    local rval

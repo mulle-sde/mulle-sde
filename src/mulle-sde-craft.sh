@@ -110,7 +110,7 @@ sde_perform_fetch_if_needed()
          # exekutor mulle-sde status --stash-only
 
          if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                        -V \
+                        --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS} \
                          ${MULLE_SOURCETREE_FLAGS} \
                        -s \
@@ -184,7 +184,11 @@ sde_perform_reflect_if_needed()
 }
 
 
-
+#
+# TODO: option to make a deep check on sourcetrees in addition to shallow
+#       only, clean all if an inferior sourcetree is dirty (though this
+#       won't catch sourcechanges), so maybe pointless
+#
 sde_perform_clean_if_needed()
 {
    log_entry "sde_perform_clean_if_needed" "$@"
@@ -304,6 +308,7 @@ sde_craft_target()
       ;;
    esac
 
+   # project doesn't pay of in multiphase
    case "${target}" in
       'project'|'all')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
@@ -403,10 +408,6 @@ sde_craft_main()
             OPTION_RUN='YES'
          ;;
 
-         -V)
-            # old flag silently ignored
-         ;;
-
          ''|-*)
             break
          ;;
@@ -433,6 +434,8 @@ sde_craft_main()
 
    __get_craftorder_info
 
+   log_verbose "Check sourcetree for changes"
+
    #
    # Things to do:
    #
@@ -448,7 +451,7 @@ sde_craft_main()
       dbrval=3
    else
       rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                    -V \
+                    --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_SOURCETREE_FLAGS} \
                     -s \
@@ -556,12 +559,12 @@ sde_craft_main()
 
       local i
 
-      shopt -s nullglob
+      shell_enable_nullglob
       for i in ${MULLE_CRAFT_MAKE_FLAGS}
       do
          arguments="${arguments} '$i'"
       done
-      shopt -u nullglob
+      shell_disable_nullglob
    fi
 
    buildstyle="${buildstyle:-${MULLE_SDE_CRAFT_STYLE}}"

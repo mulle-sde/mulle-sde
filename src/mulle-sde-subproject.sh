@@ -269,12 +269,12 @@ emit_ignore_patternfile()
 
    local subproject
 
-   set -o noglob;  IFS=$'\n'
+   shell_disable_glob;  IFS=$'\n'
    for subproject in ${subprojects}
    do
       printf "%s\n" "${subproject}/"
    done
-   set +o noglob; IFS="${DEFAULT_IFS}"
+   shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
@@ -418,9 +418,7 @@ sde_subproject_init_main()
       PARENT_PROJECT_NAME="${PROJECT_NAME}" \
       PARENT_PROJECT_TYPE="${PROJECT_TYPE}" \
       PARENT_DIR="${MULLE_VIRTUAL_ROOT}" \
-      MULLE_FLAG_MAGNUM_FORCE='YES' \
       MULLE_VIRTUAL_ROOT="" \
-      PROJECT_NAME="" \
          eval_exekutor sde_init_main -d "${directory}" \
                                      -m "${meta}" \
                                      ${flags} \
@@ -429,6 +427,7 @@ sde_subproject_init_main()
                                      --no-post-init \
                                      --no-motd \
                                      --no-blurb \
+                                     -f \
                                      --project-source-dir "." \
                                      "$@"
    )
@@ -446,7 +445,7 @@ sde_subproject_init_main()
 exekutor_sourcetree_cmd_nofail()
 {
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               -V \
+               --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
             "$@" || exit 1
 }
@@ -455,7 +454,7 @@ exekutor_sourcetree_cmd_nofail()
 rexekutor_sourcetree_cmd_nofail()
 {
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               -V \
+               --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
             "$@" || exit 1
 }
@@ -544,10 +543,10 @@ sde_subproject_map()
 
       rval=0
 
-      set -o noglob;  IFS=$'\n'
+      shell_disable_glob;  IFS=$'\n'
       for subproject in ${subprojects}
       do
-         set +o noglob; IFS="${DEFAULT_IFS}"
+         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          local expanded_subproject
 
