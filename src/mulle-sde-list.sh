@@ -49,6 +49,7 @@ Tip:
    MULLE_MATCH_FILENAMES, MULLE_MATCH_IGNORE_PATH and MULLE_MATCH_PATH.
 
 Options:
+   --all               : list dependencies, definitions, environment, files
    --[no-]dependencies : list dependencies
    --[no-]definitions  : list definitions
    --[no-]environment  : list environmnt
@@ -245,11 +246,11 @@ sde_list_main()
 {
    log_entry "sde_list_main" "$@"
 
-   local OPTION_LIST_DEPENDENCIES='YES'
-   local OPTION_LIST_LIBRARIES='YES'
-   local OPTION_LIST_FILES='YES'
-   local OPTION_LIST_DEFINITIONS='YES'
-   local OPTION_LIST_ENVIRONMENT='YES'
+   local OPTION_LIST_DEFINITIONS='DEFAULT'
+   local OPTION_LIST_DEPENDENCIES='DEFAULT'
+   local OPTION_LIST_ENVIRONMENT='DEFAULT'
+   local OPTION_LIST_FILES='DEFAULT'
+   local OPTION_LIST_LIBRARIES='DEFAULT'
    local spacer
 
    spacer=":"  # nop
@@ -259,6 +260,14 @@ sde_list_main()
       case "$1" in
          -h*|--help|help)
             sde_list_usage
+         ;;
+
+         --all)
+            OPTION_LIST_DEFINITIONS='YES'
+            OPTION_LIST_DEPENDENCIES='YES'
+            OPTION_LIST_ENVIRONMENT='YES'
+            OPTION_LIST_FILES='YES'
+            OPTION_LIST_LIBRARIES='YES'
          ;;
 
          --dependencies)
@@ -314,6 +323,16 @@ sde_list_main()
    done
 
    [ $# -ne 0 ] && sde_list_usage "Superflous arguments $*"
+
+   if [ "${OPTION_LIST_DEFINITIONS}" = 'DEFAULT' -a \
+        "${OPTION_LIST_DEPENDENCIES}" = 'DEFAULT' -a \
+        "${OPTION_LIST_ENVIRONMENT}" = 'DEFAULT' -a \
+        "${OPTION_LIST_FILES}" = 'DEFAULT' -a \
+        "${OPTION_LIST_LIBRARIES}" = 'DEFAULT' \
+      ]
+   then
+      OPTION_LIST_FILES="YES"
+   fi
 
    if [ "${OPTION_LIST_FILES}" = 'YES' -a "${PROJECT_TYPE}" != 'none' ]
    then

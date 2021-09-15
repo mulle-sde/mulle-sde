@@ -1858,7 +1858,7 @@ sde_extension_freshen_main()
 
    # environment variable likely to be lost.. check this
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension freshen" \
-      eval sde_init_main -f --no-blurb --no-env --add "${args}"
+      eval sde_init_main --add -f --no-blurb --no-env "${args}"
 }
 
 
@@ -2053,7 +2053,7 @@ sde_extension_main()
          args="`hack_option_and_single_quote_everything "--oneshot" "$@" | tr '\012' ' '`"
 
          INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-            eval sde_init_main --no-blurb --no-env --add ${args}
+            eval sde_init_main --add --no-blurb --no-env ${args}
       ;;
 
       find|show|usage|vendors)

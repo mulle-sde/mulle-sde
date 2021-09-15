@@ -1292,7 +1292,8 @@ sde_dependency_add_main()
       then
          nodetype="tar"  # nodetype none is only valid for libraries
          address="${originalurl}"
-         url="https://github.com/${GITHUB_USER:-${LOGNAME:-whoever}}/${originalurl}/archive/${tag}.tar.gz"
+         tag="${latest:-latest}"
+         url="https://github.com/${user:-${LOGNAME:-whoever}}/${originalurl}/archive/${tag}.tar.gz"
          log_verbose "Adding this as a fake github project ${url} for symlink fetch"
       fi
    fi

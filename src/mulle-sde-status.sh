@@ -190,25 +190,25 @@ sde_status_main()
             indir)
                if [ -z "${parentdir}" ]
                then
-                  log_verbose "${indent}mulle-sde commands are executed in ${projectdir}."
+                  log_verbose "${indent}mulle-sde commands are executed in ${projectdir#${MULLE_USER_PWD}/}."
                else
-                  log_info "${indent}mulle-sde commands are executed in ${projectdir}, but there is a parent project in ${parentdir}"
+                  log_info "${indent}mulle-sde commands are executed in ${projectdir#${MULLE_USER_PWD}/}, but there is a parent project in ${parentdir#${MULLE_USER_PWD}/}"
                fi
             ;;
 
             inproject)
-               log_info "${indent}mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir}"
+               log_info "${indent}mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir#${MULLE_USER_PWD}/}"
             ;;
 
             inparent)
-               log_info "${indent}mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir}"
+               log_info "${indent}mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir#${MULLE_USER_PWD}/}"
             ;;
          esac
 
 
          if [ "${directory}" != "${projectdir}" ]
          then
-            log_verbose "${indent}The current directory is ${directory}"
+            log_verbose "${indent}The current directory is ${directory#${MULLE_USER_PWD}/}"
          fi
 
          if [ ! -z "${projectdir}" ]

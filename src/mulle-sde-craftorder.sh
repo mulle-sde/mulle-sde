@@ -174,13 +174,31 @@ create_craftorder_file_if_needed()
 }
 
 
-show_craftorder()
+show_cached_craftorder()
 {
-   log_entry "show_craftorder" "$@"
+   log_entry "show_cached_craftorder" "$@"
 
-   log_info "Craftorder"
+   local craftorderfile="$1" ; shift
+
+   if [ -f "${craftorderfile}" ]
+   then
+      log_info "Cached craftorder (${craftorderfile#${MULLE_USER_PWD}/})"
+      cat "${craftorderfile}"
+      return 0
+   fi
+
+   log_info "There is no cached craftorder"
+   return 1
+}
+
+
+show_uncached_craftorder()
+{
+   log_entry "show_uncached_craftorder" "$@"
 
    local callback
+
+   log_info "Craftorder"
 
    callback="`declare -f r_append_mark_no_memo_to_subproject`"
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -198,10 +216,10 @@ sde_craftorder_main()
 {
    log_entry "sde_craftorder_main" "$@"
 
-   local OPTION_CACHED='NO'
+   local OPTION_CACHED='YES'
    local OPTION_REMOVE_CACHED='NO'
    local OPTION_CREATE='NO'
-   local OPTION_REMAINING='NO'
+   local OPTION_UNCACHED='DEFAULT'
    local OPTION_PRINT_CACHEFILE_PATH='NO'
    #
    # handle options
@@ -219,6 +237,22 @@ sde_craftorder_main()
 
          --cached)
             OPTION_CACHED='YES'
+         ;;
+
+         --no-cached)
+            OPTION_CACHED='YES'
+         ;;
+
+         --uncached)
+            OPTION_UNCACHED='YES'
+         ;;
+
+         --uncached-if-needed)
+            OPTION_UNCACHED='DEFAULT'
+         ;;
+
+         --no-uncached)
+            OPTION_UNCACHED='YES'
          ;;
 
          --remove-cached)
@@ -262,7 +296,6 @@ sde_craftorder_main()
       exit 0
    fi
 
-
    if [ "${OPTION_REMOVE_CACHED}" = 'YES'  ]
    then
      if [ -z "${MULLE_PATH_SH}" ]
@@ -281,40 +314,40 @@ sde_craftorder_main()
    if [ "${OPTION_CREATE}" = 'YES'  ]
    then
       create_craftorder_file "${_craftorderfile}" \
-                             "${_cachedir}"  || \
-         fail "Failed to create craftorderfile"
+                             "${_cachedir}" \
+      || fail "Failed to create craftorderfile"
    fi
 
-   if [ "${OPTION_REMAINING}" = 'NO' -a "${OPTION_CACHED}" = 'NO' ]
+   if [ "${OPTION_CACHED}" = 'YES' ]
    then
-      show_craftorder
-      return $?
+      if show_cached_craftorder "${_craftorderfile}"
+      then
+         if [ "${OPTION_UNCACHED}" = 'DEFAULT' ]
+         then
+            OPTION_UNCACHED='NO'
+         fi
+      fi
    fi
 
-
-   log_verbose "Cached craftorder ${C_RESET_BOLD}${_craftorderfile}"
+   if [ "${OPTION_UNCACHED}" != 'NO' ]
+   then
+      show_uncached_craftorder
+   fi
 
    if [ "${OPTION_REMAINING}" = 'YES' ]
    then
-      if [ ! -f "${_craftorderfile}" ]
+      log_info "Remaining"
+      if [ -f "${_craftorderfile}" ]
       then
          show_craftorder
+         return 0
       else
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                            --craftorder-file "${_craftorderfile}" \
                         list
+         return $?
       fi
-      return $?
    fi
-
-   if [ ! -f "${_craftorderfile}" ]
-   then
-      log_warning "There is no cached craftorder file"
-      return 0
-   fi
-
-   cat "${_craftorderfile}"
-   return 0
 }

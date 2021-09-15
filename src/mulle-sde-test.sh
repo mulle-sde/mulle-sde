@@ -291,7 +291,7 @@ sde_test_run()
 {
    log_entry "sde_test_run" "$@"
 
-   local harmeless="$1"; shift
+   local harmless="$1"; shift
    local cmd="$1"; shift
 
    local defaultpath
@@ -365,7 +365,6 @@ sde_test_path_environment()
       log_trace2 "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
    fi
 }
-
 
 
 r_sde_test_init()
