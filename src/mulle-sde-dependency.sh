@@ -744,9 +744,10 @@ _sde_enhance_url()
    #
    if [ ! -z "${tag}" ]
    then
-      # bash weirdness
+      # one of the major pain points. I can't get this right and I am
+      # constantly adjusting this. And I can't figure out a better way.
       case "${BASH_VERSION}" in 
-         [0123].*)
+         [01236].*|5.1*)
             r_escaped_sed_pattern "${tag}"
             url="$(sed -e "s/${RVAL}/\\\${MULLE_TAG}/g" <<< "${url}" )"
          ;;
@@ -875,21 +876,6 @@ So it can't be used with craftinfo: style add."
    fi
 
    sde_dependency_add_to_sourcetree "${sourcetree}"
-}
-
-
-r_option_add_mark()
-{
-   local option="$1"
-   local mark="$2"
-   local marks="$3"
-
-   if [ "${option}" = 'NO' ]
-   then
-      r_comma_concat "${marks}" "no-${mark}"
-   else
-      r_comma_concat "${marks}" "${mark}"
-   fi
 }
 
 
@@ -1293,7 +1279,7 @@ sde_dependency_add_main()
          nodetype="tar"  # nodetype none is only valid for libraries
          address="${originalurl}"
          tag="${latest:-latest}"
-         url="https://github.com/${user:-${LOGNAME:-whoever}}/${originalurl}/archive/${tag}.tar.gz"
+         url="https://github.com/${user:-${MULLE_USERNAME}}/${originalurl}/archive/${tag}.tar.gz"
          log_verbose "Adding this as a fake github project ${url} for symlink fetch"
       fi
    fi
@@ -1355,11 +1341,22 @@ sde_dependency_add_main()
          ;;
       esac
    fi
+
+   #
+   # singlephase might flip-flop around a bit in the marks, but that's not
+   # a problem
+   #
    case "${OPTION_DIALECT}" in
       c)
          # prepend is better in this case
          r_comma_concat "${DEPENDENCY_C_MARKS}" "${marks}"
          marks="${RVAL}"
+
+         case "${address##*/}" in
+            mulle_*|Mulle*)
+               r_comma_concat "${DEPENDENCY_C_MARKS}" "no-singlephase"
+            ;;
+         esac
       ;;
 
       objc)
@@ -1369,26 +1366,20 @@ sde_dependency_add_main()
       ;;
    esac
 
-   if [ -z "${OPTION_SINGLEPHASE}" ]
-   then
-      if [ "${OPTION_DIALECT}" = 'objc' ]
-      then
-         OPTION_SINGLEPHASE='YES'
-      else
-         case "${address##*/}" in
-            mulle_*|Mulle*)
-               OPTION_SINGLEPHASE='YES'
-            ;;
+   #
+   # force user selection
+   #
+   case "${OPTION_SINGLEPHASE}" in
+      'NO')
+         r_comma_concat "${marks}" "no-singlephase"
+         marks="${RVAL}"
+      ;;
 
-            *)
-               OPTION_SINGLEPHASE='NO'
-            ;;
-         esac
-      fi
-   fi
-
-   r_option_add_mark "${OPTION_SINGLEPHASE}" 'singlephase' "${marks}"
-   marks="${RVAL}"
+      'YES')
+         r_comma_concat "${marks}" "singlephase"
+         marks="${RVAL}"
+      ;;
+   esac
 
    if [ "${OPTION_PRIVATE}" = 'YES' ]
    then

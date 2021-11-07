@@ -103,7 +103,7 @@ sde_perform_fetch_if_needed()
                               "${MULLE_TECHNICAL_FLAGS}" \
                               "${MULLE_SOURCETREE_FLAGS}" \
                            "sync" \
-                               "${OPTION_SYNCFLAGS}" || exit 1
+                               "${OPTION_SYNCFLAGS}" || fail "sync fail"
 
          # run this quickly, because incomplete previous fetches trip me
          # up too often (not doing this since mulle-sde doctor is OK now)
@@ -123,10 +123,95 @@ sde_perform_fetch_if_needed()
 }
 
 
-
-sde_perform_reflect_if_needed()
+r_sde_perform_craftorder_reflects_if_needed()
 {
-   log_entry "sde_perform_reflect_if_needed" "$@"
+   log_entry "r_sde_perform_craftorder_reflects_if_needed" "$@"
+
+   local craftorderfile="$1"
+
+   if [ ! -f "${craftorderfile}" ]
+   then
+      log_fluff "No craftorderfile to no dependencies to reflect"
+      RVAL=""
+      return 0
+   fi
+
+   local names
+   local first_name
+
+   names="${MULLE_SOURCETREE_CONFIG_NAMES:-config}"
+   first_name="${names%%:*}"
+
+   local line
+   local repository
+   local filename
+   local previous
+   local changes
+
+   IFS=$'\n'
+   for repository in `sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `
+   do
+      IFS="${DEFAULT_IFS}"
+
+      filename="${repository}/${MULLE_SDE_ETC_DIR#${MULLE_VIRTUAL_ROOT}/}/reflect"
+
+      # if the file does not exist, this means
+      # a) it's not a multi sourcetree project
+      # if the file exists, we implicitly know its a mulle-sde project
+      if [ ! -f "${filename}" ]
+      then
+         log_debug "${repository} has only a single sourcetree"
+         continue
+      fi
+
+      # if we are in sync, we don't need to reflect
+      previous="`egrep -v '^#' "${filename}" 2> /dev/null `"
+      if [ "${previous}" = "${first_name}" ]
+      then
+         log_debug "${repository} is already reflected for sourcetree \"${first_name}\""
+         continue
+      fi
+
+      log_fluff "${repository} may need reflection"
+
+      [ -z "${MULLE_SDE_REFLECT_SH}" ] && \
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
+
+      # can easily parallelize, we need to reflect with out settings though
+      # but not too many settings.
+      (
+        MULLE_VIRTUAL_ROOT=
+        exekutor cd "${repository}" &&
+        rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} \
+                                            -DMULLE_SOURCETREE_CONFIG_NAMES="${MULLE_SOURCETREE_CONFIG_NAMES}" \
+                                            reflect
+      )
+
+      case $? in
+         0)
+         ;;
+
+         1)
+            RVAL=""
+            return 1
+         ;;
+
+         2)
+            r_colon_concat "${changes}" "${repository}"
+            changes="${RVAL}"
+         ;;
+      esac
+   done
+   IFS="${DEFAULT_IFS}"
+
+   RVAL="${changes}"
+   return 0
+}
+
+
+sde_perform_mainproject_reflect_if_needed()
+{
+   log_entry "sde_perform_mainproject_reflect_if_needed" "$@"
 
    local target="$1"
    local dbrval="$2"
@@ -179,7 +264,7 @@ sde_perform_reflect_if_needed()
       [ -z "${MULLE_SDE_REFLECT_SH}" ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
-      sde_reflect_main ${reflectflags} ${tasks} || exit 1
+      sde_reflect_main ${reflectflags} ${tasks} || fail "reflect fail" 1
    fi
 }
 
@@ -467,7 +552,7 @@ sde_craft_main()
 
    if [ "${OPTION_REFLECT}" != 'NO' ]
    then
-      sde_perform_reflect_if_needed "${target}" "${dbrval}"
+      sde_perform_mainproject_reflect_if_needed "${target}" "${dbrval}"
    fi
 
    sde_create_craftorder_if_needed "${target}" \
@@ -475,6 +560,22 @@ sde_craft_main()
                                    "${_cachedir}" \
                                    "${dbrval}"
 
+   #
+   # we have to check that our craftorder dependencies have reflected to the
+   # same sourcetree name. Usually this should be quick, as this is very rare
+   #
+   r_sde_perform_craftorder_reflects_if_needed "${_craftorderfile}"
+   if [ ! -z "${RVAL}" ]
+   then
+      log_warning "There have been changes in the dependencies ${RVAL}.
+${C_INFO}You may need to make multiple clean all/craft cycles to pick them all up."
+   fi
+
+   #
+   # there is a possibility, that a reflection changes the craftorder though!
+   #
+
+   #
    #
    # by default, we don't want to see the craftorder verbosity
    # but do like to see project verbosity
@@ -598,6 +699,7 @@ sde_craft_main()
                     "${arguments}" || return 1
 
    log_verbose "Craft was successful"
+
    if [ "${OPTION_RUN}" = 'YES' ]
    then
       local executable
@@ -616,7 +718,6 @@ sde_craft_main()
       fi
    fi
 }
-
 
 
 sde_craftstatus_main()

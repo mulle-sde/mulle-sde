@@ -99,20 +99,28 @@ sde_hack_test_environment()
    r_escaped_grep_pattern "${MULLE_VIRTUAL_ROOT}"
    pattern="${MULLE_VIRTUAL_ROOT}"
 
-   unset MULLE_VIRTUAL_ROOT
    unset ADDICTION_DIR
-   unset KITCHEN_DIR
    unset DEPENDENCY_DIR
+   unset KITCHEN_DIR
    unset MULLE_FETCH_SEARCH_PATH
+   unset MULLE_VIRTUAL_ROOT
+   #  unset MULLE_TECHNICAL_FLAGS
 
-   if [ ! -z "${pattern}" ]
+   #
+   # if terse, we don't get the warning and just the printf and it's
+   # confusing
+   #
+   if [ ! -z "${pattern}" -a "${MULLE_FLAG_LOG_TERSE}" != 'YES' ]
    then
       local problems
 
-      problems="`env | egrep -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' | grep -e grep -e "${pattern}"`"
+      problems="`env \
+                 | egrep -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' \
+                 | grep -e "${pattern}" `"
       if [ ! -z "${problems}" ]
       then
-         log_warning "These environment variables may or may not be problematic, as this is a \"wild\" environment."
+         log_warning "These environment variables may or may not be \
+problematic, as this is a \"wild\" environment."
          printf "%s\n" "${problems}" >&2
       fi
    fi
@@ -257,32 +265,32 @@ _sde_test_run()
       # Case 2: we are in the wrong environment
       # Case 3: we are in the right environment
       #
-      if [ -z "${MULLE_VIRTUAL_ROOT}" -o  "${MULLE_VIRTUAL_ROOT}" != "${physdir}" ]
+      if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a "${MULLE_VIRTUAL_ROOT}" = "${physdir}" ]
       then
-         local cmdline
-
-         cmdline="mulle-test"
-         for arg in ${MULLE_TECHNICAL_FLAGS}
-         do
-            r_add_line "${cmdline}" "${arg}"
-            cmdline="${RVAL}"
-         done
-
-         r_add_line "${cmdline}" "${cmd}"
-         cmdline="${RVAL}"
-
-         while [ $# -ne 0 ]
-         do
-            r_add_line "${cmdline}" "$1"
-            cmdline="${RVAL}"
-            shift
-         done
-
-         run_mulle_env -C "${cmdline}"
-         return $?
+         rexekutor "${MULLE_TEST:-mulle-test}" ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
+         exit $?
       fi
 
-      rexekutor "${MULLE_TEST:-mulle-test}" ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
+      local cmdline
+
+      cmdline="mulle-test"
+      for arg in ${MULLE_TECHNICAL_FLAGS}
+      do
+         r_add_line "${cmdline}" "${arg}"
+         cmdline="${RVAL}"
+      done
+
+      r_add_line "${cmdline}" "${cmd}"
+      cmdline="${RVAL}"
+
+      while [ $# -ne 0 ]
+      do
+         r_add_line "${cmdline}" "$1"
+         cmdline="${RVAL}"
+         shift
+      done
+
+      run_mulle_env -C "${cmdline}"
    )
 }
 
@@ -371,11 +379,23 @@ r_sde_test_init()
 {
    log_entry "r_sde_test_init" "$@"
 
+   local projecttype
+   local options
+
+   projecttype="`rexekutor "${MULLE_ENV:-mulle-env}" environment get PROJECT_TYPE`"
+   case "${projecttype}" in
+      executable)
+         options="--executable"
+      ;;
+   esac
+
    RVAL=
    if ! exekutor "mulle-test" \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_TEST_FLAGS} \
-                  init "$@"
+                  init \
+                     ${options} \
+                     "$@"
    then
       return 1
    fi

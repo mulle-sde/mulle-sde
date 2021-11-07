@@ -140,6 +140,7 @@ print_commands()
 
       HIDDEN_COMMANDS="\
    craftstatus    : show the craft status of the dependencies
+   config         : show multiple sourcetree configurations
    definition     : change projects craft options like CFLAGS (experimental)
    donefile       : show contents of donefiles
    crun           : craft and run if project is an executable
@@ -312,17 +313,10 @@ set_custom_environment()
 }
 
 
-
-exec_mulle_env()
-{
-   rexekutor exec "${MULLE_ENV:-mulle-env}" \
-                       ${MULLE_TECHNICAL_FLAGS} \
-                       ${MULLE_ENV_FLAGS} \
-                       ${MULLE_FWD_FLAGS} \
-                       --defines "${MULLE_DEFINE_FLAGS}" "$@"
-}
-
-
+#
+# execute a native mulle-env command, this is not expected to bounce back to
+# mulle-sde
+#
 run_mulle_env()
 {
    rexekutor "${MULLE_ENV:-mulle-env}" \
@@ -334,19 +328,32 @@ run_mulle_env()
 
 
 #
-# here we are just bouncing through mulle-env, we don't want
-# to pass -n, so mulle-env does nothing. So pushing MULLE_TECHNICAL_FLAGS
-# unfiltered isn't good
+# same as above, but exec
 #
-exec_mulle_env_bounce()
+exec_mulle_env()
 {
    rexekutor exec "${MULLE_ENV:-mulle-env}" \
+                       ${MULLE_TECHNICAL_FLAGS} \
                        ${MULLE_ENV_FLAGS} \
                        ${MULLE_FWD_FLAGS} \
                        --defines "${MULLE_DEFINE_FLAGS}" "$@"
 }
 
 
+
+
+#
+# here we are just bouncing through mulle-env, we don't want
+# to pass -n, so mulle-env does nothing. So pushing MULLE_TECHNICAL_FLAGS
+# unfiltered isn't good. The technical flags will be part of the incoming
+# command line in "$@"
+#
+exec_mulle_env_bounce()
+{
+   rexekutor exec "${MULLE_ENV:-mulle-env}" \
+                       ${MULLE_ENV_FLAGS} \
+                       --defines "${MULLE_DEFINE_FLAGS}" "$@"
+}
 
 
 r_determine_project_dir()
@@ -598,7 +605,6 @@ is_help_request_commandline()
 }
 
 
-
 main()
 {
    local MULLE_FLAG_MAGNUM_FORCE='NO'
@@ -769,11 +775,11 @@ steal|test|upgrade)
             # commands that have a help text, we want to show this even
             # if there is no environment around
             #
-            callback|clean|craft|craftinfo|craftorder|craftstatus|\
+            callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
 craft-status|crun|doctor|donefile|dependency|definition|env|environment|fetch|\
 files|find|ignore|library|linkorder|list|log|\
 mark|match|migrate|monitor|patternfile|project|protect|reflect|run|\
-subproject|style|task|tool|treestatus|unmark|unprotect|update)
+sourcetree|subproject|style|task|tool|treestatus|unmark|unprotect|update)
                if ! is_help_request_commandline "$2"
                then
                   exec_command_in_subshell "$@"
@@ -830,6 +836,7 @@ subproject|style|task|tool|treestatus|unmark|unprotect|update)
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
       log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+      log_trace2 "MULLE_TECHNICAL_FLAGS=\"${MULLE_TECHNICAL_FLAGS}\""
    fi
 
    if ! is_help_request_commandline "$@"
@@ -934,6 +941,7 @@ buildstatus
 callback
 clean
 commands
+config
 craft
 craftinfo
 craftorder
@@ -966,6 +974,7 @@ reinit
 reflect
 run
 show
+sourcetree
 subproject
 stash-dir
 steal
@@ -980,6 +989,18 @@ update
 upgrade
 version"
          exit 0
+      ;;
+
+      config|sourcetree)
+         if ! is_help_request_commandline "$@"
+         then
+            cd_virtual_root_assert_mulle_sde "${cmd}"
+
+            assert_test_environment "${cmd}"
+         fi
+         # shellcheck source=src/mulle-sde-config.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-config.sh"
+         sde_config_main "$@"
       ;;
 
       craft)

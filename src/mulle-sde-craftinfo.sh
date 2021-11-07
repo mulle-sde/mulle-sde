@@ -73,22 +73,23 @@ EOF
 
       cat <<EOF >&2
 Commands:
-   create            : create an empty craftinfo. Rarely needed. Use \`set\`.
-   exists            : check if a craftinfo is available from CRAFTINFO_REPOS
-   fetch             : fetch craftinfo from CRAFTINFO_REPOS
-   get               : retrieve a build setting of a dependency
-   info              : find online help for a dependency
-   list              : list builds settings of a dependency
-   show              : show craftinfos that are available online
-   remove            : remove a build setting of a dependency
-   set               : set a build setting of a dependency
+   create          : create an empty craftinfo. Rarely needed. Use \`set\`.
+   exists          : check if a craftinfo is available from CRAFTINFO_REPOS
+   fetch           : fetch craftinfo from CRAFTINFO_REPOS
+   get             : retrieve a build setting of a dependency
+   info            : find online help for a dependency
+   list            : list builds settings of a dependency
+   remove          : remove the craftinfo with all settings
+   set             : set a build setting of a dependency
+   show            : show craftinfos that are available online
+   unset           : remove a build setting of a dependency
 
 Options:
-   --global          : use global settings instead of current OS settings
-   --os <name>       : specify settings for a specific OS
+   --global        : use global settings instead of current OS settings
+   --os <name>     : specify settings for a specific OS
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLs seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS : Repo URLs seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -184,14 +185,14 @@ Usage:
       mulle-sde dependency craftinfo fetch async.h
 
 Options:
-   --clobber         : Remove an existing craftinfo of the same name
-   --no-clobber      : Keep an existing craftinfo of the same name (Default)
-   --git             : Keep .git folder in downloaded craftinfo
-   --no-git          : Remove .git folder in downloaded craftinfo
-   --rename-git      : Rename .git folder in downloaded craftinfo (Default)
+   --clobber       : Remove an existing craftinfo of the same name
+   --no-clobber    : Keep an existing craftinfo of the same name (Default)
+   --git           : Keep .git folder in downloaded craftinfo
+   --no-git        : Remove .git folder in downloaded craftinfo
+   --rename-git    : Rename .git folder in downloaded craftinfo (Default)
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS : Repo URLS seperated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -257,6 +258,24 @@ EOF
 }
 
 
+sde_dependency_craftinfo_unset_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo unset <dep> <key>
+
+   Remove a setting by its key.
+
+   Example:
+      mulle-sde dependency craftinfo --global unset nng CPPFLAGS
+
+EOF
+  exit 1
+}
+
+
 sde_dependency_craftinfo_remove_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -265,10 +284,10 @@ sde_dependency_craftinfo_remove_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency craftinfo remove <dep> <key>
 
-   Remove a setting by its key.
+   Remove a craftinfo
 
    Example:
-      mulle-sde dependency craftinfo --global remove nng CPPFLAGS
+      mulle-sde dependency craftinfo remove nng
 
 EOF
   exit 1
@@ -575,9 +594,8 @@ sde_dependency_craftinfo_remove_main()
       shift
    done
 
-
    [ $# -eq 0 ] && sde_dependency_craftinfo_remove_usage "Missing url or address argument"
-   [ $# -ne 1 ] && shift && sde_dependency_craftinfo_remove_usage "Superflous arguments \"$*\""
+   [ $# -gt 1 ] && shift && sde_dependency_craftinfo_remove_usage "Superflous arguments \"$*\""
 
    local url="$1"
 
@@ -942,6 +960,8 @@ sde_dependency_craftinfo_set_main()
 
    local extension="$1"; shift
 
+   local flags
+
    while :
    do
       case "$1" in
@@ -949,6 +969,10 @@ sde_dependency_craftinfo_set_main()
             sde_dependency_craftinfo_set_usage
          ;;
 
+         --append)
+            r_concat "${flags}" "$1"
+            flags="${RVAL}"
+         ;;
 
          -*)
             sde_dependency_craftinfo_set_usage "Unknown option \"$1\""
@@ -1004,8 +1028,66 @@ sde_dependency_craftinfo_set_main()
                definition \
                      --definition-dir "${_folder}${extension}" \
                   set \
-                     "$@"
+                     ${flags} "$@"
 
+}
+
+
+sde_dependency_craftinfo_unset_main()
+{
+   log_entry "sde_dependency_craftinfo_unset_main" "$@"
+
+   local extension="$1"; shift
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde_dependency_craftinfo_unset_usage
+         ;;
+
+
+         -*)
+            sde_dependency_craftinfo_unset_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] && sde_dependency_craftinfo_unset_usage "Missing url or address argument"
+
+   local url="$1"
+   shift
+
+   [ "$#" -eq 0 ] && sde_dependency_craftinfo_unset_usage "Missing key"
+   [ "$#" -gt 1 ] && shift && sde_dependency_craftinfo_unset_usage "Superflous arguments \"$*\""
+
+   if [ "${extension}" = "DEFAULT" ]
+   then
+      extension=""
+   fi
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+
+   if ! __sde_craftinfo_vars_with_url_or_address "${url}" 'NO'
+   then
+      return 1
+   fi
+
+   exekutor "${MULLE_MAKE}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               definition \
+                     --definition-dir "${_folder}${extension}" \
+                  unset \
+                     "$@"
 }
 
 
@@ -1283,7 +1365,7 @@ sde_dependency_craftinfo_main()
    fi
 
    case "${subcmd:-list}" in
-      create|set|get|list|fetch|exists|remove|show)
+      create|set|get|list|fetch|exists|remove|show|unset)
          sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" ]
          then

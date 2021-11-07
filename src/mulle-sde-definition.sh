@@ -64,8 +64,9 @@ Commands:
    get    : get value of a definition
    keys   : get a list of known keys, unknown keys are possible too
    list   : list current definitions
-   remove : remove a definition
+   unset  : unset a definition
    search : locate definition directories
+   remove : completely remove all definitions for a specific scope
    set    : change a definition
 
 EOF
@@ -307,9 +308,12 @@ sde_definition_list_scope()
    r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}"
    directory="${RVAL}"
 
-   log_info "${scope}"
-   sde_call_definition "list" "${flags}" "${directory}" "$@" \
-   | sed 's/^/   /'
+   if [ -d "${directory}" ]
+   then
+      log_info "${scope}"
+      sde_call_definition "list" "${flags}" "${directory}" "$@" \
+      | sed 's/^/   /'
+   fi
 }
 
 
@@ -388,15 +392,14 @@ sde_definition_set()
 }
 
 
-
 #
-# remove is kind of tricky, since we may need to remove a value set by
+# unset is kind of tricky, since we may need to unset a value set by
 # share, if this happens, we may need to create empty an empty etc
 # with a key "INTENTIONALLY_LEFT_BLANK" so it doesn't get erased
 #
-sde_scoped_definition_remove()
+sde_scoped_definition_unset()
 {
-   log_entry "sde_scoped_definition_remove" "$@"
+   log_entry "sde_scoped_definition_unset" "$@"
 
    local flags="$1"
    local etcdir="$2"
@@ -408,9 +411,9 @@ sde_scoped_definition_remove()
 
    if [ -d "${etcdir}" ]
    then
-      sde_call_definition "remove" "${flags}" "${etcdir}" "$@"
+      sde_call_definition "unset" "${flags}" "${etcdir}" "$@"
       rval=$?
-      etc_remove_if_possible "${etcdir}" "${sharedir}"
+      etc_unset_if_possible "${etcdir}" "${sharedir}"
       return $rval
    fi
 
@@ -434,13 +437,13 @@ empty the 'keep' folder is required, to keep the \"$*\" definition
 upgrade.
 EOF
 
-   sde_call_definition "remove" "${flags}" "${etcdir}" "$@" # now we can remove
+   sde_call_definition "unset" "${flags}" "${etcdir}" "$@" # now we can unset
 }
 
 
-sde_definition_remove()
+sde_definition_unset()
 {
-   log_entry "sde_definition_remove" "$@"
+   log_entry "sde_definition_unset" "$@"
 
    local scope="$1"
    local flags="$2"
@@ -451,10 +454,10 @@ sde_definition_remove()
 
    case "${scope}" in
       ALL)
-         sde_scoped_definition_remove "${flags}" \
-                                      "${etcdir}" \
-                                      "${sharedir}" \
-                                      "$@"
+         sde_scoped_definition_unset "${flags}" \
+                                     "${etcdir}" \
+                                     "${sharedir}" \
+                                     "$@"
 
          r_definition_scopes "no-global"
          scopes="${RVAL}"
@@ -466,43 +469,100 @@ sde_definition_remove()
          do
             shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-            sde_scoped_definition_remove "${flags}" \
-                                         "${etcdir}.${i}" \
-                                         "${sharedir}.${i}" \
-                                         "$@"
+            sde_scoped_definition_unset "${flags}" \
+                                        "${etcdir}.${i}" \
+                                        "${sharedir}.${i}" \
+                                        "$@"
          done
          shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
       ;;
 
       DEFAULT)
-         if ! sde_scoped_definition_remove "${flags}" \
-                                           "${etcdir}.${MULLE_UNAME}" \
-                                           "${sharedir}.${MULLE_UNAME}" \
-                                           "$@"
-         then
-            sde_scoped_definition_remove "${flags}" \
-                                          "${etcdir}" \
-                                          "${sharedir}" \
+         if ! sde_scoped_definition_unset "${flags}" \
+                                          "${etcdir}.${MULLE_UNAME}" \
+                                          "${sharedir}.${MULLE_UNAME}" \
                                           "$@"
+         then
+            sde_scoped_definition_unset "${flags}" \
+                                        "${etcdir}" \
+                                        "${sharedir}" \
+                                        "$@"
          fi
       ;; 
 
       global)
-         sde_scoped_definition_remove "${flags}" \
-                                      "${etcdir}"  \
-                                      "${sharedir}" \
-                                      "$@"
+         sde_scoped_definition_unset "${flags}" \
+                                     "${etcdir}"  \
+                                     "${sharedir}" \
+                                     "$@"
       ;;
 
       *)
-         sde_scoped_definition_remove "${flags}" \
-                                      "${etcdir}.${scope}" \
-                                      "${sharedir}.${scope}" \
-                                      "$@"
+         sde_scoped_definition_unset "${flags}" \
+                                     "${etcdir}.${scope}" \
+                                     "${sharedir}.${scope}" \
+                                     "$@"
       ;;
    esac
 }
+
+
+sde_definition_remove()
+{
+   log_entry "sde_definition_remove" "$@"
+
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   shift 4
+
+   local suffix
+
+   case "${scope}" in 
+      ALL)
+         fail "Removing all is not possible"
+      ;;
+
+      DEFAULT)
+         suffix="${1:-${scope}}"
+      ;;
+
+      *)
+         suffix="${scope}"
+      ;;
+   esac
+
+   if [ ! -z "${suffix}" ]
+   then
+      suffix=".${suffix}"
+   fi
+
+   local directory
+
+   directory="${etcdir}${suffix}"
+
+   log_debug "directory: ${directory}"
+
+   if [ ! -z "${etcdir}" -a -e "${directory}" ]
+   then
+      rmdir_safer "${directory}"
+      return $?
+   fi
+
+   if [ ! -z "${sharedir}" -a -e "${sharedir}${suffix}" ]
+   then
+      mkdir_if_missing "${directory}"
+      redirect_exekutor "${directory}/README.md" cat <<EOF
+Empty directory supersedes \"share\" definitions.
+EOF
+      return 0
+   fi
+
+   log_info "Nothing found to remove"
+}
+
 
 
 sde_definition_list()
@@ -539,12 +599,12 @@ sde_definition_list()
 
       DEFAULT)
          sde_definition_list_scope "${etcdir}" "${sharedir}" "${MULLE_UNAME}"
-         sde_definition_list_global  "${etcdir}" "${sharedir}" 
+         sde_definition_list_global "${etcdir}" "${sharedir}" 
          return
       ;;
 
       global)
-         sde_definition_list_global  "${etcdir}" "${sharedir}" 
+         sde_definition_list_global "${etcdir}" "${sharedir}" 
          return
       ;;
 
@@ -647,9 +707,9 @@ sde_definition_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_definition_usage
+   local cmd="${1:-list}"
 
-   local cmd="$1"; shift
+   [ $# -ne 1 ] && shift
 
    case "${cmd}" in
       search)
@@ -667,8 +727,7 @@ sde_definition_main()
             sde_definition_scopes "$@"
       ;;
 
-
-      get|keys|list|remove|set)
+      get|keys|list|remove|set|unset)
          MULLE_FLAG_LOG_TERSE="${terse}" \
             sde_definition_${cmd} "${scope}" \
                                   "${flags}" \

@@ -493,7 +493,7 @@ r_sde_githubname()
       esac
    fi
 
-   RVAL="${LOGNAME:-unknown}"
+   RVAL="${MULLE_USERNAMEF}"
 }
 
 

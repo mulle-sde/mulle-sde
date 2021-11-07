@@ -367,11 +367,13 @@ r_sde_linkorder_all_nodes()
    # local option_scope="$1"
    # local option_sharedir="$2"
    # local option_configdir="$3"
-   # local option_use_fallback="$4"
-   # local defer="$5"
-   # local mode="$6"
+   # local option_confignames="$4"
+   # local option_use_fallback="$5"
+   # local defer="$6"
+   # local mode="$7"
    sourcetree_environment "" \
                           "${MULLE_SOURCETREE_STASH_DIRNAME}" \
+                          "" \
                           "" \
                           "" \
                           "" \

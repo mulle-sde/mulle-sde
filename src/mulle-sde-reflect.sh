@@ -48,12 +48,19 @@ Usage:
 
       source     : reflect changes in \"${PROJECT_SOURCE_DIR}\" into makefiles
       sourcetree : reflect library and dependency changes into makefiles and
-                   header files
+                   header file
+
 Options:
    --craft       : craft after reflect
-   --if-needed   : check before reflect, if reflection seems unneccessary
+   --if-needed   : reflect if there was a change in the sourcetree name
    --no-recurse  : do not recurse into subprojects
+   --optimistic  : run only those tasks that are needed
    --serial      : don't reflect subprojects in parallel
+
+Return value:
+   0 : OK
+   1 : Failure
+   2 : OK, but sourcetree has changed
 
 Environment:
    MULLE_SDE_REFLECT_CALLBACKS   : default callbacks used for reflect
@@ -181,8 +188,10 @@ _sde_reflect_main()
 {
    log_entry "_sde_reflect_main" "$@"
 
-   local runner="$1" ; shift
-   local parallel="$1" ; shift
+   local parallel="$1"
+   local runner="$2"
+
+   shift 2
 
    local task
    local name
@@ -238,8 +247,10 @@ _sde_reflect_subprojects()
 {
    log_entry "_sde_reflect_subprojects" "$@"
 
-   local runner="$1" ; shift
-   local parallel="$1" ; shift
+   local parallel="$1"
+   local runner="$2"
+
+   shift 2
 
    #
    # reflect source of mulle-sde subprojects only
@@ -284,21 +295,100 @@ sde_reflect_worker()
 {
    log_entry "sde_reflect_worker" "$@"
 
-   local runner="$1" ; shift
-   local recurse="$1" ; shift
-   local parallel="$1" ; shift
+   local recurse="$1"
+   local if_needed="$2"
+
+   shift 2
+
+   local donefile
+   local previous
+
+   # If we have multiple sourcetrees, we want to remember for what sourcetree
+   # we reflected. If the sourcetree is "config", which is the default we
+   # don't have to remember it. (That means absence of the reflect file
+   # indicates a repository with only a single "config" sourcetree!)
+   #
+   # We persist the reflection and therefore also what the current reflection
+   # is, so don't place in var.
+   #
+   donefile="${MULLE_SDE_ETC_DIR}/reflect"
+   previous="`egrep -v '^#' "${donefile}" 2> /dev/null`"
+
+   # remember what we reflected
+   #
+   # we keep all names, so we can quickly decide if a match happens
+   # we don't want to look for sourcetrees individually
+   #
+   local names
+
+   names="${MULLE_SOURCETREE_CONFIG_NAMES:-config}"
+   if [ "${if_needed}" = 'YES' ]
+   then
+      if [ -z "${previous}" ]
+      then
+         log_fluff "Nothing needs to be reflected"
+         return
+      fi
+
+      # if its the same as top pick of names, then we are happy too
+      # in a foo:bar:baz scenario, bar loses out and will affect a
+      # reflect
+
+      if [ "${previous}" = "${names%%:*}" ]
+      then
+         log_fluff "Already reflected for \"${previous}\""
+         return
+      fi
+   fi
 
    log_fluff "Reflect callbacks: \"${MULLE_SDE_REFLECT_CALLBACKS}\""
 
    if [ "${recurse}" = 'YES' ]
    then
-      if ! _sde_reflect_subprojects "${runner}" "${parallel}" "$@"
+      if ! _sde_reflect_subprojects "$@"
       then
          return 1
       fi
    fi
 
-   _sde_reflect_main "${runner}" "${parallel}" "$@"
+   if ! _sde_reflect_main "$@"
+   then
+      return 1
+   fi
+
+   #
+   # If there is only "config" possible, we don't save anything. Subprojects
+   # can't go crazy here! They will have to have the same configs.
+   #
+   local current_name
+   local names
+
+   names="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" config name -a`"
+   if [ "${names}" = "config" ]
+   then
+      remove_file_if_present "${donefile}"
+      return 0
+   fi
+
+   # this extra call, pains a little
+   current_name="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" config name`"
+
+   log_verbose "Remembering \"${current_name}\" as sourcetree"
+
+   # It's also inconvenient for git, if this file timestamp fluctuates.
+   # So try to keep it stable.
+   #
+   if [ "${current_name}" != "${previous}" ]
+   then
+      r_mkdir_parent_if_missing "${donefile}"
+
+      redirect_exekutor "${donefile}" cat <<EOF
+# This file is produced during reflection, when multiple sourcetrees are
+# available. You should put it into git.
+${current_name}
+EOF
+      return 2
+   fi
 }
 
 
@@ -308,6 +398,7 @@ sde_reflect_main()
 
    local OPTION_RECURSE='YES'
    local OPTION_PARALLEL='YES'
+   local OPTION_IF_NEEDED='NO'
 
    local runner
 
@@ -323,6 +414,10 @@ sde_reflect_main()
          ;;
 
          --if-needed)
+            OPTION_IF_NEEDED='YES'
+         ;;
+
+         --optimistic)
             runner="_task_run_if_needed"
          ;;
 
@@ -365,7 +460,11 @@ sde_reflect_main()
 
    if [ $# -ne 0 ]
    then
-      sde_reflect_worker "${runner}" "${OPTION_RECURSE}" "${OPTION_PARALLEL}" "$@"
+      sde_reflect_worker "${OPTION_RECURSE}" \
+                         "${OPTION_IF_NEEDED}" \
+                         "${OPTION_PARALLEL}" \
+                         "${runner}" \
+                         "$@"
       return $?
    fi
 
@@ -380,5 +479,9 @@ sde_reflect_main()
 
    log_fluff "Running tasks: ${tasks}"
 
-   eval sde_reflect_worker "'${runner}'" "'${OPTION_RECURSE}'" "'${OPTION_PARALLEL}'" "${tasks}"
+   eval sde_reflect_worker "'${OPTION_RECURSE}'" \
+                           "'${OPTION_IF_NEEDED}'" \
+                           "'${OPTION_PARALLEL}'" \
+                           "'${runner}'" \
+                           "${tasks}"
 }

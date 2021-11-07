@@ -34,7 +34,7 @@ MULLE_SDE_SUBPROJECT_SH="included"
 
 SUBPROJECT_MARKS="dependency,no-update,no-delete,no-share"
 
-SUBPROJECT_LIST_MARKS="dependency,subproject,no-delete"
+SUBPROJECT_LIST_MARKS="dependency,no-mainproject,no-delete"
 SUBPROJECT_LIST_NODETYPES="local"
 
 
