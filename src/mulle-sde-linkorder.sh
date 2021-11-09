@@ -167,18 +167,27 @@ _emit_ld_output()
 
    if [ "${withldpath}" = 'YES' ]
    then
-      r_platform_translate_lines "ldpath" "-L"  $'\n' "${wholearchiveformat}" "$@" || exit 1
+      r_platform_translate_lines "ldpath" \
+                                 "${wholearchiveformat}" \
+                                 $'\n' \
+                                 "$@" || exit 1
       r_add_line "${result}" "${RVAL}"
       result="${RVAL}"
    fi
 
-   r_platform_translate_lines "ld" "-l" $'\n' "${wholearchiveformat}" "$@" || exit 1
+   r_platform_translate_lines "ld" \
+                              "${wholearchiveformat}" \
+                              $'\n' \
+                              "$@" || exit 1
    r_add_line "${result}" "${RVAL}"
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
    then
-      r_platform_translate_lines "rpath" "-Wl,-rpath -Wl,"  $'\n' "${wholearchiveformat}" "$@" || exit 1
+      r_platform_translate_lines "rpath" \
+                                 "${wholearchiveformat}" \
+                                 $'\n' \
+                                 "$@" || exit 1
       r_add_line "${result}" "${RVAL}"
       result="${RVAL}"
    fi
@@ -836,6 +845,28 @@ r_collect_emission_libs()
 }
 
 
+
+include_mulle_platform()
+{
+   #
+   # load mulle-platform as library, since we would be calling the executable
+   # repeatedly
+   #
+   if [ -z "${MULLE_PLATFORM_LIBEXEC_DIR}" ]
+   then
+      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`" || exit 1
+   fi
+
+   [ -z "${MULLE_PATH_SH}" ] && \
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
+
+   [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
+      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
+
+   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] && \
+      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+}
+
 #
 # linkorder is really complicated! First the dependencies have a specific
 # order, which we must respect. Then we want to move common links as far
@@ -863,35 +894,12 @@ sde_linkorder_main()
    local OPTION_SIMPLIFY='YES'
    local OPTION_FORCE_LOAD='NO'
    local OPTION_BEQUEATH='DEFAULT'
-   local OPTION_WHOLE_ARCHIVE_FORMAT
+   local OPTION_WHOLE_ARCHIVE_FORMAT='DEFAULT'
    local OPTION_OUTPUT_OMIT
    local OPTION_STARTUP='YES'           # default executable link
    local OPTION_OUTPUT_FINAL_LF='YES'
 
    local collect_libraries='YES'
-
-   #
-   # load mulle-platform as library, since we would be calling the executable
-   # repeatedly
-   #
-   if [ -z "${MULLE_PLATFORM_LIBEXEC_DIR}" ]
-   then
-      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`" || exit 1
-   fi
-
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-
-   [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
-
-   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] && \
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
-
-
-   r_platform_default_whole_archive_format
-   OPTION_WHOLE_ARCHIVE_FORMAT="${RVAL}"
-   [ -z "${OPTION_WHOLE_ARCHIVE_FORMAT}" ] && internal_fail "No wholearchiveformat available on this platform ?"
 
    while :
    do
@@ -976,6 +984,7 @@ sde_linkorder_main()
             shift
 
             OPTION_WHOLE_ARCHIVE_FORMAT="$1"
+            [ -z "${OPTION_WHOLE_ARCHIVE_FORMAT}" ] && internal_fail " --whole-archive-format argument can't be empty"
          ;;
 
          --output-format)
@@ -1037,6 +1046,8 @@ sde_linkorder_main()
    fi
 
    log_debug "nodes: ${nodes}"
+
+   include_mulle_platform
 
    local library_searchpath
    local framework_searchpath
