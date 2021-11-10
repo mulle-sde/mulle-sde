@@ -493,7 +493,7 @@ r_sde_githubname()
       esac
    fi
 
-   RVAL="${MULLE_USERNAMEF}"
+   RVAL="${MULLE_USERNAME}"
 }
 
 
@@ -2923,8 +2923,11 @@ sde_save_mulle_in_old()
 
    # copy stuff we may need for the upgrade back,
    mkdir_if_missing ".mulle" || exit 1
-   exekutor cp -Ra ".mulle.old/etc" ".mulle" || exit 1
+
+   # order is important on mingw, first share than etc
+   # for symlinks
    exekutor cp -Ra ".mulle.old/share" ".mulle" || exit 1
+   exekutor cp -Ra ".mulle.old/etc" ".mulle" || exit 1
 
    mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
