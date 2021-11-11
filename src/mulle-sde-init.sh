@@ -1797,8 +1797,10 @@ _install_simple_extension()
    if [ -z "${PROJECT_NAME}" -a "${exttype}" = "oneshot" ]
    then
       r_basename "${MULLE_USER_PWD}"
-      assert_project_name "${RVAL}"
+      r_identifier "${RVAL}"
       PROJECT_NAME="${RVAL}"
+
+      assert_project_name "${PROJECT_NAME}"
    fi
 
    set_projectname_variables "${PROJECT_NAME}"
@@ -2814,6 +2816,7 @@ _sde_run_init_reinit_common()
          if [ -z "${projectname}" ]
          then
             r_basename "${PWD}"
+            r_identifier "${RVAL}"
             projectname="${RVAL}"
          fi
       ;;
