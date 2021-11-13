@@ -171,8 +171,11 @@ _emit_ld_output()
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
-      r_add_line "${result}" "'${RVAL}'"  # quote protect this
-      result="${RVAL}"
+      if [ ! -z "${RVAL}" ]
+      then
+         r_add_line "${result}" "'${RVAL}'"  # quote protect this
+         result="${RVAL}"
+      fi
    fi
 
    r_platform_translate_lines "ld" \
@@ -194,10 +197,13 @@ _emit_ld_output()
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
-      r_add_line "${result}" "'${RVAL}'" # protect
-      result="${RVAL}"
+      if [ ! -z "${RVAL}" ]
+      then
+         r_add_line "${result}" "'${RVAL}'" # protect
+         result="${RVAL}"
+      fi
    fi
-
+   
    #
    # change line separator if needed
    #
