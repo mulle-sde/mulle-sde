@@ -171,7 +171,7 @@ _emit_ld_output()
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
-      r_add_line "${result}" "${RVAL}"
+      r_add_line "${result}" "'${RVAL}'"
       result="${RVAL}"
    fi
 
@@ -179,7 +179,7 @@ _emit_ld_output()
                               "${wholearchiveformat}" \
                               $'\n' \
                               "$@" || exit 1
-   r_add_line "${result}" "${RVAL}"
+   r_add_line "${result}" "'${RVAL}'"
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
@@ -188,13 +188,13 @@ _emit_ld_output()
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
-      r_add_line "${result}" "${RVAL}"
+      r_add_line "${result}" "'${RVAL}'"
       result="${RVAL}"
    fi
 
    if [ "${OPTION_SIMPLIFY}" = 'YES' ]
    then
-      r_platform_simplify_wholearchive "${result}" "${wholearchiveformat}"
+      r_platform_simplify_wholearchive "${result}" "'${wholearchiveformat}'"
       result="${RVAL}"
    fi
 
