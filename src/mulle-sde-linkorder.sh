@@ -171,7 +171,7 @@ _emit_ld_output()
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
-      r_add_line "${result}" "'${RVAL}'"
+      r_add_line "${result}" "'${RVAL}'"  # quote protect this
       result="${RVAL}"
    fi
 
@@ -179,7 +179,13 @@ _emit_ld_output()
                               "${wholearchiveformat}" \
                               $'\n' \
                               "$@" || exit 1
-   r_add_line "${result}" "'${RVAL}'"
+
+   if [ "${OPTION_SIMPLIFY}" = 'YES' ]
+   then
+      r_platform_simplify_wholearchive "${RVAL}" "${wholearchiveformat}"
+   fi
+
+   r_add_line "${result}" "${RVAL}"  # dont protect
    result="${RVAL}"
 
    if [ "${withrpath}" = 'YES' ]
@@ -188,16 +194,13 @@ _emit_ld_output()
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
-      r_add_line "${result}" "'${RVAL}'"
+      r_add_line "${result}" "'${RVAL}'" # protect
       result="${RVAL}"
    fi
 
-   if [ "${OPTION_SIMPLIFY}" = 'YES' ]
-   then
-      r_platform_simplify_wholearchive "${result}" "'${wholearchiveformat}'"
-      result="${RVAL}"
-   fi
-
+   #
+   # change line separator if needed
+   #
    if [ "${sep}" != $'\n' ]
    then
       local line
@@ -343,15 +346,7 @@ r_sde_linkorder_all_nodes()
 {
    log_entry "r_sde_linkorder_all_nodes" "$@"
 
-   if [ -z "${MULLE_SOURCETREE_WALK_SH}" ]
-   then
-      MULLE_SOURCETREE_LIBEXEC_DIR="`"${MULLE_SOURCETREE:-mulle-sourcetree}" libexec-dir`"
-
-      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-environment.sh"  || exit 1
-      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-walk.sh" || exit 1
-      [ -z "${MULLE_SOURCETREE_CRAFTORDER_SH}" ] && \
-         . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-craftorder.sh"
-   fi
+   include_mulle_tool_library "sourcetree" "walk"
 
    local INSIDE_STANDALONE
    local INSIDE_DYNAMIC
@@ -380,6 +375,8 @@ r_sde_linkorder_all_nodes()
    # local option_use_fallback="$5"
    # local defer="$6"
    # local mode="$7"
+   include_mulle_tool_library "sourcetree" "environment"
+
    sourcetree_environment "" \
                           "${MULLE_SOURCETREE_STASH_DIRNAME}" \
                           "" \
@@ -609,8 +606,7 @@ r_library_searchpath()
 
    local if_exists="$1"
 
-   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+   include_mulle_tool_library "platform" "search"
 
    local options
 
@@ -647,8 +643,7 @@ r_framework_searchpath()
 
    local if_exists="$1"
 
-   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] &&
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
+   include_mulle_tool_library "platform" "search"
 
    local searchpath
    local configuration
@@ -1046,6 +1041,10 @@ sde_linkorder_main()
    fi
 
    log_debug "nodes: ${nodes}"
+   if [ -z "${nodes}" ]
+   then
+      return 0
+   fi
 
    include_mulle_platform
 
