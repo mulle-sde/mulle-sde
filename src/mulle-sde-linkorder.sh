@@ -129,9 +129,7 @@ emit_file_output()
 {
    log_entry "emit_file_output" "$@"
 
-   shift
-   shift
-   shift
+   shift 4
 
    _emit_file_output " " "" "$@"
 }
@@ -141,9 +139,7 @@ emit_file_lf_output()
 {
    log_entry "emit_file_lf_output" "$@"
 
-   shift
-   shift
-   shift
+   shift 4
 
    _emit_file_output '$\n' "" "$@"
 }
@@ -157,17 +153,20 @@ _emit_ld_output()
    local quote="$2"
    local withldpath="$3"
    local withrpath="$4"
-   local wholearchiveformat="$5"
+   local preferredlibformat="$5"
+   local wholearchiveformat="$6"
 
-   shift 5
+   shift 6
 
    [ -z "${wholearchiveformat}" ] && internal_fail "wholearchiveformat is empty"
+   [ -z "${preferredlibformat}" ] && internal_fail "preferredlibformat is empty"
 
    local result
 
    if [ "${withldpath}" = 'YES' ]
    then
       r_platform_translate_lines "ldpath" \
+                                 "${preferredlibformat}" \
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
@@ -179,6 +178,7 @@ _emit_ld_output()
    fi
 
    r_platform_translate_lines "ld" \
+                              "${preferredlibformat}" \
                               "${wholearchiveformat}" \
                               $'\n' \
                               "$@" || exit 1
@@ -194,6 +194,7 @@ _emit_ld_output()
    if [ "${withrpath}" = 'YES' ]
    then
       r_platform_translate_lines "rpath" \
+                                 "${preferredlibformat}" \
                                  "${wholearchiveformat}" \
                                  $'\n' \
                                  "$@" || exit 1
@@ -261,9 +262,7 @@ emit_csv_output()
 {
    log_entry "emit_csv_output" "$@"
 
-   shift
-   shift
-   shift
+   shift 4
 
    printf "%s" "$@"
 }
@@ -273,9 +272,7 @@ emit_node_output()
 {
    log_entry "emit_node_output" "$@"
 
-   shift
-   shift
-   shift
+   shift 4
 
    local line
 
@@ -899,6 +896,7 @@ sde_linkorder_main()
    local OPTION_OUTPUT_OMIT
    local OPTION_STARTUP='YES'           # default executable link
    local OPTION_OUTPUT_FINAL_LF='YES'
+   local OPTION_PREFERRED_LIBRARY_STYLE='static'
 
    local collect_libraries='YES'
 
@@ -914,6 +912,25 @@ sde_linkorder_main()
             shift
 
             OPTION_CONFIGURATION="$1"
+         ;;
+
+         --preferred-library-style)
+           [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_PREFERRED_LIBRARY_STYLE="$1"
+         ;;
+
+         --dynamic)
+            OPTION_PREFERRED_LIBRARY_STYLE='dynamic'
+         ;;
+
+         --static)
+            OPTION_PREFERRED_LIBRARY_STYLE='static'
+         ;;
+
+         --standalone)
+            OPTION_PREFERRED_LIBRARY_STYLE='standalone'
          ;;
 
          --output-rpath)
@@ -985,7 +1002,8 @@ sde_linkorder_main()
             shift
 
             OPTION_WHOLE_ARCHIVE_FORMAT="$1"
-            [ -z "${OPTION_WHOLE_ARCHIVE_FORMAT}" ] && internal_fail " --whole-archive-format argument can't be empty"
+            [ -z "${OPTION_WHOLE_ARCHIVE_FORMAT}" ] \
+            && internal_fail " --whole-archive-format argument can't be empty"
          ;;
 
          --output-format)
@@ -1079,6 +1097,7 @@ sde_linkorder_main()
 
    emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \
                                        "${OPTION_RPATH}" \
+                                       "${OPTION_PREFERRED_LIBRARY_STYLE}" \
                                        "${OPTION_WHOLE_ARCHIVE_FORMAT}" \
                                        ${dependency_libs}
 }

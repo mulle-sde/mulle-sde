@@ -191,7 +191,7 @@ sde_config_status()
    log_verbose "Sourcetree configurations:"
 
    IFS=$'\n'
-   for repository in `rexekutor sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `
+   for repository in `rexekutor sed -e 's/^\([^;]*\).*/\1/' "${_craftorderfile}" `
    do
       IFS="${DEFAULT_IFS}"
 
