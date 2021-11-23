@@ -40,44 +40,44 @@ sde_install_usage()
 Usage:
    ${MULLE_USAGE_NAME} install [options] <url> [-- [mulle-make options]]
 
-   Install a remote or local mulle-sde project. The install destination is 
-   given by --prefix and defaults to \"${TMPDIR:-/tmp}\".
+   Fetch, build and install a mulle-sde project. The URL can point to a git 
+   repository or a repository archive. It can also be the path to an existing 
+   local project. The install destination is set by the --prefix option. It 
+   defaults to TMPDIR (${TMPDIR:-/tmp}).
 
-   This command must be run outside of a mulle-sde environment. The URL can 
-   point to a repository or an archive. It can also be the path to an existing 
-   local project.
+   ${MULLE_USAGE_NAME} install uses a custom environment to shield the build 
+   process from inadvertant environment settings.
 
-   The command will output the suggested link flags for the current platform
-   after the install has finished.
+   The command can output the suggested linker flags for the current platform
+   after the install has finished (--linkorder).
 
-Examples:
-   Build a standalone shared Foundation library from the github repository.
+Example:
+   Build the mulle-fprintf library from the github repository.
    Then install it and all intermediate libraries into \`/tmp/yyy\`:
 
-   mulle-sde install --standalone --prefix /tmp/yyyy \
-https://github.com/MulleFoundation/Foundation/archive/latest.zip
+   mulle-sde install --linkorder --prefix /tmp/yyyy \
+https://github.com/mulle-core/mulle-sprintf/archive/latest.zip
 
-   Grab local project. Place all dependency projects into \`/tmp/foo\`
-   preferring local projects. Build in \`/tmp/foo\`.
-   Tip: Set MULLE_FETCH_SEARCH_PATH so that local dependencies can be found.
-   Install into \`/tmp/xxx\`. Keep \`/tmp/foo\`:
+   To build a local project, set MULLE_FETCH_SEARCH_PATH so that all local
+   dependencies can be found.
 
-   mulle-sde install -d /tmp/foo --prefix /tmp/xxx mulle-objc-compat
+   mulle-sde -DMULLE_FETCH_SEARCH_PATH=~/src install --prefix /tmp/xxx .
 
 Options:
-   -k <dir>          : kitchen directory (\$PWD/kitchen)
-   -d <dir>          : directory to fetch into (\$PWD)
-   --c               : project is C
-   --objc            : project is Objective-C
    --branch <name>   : branch to checkout
+   --c               : project is C
    --debug           : install as debug instead of release
+   --keep-tmp        : don't delete temporary directory
+   --linkorder       : produce linkorder output
+   --objc            : project is Objective-C (default)
    --only-project    : install only the main project
    --post-init       : run post-init on temporary project
    --prefix <prefix> : installation prefix (\$PWD)
-   --linkorder       : produce linkorder output
-   --keep-tmp        : don't delete temporary directory
    --standalone      : create a whole-archive shared library if supported
+   --static          : produce shared libraries
    --tag <name>      : tag to checkout
+   -d <dir>          : directory to fetch into (/tmp/...)
+   -k <dir>          : kitchen directory (\$PWD/kitchen)
 
 Environment:
    MULLE_FETCH_SEARCH_PATH : specify places to search local dependencies.
@@ -118,14 +118,15 @@ install_in_tmp()
    local configuration="$4" 
    local serial="$5"
    local symlink="$6" 
-   local branch="$7" 
-   local tag="$8"
-   local postinit="$9" 
+   local libstyle="$7"
+   local branch="$8" 
+   local tag="$9"
    shift 9
 
-   local arguments="$1"
-   local environment="$2"; 
-   shift 2
+   local postinit="$1" 
+   local arguments="$2"
+   local environment="$3"
+   shift 3
 
    mkdir_if_missing "${directory}" 2> /dev/null
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
@@ -143,14 +144,14 @@ install_in_tmp()
                                -s \
                                --style none/wild \
                                init \
-                                 none
+                                 none || return 1
          else
             exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
                                -s \
                                --style none/wild \
                                init \
                                  --no-post-init \
-                                 none
+                                 none || return 1
          fi
       fi
    fi
@@ -249,7 +250,7 @@ Use -f flag to clobber."
                   --no-defer \
                   -s \
                 craftorder \
-                 --no-print-env > craftorder || return 1
+                   --no-print-env > craftorder || return 1
 
    if [ "${serial}" = 'YES' ]
    then
@@ -266,6 +267,7 @@ Use -f flag to clobber."
       craftorder \
          --no-protect \
          ${serial} \
+         --no-keep-dependency-state \
          --configuration "${configuration}" \
          "${arguments}" || return 1
 
@@ -294,9 +296,10 @@ install_project_only_in_tmp()
    local configuration="$4"
    local serial="$5"
    local symlink="$6"
-   local arguments="$7"
+   local libstyle="$7"
+   local arguments="$8"
 
-   shift 7
+   shift 8
 
    exekutor cd "${directory}" || fail "can't change to \"${directory}\""
 
@@ -314,6 +317,7 @@ install_project_only_in_tmp()
       craft craftorder \
          ${serial} \
          --configuration "'${configuration}'" \
+         --no-keep-dependency-state \
          "${arguments}" || return 1
 
    local definition_dir
@@ -337,9 +341,9 @@ install_project_only_in_tmp()
                "${MULLE_MAKE_FLAGS}" \
             install \
                --build-dir "'${build_dir}'" \
+               --configuration "'${configuration}'" \
                --definition-dir "'${definition_dir}'" \
                --prefix "'${prefixdir}'" \
-               --configuration "'${configuration}'" \
                "${arguments}" || return 1
 
    if [ "${OPTION_OUTPUT_LINKORDER}" = 'YES' ]
@@ -358,7 +362,6 @@ install_project_only_in_tmp()
 }
 
 
-
 sde_install_main()
 {
    log_entry "sde_install_main" "$@"
@@ -375,7 +378,8 @@ sde_install_main()
    local OPTION_SYMLINK='NO'
    local OPTION_TAG=
    local PREFIX_DIR="/tmp"
-
+   local OPTION_LANGUAGE='DEFAULT'
+   local OPTION_PREFERRED_LIBRARY_STYLE="static"
    local URL 
 
    while [ $# -ne 0 ]
@@ -407,13 +411,12 @@ sde_install_main()
          ;;
 
          --c)
-            r_comma_concat "${OPTION_MARKS}" 'no-all-load,no-import'
-            OPTION_MARKS="${RVAL}"
+            OPTION_LANGUAGE=c
          ;;
 
+
          --objc)
-            r_comma_concat "${OPTION_MARKS}" 'no-singlephase'
-            OPTION_MARKS="${RVAL}"
+            OPTION_LANGUAGE=objc
          ;;
 
          --configuration)
@@ -421,6 +424,13 @@ sde_install_main()
             shift
 
             OPTION_CONFIGURATION="$1"
+         ;;
+
+         --language)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_LANGUAGE="$1"
          ;;
 
          --debug)
@@ -458,6 +468,13 @@ sde_install_main()
             PREFIX_DIR="$1"
          ;;
 
+         --preferred-library-style|--library-style)
+            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_PREFERRED_LIBRARY_STYLE="$1"
+         ;;
+
          --only-project)
             OPTION_ONLY_PROJECT='YES'
          ;;
@@ -470,9 +487,19 @@ sde_install_main()
             OPTION_SERIAL='YES'
          ;;
 
+         --shared|--dynamic)
+            OPTION_PREFERRED_LIBRARY_STYLE="dynamic"
+         ;;
+
          --standalone)
+            OPTION_PREFERRED_LIBRARY_STYLE="standalone"
+
             r_comma_concat "${OPTION_MARKS}" 'only-standalone'
             OPTION_MARKS="${RVAL}"
+         ;;
+
+         --static)
+            OPTION_PREFERRED_LIBRARY_STYLE="static"
          ;;
 
          --symlink)
@@ -522,21 +549,9 @@ sde_install_main()
       shift
    fi 
 
-   if [ -z "${MULLE_STRING_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-string.sh" || return 1
-   fi
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
-   fi
-
-
-   set_custom_environment "${MULLE_DEFINE_FLAGS}"
+   [ -z "${MULLE_STRING_SH}" ]    && internal_fail "need MULLE_FILE"
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] \
+   || log_warning "MULLE_VIRTUAL_ROOT should not be defined at this point ever!"
 
    local delete_tmp
    local arguments
@@ -545,6 +560,8 @@ sde_install_main()
    # remaining arguments are passed to mulle-make (and not mulle-craft)
    # if separated by '--'
    #
+   arguments="-- --preferred-library-style "${OPTION_PREFERRED_LIBRARY_STYLE}""
+
    if [ $# -ne 0  ] 
    then
       if [ "$1" != "--"  ]
@@ -552,31 +569,59 @@ sde_install_main()
          sde_install_usage "Superflous argument \"$1\" (use -- for mulle-make \
 pass through)"
       fi
-      arguments="--"
-      shift 
+
+      shift # get rid off --
 
       while [ $# -ne 0  ]
       do
          arguments="${arguments} '$1'"
          shift
       done
-
    fi
 
-   # probably Voodoo :)
-   local pdir
 
-   pdir="`mulle-sde project-dir `"
-   if [ ! -z "${pdir}" ]
+
+   #
+   # What we want to achieve is running in a "clean" room environment
+   #
+   set_custom_environment "${MULLE_DEFINE_FLAGS}"
+
+   if [ "${OPTION_LANGUAGE}" = 'DEFAULT' ]
    then
-      fail "Don't run this command with the current directory inside a \
-mulle-sde project (${pdir})"
+      local name
+
+      name="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" nameguess "${URL}" `"
+      r_lowercase "${name}"
+      if [ "${name}" = "${RVAL}" ]
+      then
+         log_info "Guessed C as the project language"
+         OPTION_LANGUAGE="c"
+      else
+         log_info "Guessed Objective-C as the project language"
+         OPTION_LANGUAGE="objc"
+      fi
    fi
+
+   case "${OPTION_LANGUAGE}" in
+      c)
+         r_comma_concat "${OPTION_MARKS}" 'no-all-load,no-import'
+         OPTION_MARKS="${RVAL}"
+      ;;
+
+      objc)
+         r_comma_concat "${OPTION_MARKS}" 'no-singlephase'
+         OPTION_MARKS="${RVAL}"
+      ;;
+   esac
+
 
    local rval
 
    if [ "${OPTION_ONLY_PROJECT}" = 'YES' ]
    then
+
+      log_info "Installing project only to ${C_RESET_BOLD}${PREFIX_DIR}"
+
       if [ -z "${OPTION_PROJECT_DIR}" ]
       then
          r_make_tmp "$1" "-d" || exit 1
@@ -617,6 +662,7 @@ mulle-sde project (${pdir})"
                                   "${OPTION_CONFIGURATION}" \
                                   "${OPTION_SERIAL}" \
                                   "${OPTION_SYMLINK}" \
+                                  "${OPTION_PREFERRED_LIBRARY_STYLE}" \
                                   "${arguments}"
    else
       if [ -z "${OPTION_PROJECT_DIR}" ]
@@ -632,6 +678,8 @@ mulle-sde project (${pdir})"
          r_simplified_absolutepath "${OPTION_PROJECT_DIR}"
          PROJECT_DIR="${RVAL}"
       fi
+
+      log_info "Installing to ${C_RESET_BOLD}${PREFIX_DIR}"
 
       #
       # MEMO: one problem we have when using DEPENDENCY_DIR as the install
@@ -666,6 +714,7 @@ mulle-sde project (${pdir})"
                      "${OPTION_CONFIGURATION}" \
                      "${OPTION_SERIAL}" \
                      "${OPTION_SYMLINK}" \
+                     "${OPTION_PREFERRED_LIBRARY_STYLE}" \
                      "${OPTION_BRANCH}" \
                      "${OPTION_TAG}" \
                      "${OPTION_POST_INIT}" \

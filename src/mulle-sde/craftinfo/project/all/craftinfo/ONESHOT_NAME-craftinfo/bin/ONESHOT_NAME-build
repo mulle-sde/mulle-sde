@@ -260,6 +260,12 @@ main()
 ###
 ### INIT
 ###
+_fatal()
+{
+   echo "$0 fatal error: $*" >&2
+   exit 1
+}
+
 _init()
 {
    #
@@ -298,8 +304,7 @@ _init()
 
       # shellcheck source=../mulle-bashfunctions/src/mulle-string.sh
    . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" ||
-      fail "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
-
+      _fatal "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
    shell_enable_pipefail
    shell_enable_extglob
 }

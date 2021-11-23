@@ -55,6 +55,7 @@ sde_init_usage()
    --dependency-dir <dir> : specify dependency directory (dependency)
    --kitchen-dir <dir>    : specify kitchen directory (kitchen)
    --no-<name>            : turn off specific initializations (see source)
+   --no-comment-files     : don't write template info into generated files
    --no-sourcetree        : do not add sourcetree to project
    --source-dir <dir>     : specify source directory location (src)
    --stash-dir <dir>      : specify stash directory (stash)
@@ -242,12 +243,14 @@ install_inheritfile()
 {
    log_entry "install_inheritfile" "$@"
 
-   local inheritfilename="$1" ; shift
-   local projecttype="$1" ; shift
-   local defaultexttype="$1" ; shift
-   local marks="$1" ; shift
-   local onlyfilename="$1"; shift
-   local force="$1" ; shift
+   local inheritfilename="$1"
+   local projecttype="$2"
+   local defaultexttype="$3"
+   local marks="$4"
+   local onlyfilename="$5"
+   local force="$6"
+
+   shift 6
 
    local text
 
@@ -706,7 +709,13 @@ add_to_tools()
 }
 
 
-run_init()
+run_fatal()
+{
+   echo "$0 fatal error: $*" >&2
+   exit 1
+}
+
+_init()
 {
    log_entry "run_init" "$@"
 
@@ -959,11 +968,12 @@ _copy_extension_template_files()
 
    local extensiondir="$1"
    local subdirectory="$2"
-   local projecttype="$3"
-   local force="$4"
-   local onlyfilename="$5"
+   local extension="$3"
+   local projecttype="$4"
+   local force="$5"
+   local onlyfilename="$6"
 
-   shift 5
+   shift 6
 
    local sourcedir
 
@@ -995,14 +1005,26 @@ _copy_extension_template_files()
       arguments="${arguments} --overwrite"
    fi
 
+   if [ "${OPTION_COMMENT_FILES}" = 'YES' ]
+   then
+      local comment
+
+      comment="extension : ${extension}\\n\
+directory : ${subdirectory}/${projecttype}\\n\
+template  : .../<|TEMPLATE_FILE|>\\n\
+Suppress this comment with \`export MULLE_SDE_GENERATE_FILE_COMMENTS=NO\`"
+
+      arguments="${arguments} --comment '${comment}'"
+   fi
+
    arguments="${arguments} '${sourcedir}' '${dstdir}'"
 
    #
-   # Normally the base projet files will be copied first, then we can not
-   # inherit properly because they are already there and we can not clobber
+   # Normally the base project files would be copied first. But then we can not
+   # inherit properly as they are already there and we can not clobber
    # them. So we collect _TEMPLATE_DIRECTORIES in reverse order.
    #
-   # If force is set, the dlast file file will win, in this case we use the
+   # If force is set, the last file file will win, in this case we use the
    # "natural" order
    #
    if [ "${force}" = 'YES' ]
@@ -1024,8 +1046,9 @@ _copy_extension_template_directory()
    local extensiondir="$1"
    local subdirectory="$2"
    local projecttype="$3"
+   local extension="$4"
 
-   shift 3
+   shift 4
 
    local first
    local second
@@ -1035,11 +1058,13 @@ _copy_extension_template_directory()
 
    _copy_extension_template_files "${extensiondir}" \
                                   "${subdirectory}" \
+                                  "${extension}" \
                                   "${first}" \
                                   "$@"
 
    _copy_extension_template_files "${extensiondir}" \
                                   "${subdirectory}" \
+                                  "${extension}" \
                                   "${second}" \
                                   "$@"
 }
@@ -1461,6 +1486,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
          _copy_extension_template_directory "${extensiondir}" \
                                             "demo" \
                                             "${projecttype}" \
+                                            "${vendor}/${extname}" \
                                             "${force}" \
                                             "${onlyfilename}" \
                                             "$@"
@@ -1484,6 +1510,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
          _copy_extension_template_directory "${extensiondir}" \
                                             "${subdirectory}" \
                                             "${projecttype}" \
+                                            "${vendor}/${extname}" \
                                             "${force}" \
                                             "${onlyfilename}" \
                                             "$@"
@@ -1504,6 +1531,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
          _copy_extension_template_directory "${extensiondir}" \
                                             "${subdirectory}" \
                                             "${projecttype}" \
+                                            "${vendor}/${extname}" \
                                             "${force}" \
                                             "${onlyfilename}" \
                                             "$@"
@@ -1523,6 +1551,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
          _copy_extension_template_directory "${extensiondir}" \
                                             "clobber" \
                                             "${projecttype}" \
+                                            "${vendor}/${extname}" \
                                             'YES' \
                                             "${onlyfilename}" \
                                             "$@"
@@ -1693,7 +1722,10 @@ install_extension()
 
             if [ ! -z "${arguments}" ]
             then
-               eval_exekutor template_generate_main "${arguments}" || exit 1
+               # memo: arguments are fully created including comments in
+               # _copy_extension_template_files
+               eval_exekutor template_generate_main \
+                                                    "${arguments}" || exit 1
             fi
          done
       ) || exit 1
@@ -2557,7 +2589,7 @@ _sde_validate_projecttype()
       *)
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
          then
-            fail "\"${projecttype}\" is not a standard project type.
+            fail "\"${projecttype}\" is not a standard project type like \"library\" or \"executable\".
 ${C_INFO}Use -f to use \"${projecttype}\""
          fi
       ;;
@@ -2698,22 +2730,33 @@ This may hurt, but you have to init again."
 }
 
 
+r_sde_initenv_style()
+{
+   RVAL="$1"
+   local projecttype="$2"
+
+   if [ "${RVAL}" = 'DEFAULT' ]
+   then
+      if [ "${projecttype}" = 'none' ]
+      then
+         RVAL="none/wild"
+      else
+         RVAL="mulle/relax"
+      fi
+   fi
+}
+
 _sde_pre_initenv()
 {
    log_entry "_sde_pre_initenv" "$@"
 
    local style="$1"
    local projecttype="$2"
+   local command="${3:-init}"
 
-   if [ "${style}" = 'DEFAULT' ]
-   then
-      if [ "${projecttype}" = 'none' ]
-      then
-         style="none/wild"
-      else
-         style="mulle/relax"
-      fi
-   fi
+   r_sde_initenv_style "${style}"
+   style="${RVAL}"
+
    #
    # if we init env now, then extensions can add environment
    # variables and tools
@@ -2732,7 +2775,7 @@ _sde_pre_initenv()
                   ${flags} \
                   --no-protect \
                   --style "${style}" \
-               init \
+               ${command} \
                   --no-blurb
    case $? in
       0)
@@ -2794,7 +2837,15 @@ _sde_run_init_reinit_common()
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
-      _sde_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}"
+      if [ "${OPTION_REINIT}" = 'YES' ]
+      then
+         if [ -z "${OPTION_PROJECT_FILE}" ]
+         then
+            _sde_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}" "reinit"
+         fi
+      else
+         _sde_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}"
+      fi
    fi
 
    case "${OPTION_PROJECT_SOURCE_DIR}" in
@@ -2868,13 +2919,6 @@ _sde_run_reinit()
       fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
    fi
 
-   if [ -z "${OPTION_PROJECT_FILE}" ]
-   then
-      rexekutor "${MULLE_ENV:-mulle-env}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        --no-protect \
-                        upgrade || exit 1
-   fi
 
    read_project_environment
 
@@ -2930,7 +2974,10 @@ sde_save_mulle_in_old()
    # order is important on mingw, first share than etc
    # for symlinks
    exekutor cp -Ra ".mulle.old/share" ".mulle" || exit 1
-   exekutor cp -Ra ".mulle.old/etc" ".mulle" || exit 1
+   if [ -d ".mulle.old/etc" ]
+   then
+      exekutor cp -Ra ".mulle.old/etc" ".mulle" || exit 1
+   fi
 
    mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
@@ -3300,6 +3347,7 @@ _sde_init_main()
    local OPTION_UPGRADE_SUBPROJECTS
    local OPTION_VENDOR="mulle-sde"
    local PURGE_PWD_ON_ERROR='NO'
+   local OPTION_COMMENT_FILES="${MULLE_SDE_GENERATE_FILE_COMMENTS:-YES}" # on by default, else I forget this option exists :)
    local TEMPLATE_FOOTER_FILE
    local TEMPLATE_HEADER_FILE
    local line
@@ -3551,6 +3599,14 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
             OPTION_VENDOR="$1"
          ;;
 
+         --comment-files)
+            OPTION_COMMENT_FILES='YES'
+         ;;
+
+         --no-comment-files)
+            OPTION_COMMENT_FILES='NO'
+         ;;
+
          --no-env)
             OPTION_INIT_ENV='NO'
          ;;
@@ -3563,10 +3619,10 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
             OPTION_REINIT='YES'
             OPTION_BLURB='NO'
             r_comma_concat "${OPTION_MARKS}" "no-demo"
-            r_comma_concat "${RVAL}" "no-project"
+            # r_comma_concat "${RVAL}" "no-project"
             r_comma_concat "${RVAL}" "no-project-oneshot"
             OPTION_MARKS="${RVAL}"
-            OPTION_INIT_ENV='NO'
+            OPTION_INIT_ENV='YES'
          ;;
 
          --reflect)

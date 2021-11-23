@@ -217,7 +217,7 @@ _sde_reflect_main()
          then
             if [ "${parallel}" = 'YES' ]
             then
-               _sde_reflect_task "${runner}" "${name}" "${statusfile}"  &
+               _sde_reflect_task "${runner}" "${name}" "${statusfile}" &
             else
                _sde_reflect_task "${runner}" "${name}" || exit $?
             fi
