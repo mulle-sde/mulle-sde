@@ -1006,24 +1006,11 @@ version"
 
             assert_test_environment "${cmd}"
          fi
+
          # shellcheck source=src/mulle-sde-craft.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
          sde_craft_main "$@"
       ;;
-
-      crun)
-         if ! is_help_request_commandline "$@"
-         then
-            cd_virtual_root_assert_mulle_sde "${cmd}"
-
-            assert_test_environment "${cmd}"
-         fi
-
-         # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
-         sde_craft_main --run "$@"
-      ;;
-
 
       craftinfo|craftinfos)
          if ! is_help_request_commandline "$@"
@@ -1065,6 +1052,19 @@ version"
          # shellcheck source=src/mulle-sde-craft.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
          sde_craftstatus_main "$@"
+      ;;
+
+      crun)
+         if ! is_help_request_commandline "$@"
+         then
+            cd_virtual_root_assert_mulle_sde "${cmd}"
+
+            assert_test_environment "${cmd}"
+         fi
+
+         # shellcheck source=src/mulle-sde-craft.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         sde_craft_main --run "$@"
       ;;
 
       definition|definitions|def)

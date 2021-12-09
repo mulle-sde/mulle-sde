@@ -715,7 +715,8 @@ run_fatal()
    exit 1
 }
 
-_init()
+
+run_init()
 {
    log_entry "run_init" "$@"
 

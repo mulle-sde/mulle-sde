@@ -95,9 +95,10 @@ Usage:
       ${MULLE_USAGE_NAME} libraries add pthread
 
 Options:
-   --objc     : used for static Objective-C libraries
-   --optional : is not required to exist
-   --private  : headers are not visible to API consumers
+   --framework : library is a MacOS framework (does NOT imply --objc)
+   --objc      : used for static Objective-C libraries
+   --optional  : is not required to exist
+   --private   : headers are not visible to API consumers
 EOF
   exit 1
 }
@@ -181,6 +182,7 @@ sde_library_add_main()
    local OPTION_PRIVATE='NO'
    local OPTION_OPTIONAL='NO'
    local OPTION_IF_MISSING='NO'
+   local OPTION_FRAMEWORK='NO'
    local options
    local userinfo
 
@@ -197,6 +199,10 @@ sde_library_add_main()
 
          -m|--objc)
             OPTION_DIALECT="objc"
+         ;;
+
+         --framework)
+            OPTION_FRAMEWORK="YES"
          ;;
 
          --plain)
@@ -272,6 +278,12 @@ sde_library_add_main()
       ;;
    esac
 
+   if [  "${OPTION_FRAMEWORK}" = 'YES' ]
+   then
+      r_comma_concat "only-framework,only-platform-darwin,no-cmake-inherit" "${marks}"
+      marks="${RVAL}"
+   fi
+   
    if [ "${OPTION_PRIVATE}" = 'YES' ]
    then
       r_comma_concat "${marks}" "no-public"
@@ -296,7 +308,15 @@ sde_library_add_main()
                      --marks "'${marks}'" \
                      "${userinfo}" \
                      "${options}" \
-                     "'${libname}'"
+                     "'${libname}'" || return 1
+
+   if [ "${OPTION_FRAMEWORK}" = 'YES' ]
+   then
+      _sde_set_sourcetree_userinfo_field "${libname}" \
+                                         'include' \
+                                         "<${libname}/${libname}.h>" \
+                                         'NO'
+   fi                     
 }
 
 
@@ -359,9 +379,9 @@ ${C_RESET_BOLD}   mulle-sourcetree list -l -_"
    case "${field}" in
       aliases|include)
          _sde_set_sourcetree_userinfo_field "${address}" \
-                                        "${field}" \
-                                        "${value}" \
-                                        "${OPTION_APPEND}"
+                                            "${field}" \
+                                            "${value}" \
+                                            "${OPTION_APPEND}"
       ;;
 
       platform-excludes)

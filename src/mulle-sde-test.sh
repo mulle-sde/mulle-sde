@@ -400,6 +400,8 @@ r_sde_test_init()
       return 1
    fi
 
+   log_info "Added ${C_RESET_BOLD}test${C_INFO} folder"
+
    local value
    local keys 
    local key 

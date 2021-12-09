@@ -1255,7 +1255,11 @@ sde_dependency_add_main()
 
       case "${guessed_user}" in
          mulle*)
-            tag="${tag:-latest}"
+            case "${scm}" in 
+               tar|zip)
+                  tag="${tag:-latest}"
+               ;;
+            esac
          ;;
       esac
    fi
@@ -1651,12 +1655,12 @@ platform-excludes"
          sde_dependency_list_main "$@"
       ;;
 
-      remove)
+      remove|rem)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
-                        "${cmd}" \
+                        "remove" \
                            --if-present \
                            "craftinfo/$1-craftinfo"
 
@@ -1664,7 +1668,7 @@ platform-excludes"
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
-                        "${cmd}" \
+                        "remove" \
                            "$@"
       ;;
 

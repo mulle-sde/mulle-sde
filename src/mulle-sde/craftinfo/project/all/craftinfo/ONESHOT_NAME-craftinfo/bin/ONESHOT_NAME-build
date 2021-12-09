@@ -6,11 +6,11 @@
 # This is an example build script. Build scripts can be useful, if the
 # project is based on make or some other non-mulle-make-supported build system.
 #
-# Rename it to build.sh and move it to the appropriate info directory folder,
-# maybe <dependency>.linux, if its just applicable to linux.
+# Rename it to `<|ONESHOT_NAME|>-build` or `<|ONESHOT_NAME|>-build.<|MULLE_UNAME|>`, 
+# if its just applicable to <|MULLE_UNAME|>. 
 #
 # Enable it with:
-#    mulle-sde dependency craftinfo --platform linux set <dependency> BUILD_SCRIPT build.sh
+#    mulle-sde dependency craftinfo --platform <|MULLE_UNAME|> set <dependency> BUILD_SCRIPT <|ONESHOT_NAME|>-build.linux
 #
 # Enable scripts with:
 #    mulle-sde environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'

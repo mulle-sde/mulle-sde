@@ -7,6 +7,7 @@ project( <|ONESHOT_NAME|>-craftinfo NONE)
 
 file( GLOB SCRIPTS
    bin/<|ONESHOT_NAME|>-build
+   bin/<|ONESHOT_NAME|>-build.*
 )
 
 if( SCRIPTS)

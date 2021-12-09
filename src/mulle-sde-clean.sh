@@ -100,8 +100,15 @@ Usage:
    cleaned.
 
    Instead of a domain, you can also specify a dependency to clean. Your
-   project will be built from this point. (Does not work well on OS X, due
-   to clean deleting objc-loader.inc)
+   project will be built from this point. "clean" only cleans the specified
+   project and forces a rebuild from this point. It does not clean in
+   subsequent projects. It's up to the build system to act on the necessary
+   changes. This works most of the time but:
+
+      When in doubt, clean all.
+      When still in doubt, clean tidy.
+      If doubts persist, clean cache.
+      Only then give up.
 
 Options:
    --no-graveyard : do not create backups in graveyard
@@ -466,6 +473,10 @@ sde_clean_main()
             OPTION_TEST="NO"
          ;;
 
+         --no-default)
+            MULLE_SDE_CLEAN_DEFAULT=
+         ;;
+
          -*)
             sde_clean_usage "Unknown option \"$1\""
          ;;
@@ -547,7 +558,8 @@ test"
       ;;
 
       default)
-         domains="project subproject"
+         r_concat "${MULLE_SDE_CLEAN_DEFAULT}" "project subproject"
+         domains="${RVAL}"
       ;;
 
       # used by mulle-craft implicitly via error message
@@ -631,7 +643,6 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
 #               fi
 #            ;;
 #         esac
-
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      clean \
@@ -659,7 +670,11 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
             rval=1
          fi
       else
-         sde_clean_usage "Unknown clean domain \"${domain}\""
+         # log_verbose "Clean ${domain}"
+         rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                     clean \
+                        "${domain}"
       fi
    done
    shell_enable_glob

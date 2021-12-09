@@ -45,10 +45,14 @@ Usage:
    \`mulle-craft <project|craftorder> help\` for all the options available.
 
    The dependency folder is crafted in order of \`mulle-sde craftorder\`.
-
    The default target is \"${MULLE_SDE_CRAFT_TARGET:-all}\"
 
+Tip:
    Try ${MULLE_USAGE_NAME} -v craft --serial, if you get compile errors.
+
+   To push CFLAGS to the build process you can do it like this:
+      ${MULLE_USAGE_NAME} -DCFLAGS=-H -v craft --clean --serial
+   (You need to clean as cmake caches)
 
 Options:
    -h                      : show this usage
@@ -416,8 +420,6 @@ sde_craft_main()
    local OPTION_CLEAN='DEFAULT'
    local OPTION_SYNCFLAGS
 
-   [ -z "${PROJECT_TYPE}" ] && internal_fail "PROJECT_TYPE is undefined"
-
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
 
    if [ "${PROJECT_TYPE}" = "none" ]
@@ -510,6 +512,7 @@ sde_craft_main()
    #
    # our craftorder is specific to a host
    #
+   [ -z "${PROJECT_TYPE}" ] && internal_fail "PROJECT_TYPE is undefined"
    [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
    [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
