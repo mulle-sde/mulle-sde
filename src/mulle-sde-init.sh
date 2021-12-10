@@ -1830,12 +1830,10 @@ _install_simple_extension()
    if [ -z "${PROJECT_NAME}" -a "${exttype}" = "oneshot" ]
    then
       r_basename "${MULLE_USER_PWD}"
-      r_identifier "${RVAL}"
       PROJECT_NAME="${RVAL}"
-
-      assert_project_name "${PROJECT_NAME}"
    fi
 
+   assert_project_name "${PROJECT_NAME}"
    set_projectname_variables "${PROJECT_NAME}"
    add_environment_variables "${OPTION_DEFINES}"
 
@@ -2653,6 +2651,7 @@ This may hurt, but you have to init again."
       shell_disable_nullglob
    fi
 
+   assert_project_name "${PROJECT_NAME}"
    set_projectname_variables "${PROJECT_NAME}"
    add_environment_variables "${OPTION_DEFINES}"
 
@@ -2716,6 +2715,7 @@ been installed."
 This may hurt, but you have to init again."
    fi
 
+   assert_project_name "${PROJECT_NAME}"
    set_projectname_variables "${PROJECT_NAME}"
    add_environment_variables "${OPTION_DEFINES}"
 
@@ -2868,7 +2868,6 @@ _sde_run_init_reinit_common()
          if [ -z "${projectname}" ]
          then
             r_basename "${PWD}"
-            r_identifier "${RVAL}"
             projectname="${RVAL}"
          fi
       ;;
@@ -2881,6 +2880,8 @@ _sde_run_init_reinit_common()
          projectname="${OPTION_NAME}"
       ;;
    esac
+
+   assert_project_name "${projectname}"
 
    add_environment_variables "${OPTION_DEFINES}"
 

@@ -393,7 +393,7 @@ assert_project_name()
       ;;
 
       ""|*[^a-zA-Z0-9_-]*|[^a-zA-Z_]*)
-         fail "Project name \"$1\" must be an identifier"
+         fail "Project name \"$1\" must be an identifier (may have -)"
       ;;
    esac
 }

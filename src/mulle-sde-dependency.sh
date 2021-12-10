@@ -1318,6 +1318,12 @@ sde_dependency_add_main()
       esac
    fi
 
+   include_executable_library "" \
+                              "MULLE_SDE_LIBRARY_SH" \
+                              "MULLE_SDE_LIBEXEC_DIR" \
+                              "mulle-sde-library.sh"
+
+   sde_library_warn_stupid_name "${address}"
 
    # is a good idea for test though
    # if [ "${address}" = "${PROJECT_NAME}" ]
@@ -1452,7 +1458,6 @@ sde_dependency_add_main()
                   clean --config
    fi
 
-   log_verbose "URL: ${url}"
    if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                        --virtual-root \
                       "${MULLE_TECHNICAL_FLAGS}"\
@@ -1460,6 +1465,11 @@ sde_dependency_add_main()
    then
       return 1
    fi
+
+   log_info "${C_VERBOSE}You can change the library search name with:
+${C_RESET_BOLD}   mulle-sde dependency set ${address} aliases ${address#lib},${address#lib}2
+${C_VERBOSE}You can change the header include with:
+${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${address#lib}.h"
 
    local dependency
 

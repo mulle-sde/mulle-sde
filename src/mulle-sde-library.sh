@@ -172,6 +172,37 @@ EOF
 }
 
 
+sde_library_warn_stupid_name()
+{
+   log_entry "sde_library_warn_stupid_name" "$@"
+
+   local libname="$1"
+
+   case "${MULLE_UNAME}" in 
+      windows|mingw)
+         case "${libname}" in
+            *.lib|*.dll)
+               log_warning "Library name  \"${libname}\" should not end with a library extension."
+            ;;
+         esac
+      ;;
+      
+      linux|*bsd|darwin) 
+         case "${libname}" in 
+            *.a|*.so|*.dylib)
+               log_warning "Library name \"${libname}\" should not end with a library extension."
+            ;;
+
+            lib*)
+               log_warning "Library name \"${libname}\" starts with lib prefix, it and its header may not be found."
+            ;;
+         esac
+      ;;
+   esac
+
+}
+
+
 sde_library_add_main()
 {
    log_entry "sde_library_add_main" "$@"
@@ -296,8 +327,6 @@ sde_library_add_main()
       marks="${RVAL}"
    fi
 
-   log_verbose "Adding \"${libname}\" to libraries"
-
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS} \
@@ -309,6 +338,11 @@ sde_library_add_main()
                      "${userinfo}" \
                      "${options}" \
                      "'${libname}'" || return 1
+
+   log_info "${C_VERBOSE}You can change the library search name with:
+${C_RESET_BOLD}   mulle-sde library set ${libname} aliases ${libname},${libname#lib}2
+${C_VERBOSE}You can change the header include with:
+${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libname#lib}.h"
 
    if [ "${OPTION_FRAMEWORK}" = 'YES' ]
    then
