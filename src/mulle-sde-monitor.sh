@@ -31,7 +31,8 @@
 #
 MULLE_SDE_MONITOR_SH="included"
 
-sde_monitor_usage()
+
+sde::monitor::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -48,9 +49,9 @@ EOF
 }
 
 
-sde_monitor_main()
+sde::monitor::main()
 {
-   log_entry "sde_monitor_main" "$@"
+   log_entry "sde::monitor::main" "$@"
 
    #
    # handle options
@@ -59,11 +60,11 @@ sde_monitor_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_monitor_usage
+            sde::monitor::usage
          ;;
 
          -*)
-            sde_monitor_usage "Unknown option \"$1\""
+            sde::monitor::usage "Unknown option \"$1\""
          ;;
 
          *)

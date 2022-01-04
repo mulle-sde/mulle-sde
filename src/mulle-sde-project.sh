@@ -32,7 +32,7 @@
 MULLE_SDE_PROJECT_SH="included"
 
 
-sde_project_usage()
+sde::project::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -53,7 +53,7 @@ EOF
 }
 
 
-sde_rename_usage()
+sde::project::rename_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -76,7 +76,7 @@ EOF
 }
 
 
-clear_project_variables()
+sde::project::clear_variables()
 {
    unset PROJECT_NAME
    unset PROJECT_IDENTIFIER
@@ -89,12 +89,14 @@ clear_project_variables()
    unset PROJECT_DOWNCASE_DIALECT
    unset PROJECT_UPCASE_DIALECT
    unset PROJECT_EXTENSIONS
+   unset PROJECT_PREFIXLESS_NAME
+   unset PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER
 }
 
 
-set_projectname_variables()
+sde::project::set_name_variables()
 {
-   log_entry "set_projectname_variables" "$@"
+   log_entry "sde::project::set_name_variables" "$@"
 
    PROJECT_NAME="${1:-${PROJECT_NAME}}"
 
@@ -103,6 +105,13 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
 
    r_identifier "${PROJECT_NAME}"
    PROJECT_IDENTIFIER="${RVAL}"
+
+   # hack for shell scripts
+   PROJECT_PREFIXLESS_NAME="${ONESHOT_NAME#*-}"
+
+   r_identifier "${PROJECT_PREFIXLESS_NAME}"
+   r_lowercase "${RVAL}"
+   PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${RVAL}"
 
    r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
    r_lowercase "${RVAL}"
@@ -113,9 +122,9 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
 }
 
 
-set_projectlanguage_variables()
+sde::project::set_language_variables()
 {
-   log_entry "set_projectlanguage_variables" "$@"
+   log_entry "sde::project::set_language_variables" "$@"
 
    PROJECT_LANGUAGE="${1:-${PROJECT_LANGUAGE}}"
 
@@ -143,7 +152,7 @@ set_projectlanguage_variables()
 #
 # this has to move to templating really...
 #
-r_add_template_named_file()
+sde::project::r_add_template_named_file()
 {
    local extension="${1:-default}"
    local name="$2"
@@ -178,19 +187,19 @@ r_add_template_named_file()
 }
 
 
-r_add_template_header_file()
+sde::project::r_add_template_header_file()
 {
-   r_add_template_named_file "$1" "header" "MULLE_SDE_FILE_HEADER"
+   sde::project::r_add_template_named_file "$1" "header" "MULLE_SDE_FILE_HEADER"
 }
 
 
-r_add_template_footer_file()
+sde::project::r_add_template_footer_file()
 {
-   r_add_template_named_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
+   sde::project::r_add_template_named_file "$1" "footer" "MULLE_SDE_FILE_FOOTER"
 }
 
 
-clear_oneshot_variables()
+sde::project::clear_oneshot_variables()
 {
    unset ONESHOT_CLASS
    unset ONESHOT_CATEGORY
@@ -203,14 +212,16 @@ clear_oneshot_variables()
    unset ONESHOT_UPCASE_C_IDENTIFIER
    unset ONESHOT_DOWNCASE_C_IDENTIFIER
    unset ONESHOT_BASENAME
+   unset ONESHOT_PREFIXLESS_NAME
+   unset ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER
    unset TEMPLATE_HEADER_FILE
    unset TEMPLATE_FOOTER_FILE
 }
 
 
-set_oneshot_variables()
+sde::project::set_oneshot_variables()
 {
-   log_entry "set_oneshot_variables" "$@"
+   log_entry "sde::project::set_oneshot_variables" "$@"
 
    local filename="$1"
    local class="$2"
@@ -238,8 +249,16 @@ set_oneshot_variables()
    ONESHOT_FILENAME="${filename}"
 
    ONESHOT_FILENAME_NO_EXT="${filename%.*}"
+
    r_extensionless_basename "${ONESHOT_FILENAME}"
    ONESHOT_NAME="${RVAL}"
+
+   # hack for shell scripts
+   ONESHOT_PREFIXLESS_NAME="${ONESHOT_NAME#*-}"
+
+   r_identifier "${ONESHOT_PREFIXLESS_NAME}"
+   r_lowercase "${RVAL}"
+   ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER="${RVAL}"
 
    r_identifier "${ONESHOT_NAME}"
    ONESHOT_IDENTIFIER="${RVAL}"
@@ -265,10 +284,10 @@ set_oneshot_variables()
 
    ext="${filename##*.}"
 
-   r_add_template_header_file "${ext}"
+   sde::project::r_add_template_header_file "${ext}"
    headerfile="${RVAL}"
 
-   r_add_template_footer_file "${ext}"
+   sde::project::r_add_template_footer_file "${ext}"
    footerfile="${RVAL}"
 
    TEMPLATE_HEADER_FILE="${headerfile}"
@@ -276,9 +295,9 @@ set_oneshot_variables()
 }
 
 
-export_oneshot_environment()
+sde::project::export_oneshot_environment()
 {
-   log_entry "export_oneshot_environment" "$@"
+   log_entry "sde::project::export_oneshot_environment" "$@"
 
    local filepath="$1"
    local class="$2"
@@ -306,16 +325,18 @@ export_oneshot_environment()
           ONESHOT_UPCASE_IDENTIFIER \
           ONESHOT_UPCASE_C_IDENTIFIER \
           ONESHOT_DOWNCASE_C_IDENTIFIER \
-          ONESHOT_BASENAME
+          ONESHOT_BASENAME \
+          ONESHOT_PREFIXLESS_NAME \
+          ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER
 
 #   export TEMPLATE_HEADER_FILE \
 #          TEMPLATE_FOOTER_FILE
 }
 
 
-export_projectname_environment()
+sde::project::export_name_environment()
 {
-   log_entry "export_projectname_environment" "$@"
+   log_entry "sde::project::export_name_environment" "$@"
 
    [ -z "${PROJECT_IDENTIFIER}" ]          && internal_fail "PROJECT_IDENTIFIER not set"
    [ -z "${PROJECT_DOWNCASE_IDENTIFIER}" ] && internal_fail "PROJECT_DOWNCASE_IDENTIFIER not set"
@@ -328,9 +349,9 @@ export_projectname_environment()
 }
 
 
-export_projectlanguage_environment()
+sde::project::export_language_environment()
 {
-   log_entry "export_projectlanguage_environment" "$@"
+   log_entry "sde::project::export_language_environment" "$@"
 
    if [ -z "${PROJECT_LANGUAGE}" ]
    then
@@ -347,9 +368,9 @@ export_projectlanguage_environment()
 
 
 
-project_add_envscope_if_missing()
+sde::project::add_envscope_if_missing()
 {
-   log_entry "save_projectname_variables" "$@"
+   log_entry "sde::project::add_envscope_if_missing" "$@"
 
    #
    # save it into /etc now, use -f flag to create the project scope
@@ -364,7 +385,7 @@ project_add_envscope_if_missing()
 }
 
 
-project_env_set_var()
+sde::project::env_set_var()
 {
    local key="$1"; shift
    local value="$1"; shift
@@ -384,7 +405,7 @@ project_env_set_var()
 #
 # we allow foo-xxx_a10 but not 0x/s!2
 #
-assert_project_name()
+sde::project::assert_name()
 {
    # check that PROJECT_NAME looks usable as an identifier
    case "$1" in
@@ -399,36 +420,36 @@ assert_project_name()
 }
 
 # those affected by renames
-save_projectname_variables()
+sde::project::save_name_variables()
 {
-  log_entry "save_projectname_variables" "$@"
+  log_entry "sde::project::save_name_variables" "$@"
 
-  assert_project_name "${PROJECT_NAME}"
+  sde::project::assert_name "${PROJECT_NAME}"
 
-  project_env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
-#  project_env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
+  sde::project::env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
+#  sde::project::env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
 }
 
 
 #
 # not saving case conversions here
 #
-save_projectlanguage_variables()
+sde::project::save_language_variables()
 {
-   log_entry "save_projectlanguage_variables" "$@"
+   log_entry "sde::project::save_language_variables" "$@"
 
    if [ ! -z "${PROJECT_LANGUAGE}" ]
    then
-      project_env_set_var PROJECT_LANGUAGE   "${PROJECT_LANGUAGE}"  "$@"
-      project_env_set_var PROJECT_DIALECT    "${PROJECT_DIALECT}" "$@"
-      project_env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "$@"
+      sde::project::env_set_var PROJECT_LANGUAGE   "${PROJECT_LANGUAGE}"  "$@"
+      sde::project::env_set_var PROJECT_DIALECT    "${PROJECT_DIALECT}" "$@"
+      sde::project::env_set_var PROJECT_EXTENSIONS "${PROJECT_EXTENSIONS}" "$@"
    fi
 }
 
 
-rename_old_to_new_filename()
+sde::project::rename_old_to_new_filename()
 {
-   log_entry "rename_old_to_new_filename" "$@"
+   log_entry "sde::project::rename_old_to_new_filename" "$@"
 
    local filename="$1"
    local old="$2"
@@ -445,9 +466,9 @@ rename_old_to_new_filename()
 }
 
 
-_local_search_and_replace_filenames()
+sde::project::_local_search_and_replace_filenames()
 {
-   log_entry "_local_search_and_replace_filenames" "$@"
+   log_entry "sde::project::_local_search_and_replace_filenames" "$@"
 
    local old="$1"
    local name="$2"
@@ -459,15 +480,15 @@ _local_search_and_replace_filenames()
    do
       shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-      rename_old_to_new_filename "${filename}" "${old}" "${name}"
+      sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
    done
    shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
-search_and_replace_filenames()
+sde::project::search_and_replace_filenames()
 {
-   log_entry "search_and_replace_filenames" "$@"
+   log_entry "sde::project::search_and_replace_filenames" "$@"
 
    local dir="$1"
    local old="$2"
@@ -489,7 +510,7 @@ search_and_replace_filenames()
       do
          shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-         rename_old_to_new_filename "${filename}" "${old}" "${name}"
+         sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
       done
       shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
@@ -500,9 +521,9 @@ search_and_replace_filenames()
 ###
 ###
 
-edit_old_to_new_content()
+sde::project::edit_old_to_new_content()
 {
-   log_entry "edit_old_to_new_content" "$@"
+   log_entry "sde::project::edit_old_to_new_content" "$@"
 
    local filename="$1"
    local grep_statement="$2"
@@ -529,9 +550,9 @@ edit_old_to_new_content()
 }
 
 
-_local_search_and_replace_contents()
+sde::project::_local_search_and_replace_contents()
 {
-   log_entry "_local_search_and_replace_contents" "$@"
+   log_entry "sde::project::_local_search_and_replace_contents" "$@"
 
    local grep_statement="$1"
    local sed_statement="$2"
@@ -543,15 +564,15 @@ _local_search_and_replace_contents()
    do
       shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-      edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
+      sde::project::edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
    done
    shell_enable_glob; IFS="${DEFAULT_IFS}"
 }
 
 
-search_and_replace_contents()
+sde::project::search_and_replace_contents()
 {
-   log_entry "search_and_replace_contents" "$@"
+   log_entry "sde::project::search_and_replace_contents" "$@"
 
    local dir="$1" ; shift
 
@@ -567,16 +588,16 @@ search_and_replace_contents()
       do
          shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-         edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
+         sde::project::edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
       done
       shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
 }
 
 
-walk_over_mulle_match_path()
+sde::project::walk_over_mulle_match_path()
 {
-   log_entry "walk_over_mulle_match_path" "$@" "($MULLE_MATCH_PATH)"
+   log_entry "sde::project::walk_over_mulle_match_path" "$@" "($MULLE_MATCH_PATH)"
 
    local callback="$1" ; shift
 
@@ -599,9 +620,9 @@ walk_over_mulle_match_path()
 }
 
 
-walk_over_test_paths()
+sde::project::walk_over_test_paths()
 {
-   log_entry "walk_over_test_paths" "$@"
+   log_entry "sde::project::walk_over_test_paths" "$@"
 
    local callback="$1" ; shift
 
@@ -627,9 +648,9 @@ walk_over_test_paths()
 }
 
 
-r_rename_current_project()
+sde::project::r_rename_current_project()
 {
-   log_entry "r_rename_current_project" "$@"
+   log_entry "sde::project::r_rename_current_project" "$@"
 
    local newname="$1"
 
@@ -669,12 +690,12 @@ r_rename_current_project()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
    fi
 
-   set_projectname_variables "${newname}"
+   sde::project::set_name_variables "${newname}"
    if [ "${OPTION_SAVE_ENV}" != 'NO' ]
    then
       log_verbose "Changing Environment variables"
 
-      save_projectname_variables
+      sde::project::save_name_variables
       changes="${changes}changes"
    fi
 
@@ -684,21 +705,21 @@ r_rename_current_project()
    then
       log_verbose "Changing filenames"
 
-      _local_search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "f"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "d"
+      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "f"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "d"
 
-      _local_search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "f"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "d"
+      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "f"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "d"
 
-      _local_search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "f"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "d"
+      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "f"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "d"
 
-      _local_search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
-      walk_over_mulle_match_path search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "d"
+      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "d"
 
       changes="${changes}changes"
    fi
@@ -736,8 +757,8 @@ r_rename_current_project()
       grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_DOWNCASE_IDENTIFIER}'"
       grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_UPCASE_IDENTIFIER}'"
 
-      _local_search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
-      walk_over_mulle_match_path search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
+      sde::project::_local_search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
 
       changes="${changes}changes"
    fi
@@ -749,9 +770,9 @@ r_rename_current_project()
 # TODO: remove test and subprojects from renaming
 #       rename them individually ?
 #
-sde_rename_main()
+sde::project::rename_main()
 {
-   log_entry "sde_rename_main" "$@"
+   log_entry "sde::project::rename_main" "$@"
 
    local OPTION_SEARCH_REPLACE_FILENAMES='DEFAULT'
    local OPTION_SEARCH_REPLACE_CONTENTS='DEFAULT'
@@ -767,11 +788,11 @@ sde_rename_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_rename_usage
+            sde::project::rename_usage
          ;;
 
          --project-name)
-            [ $# -eq 1 ] && sde_rename_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::project::rename_usage "Missing argument to \"$1\""
             shift
 
             PROJECT_NAME="$1"
@@ -811,7 +832,7 @@ sde_rename_main()
          ;;
 
          -*)
-            sde_rename_usage "Unknown option \"$1\""
+            sde::project::rename_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -830,11 +851,11 @@ sde_rename_main()
    newname="$1"
    if [ -z "${newname}" ]
    then
-      sde_rename_usage "Missing name argument"
+      sde::project::rename_usage "Missing name argument"
    fi
    shift
 
-   [ $# -ne 0 ] && sde_rename_usage "Superflous arguments \"$*\""
+   [ $# -ne 0 ] && sde::project::rename_usage "Superflous arguments \"$*\""
 
    case "${newname}" in
       *[^A-Za-z0-9_-]*)
@@ -848,7 +869,7 @@ sde_rename_main()
    fi
 
    (
-      r_rename_current_project "${newname}"
+      sde::project::r_rename_current_project "${newname}"
    ) || exit 1
 
 
@@ -917,9 +938,9 @@ sde_rename_main()
 }
 
 
-sde_remove_main()
+sde::project::remove_main()
 {
-   log_entry "sde_remove_main" "$@"
+   log_entry "sde::project::remove_main" "$@"
 
    #
    # handle options
@@ -956,19 +977,19 @@ sde_remove_main()
 
 
 
-sde_project_main()
+sde::project::main()
 {
-   log_entry "sde_project_main" "$@"
+   log_entry "sde::project::main" "$@"
 
    while :
    do
       case "$1" in
          -h|--help|help)
-            sde_rename_usage
+            sde::project::rename_usage
          ;;
 
          -*)
-            sde_project_usage "Unknown option \"$1\""
+            sde::project::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -982,12 +1003,12 @@ sde_project_main()
    case "$1" in
       rename)
          shift
-         sde_rename_main "$@"
+         sde::project::rename_main "$@"
       ;;
 
       remove)
          shift
-         sde_remove_main "$@"
+         sde::project::remove_main "$@"
       ;;
 
       list)
@@ -995,17 +1016,17 @@ sde_project_main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
 
          shift
-         sde_list_main --no-files "$@"
+         sde::list::main --no-files "$@"
       ;;
 
       *)
-         sde_project_usage "Unknown command \"$1\""
+         sde::project::usage "Unknown command \"$1\""
       ;;
    esac
 }
 
 
-sde_project_initialize()
+sde::project::initialize()
 {
    if [ -z "${MULLE_CASE_SH}" ]
    then
@@ -1022,7 +1043,7 @@ sde_project_initialize()
    fi
 }
 
-sde_project_initialize
+sde::project::initialize
 
 :
 

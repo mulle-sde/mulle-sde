@@ -39,7 +39,7 @@ CRAFTINFO_LIST_NODETYPES="local"
 
 # this is a dependency subcommand
 
-sde_dependency_craftinfo_usage()
+sde::craftinfo::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -96,7 +96,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_set_usage()
+sde::craftinfo::set_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -142,7 +142,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_exists_usage()
+sde::craftinfo::exists_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -165,7 +165,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_fetch_usage()
+sde::craftinfo::fetch_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -199,7 +199,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_info_usage()
+sde::craftinfo::info_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -222,7 +222,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_create_usage()
+sde::craftinfo::create_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -240,7 +240,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_get_usage()
+sde::craftinfo::get_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -258,7 +258,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_unset_usage()
+sde::craftinfo::unset_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -276,7 +276,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_remove_usage()
+sde::craftinfo::remove_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -294,7 +294,7 @@ EOF
 }
 
 
-sde_dependency_craftinfo_list_usage()
+sde::craftinfo::list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -311,15 +311,15 @@ EOF
 }
 
 
-copy_mulle_make_definitions()
+sde::craftinfo::copy_mulle_make_definitions()
 {
-   log_entry "copy_mulle_make_definitions" "$@"
+   log_entry "sde::craftinfo::copy_mulle_make_definitions" "$@"
 
    local name="$1"
 
    local srcdir
 
-   srcdir="`sde_dependency_source_dir_main "${name}"`"
+   srcdir="`sde::dependency::source_dir_main "${name}"`"
    if [ -z "${srcdir}" ]
    then
       log_warning "No source directory for \"${name}\" found."
@@ -355,9 +355,9 @@ clobber possibly existing .mulle/etc/craft definitions"
 }
 
 
-sde_add_craftinfo_subproject_if_needed()
+sde::craftinfo::add_craftinfo_subproject_if_needed()
 {
-   log_entry "sde_add_craftinfo_subproject_if_needed" "$@"
+   log_entry "sde::craftinfo::add_craftinfo_subproject_if_needed" "$@"
 
    local subprojectdir="$1"
    local name="$2"
@@ -376,7 +376,7 @@ sde_add_craftinfo_subproject_if_needed()
       fi
       if [ "${clobber}" = "YES" ]
       then
-         remove_dir_safer "${subprojectdir}"
+         sde::craftinfo::remove_dir_safer "${subprojectdir}"
       fi
    fi
 
@@ -402,7 +402,7 @@ sde_add_craftinfo_subproject_if_needed()
          MULLE_SDE_EXTENSION_BASE_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_BASE_PATH"'`"
          MULLE_SDE_EXTENSION_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_PATH"'`"
 
-         exekutor sde_extension_main pimp --project-type "unknown" \
+         exekutor sde::extension::main pimp --project-type "unknown" \
                                           --oneshot-name "${name}" \
                                           mulle-sde/craftinfo
       ) || return 1
@@ -411,7 +411,7 @@ sde_add_craftinfo_subproject_if_needed()
 
       if [ "${copy}" = 'YES' ]
       then
-         copy_mulle_make_definitions "${name}"
+         sde::craftinfo::copy_mulle_make_definitions "${name}"
       fi
    fi
 
@@ -441,9 +441,9 @@ sde_add_craftinfo_subproject_if_needed()
 # local _subprojectdir
 # local _folder
 #
-__sde_craftinfo_vars_with_url_or_address()
+sde::craftinfo::__vars_with_url_or_address()
 {
-   log_entry "__sde_craftinfo_vars_with_url_or_address" "$@"
+   log_entry "sde::craftinfo::__vars_with_url_or_address" "$@"
 
    local url="$1"
    local emptyok="${2:-YES}"
@@ -496,9 +496,9 @@ __sde_craftinfo_vars_with_url_or_address()
 }
 
 
-sde_dependency_craftinfo_create_main()
+sde::craftinfo::create_main()
 {
-   log_entry "sde_dependency_craftinfo_create_main" "$@"
+   log_entry "sde::craftinfo::create_main" "$@"
 
    local OPTION_CLOBBER='DEFAULT'
    local OPTION_LENIENT='NO'
@@ -509,7 +509,7 @@ sde_dependency_craftinfo_create_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_create_usage
+            sde::craftinfo::create_usage
          ;;
 
          --lenient)
@@ -525,7 +525,7 @@ sde_dependency_craftinfo_create_main()
          ;;
 
          -*)
-            sde_dependency_craftinfo_create_usage "Unknown option \"$1\""
+            sde::craftinfo::create_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -536,8 +536,8 @@ sde_dependency_craftinfo_create_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_create_usage "Missing url or address argument"
-   [ $# -ne 1 ] && sde_dependency_craftinfo_create_usage "Superflous arguments \"$*\""
+   [ $# -eq 0 ] && sde::craftinfo::create_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde::craftinfo::create_usage "Superflous arguments \"$*\""
 
    local url="$1"
 
@@ -551,14 +551,14 @@ sde_dependency_craftinfo_create_main()
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "${url}" "${OPTION_LENIENT}"
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" "${OPTION_LENIENT}"
    then
       return 1
    fi
-   sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
-                                          "${_name}" \
-                                          "${OPTION_COPY}" \
-                                          "${OPTION_CLOBBER}"
+   sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
+                                                     "${_name}" \
+                                                     "${OPTION_COPY}" \
+                                                     "${OPTION_CLOBBER}"
    case "$?" in
       0|2)
          return 0
@@ -568,9 +568,9 @@ sde_dependency_craftinfo_create_main()
 }
 
 
-sde_dependency_craftinfo_remove_main()
+sde::craftinfo::remove_main()
 {
-   log_entry "sde_dependency_craftinfo_remove_main" "$@"
+   log_entry "sde::craftinfo::remove_main" "$@"
 
    local extension="$1"; shift
 
@@ -578,12 +578,12 @@ sde_dependency_craftinfo_remove_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_remove_usage
+            sde::craftinfo::remove_usage
          ;;
 
 
          -*)
-            sde_dependency_craftinfo_remove_usage "Unknown option \"$1\""
+            sde::craftinfo::remove_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -594,8 +594,8 @@ sde_dependency_craftinfo_remove_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_remove_usage "Missing url or address argument"
-   [ $# -gt 1 ] && shift && sde_dependency_craftinfo_remove_usage "Superflous arguments \"$*\""
+   [ $# -eq 0 ] && sde::craftinfo::remove_usage "Missing url or address argument"
+   [ $# -gt 1 ] && shift && sde::craftinfo::remove_usage "Superflous arguments \"$*\""
 
    local url="$1"
 
@@ -609,7 +609,7 @@ sde_dependency_craftinfo_remove_main()
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
    then
       return 1
    fi
@@ -624,9 +624,9 @@ sde_dependency_craftinfo_remove_main()
 }
 
 
-sde_dependency_craftinfo_exists_main()
+sde::craftinfo::exists_main()
 {
-   log_entry "sde_dependency_craftinfo_exists_main" "$@"
+   log_entry "sde::craftinfo::exists_main" "$@"
 
    local OPTION_SUFFIX="craftinfo"
 
@@ -640,7 +640,7 @@ sde_dependency_craftinfo_exists_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_exists_usage
+            sde::craftinfo::exists_usage
          ;;
 
          --craftinfo)
@@ -653,14 +653,14 @@ sde_dependency_craftinfo_exists_main()
 
          --suffix)
             [ "$#" -eq 1 ] && \
-               sde_dependency_craftinfo_usage "Missing argument to \"$1\""
+               sde::craftinfo::usage "Missing argument to \"$1\""
             shift
 
             OPTION_SUFFIX="$1"
          ;;
 
          -*)
-            sde_dependency_craftinfo_exists_usage "Unknown option \"$1\""
+            sde::craftinfo::exists_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -671,15 +671,15 @@ sde_dependency_craftinfo_exists_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_exists_usage "Missing url or address argument"
-   [ $# -ne 1 ] && sde_dependency_craftinfo_exists_usage "Superflous arguments \"$*\""
+   [ $# -eq 0 ] && sde::craftinfo::exists_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde::craftinfo::exists_usage "Superflous arguments \"$*\""
 
    local _address
    local _name
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "$1"
+   if ! sde::craftinfo::__vars_with_url_or_address "$1"
    then
       return 1
    fi
@@ -713,9 +713,9 @@ sde_dependency_craftinfo_exists_main()
 }
 
 
-remove_dir_safer()
+sde::craftinfo::remove_dir_safer()
 {
-   log_entry "remove_dir_safer" "$@"
+   log_entry "sde::craftinfo::remove_dir_safer" "$@"
 
    if [ -z "${MULLE_PATH_SH}" ]
    then
@@ -732,11 +732,13 @@ remove_dir_safer()
 }
 
 
-sde_dependency_craftinfo_get_addresses()
+sde::craftinfo::get_addresses()
 {
-   log_entry "sde_dependency_craftinfo_get_addresses" "$@"
+   log_entry "sde::craftinfo::get_addresses" "$@"
 
-   rexekutor_sourcetree_cmd_nofail list \
+   include "sde::common"
+
+   sde::common::rexekutor_sourcetree_nofail list \
         --marks "${CRAFTINFO_LIST_MARKS}" \
         --nodetypes "${CRAFTINFO_LIST_NODETYPES}" \
         --no-output-header \
@@ -750,9 +752,9 @@ sde_dependency_craftinfo_get_addresses()
 # if we find one with -help, we download it to /tmp
 # show the README.md in both cases if available unless -s is active
 #
-sde_craftinfo_fetch_display()
+sde::craftinfo::fetch_display()
 {
-   log_entry "sde_craftinfo_fetch_display" "$@"
+   log_entry "sde::craftinfo::fetch_display" "$@"
 
    local repo="$1"
    local name="$2"
@@ -794,7 +796,7 @@ sde_craftinfo_fetch_display()
             #
             case "${OPTION_KEEP_HISTORY}" in
                'NO')
-                  remove_dir_safer "${dstdir}/.git"
+                  sde::craftinfo::remove_dir_safer "${dstdir}/.git"
                ;;
 
                'RENAME')
@@ -853,9 +855,9 @@ sde_craftinfo_fetch_display()
 }
 
 
-sde_dependency_craftinfo_fetch_main()
+sde::craftinfo::fetch_main()
 {
-   log_entry "sde_dependency_craftinfo_fetch_main" "$@"
+   log_entry "sde::craftinfo::fetch_main" "$@"
 
    local OPTION_CLOBBER='NO'
    local OPTION_LENIENT'NO'
@@ -871,7 +873,7 @@ sde_dependency_craftinfo_fetch_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_fetch_usage
+            sde::craftinfo::fetch_usage
          ;;
 
          --clobber)
@@ -895,7 +897,7 @@ sde_dependency_craftinfo_fetch_main()
          ;;
 
          -*)
-            sde_dependency_craftinfo_fetch_usage "Unknown option \"$1\""
+            sde::craftinfo::fetch_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -906,15 +908,15 @@ sde_dependency_craftinfo_fetch_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_fetch_usage "Missing url or address argument"
-   [ $# -ne 1 ] && sde_dependency_craftinfo_fetch_usage "Superflous arguments \"$*\""
+   [ $# -eq 0 ] && sde::craftinfo::fetch_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde::craftinfo::fetch_usage "Superflous arguments \"$*\""
 
    local _address
    local _name
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "$1" "${OPTION_LENIENT}"
+   if ! sde::craftinfo::__vars_with_url_or_address "$1" "${OPTION_LENIENT}"
    then
       return 1
    fi
@@ -934,7 +936,7 @@ sde_dependency_craftinfo_fetch_main()
       then
          fail "${dstdir} already exists. Won't clobber."
       fi
-      remove_dir_safer "${dstdir}"
+      sde::craftinfo::remove_dir_safer "${dstdir}"
    fi
 
    IFS='|'
@@ -942,7 +944,7 @@ sde_dependency_craftinfo_fetch_main()
    do
       IFS="${DEFAULT_IFS}"
 
-      if sde_craftinfo_fetch_display "${repo}" "${_name}" "${dstdir}"
+      if sde::craftinfo::fetch_display "${repo}" "${_name}" "${dstdir}"
       then
          RVAL="${dstdir}"  # for dependency add
          return 0
@@ -954,9 +956,9 @@ sde_dependency_craftinfo_fetch_main()
 }
 
 
-sde_dependency_craftinfo_set_main()
+sde::craftinfo::set_main()
 {
-   log_entry "sde_dependency_craftinfo_set_main" "$@"
+   log_entry "sde::craftinfo::set_main" "$@"
 
    local extension="$1"; shift
 
@@ -966,7 +968,7 @@ sde_dependency_craftinfo_set_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_set_usage
+            sde::craftinfo::set_usage
          ;;
 
          --append)
@@ -975,7 +977,7 @@ sde_dependency_craftinfo_set_main()
          ;;
 
          -*)
-            sde_dependency_craftinfo_set_usage "Unknown option \"$1\""
+            sde::craftinfo::set_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -986,14 +988,14 @@ sde_dependency_craftinfo_set_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing url or address argument"
+   [ $# -eq 0 ] && sde::craftinfo::set_usage "Missing url or address argument"
 
    local url="$1"
    shift
 
-   [ "$#" -eq 0 ] && sde_dependency_craftinfo_set_usage "Missing key"
-   [ "$#" -eq 1 ] && sde_dependency_craftinfo_set_usage "Missing value"
-   [ "$#" -gt 2 ] && sde_dependency_craftinfo_set_usage "Superflous arguments \"$*\""
+   [ "$#" -eq 0 ] && sde::craftinfo::set_usage "Missing key"
+   [ "$#" -eq 1 ] && sde::craftinfo::set_usage "Missing value"
+   [ "$#" -gt 2 ] && sde::craftinfo::set_usage "Superflous arguments \"$*\""
 
    if [ "${extension}" = "DEFAULT" ]
    then
@@ -1005,12 +1007,12 @@ sde_dependency_craftinfo_set_main()
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
    then
       return 1
    fi
 
-   sde_add_craftinfo_subproject_if_needed "${_subprojectdir}" \
+   sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                           "${_name}" \
                                           "${OPTION_COPY}" \
                                           "DEFAULT"
@@ -1033,9 +1035,9 @@ sde_dependency_craftinfo_set_main()
 }
 
 
-sde_dependency_craftinfo_unset_main()
+sde::craftinfo::unset_main()
 {
-   log_entry "sde_dependency_craftinfo_unset_main" "$@"
+   log_entry "sde::craftinfo::unset_main" "$@"
 
    local extension="$1"; shift
 
@@ -1043,12 +1045,12 @@ sde_dependency_craftinfo_unset_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_unset_usage
+            sde::craftinfo::unset_usage
          ;;
 
 
          -*)
-            sde_dependency_craftinfo_unset_usage "Unknown option \"$1\""
+            sde::craftinfo::unset_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1059,13 +1061,13 @@ sde_dependency_craftinfo_unset_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_unset_usage "Missing url or address argument"
+   [ $# -eq 0 ] && sde::craftinfo::unset_usage "Missing url or address argument"
 
    local url="$1"
    shift
 
-   [ "$#" -eq 0 ] && sde_dependency_craftinfo_unset_usage "Missing key"
-   [ "$#" -gt 1 ] && shift && sde_dependency_craftinfo_unset_usage "Superflous arguments \"$*\""
+   [ "$#" -eq 0 ] && sde::craftinfo::unset_usage "Missing key"
+   [ "$#" -gt 1 ] && shift && sde::craftinfo::unset_usage "Superflous arguments \"$*\""
 
    if [ "${extension}" = "DEFAULT" ]
    then
@@ -1077,7 +1079,7 @@ sde_dependency_craftinfo_unset_main()
    local _subprojectdir
    local _folder
 
-   if ! __sde_craftinfo_vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
    then
       return 1
    fi
@@ -1091,9 +1093,9 @@ sde_dependency_craftinfo_unset_main()
 }
 
 
-sde_dependency_craftinfo_get_main()
+sde::craftinfo::get_main()
 {
-   log_entry "sde_dependency_craftinfo_list_main" "$@"
+   log_entry "sde::craftinfo::get_main" "$@"
 
    local extension="$1"; shift
 
@@ -1101,12 +1103,12 @@ sde_dependency_craftinfo_get_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_get_usage
+            sde::craftinfo::get_usage
          ;;
 
 
          -*)
-            sde_dependency_craftinfo_get_usage "Unknown option \"$1\""
+            sde::craftinfo::get_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1117,12 +1119,12 @@ sde_dependency_craftinfo_get_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing url or address argument"
+   [ $# -eq 0 ] && sde::craftinfo::get_usage "Missing url or address argument"
 
    local url="$1"
    shift
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_get_usage "Missing key"
+   [ $# -eq 0 ] && sde::craftinfo::get_usage "Missing key"
 
    local _address
    local _name
@@ -1132,7 +1134,7 @@ sde_dependency_craftinfo_get_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      __sde_craftinfo_vars_with_url_or_address "${url}"
+      sde::craftinfo::__vars_with_url_or_address "${url}"
 
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
@@ -1156,7 +1158,7 @@ sde_dependency_craftinfo_get_main()
       return $?
    fi
 
-   __sde_craftinfo_vars_with_url_or_address "${url}"
+   sde::craftinfo::__vars_with_url_or_address "${url}"
 
    exekutor "${MULLE_MAKE}"  \
                   ${MULLE_TECHNICAL_FLAGS} \
@@ -1167,9 +1169,9 @@ sde_dependency_craftinfo_get_main()
 }
 
 
-_sde_dependency_craftinfo_list_main()
+sde::craftinfo::_list_main()
 {
-   log_entry "_sde_dependency_craftinfo_list_main" "$@"
+   log_entry "sde::craftinfo::_list_main" "$@"
 
    local url="$1"; shift
    local indent="$1"; shift
@@ -1181,7 +1183,7 @@ _sde_dependency_craftinfo_list_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      if  __sde_craftinfo_vars_with_url_or_address "${url}"
+      if  sde::craftinfo::__vars_with_url_or_address "${url}"
       then
          log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
          exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
@@ -1194,18 +1196,18 @@ _sde_dependency_craftinfo_list_main()
       return
    fi
 
-   if __sde_craftinfo_vars_with_url_or_address "${url}"
+   if sde::craftinfo::__vars_with_url_or_address "${url}"
    then
-      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-Global}"
+      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-global}"
       exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
          definition --definition-dir "${_folder}" list "$@"  | sed "s/^/   ${indent}/"
    fi
 }
 
 
-sde_dependency_craftinfo_list_main()
+sde::craftinfo::list_main()
 {
-   log_entry "sde_dependency_craftinfo_list_main" "$@"
+   log_entry "sde::craftinfo::list_main" "$@"
 
    local extension="$1"; shift
    local url
@@ -1214,7 +1216,7 @@ sde_dependency_craftinfo_list_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_list_usage
+            sde::craftinfo::list_usage
          ;;
 
          --)
@@ -1223,7 +1225,7 @@ sde_dependency_craftinfo_list_main()
          ;;
 
          -*)
-            sde_dependency_craftinfo_list_usage "Unknown option \"$1\""
+            sde::craftinfo::list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1249,18 +1251,18 @@ sde_dependency_craftinfo_list_main()
          esac
 
          log_info "${url}"
-         _sde_dependency_craftinfo_list_main "${url}" "   "
+         sde::craftinfo::_list_main "${url}" "   "
       done
       shell_enable_glob; IFS="${DEFAULT_IFS}"
    else
-      _sde_dependency_craftinfo_list_main "${url}" ""
+      sde::craftinfo::_list_main "${url}" ""
    fi
 }
 
 
-sde_dependency_craftinfo_show_main()
+sde::craftinfo::show_main()
 {
-   log_entry "sde_dependency_craftinfo_show_main" "$@"
+   log_entry "sde::craftinfo::show_main" "$@"
 
    while :
    do
@@ -1313,9 +1315,9 @@ sde_dependency_craftinfo_show_main()
 }
 
 
-sde_dependency_craftinfo_main()
+sde::craftinfo::main()
 {
-   log_entry "sde_dependency_craftinfo_main" "$@"
+   log_entry "sde::craftinfo::main" "$@"
 
    local extension
 
@@ -1325,7 +1327,7 @@ sde_dependency_craftinfo_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_usage
+            sde::craftinfo::usage
          ;;
 
          --global)
@@ -1334,14 +1336,14 @@ sde_dependency_craftinfo_main()
 
          --os|--platform)
             [ "$#" -eq 1 ] && \
-               sde_dependency_craftinfo_usage "Missing argument to \"$1\""
+               sde::craftinfo::usage "Missing argument to \"$1\""
             shift
 
             extension=".$1"
          ;;
 
          -*)
-            sde_dependency_craftinfo_usage "Unknown option \"$1\""
+            sde::craftinfo::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1353,7 +1355,7 @@ sde_dependency_craftinfo_main()
    done
 
    [ $# -eq 0 ] && \
-      sde_dependency_craftinfo_usage "Missing dependency craftinfo command"
+      sde::craftinfo::usage "Missing dependency craftinfo command"
 
    local subcmd="$1"
    shift
@@ -1375,16 +1377,16 @@ ${C_RESET_BOLD}   mulle-sde clean all"
       ;;
 
       *)
-        sde_dependency_craftinfo_usage "Unknown dependency craftinfo \
+        sde::craftinfo::usage "Unknown dependency craftinfo \
 command \"${subcmd}\""
       ;;
    esac
 }
 
 
-sde_dependency_craftinfo_info_main()
+sde::craftinfo::info_main()
 {
-   log_entry "sde_dependency_craftinfo_info_main" "$@"
+   log_entry "sde::craftinfo::info_main" "$@"
 
    local OPTION_SUFFIX
 
@@ -1393,7 +1395,7 @@ sde_dependency_craftinfo_info_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_info_usage
+            sde::craftinfo::info_usage
          ;;
 
          --craftinfo)
@@ -1405,7 +1407,7 @@ sde_dependency_craftinfo_info_main()
          ;;
 
          -*)
-            sde_dependency_craftinfo_info_usage "Unknown option \"$1\""
+            sde::craftinfo::info_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1416,8 +1418,8 @@ sde_dependency_craftinfo_info_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_dependency_craftinfo_info_usage "Missing url or address argument"
-   [ $# -ne 1 ] && sde_dependency_craftinfo_info_usage "Superflous arguments \"$*\""
+   [ $# -eq 0 ] && sde::craftinfo::info_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde::craftinfo::info_usage "Superflous arguments \"$*\""
 
    local address="$1"
    local repos
@@ -1432,7 +1434,7 @@ sde_dependency_craftinfo_info_main()
    do
       IFS="${DEFAULT_IFS}"; shell_disable_glob
 
-      if sde_craftinfo_fetch_display "${repo}" "${address}" "" 'YES' "${OPTION_SUFFIX}"
+      if sde::craftinfo::fetch_display "${repo}" "${address}" "" 'YES' "${OPTION_SUFFIX}"
       then
          return 0
       fi

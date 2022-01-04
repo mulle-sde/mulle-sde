@@ -34,7 +34,7 @@
 MULLE_SDE_IGNORE_SH="included"
 
 
-sde_ignore_usage()
+sde::ignore::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -53,15 +53,15 @@ EOF
 }
 
 
-sde_ignore_main()
+sde::ignore::main()
 {
-   log_entry "sde_ignore_main" "$@"
+   log_entry "sde::ignore::main" "$@"
 
    while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
-            sde_ignore_usage
+            sde::ignore::usage
          ;;
 
          --)
@@ -70,7 +70,7 @@ sde_ignore_main()
          ;;
 
          -*)
-            sde_ignore_usage "Unknown option \"$1\""
+            sde::ignore::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -81,8 +81,8 @@ sde_ignore_main()
       shift
    done
 
-   [ "$#" -eq 0 ] && sde_ignore_usage "Missing argument"
-   [ "$#" -ne 1 ] && sde_ignore_usage "superflous arguments \"$*\""
+   [ "$#" -eq 0 ] && sde::ignore::usage "Missing argument"
+   [ "$#" -ne 1 ] && sde::ignore::usage "superflous arguments \"$*\""
 
    [ -z "${MULLE_PATH_SH}" ] && \
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"

@@ -62,7 +62,7 @@ DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite"
 DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-searchpath,no-cmake-loader"
 
 
-sde_dependency_usage()
+sde::dependency::usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
 
@@ -103,7 +103,7 @@ EOF
 }
 
 
-sde_dependency_add_usage()
+sde::dependency::add_usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
 
@@ -182,7 +182,7 @@ EOF
 }
 
 
-sde_dependency_set_usage()
+sde::dependency::set_usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
 
@@ -233,7 +233,7 @@ EOF
 }
 
 
-sde_dependency_get_usage()
+sde::dependency::get_usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
 
@@ -257,7 +257,7 @@ EOF
 }
 
 
-sde_dependency_info_usage()
+sde::dependency::info_usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
 
@@ -281,7 +281,7 @@ EOF
 
 
 
-sde_dependency_list_usage()
+sde::dependency::list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -309,7 +309,7 @@ EOF
 }
 
 
-sde_dependency_source_dir_usage()
+sde::dependency::source_dir_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -325,7 +325,7 @@ EOF
 }
 
 
-r_upcaseid()
+sde::dependency::r_upcaseid()
 {
    if [ -z "${MULLE_CASE_SH}" ]
    then
@@ -339,9 +339,9 @@ r_upcaseid()
 #
 #
 #
-sde_dependency_set_main()
+sde::dependency::set_main()
 {
-   log_entry "sde_dependency_set_main" "$@"
+   log_entry "sde::dependency::set_main" "$@"
 
    local OPTION_APPEND='NO'
    local OPTION_DIALECT=''
@@ -371,7 +371,7 @@ sde_dependency_set_main()
          ;;
 
          -*)
-            sde_dependency_set_usage "Unknown option \"$1\""
+            sde::dependency::set_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -383,7 +383,7 @@ sde_dependency_set_main()
    done
 
    local address="$1"
-   [ -z "${address}" ] && sde_dependency_set_usage "missing address"
+   [ -z "${address}" ] && sde::dependency::set_usage "missing address"
    shift
 
    local field="$1"
@@ -392,12 +392,12 @@ sde_dependency_set_main()
    then
       if [ -z "${OPTION_DIALECT}" ]
       then
-         sde_dependency_set_usage "missing field"
+         sde::dependency::set_usage "missing field"
       fi
    else
       if [ ! -z "${OPTION_DIALECT}" ]
       then
-         sde_dependency_set_usage "superflous field"
+         sde::dependency::set_usage "superflous field"
       fi
       shift
    fi
@@ -410,13 +410,13 @@ sde_dependency_set_main()
       return 1
    fi
 
-   if ! sde_marks_compatible_with_marks "${marks}" "${DEPENDENCY_MARKS}"
+   if ! sde::common::marks_compatible_with_marks "${marks}" "${DEPENDENCY_MARKS}"
    then
       if [ "${field}" != "marks" ]
       then
          fail "${address} is not a dependency"
       fi
-      if ! sde_marks_compatible_with_marks "${value}" "${DEPENDENCY_MARKS}"
+      if ! sde::common::marks_compatible_with_marks "${value}" "${DEPENDENCY_MARKS}"
       then
          fail "${address} would not be a dependency anymore.
 ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
@@ -453,7 +453,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
 
    case "${field}" in
       platform-excludes)
-         _sourcetree_set_os_excludes "${address}" \
+         sde::common::_set_platform_excludes "${address}" \
                                      "${value}" \
                                      "${DEPENDENCY_MARKS}" \
                                      "${OPTION_APPEND}"
@@ -461,7 +461,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
       ;;
 
       aliases|include)
-         _sde_set_sourcetree_userinfo_field "${address}" \
+         sde::common::_set_userinfo_field "${address}" \
                                             "${field}" \
                                             "${value}" \
                                             "${OPTION_APPEND}"
@@ -474,7 +474,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
             local upcaseid
             local nodetype
 
-            r_upcaseid "${address}" || return 1
+            sde::dependency::r_upcaseid "${address}" || return 1
             upcaseid="${RVAL}"
 
             if [ -z "${nodetype}" ]
@@ -487,7 +487,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
                log_debug "Nodetype guessed as \"${nodetype}\""
             fi
 
-            _sde_enhance_url "${value}" "${tag}" "" "${nodetype}" "${address}" ""
+            sde::dependency::__enhance_url "${value}" "${tag}" "" "${nodetype}" "${address}" ""
 
             value="\${${upcaseid}_URL:-${value}}"
          fi
@@ -498,7 +498,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
          then
             local upcaseid
 
-            r_upcaseid "${address}" || return 1
+            sde::dependency::r_upcaseid "${address}" || return 1
             upcaseid="${RVAL}"
 
             r_uppercase "${field}"
@@ -515,27 +515,27 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
 }
 
 
-sde_dependency_get_main()
+sde::dependency::get_main()
 {
-   log_entry "sde_dependency_get_main" "$@"
+   log_entry "sde::dependency::get_main" "$@"
 
    local address="$1"
 
-   [ -z "${address}" ]&& sde_dependency_get_usage "missing address"
+   [ -z "${address}" ]&& sde::dependency::get_usage "missing address"
    shift
 
    local field="$1";
 
-   [ -z "${field}" ] && sde_dependency_get_usage "missing field"
+   [ -z "${field}" ] && sde::dependency::get_usage "missing field"
    shift
 
    case "${field}" in
       platform-excludes)
-         sourcetree_get_os_excludes "${address}"
+         sde::common::get_platform_excludes "${address}"
       ;;
 
       aliases|include)
-         sde_get_sourcetree_userinfo_field "${address}" "${field}"
+         sde::common::get_sourcetree_userinfo_field "${address}" "${field}"
       ;;
 
       *)
@@ -548,9 +548,9 @@ sde_dependency_get_main()
 }
 
 
-sde_dependency_list_main()
+sde::dependency::list_main()
 {
-   log_entry "sde_dependency_list_main" "$@"
+   log_entry "sde::dependency::list_main" "$@"
 
    local marks
    local qualifier
@@ -566,7 +566,7 @@ sde_dependency_list_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_list_usage
+            sde::dependency::list_usage
          ;;
 
          --name-only)
@@ -578,7 +578,7 @@ sde_dependency_list_main()
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_dependency_list_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::list_usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${marks}" "$1"
@@ -587,7 +587,7 @@ sde_dependency_list_main()
 
 
          --qualifier)
-            [ "$#" -eq 1 ] && sde_dependency_list_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::list_usage "Missing argument to \"$1\""
             shift
 
             qualifier="${RVAL}"
@@ -610,7 +610,7 @@ sde_dependency_list_main()
          ;;
 
          -*)
-            sde_dependency_list_usage "Unknown option \"$1\""
+            sde::dependency::list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -667,9 +667,9 @@ sde_dependency_list_main()
 #    _tag
 #    _url
 #
-_sde_enhance_url()
+sde::dependency::__enhance_url()
 {
-   log_entry "_sde_enhance_url" "$@"
+   log_entry "sde::dependency::__enhance_url" "$@"
 
    local url="$1"
    local tag="$2"
@@ -721,7 +721,7 @@ _sde_enhance_url()
    #
    local upcaseid
 
-   r_upcaseid "${address}" || return 1
+   sde::dependency::r_upcaseid "${address}" || return 1
    upcaseid="${RVAL}"
 
    if [ -z "${tag}" ]
@@ -775,10 +775,10 @@ _sde_enhance_url()
 }
 
 
-# like mulle_sde_init add_to_sourcetree but no templating
-sde_dependency_add_to_sourcetree()
+# like mulle_sde_init sde::init::add_to_sourcetree but no templating
+sde::dependency::sde::init::add_to_sourcetree()
 {
-   log_entry "sde_dependency_add_to_sourcetree" "$@"
+   log_entry "sde::dependency::sde::init::add_to_sourcetree" "$@"
 
    local filename="$1"
 
@@ -805,9 +805,9 @@ sde_dependency_add_to_sourcetree()
 }
 
 
-sde_dependency_use_craftinfo_main()
+sde::dependency::use_craftinfo_main()
 {
-   log_entry "sde_dependency_use_craftinfo_main" "$@"
+   log_entry "sde::dependency::use_craftinfo_main" "$@"
 
    local dependency="$1"
    local lenient="$2"
@@ -818,12 +818,12 @@ sde_dependency_use_craftinfo_main()
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
    fi
 
-   if sde_dependency_craftinfo_exists_main "DEFAULT" --crafthelp "${dependency}"
+   if sde::craftinfo::exists_main "DEFAULT" --crafthelp "${dependency}"
    then
-      sde_dependency_craftinfo_info_main --crafthelp "${dependency}"
+      sde::craftinfo::info_main --crafthelp "${dependency}"
    fi
 
-   if ! sde_dependency_craftinfo_exists_main "DEFAULT" "${dependency}"
+   if ! sde::craftinfo::exists_main "DEFAULT" "${dependency}"
    then
       return 0
    fi
@@ -835,21 +835,21 @@ sde_dependency_use_craftinfo_main()
       args="--lenient"
    fi
 
-   if ! sde_dependency_craftinfo_create_main "DEFAULT" ${args} "${dependency}"
+   if ! sde::craftinfo::create_main "DEFAULT" ${args} "${dependency}"
    then
       return 1
    fi
 
-   if ! sde_dependency_craftinfo_fetch_main "DEFAULT" ${args} --clobber "${dependency}"
+   if ! sde::craftinfo::fetch_main "DEFAULT" ${args} --clobber "${dependency}"
    then
       return 1
    fi
 }
 
 
-sde_dependency_add_craftinfo_url()
+sde::dependency::add_craftinfo_url()
 {
-   log_entry "sde_dependency_add_craftinfo_url" "$@"
+   log_entry "sde::dependency::add_craftinfo_url" "$@"
 
    local dependency="$1"
    local lenient="$2"
@@ -859,7 +859,7 @@ sde_dependency_add_craftinfo_url()
       fail "Craftinfo handling disabled by --no-fetch"
    fi
 
-   if ! sde_dependency_use_craftinfo_main "${dependency}" "${lenient}"
+   if ! sde::dependency::use_craftinfo_main "${dependency}" "${lenient}"
    then
       fail "No craftinfo exists for \"${dependency}\""
    fi
@@ -870,18 +870,18 @@ sde_dependency_add_craftinfo_url()
 
    if [ ! -f "${sourcetree}" ]
    then
-      sde_dependency_craftinfo_remove_main "DEFAULT" "${dependency}"
+      sde::craftinfo::remove_main "DEFAULT" "${dependency}"
       fail "This craftinfo has no sourcetree file.
 So it can't be used with craftinfo: style add."
    fi
 
-   sde_dependency_add_to_sourcetree "${sourcetree}"
+   sde::dependency::sde::init::add_to_sourcetree "${sourcetree}"
 }
 
 
-sde_dependency_add_main()
+sde::dependency::add_main()
 {
-   log_entry "sde_dependency_add_main" "$@"
+   log_entry "sde::dependency::add_main" "$@"
 
    local OPTION_CLEAN='NO'
    local OPTION_ENHANCE='YES'     # enrich URL
@@ -925,18 +925,18 @@ sde_dependency_add_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_add_usage
+            sde::dependency::add_usage
          ;;
 
          --address)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_ADDRESS="$1"
          ;;
 
          --branch)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_BRANCH="$1"
@@ -961,28 +961,28 @@ sde_dependency_add_main()
          ;;
 
          --domain)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_DOMAIN="$1"
          ;;
 
          --repo)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_REPO="$1"
          ;;
 
          --filter)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_FILTER="$1"
          ;;
 
          --tag)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_TAG="$1"
@@ -990,7 +990,7 @@ sde_dependency_add_main()
          ;;
 
          --user)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_USER="$1"
@@ -1017,7 +1017,7 @@ sde_dependency_add_main()
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${OPTION_MARKS}" "$1"
@@ -1047,7 +1047,7 @@ sde_dependency_add_main()
          ;;
 
          --nodetype|--scm)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_NODETYPE="$1"
@@ -1086,7 +1086,7 @@ sde_dependency_add_main()
          ;;
 
          --*)
-            [ "$#" -eq 1 ] && sde_dependency_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
 
             name="${1#--}"
             if find_line "${domains}" "${name}"
@@ -1111,9 +1111,9 @@ sde_dependency_add_main()
 
    local url="$1"
 
-   [ -z "${url}" ] && sde_dependency_add_usage "URL argument is missing ($*)"
+   [ -z "${url}" ] && sde::dependency::add_usage "URL argument is missing ($*)"
    shift
-   [ "$#" -eq 0 ] || sde_dependency_add_usage "Superflous arguments \"$*\""
+   [ "$#" -eq 0 ] || sde::dependency::add_usage "Superflous arguments \"$*\""
 
    local options
    local nodetype
@@ -1144,7 +1144,7 @@ sde_dependency_add_main()
          [ ! -z "${address}" ]  && log_warning "Address will be ignored with craftinfo: type URLs"
          [ ! -z "${options}" ]  && log_warning "Options will be ignored with craftinfo: type URLs"
 
-         sde_dependency_add_craftinfo_url "${originalurl#craftinfo:}" "YES"
+         sde::dependency::add_craftinfo_url "${originalurl#craftinfo:}" "YES"
          return $?
       ;;
    esac
@@ -1300,7 +1300,7 @@ sde_dependency_add_main()
          ;;
 
          *)
-            _sde_enhance_url "${url}" "${tag}" "${branch}" "${nodetype}" "${address}" "${marks}"
+            sde::dependency::__enhance_url "${url}" "${tag}" "${branch}" "${nodetype}" "${address}" "${marks}"
 
             url="${_url}"
             if [ "${OPTION_BRANCH_SET}" != 'YES' ]
@@ -1318,12 +1318,9 @@ sde_dependency_add_main()
       esac
    fi
 
-   include_executable_library "" \
-                              "MULLE_SDE_LIBRARY_SH" \
-                              "MULLE_SDE_LIBEXEC_DIR" \
-                              "mulle-sde-library.sh"
+   include "sde::library"
 
-   sde_library_warn_stupid_name "${address}"
+   sde::library::warn_stupid_name "${address}"
 
    # is a good idea for test though
    # if [ "${address}" = "${PROJECT_NAME}" ]
@@ -1466,7 +1463,7 @@ sde_dependency_add_main()
       return 1
    fi
 
-   log_info "${C_VERBOSE}You can change the library search name with:
+   log_info "${C_VERBOSE}You can change the library search names with:
 ${C_RESET_BOLD}   mulle-sde dependency set ${address} aliases ${address#lib},${address#lib}2
 ${C_VERBOSE}You can change the header include with:
 ${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${address#lib}.h"
@@ -1477,7 +1474,7 @@ ${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${a
 
    if [ "${OPTION_FETCH}" != 'NO' ]
    then
-      sde_dependency_use_craftinfo_main "${dependency}" "NO"
+      sde::dependency::use_craftinfo_main "${dependency}" "NO"
    fi
 
    if [ "${OPTION_EMBEDDED}" != 'YES' ]
@@ -1510,19 +1507,19 @@ ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
 }
 
 
-sde_dependency_source_dir_main()
+sde::dependency::source_dir_main()
 {
-   log_entry "sde_dependency_source_dir_main" "$@"
+   log_entry "sde::dependency::source_dir_main" "$@"
 
    while :
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_source_dir_usage
+            sde::dependency::source_dir_usage
          ;;
 
          -*)
-            sde_dependency_source_dir_usage "Unknown option \"$1\""
+            sde::dependency::source_dir_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1535,9 +1532,9 @@ sde_dependency_source_dir_main()
 
    local address=$1
 
-   [ -z "${address}" ] && sde_dependency_source_dir_usage "Missing argument"
+   [ -z "${address}" ] && sde::dependency::source_dir_usage "Missing argument"
    shift
-   [ $# -ne 0 ]        && sde_dependency_source_dir_usage "Superflous arguments \"$*\""
+   [ $# -ne 0 ]        && sde::dependency::source_dir_usage "Superflous arguments \"$*\""
 
    local escaped
 
@@ -1556,9 +1553,9 @@ sde_dependency_source_dir_main()
 ###
 ### parameters and environment variables
 ###
-sde_dependency_main()
+sde::dependency::main()
 {
-   log_entry "sde_dependency_main" "$@"
+   log_entry "sde::dependency::main" "$@"
 
    #
    # handle options
@@ -1567,12 +1564,12 @@ sde_dependency_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_dependency_usage
+            sde::dependency::usage
          ;;
 
          -*)
             fail "Unknown option \"$1\""
-            sde_dependency_usage
+            sde::dependency::usage
          ;;
 
          --)
@@ -1603,7 +1600,7 @@ sde_dependency_main()
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         sde_dependency_add_main "$@"
+         sde::dependency::add_main "$@"
          return $?
       ;;
 
@@ -1626,12 +1623,12 @@ unmark"
       ;;
 
       info)
-         sde_dependency_craftinfo_info_main "$@"
+         sde::craftinfo::info_main "$@"
          return $?
       ;;
 
       craftinfo)
-         sde_dependency_craftinfo_main "$@"
+         sde::craftinfo::main "$@"
          return $?
       ;;
 
@@ -1648,7 +1645,7 @@ unmark"
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         sde_dependency_get_main "$@"
+         sde::dependency::get_main "$@"
          return $?
       ;;
 
@@ -1662,7 +1659,7 @@ platform-excludes"
       ;;
 
       list)
-         sde_dependency_list_main "$@"
+         sde::dependency::list_main "$@"
       ;;
 
       remove|rem)
@@ -1686,20 +1683,20 @@ platform-excludes"
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         sde_dependency_set_main "$@"
+         sde::dependency::set_main "$@"
          return $?
       ;;
 
       source-dir)
-         sde_dependency_source_dir_main "$@"
+         sde::dependency::source_dir_main "$@"
       ;;
 
       "")
-         sde_dependency_usage
+         sde::dependency::usage
       ;;
 
       *)
-         sde_dependency_usage "Unknown command \"${cmd}\""
+         sde::dependency::usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

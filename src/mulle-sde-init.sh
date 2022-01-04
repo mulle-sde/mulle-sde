@@ -34,7 +34,7 @@
 MULLE_SDE_INIT_SH="included"
 
 
-sde_init_usage()
+sde::init::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -103,15 +103,15 @@ Environment:
 
 EOF
 
-   sde_extension_show_main meta >&2
+   sde::extension::show_main meta >&2
 
    exit 1
 }
 
 
-_copy_extension_dir()
+sde::init::_copy_extension_dir()
 {
-   log_entry "_copy_extension_dir" "$@"
+   log_entry "sde::init::_copy_extension_dir" "$@"
 
    local directory="$1"
    local overwrite="${2:-YES}"
@@ -164,7 +164,7 @@ into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
 }
 
 
-_check_file()
+sde::init::_check_file()
 {
    local filename="$1"
 
@@ -178,7 +178,7 @@ _check_file()
 }
 
 
-_check_dir()
+sde::init::_check_dir()
 {
    local dirname="$1"
 
@@ -192,13 +192,13 @@ _check_dir()
 }
 
 
-_copy_env_extension_dir()
+sde::init::_copy_env_extension_dir()
 {
-   log_entry "_copy_env_extension_dir" "$@"
+   log_entry "sde::init::_copy_env_extension_dir" "$@"
 
    local directory="$1"
 
-   _check_dir "${directory}/share" || return 0
+   sde::init::_check_dir "${directory}/share" || return 0
 
    local flags
 
@@ -219,13 +219,13 @@ _copy_env_extension_dir()
 }
 
 
-_append_to_motd()
+sde::init::_append_to_motd()
 {
-   log_entry "_append_to_motd" "$@"
+   log_entry "sde::init::_append_to_motd" "$@"
 
    local extensiondir="$1"
 
-   _check_file "${extensiondir}/motd" || return 0
+   sde::init::_check_file "${extensiondir}/motd" || return 0
 
    local text
 
@@ -239,9 +239,9 @@ _append_to_motd()
 }
 
 
-install_inheritfile()
+sde::init::install_inheritfile()
 {
-   log_entry "install_inheritfile" "$@"
+   log_entry "sde::init::install_inheritfile" "$@"
 
    local inheritfilename="$1"
    local projecttype="$2"
@@ -331,7 +331,7 @@ install_inheritfile()
       esac
 
       # why are we using _install here ?
-      _install_extension "${projecttype}" \
+      sde::init::_install_extension "${projecttype}" \
                          "${exttype}" \
                          "${vendor}" \
                          "${extname}" \
@@ -343,9 +343,9 @@ install_inheritfile()
 }
 
 
-environment_mset_log()
+sde::init::environment_mset_log()
 {
-   log_entry "environment_mset_log" "$@"
+   log_entry "sde::init::environment_mset_log" "$@"
 
    local environment="$1"
 
@@ -376,9 +376,9 @@ environment_mset_log()
 }
 
 
-environmenttext_to_mset()
+sde::init::environment_text_to_mset()
 {
-   log_entry "environmenttext_to_mset" "$@"
+   log_entry "sde::init::environment_text_to_mset" "$@"
 
    local text="$1"
 
@@ -443,9 +443,9 @@ environmenttext_to_mset()
 }
 
 
-r_sde_githubname()
+sde::init::r_githubname()
 {
-   log_entry "r_sde_githubname" "$@"
+   log_entry "sde::init::r_githubname" "$@"
 
    if [ ! -z "${GITHUB_USER}" ]
    then
@@ -500,7 +500,7 @@ r_sde_githubname()
 }
 
 
-import_template_generate()
+sde::init::import_template_generate()
 {
    if [ -z "${MULLE_TEMPLATE_GENERATE_SH}" ]
    then
@@ -516,13 +516,13 @@ import_template_generate()
 #
 # expensive
 #
-read_template_expanded_file()
+sde::init::read_template_expanded_file()
 {
-   log_entry "read_template_expanded_file" "$@"
+   log_entry "sde::init::read_template_expanded_file" "$@"
 
    local filename="$1"
 
-   import_template_generate
+   sde::init::import_template_generate
 
    [ -z "${GITHUB_USER}" ] && internal_fail "GITHUB_USER undefined"
 
@@ -543,17 +543,19 @@ read_template_expanded_file()
    PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}" \
    PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}" \
    PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}" \
+   PROJECT_PREFIXLESS_NAME="${PROJECT_PREFIXLESS_NAME}" \
+   PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}" \
    PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
    PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
-      r_template_contents_replacement_seds "<|" "|>" "template_is_interesting_key"
+      template::generate::r_content_replacement_seds "<|" "|>" "template::generate::is_interesting_key"
 
    eval_rexekutor "'${SED:-sed}'" "${RVAL}" "${filename}" | egrep -v '^#'
 }
 
 
-add_to_sourcetree()
+sde::init::add_to_sourcetree()
 {
-   log_entry "add_to_sourcetree" "$@"
+   log_entry "sde::init::add_to_sourcetree" "$@"
 
    local filename="$1"
    local projecttype="$2"
@@ -569,7 +571,7 @@ add_to_sourcetree()
 
    local lines
 
-   lines="`read_template_expanded_file "${filename}" | egrep -v '^#' `"
+   lines="`sde::init::read_template_expanded_file "${filename}" | egrep -v '^#' `"
    if [ -z "${lines}" ]
    then
       log_warning "${filename} contains no dependency information"
@@ -596,23 +598,23 @@ add_to_sourcetree()
 }
 
 
-add_to_environment()
+sde::init::add_to_environment()
 {
-   log_entry "add_to_environment" "$@"
+   log_entry "sde::init::add_to_environment" "$@"
 
    local filename="$1"
 
    local environment
    local text
 
-   _check_file "${filename}" || return 0
+   sde::init::_check_file "${filename}" || return 0
 
    text="`cat "${filename}" `"
 
    log_debug "Environment: ${text}"
 
    # add an empty linefeed for read
-   environment="`environmenttext_to_mset "${text}"`" || exit 1
+   environment="`sde::init::environment_text_to_mset "${text}"`" || exit 1
    if [ -z "${environment}" ]
    then
       return
@@ -620,7 +622,7 @@ add_to_environment()
 
    if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
    then
-      environment_mset_log "${environment}"
+      sde::init::environment_mset_log "${environment}"
    fi
 
    # remove lf for command line
@@ -639,9 +641,9 @@ add_to_environment()
 }
 
 
-_add_to_tools()
+sde::init::_add_to_tools()
 {
-   log_entry "_add_to_tools" "$@"
+   log_entry "sde::init::_add_to_tools" "$@"
 
    local filename="$1"
    local os="$2"
@@ -685,9 +687,9 @@ _add_to_tools()
 }
 
 
-add_to_tools()
+sde::init::add_to_tools()
 {
-   log_entry "add_to_tools" "$@"
+   log_entry "sde::init::add_to_tools" "$@"
 
    local filename="$1"
 
@@ -698,27 +700,20 @@ add_to_tools()
    for file in "${filename}" "${filename}".*
    do
       shell_disable_nullglob
-      if _check_file "${file}"
+      if sde::init::_check_file "${file}"
       then
          r_path_extension "${file}"
          os="${RVAL}"
-         _add_to_tools "${file}" "${os}"
+         sde::init::_add_to_tools "${file}" "${os}"
       fi
    done
    shell_disable_nullglob
 }
 
 
-run_fatal()
+sde::init::run_init()
 {
-   echo "$0 fatal error: $*" >&2
-   exit 1
-}
-
-
-run_init()
-{
-   log_entry "run_init" "$@"
+   log_entry "sde::init::run_init" "$@"
 
    local executable="$1"
    local projecttype="$2"
@@ -729,7 +724,7 @@ run_init()
 
    if [ ! -x "${executable}" ]
    then
-      if _check_file "${executable}"
+      if sde::init::_check_file "${executable}"
       then
          fail "\"${executable}\" must have execute permissions"
       fi
@@ -787,9 +782,9 @@ run_init()
 }
 
 
-is_disabled_by_marks()
+sde::init::is_disabled_by_marks()
 {
-   log_entry "is_disabled_by_marks" "$@"
+   log_entry "sde::init::is_disabled_by_marks" "$@"
 
    local marks="$1"
    local description="$2"
@@ -817,61 +812,61 @@ is_disabled_by_marks()
 }
 
 
-is_directory_disabled_by_marks()
+sde::init::is_directory_disabled_by_marks()
 {
-   log_entry "is_directory_disabled_by_marks" "$@"
+   log_entry "sde::init::is_directory_disabled_by_marks" "$@"
 
    local marks="$1"
    local directory="$2"
    shift 2
 
-   if ! _check_dir "${directory}"
+   if ! sde::init::_check_dir "${directory}"
    then
       log_fluff "Directory \"${directory}\" not present"
       return 0 # disabled
    fi
 
-   is_disabled_by_marks "${marks}" "${directory}" "$@"
+   sde::init::is_disabled_by_marks "${marks}" "${directory}" "$@"
 }
 
 
-is_file_disabled_by_marks()
+sde::init::is_file_disabled_by_marks()
 {
-   log_entry "is_file_disabled_by_marks" "$@"
+   log_entry "sde::init::is_file_disabled_by_marks" "$@"
 
    local marks="$1"
    local filename="$2"
    shift 2
 
-   if ! _check_file "${filename}"
+   if ! sde::init::_check_file "${filename}"
    then
       log_fluff "File \"${filename}\" not present"
       return 0 # disabled
    fi
 
-   is_disabled_by_marks "${marks}" "${filename}" "$@"
+   sde::init::is_disabled_by_marks "${marks}" "${filename}" "$@"
 }
 
 
-is_sourcetree_file_disabled_by_marks()
+sde::init::is_sourcetree_file_disabled_by_marks()
 {
-   log_entry "is_sourcetree_file_disabled_by_marks" "$@"
+   log_entry "sde::init::is_sourcetree_file_disabled_by_marks" "$@"
 
    local marks="$1"
    local filename="$2"
    local projecttype="$3"
    shift 3
 
-   if ! _check_file "${filename}"
+   if ! sde::init::_check_file "${filename}"
    then
-      if ! _check_file "${filename}-${projecttype}"
+      if ! sde::init::_check_file "${filename}-${projecttype}"
       then
          log_fluff "${filename} and ${filename}-${projecttype} not present"
          return 0 # disabled
       fi
    fi
 
-   is_disabled_by_marks "${marks}" "${filename}" "$@"
+   sde::init::is_disabled_by_marks "${marks}" "${filename}" "$@"
 }
 
 
@@ -879,9 +874,9 @@ is_sourcetree_file_disabled_by_marks()
 # sourcetree files can be different for libary projects
 # and executable projects
 #
-install_sourcetree_files()
+sde::init::install_sourcetree_files()
 {
-   log_entry "install_sourcetree_files" "$@"
+   log_entry "sde::init::install_sourcetree_files" "$@"
 
    local extensiondir="$1"
    local vendor="$2"
@@ -889,20 +884,20 @@ install_sourcetree_files()
    local marks="$4"
    local projecttype="$5"
 
-   if ! is_sourcetree_file_disabled_by_marks "${marks}" \
+   if ! sde::init::is_sourcetree_file_disabled_by_marks "${marks}" \
                                              "${extensiondir}/sourcetree" \
                                              "${projecttype}" \
                                              "no-sourcetree" \
                                              "no-sourcetree-${vendor}-${extname}"
    then
-      add_to_sourcetree "${extensiondir}/sourcetree" "${projecttype}"
+      sde::init::add_to_sourcetree "${extensiondir}/sourcetree" "${projecttype}"
    fi
 }
 
 
-assert_sane_extension_values()
+sde::init::assert_sane_extension_values()
 {
-   log_entry "assert_sane_extension_values" "$@"
+   log_entry "sde::init::assert_sane_extension_values" "$@"
 
    local exttype="$1"
    local vendor="$2"
@@ -935,9 +930,9 @@ assert_sane_extension_values()
 }
 
 
-install_version()
+sde::init::install_version()
 {
-   log_entry "install_version" "$@"
+   log_entry "sde::init::install_version" "$@"
 
    local vendor="$1"
    local extname="$2"
@@ -963,9 +958,9 @@ install_version()
 # into `src` (as of now). If no src is defined we use PWD, basically just
 # for testing though.
 #
-_copy_extension_template_files()
+sde::init::_copy_extension_template_files()
 {
-   log_entry "_copy_extension_template_files" "$@"
+   log_entry "sde::init::_copy_extension_template_files" "$@"
 
    local extensiondir="$1"
    local subdirectory="$2"
@@ -979,7 +974,7 @@ _copy_extension_template_files()
    local sourcedir
 
    sourcedir="${extensiondir}/${subdirectory}/${projecttype}"
-   if ! _check_dir "${sourcedir}"
+   if ! sde::init::_check_dir "${sourcedir}"
    then
       return
    fi
@@ -1040,9 +1035,9 @@ ${_TEMPLATE_DIRECTORIES}"
 }
 
 
-_copy_extension_template_directory()
+sde::init::_copy_extension_template_directory()
 {
-   log_entry "_copy_extension_template_directory" "$@"
+   log_entry "sde::init::_copy_extension_template_directory" "$@"
 
    local extensiondir="$1"
    local subdirectory="$2"
@@ -1057,23 +1052,23 @@ _copy_extension_template_directory()
    first="all"
    second="${projecttype:-none}"
 
-   _copy_extension_template_files "${extensiondir}" \
-                                  "${subdirectory}" \
-                                  "${extension}" \
-                                  "${first}" \
-                                  "$@"
+   sde::init::_copy_extension_template_files "${extensiondir}" \
+                                             "${subdirectory}" \
+                                             "${extension}" \
+                                             "${first}" \
+                                             "$@"
 
-   _copy_extension_template_files "${extensiondir}" \
-                                  "${subdirectory}" \
-                                  "${extension}" \
-                                  "${second}" \
-                                  "$@"
+   sde::init::_copy_extension_template_files "${extensiondir}" \
+                                             "${subdirectory}" \
+                                             "${extension}" \
+                                             "${second}" \
+                                             "$@"
 }
 
 
-_delete_leaf_files_or_directories()
+sde::init::_delete_leaf_files_or_directories()
 {
-   log_entry "_delete_leaf_files_or_directories" "$@"
+   log_entry "sde::init::_delete_leaf_files_or_directories" "$@"
 
    local extensiondir="$1"
    local subdirectory="$2"
@@ -1132,22 +1127,22 @@ _delete_leaf_files_or_directories()
 }
 
 
-_delete_extension_template_directory()
+sde::init::_delete_extension_template_directory()
 {
-   log_entry "_delete_extension_template_directory" "$@"
+   log_entry "sde::init::_delete_extension_template_directory" "$@"
 
    local extensiondir="$1"
    local subdirectory="$2"
    local projecttype="$3"
 
-   _delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" "${projecttype}"
-   _delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" all
+   sde::init::_delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" "${projecttype}"
+   sde::init::_delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" all
 }
 
 
-set_projectlanguage()
+sde::init::set_projectlanguage()
 {
-   set_projectlanguage_variables
+   sde::project::set_language_variables
 
    log_fluff "Project language set to \"${PROJECT_LANGUAGE}\""
    log_fluff "Project dialect set to \"${PROJECT_DIALECT}\""
@@ -1165,7 +1160,7 @@ set_projectlanguage()
 }
 
 
-extension_has_been_installed()
+sde::init::extension_has_been_installed()
 {
    local vendor="$1"
    local extname="$2"
@@ -1182,7 +1177,7 @@ extension_has_been_installed()
    return 1
 }
 
-set_extension_has_been_installed()
+sde::init::set_extension_has_been_installed()
 {
    local exttype="$1"
    local vendor="$2"
@@ -1221,9 +1216,9 @@ set_extension_has_been_installed()
 #
 # Will exit on error. Always returns 0
 #
-_install_extension()
+sde::init::_install_extension()
 {
-   log_entry "_install_extension" "$@"
+   log_entry "sde::init::_install_extension" "$@"
 
    local projecttype="$1"; shift
    local exttype="$1"; shift
@@ -1252,20 +1247,20 @@ _install_extension()
    esac
 
    # just to catch idiots early
-   assert_sane_extension_values "${exttype}" "${vendor}" "${extname}"
+   sde::init::assert_sane_extension_values "${exttype}" "${vendor}" "${extname}"
 
-   if extension_has_been_installed "${vendor}" "${extname}"
+   if sde::init::extension_has_been_installed "${vendor}" "${extname}"
    then
       return 1
    fi
-   set_extension_has_been_installed "${exttype}" "${vendor}" "${extname}"
+   sde::init::set_extension_has_been_installed "${exttype}" "${vendor}" "${extname}"
 
    local extensiondir
    local searchpath
 
-   if ! r_find_get_quoted_searchpath "${vendor}"
+   if ! sde::extension::r_find_get_quoted_searchpath "${vendor}"
    then
-      r_extension_get_searchpath
+      sde::extension::r_get_searchpath
 
       fail "Could not find any extensions of vendor \"${vendor}\" (${searchpath})!
 ${C_INFO}Show available extensions with:
@@ -1274,7 +1269,7 @@ ${C_INFO}Show available extensions with:
 
    searchpath="${RVAL}"
 
-   if ! r_find_extension_in_searchpath "${vendor}" "${extname}" "${searchpath}"
+   if ! sde::extension::r_find_in_searchpath "${vendor}" "${extname}" "${searchpath}"
    then
       fail "Could not find extension \"${extname}\" (vendor \"${vendor}\") in
 ${searchpath}
@@ -1288,7 +1283,7 @@ ${C_INFO}Possible ways to fix this:
    fi
    extensiondir="${RVAL}"
 
-   if ! _check_file "${extensiondir}/version"
+   if ! sde::init::_check_file "${extensiondir}/version"
    then
       fail "Extension \"${vendor}/${extname}\" is unversioned."
    fi
@@ -1319,14 +1314,14 @@ for \"${vendor}/${extname}\"."
          #
          if [ "${LANGUAGE_SET}" != 'YES' ]
          then
-            if _check_file "${extensiondir}/language"
+            if sde::init::_check_file "${extensiondir}/language"
             then
                tmp="`egrep -v '^#' "${extensiondir}/language"`"
                IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
                [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
 
-               set_projectlanguage
+               sde::init::set_projectlanguage
 
                LANGUAGE_SET='YES'
            fi
@@ -1334,7 +1329,7 @@ for \"${vendor}/${extname}\"."
    esac
 
 
-   if is_disabled_by_marks "${marks}" \
+   if sde::init::is_disabled_by_marks "${marks}" \
                            "${vendor}/${extname}" \
                            "no-extension" \
                            "no-extension/${vendor}/${extname}"
@@ -1356,7 +1351,7 @@ for \"${vendor}/${extname}\"."
    #
    # file is called inherit,
    #
-   if ! is_file_disabled_by_marks "${marks}" \
+   if ! sde::init::is_file_disabled_by_marks "${marks}" \
                                   "${extensiondir}/inherit" \
                                   "no-inherit" \
                                   "no-inherit/${vendor}/${extname}"
@@ -1374,12 +1369,12 @@ for \"${vendor}/${extname}\"."
       filename="${extensiondir}/inheritmarks"
       inheritmarks="${marks}"
 
-      if ! is_disabled_by_marks "${marks}" \
+      if ! sde::init::is_disabled_by_marks "${marks}" \
                                 "${filename}" \
                                 "no-inheritmarks" \
                                 "no-inheritmarks/${vendor}/${extname}"
       then
-         if _check_file "${filename}"
+         if sde::init::_check_file "${filename}"
          then
             log_fluff "${verb} dependencies for ${exttype} extension \"${vendor}/${extname}\""
 
@@ -1397,7 +1392,7 @@ for \"${vendor}/${extname}\"."
          fi
       fi
 
-      install_inheritfile "${extensiondir}/inherit" \
+      sde::init::install_inheritfile "${extensiondir}/inherit" \
                           "${projecttype}" \
                           "${exttype}" \
                           "${inheritmarks}" \
@@ -1417,7 +1412,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
    # install version first
    if [ "${exttype}" != "oneshot" -a -z "${onlyfilename}" ]
    then
-      install_version "${vendor}" "${extname}" "${extensiondir}"
+      sde::init::install_version "${vendor}" "${extname}" "${extensiondir}"
    fi
 
    # meta only inherits stuff and doesn't add (except version)
@@ -1435,24 +1430,24 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       #
       # mulle-env stuff
       #
-      if ! is_disabled_by_marks "${marks}" "${extensiondir}/environment" \
+      if ! sde::init::is_disabled_by_marks "${marks}" "${extensiondir}/environment" \
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
          if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
-            add_to_environment "${extensiondir}/environment-upgrade"
+            sde::init::add_to_environment "${extensiondir}/environment-upgrade"
          else
-            add_to_environment "${extensiondir}/environment-init"
+            sde::init::add_to_environment "${extensiondir}/environment-init"
          fi
-         add_to_environment "${extensiondir}/environment"
+         sde::init::add_to_environment "${extensiondir}/environment"
 
-         add_to_tools "${extensiondir}/tool"
+         sde::init::add_to_tools "${extensiondir}/tool"
 
-         _copy_env_extension_dir "${extensiondir}/env" ||
+         sde::init::_copy_env_extension_dir "${extensiondir}/env" ||
             fail "Could not copy \"${extensiondir}/env\""
 
-         _append_to_motd "${extensiondir}"
+         sde::init::_append_to_motd "${extensiondir}"
       fi
    fi
 
@@ -1468,23 +1463,23 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       if [ -z "${onlyfilename}" ]
       then
          # part of project really
-         if ! is_directory_disabled_by_marks "${marks}" \
+         if ! sde::init::is_directory_disabled_by_marks "${marks}" \
                                              "${extensiondir}/delete" \
                                              "no-delete" \
                                              "no-delete/${vendor}/${extname}"
          then
-            _delete_extension_template_directory "${extensiondir}" \
+            sde::init::_delete_extension_template_directory "${extensiondir}" \
                                                  "delete" \
                                                  "${projecttype}"
          fi
       fi
 
-      if ! is_directory_disabled_by_marks "${marks}" \
+      if ! sde::init::is_directory_disabled_by_marks "${marks}" \
                                           "${extensiondir}/demo" \
                                           "no-demo" \
                                           "no-demo/${vendor}/${extname}"
       then
-         _copy_extension_template_directory "${extensiondir}" \
+         sde::init::_copy_extension_template_directory "${extensiondir}" \
                                             "demo" \
                                             "${projecttype}" \
                                             "${vendor}/${extname}" \
@@ -1503,12 +1498,12 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
          subdirectory="project-oneshot"
       fi
 
-      if ! is_directory_disabled_by_marks "${marks}" \
+      if ! sde::init::is_directory_disabled_by_marks "${marks}" \
                                           "${extensiondir}/${subdirectory}" \
                                           "no-project-oneshot" \
                                           "no-project-oneshot/${vendor}/${extname}"
       then
-         _copy_extension_template_directory "${extensiondir}" \
+         sde::init::_copy_extension_template_directory "${extensiondir}" \
                                             "${subdirectory}" \
                                             "${projecttype}" \
                                             "${vendor}/${extname}" \
@@ -1524,12 +1519,12 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
          subdirectory="project"
       fi
 
-      if ! is_directory_disabled_by_marks "${marks}" \
+      if ! sde::init::is_directory_disabled_by_marks "${marks}" \
                                           "${extensiondir}/${subdirectory}" \
                                           "no-project" \
                                           "no-project/${vendor}/${extname}"
       then
-         _copy_extension_template_directory "${extensiondir}" \
+         sde::init::_copy_extension_template_directory "${extensiondir}" \
                                             "${subdirectory}" \
                                             "${projecttype}" \
                                             "${vendor}/${extname}" \
@@ -1544,12 +1539,12 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       # this is used for refreshing cmake/share and such, where the user should
       # not edit. A feature now obsoleted by "delete"
       #
-      if ! is_directory_disabled_by_marks "${marks}" \
+      if ! sde::init::is_directory_disabled_by_marks "${marks}" \
                                           "${extensiondir}/clobber" \
                                           "no-clobber" \
                                           "no-clobber/${vendor}/${extname}"
       then
-         _copy_extension_template_directory "${extensiondir}" \
+         sde::init::_copy_extension_template_directory "${extensiondir}" \
                                             "clobber" \
                                             "${projecttype}" \
                                             "${vendor}/${extname}" \
@@ -1567,7 +1562,7 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       # used to install this only with project, but it was too surprising
       # turn it off with no-sourcetree
       #
-      install_sourcetree_files "${extensiondir}" \
+      sde::init::install_sourcetree_files "${extensiondir}" \
                                "${vendor}" \
                                "${extname}" \
                                "${marks}" \
@@ -1589,24 +1584,24 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
    #  no-init
    #  no-sourcetree
    #
-   if ! is_directory_disabled_by_marks "${marks}" \
+   if ! sde::init::is_directory_disabled_by_marks "${marks}" \
                                        "${extensiondir}/share" \
                                        "no-share" \
                                        "no-share/${vendor}/${extname}"
    then
-      _copy_extension_dir "${extensiondir}/share" 'YES' 'YES' ||
+      sde::init::_copy_extension_dir "${extensiondir}/share" 'YES' 'YES' ||
          fail "Could not copy \"${extensiondir}/share\""
    fi
 
 #   #
 #   # etc is also disabled by no-share
 #   #
-#   if ! is_directory_disabled_by_marks "${marks}" \
+#   if ! sde::init::is_directory_disabled_by_marks "${marks}" \
 #                                       "${extensiondir}/etc" \
 #                                       "no-share" \
 #                                       "no-share/${vendor}/${extname}"
 #   then
-#      _copy_extension_dir "${extensiondir}/etc" 'YES' 'NO' ||
+#      sde::init::_copy_extension_dir "${extensiondir}/etc" 'YES' 'NO' ||
 #         fail "Could not copy \"${extensiondir}/etc\""
 #   fi
 
@@ -1617,9 +1612,9 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
 #
 # could do this once
 #
-define_hacky_template_variables()
+sde::init::define_hacky_template_variables()
 {
-   log_entry "define_additional_template_variables" "$@"
+   log_entry "sde::init::define_hacky_template_variables" "$@"
 
    PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS:-${PROJECT_DOWNCASE_DIALECT}}"
    export PROJECT_EXTENSIONS
@@ -1642,9 +1637,9 @@ define_hacky_template_variables()
 
 
 # Will exit on error. Always returns 0
-install_extension()
+sde::init::install_extension()
 {
-   log_entry "install_extension" "$@"
+   log_entry "sde::init::install_extension" "$@"
 
    local projecttype="$1"
    local exttype="$2"
@@ -1654,11 +1649,11 @@ install_extension()
    local onlyfilename="$6"
    local force="$7"
 
-   local _TEMPLATE_DIRECTORIES # will be set by _install_extension
+   local _TEMPLATE_DIRECTORIES # will be set by sde::init::_install_extension
 
    local extensiondir
 
-   if extension_has_been_installed "${vendor}" "${extname}"
+   if sde::init::extension_has_been_installed "${vendor}" "${extname}"
    then
       return
    fi
@@ -1677,13 +1672,13 @@ install_extension()
    log_verbose "${verb} extension dependencies of ${C_RESET_BOLD}${vendor}/${extname}"
 
    # this will memorize if extension has been installed
-   _install_extension "$@"
+   sde::init::_install_extension "$@"
    extensiondir="${RVAL}"
 
    #
    # Now install collected templates
    #
-   import_template_generate
+   sde::init::import_template_generate
 
    if [ ! -z "${_TEMPLATE_DIRECTORIES}" ]
    then
@@ -1693,8 +1688,8 @@ install_extension()
       fi
 
       (
-         export_projectname_environment "${PROJECT_NAME}"
-         export_projectlanguage_environment "${PROJECT_LANGUAGE}"
+         sde::project::export_name_environment "${PROJECT_NAME}"
+         sde::project::export_language_environment "${PROJECT_LANGUAGE}"
 
          #
          # Read what extensions added to the project so far. environment-project
@@ -1705,7 +1700,7 @@ install_extension()
             . ".mulle/share/env/environment-extension.sh"
          fi
 
-         define_hacky_template_variables
+         sde::init::define_hacky_template_variables
 
          #
          # using the --embedded option, the template generator keeps state in
@@ -1724,8 +1719,8 @@ install_extension()
             if [ ! -z "${arguments}" ]
             then
                # memo: arguments are fully created including comments in
-               # _copy_extension_template_files
-               eval_exekutor template_generate_main \
+               # sde::init::_copy_extension_template_files
+               eval_exekutor template::generate::main \
                                                     "${arguments}" || exit 1
             fi
          done
@@ -1740,12 +1735,12 @@ install_extension()
       local executable
 
       executable="${extensiondir}/init"
-      if ! is_file_disabled_by_marks "${marks}" \
+      if ! sde::init::is_file_disabled_by_marks "${marks}" \
                                      "${executable}" \
                                      "no-init" \
                                      "no-init/${vendor}/${extname}"
       then
-         run_init "${executable}" "${projecttype}" \
+         sde::init::run_init "${executable}" "${projecttype}" \
                                   "${exttype}" \
                                   "${vendor}" \
                                   "${extname}" \
@@ -1757,12 +1752,12 @@ install_extension()
       if [ ! -z "${OPTION_INIT_TYPE}" ]
       then
          executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
-         if ! is_file_disabled_by_marks "${marks}" \
+         if ! sde::init::is_file_disabled_by_marks "${marks}" \
                                         "${executable}" \
                                         "no-init" \
                                         "no-init/${vendor}/${extname}"
          then
-            run_init "${executable}" "${projecttype}" \
+            sde::init::run_init "${executable}" "${projecttype}" \
                                      "${exttype}" \
                                      "${vendor}" \
                                      "${extname}" \
@@ -1776,9 +1771,9 @@ install_extension()
 }
 
 
-install_motd()
+sde::init::install_motd()
 {
-   log_entry "install_motd" "$@"
+   log_entry "sde::init::install_motd" "$@"
 
    local text="$1"
 
@@ -1798,9 +1793,9 @@ install_motd()
 }
 
 
-_install_simple_extension()
+sde::init::_install_simple_extension()
 {
-   log_entry "_install_simple_extension" "$@"
+   log_entry "sde::init::_install_simple_extension" "$@"
 
    local exttype="$1"; shift
 
@@ -1816,7 +1811,7 @@ _install_simple_extension()
       projecttype="executable"
    fi
 
-   _sde_validate_projecttype "${projecttype}" "${force}"
+   sde::init::validate_projecttype "${projecttype}" "${force}"
 
    # optionally install "extra" extensions
    # f.e. a "git" extension could auto-init the project and create
@@ -1833,9 +1828,9 @@ _install_simple_extension()
       PROJECT_NAME="${RVAL}"
    fi
 
-   assert_project_name "${PROJECT_NAME}"
-   set_projectname_variables "${PROJECT_NAME}"
-   add_environment_variables "${OPTION_DEFINES}"
+   sde::project::assert_name "${PROJECT_NAME}"
+   sde::project::set_name_variables "${PROJECT_NAME}"
+   sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    IFS=$'\n'; shell_disable_glob
    for extra in ${extras}
@@ -1862,7 +1857,7 @@ _install_simple_extension()
       [ -z "${extra_name}" ]   && fail "Missing extension name \"${extra}\""
       [ -z "${extra_vendor}" ] && fail "Missing extension vendor \"${extra}\""
 
-      install_extension "${projecttype}" \
+      sde::init::install_extension "${projecttype}" \
                         "${exttype}" \
                         "${extra_vendor}" \
                         "${extra_name}" \
@@ -1875,20 +1870,20 @@ _install_simple_extension()
 
 
 # Will exit on error. Always returns 0
-install_extra_extensions()
+sde::init::install_extra_extensions()
 {
-   log_entry "install_extra_extensions" "$@"
+   log_entry "sde::init::install_extra_extensions" "$@"
 
-   _install_simple_extension "extra" "$@"
+   sde::init::_install_simple_extension "extra" "$@"
 }
 
 
 # Will exit on error. Always returns 0
-install_oneshot_extensions()
+sde::init::install_oneshot_extensions()
 {
-   log_entry "install_oneshot_extensions" "$@"
+   log_entry "sde::init::install_oneshot_extensions" "$@"
 
-   _install_simple_extension "oneshot" "$@"
+   sde::init::_install_simple_extension "oneshot" "$@"
 }
 
 
@@ -1896,9 +1891,9 @@ install_oneshot_extensions()
 # for reinit and .git it's nice to store the installed extensions in
 # a separate file instead of the environment
 #
-recall_installed_extensions()
+sde::init::recall_installed_extensions()
 {
-   log_entry "recall_installed_extensions" "$@"
+   log_entry "sde::init::recall_installed_extensions" "$@"
 
    local extensionfile="$1"
 
@@ -1911,7 +1906,7 @@ recall_installed_extensions()
       fail "egrep not in PATH: ${PATH}"
    fi
 
-   if _check_file "${extensionfile}"
+   if sde::init::_check_file "${extensionfile}"
    then
       exekutor "${EGREP}" -v '^#' < "${extensionfile}"
       # deal with empty file (maybe due to edits)
@@ -1955,9 +1950,9 @@ recall_installed_extensions()
 }
 
 
-memorize_installed_extensions()
+sde::init::memorize_installed_extensions()
 {
-   log_entry "memorize_installed_extensions" "$@"
+   log_entry "sde::init::memorize_installed_extensions" "$@"
 
    local extensions="$1"
    local filename="$2"
@@ -1967,7 +1962,7 @@ memorize_installed_extensions()
 }
 
 
-env_set_var()
+sde::init::set_environment_var()
 {
    local key="$1"
    local value="$2"
@@ -1987,9 +1982,9 @@ env_set_var()
 
 
 # everything in here should exit on error not return 1
-install_extensions()
+sde::init::install_extensions()
 {
-   log_entry "install_extensions" "$@"
+   log_entry "sde::init::install_extensions" "$@"
 
    local marks="$1"
    local onlyfilename="$2"
@@ -2081,21 +2076,21 @@ install_extensions()
    # buildtool is the most likely to fail, due to a mistyped
    # projectdir, if that happens, we have done the least pollution yet
    #
-   install_extension "${PROJECT_TYPE}" \
+   sde::init::install_extension "${PROJECT_TYPE}" \
                      "meta" \
                      "${meta_vendor}" \
                      "${meta_name}" \
                      "${marks}" \
                      "${onlyfilename}" \
                      "${force}"
-   install_extension "${PROJECT_TYPE}" \
+   sde::init::install_extension "${PROJECT_TYPE}" \
                      "runtime" \
                      "${runtime_vendor}" \
                      "${runtime_name}" \
                      "${marks}" \
                      "${onlyfilename}" \
                      "${force}"
-   install_extension "${PROJECT_TYPE}" \
+   sde::init::install_extension "${PROJECT_TYPE}" \
                      "buildtool" \
                      "${buildtool_vendor}" \
                      "${buildtool_name}" \
@@ -2103,7 +2098,7 @@ install_extensions()
                      "${onlyfilename}" \
                      "${force}"
 
-   install_extra_extensions "${OPTION_EXTRAS}" \
+   sde::init::install_extra_extensions "${OPTION_EXTRAS}" \
                             "${PROJECT_TYPE}" \
                             "${marks}" \
                             "${onlyfilename}" \
@@ -2118,11 +2113,11 @@ install_extensions()
    #
    # remember type and installed extensions
    #
-   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
+   sde::init::memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
                                  "${OPTION_EXTENSION_FILE}"
 
    # oneshots aren't memorized
-   install_oneshot_extensions "${OPTION_ONESHOTS}" \
+   sde::init::install_oneshot_extensions "${OPTION_ONESHOTS}" \
                               "${PROJECT_TYPE}" \
                               "${marks}" \
                               "" \
@@ -2130,9 +2125,9 @@ install_extensions()
 }
 
 
-install_project()
+sde::init::install_project()
 {
-   log_entry "install_project" "$@"
+   log_entry "sde::init::install_project" "$@"
 
    local projectname="$1"
    local projecttype="$2"
@@ -2154,7 +2149,7 @@ install_project()
 
    LANGUAGE_SET='NO'
 
-   assert_project_name "${projectname}"
+   sde::project::assert_name "${projectname}"
 
    PROJECT_NAME="${projectname}"
    export PROJECT_NAME
@@ -2165,25 +2160,25 @@ install_project()
       PROJECT_DIALECT="${dialect}"
       PROJECT_EXTENSIONS="${extensions}"
 
-      set_projectlanguage
+      sde::init::set_projectlanguage
    fi
 
    #
    # the project language is actually determined by the runtime
    # extension
    #
-   project_add_envscope_if_missing
+   sde::project::add_envscope_if_missing
 
    PROJECT_TYPE="${projecttype}"
    PROJECT_SOURCE_DIR="${projectsourcedir}"
 
-   env_set_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
+   sde::init::set_environment_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
    if [ ! -z "${PROJECT_SOURCE_DIR}" ]
    then
       #
       # For projects that are not "none", we use save PROJECT_SOURCE_DIR
       #
-      env_set_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
+      sde::init::set_environment_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
    fi
 
    export PROJECT_SOURCE_DIR
@@ -2204,17 +2199,17 @@ install_project()
    # put these first, so extensions can draw on these in their definitions
    #
    # sets PROJECT_IDENTIFIER, PROJECT_UPCASE_IDENTIFIER PROJECT_DOWNCASE_IDENTIFIER
-   set_projectname_variables "${PROJECT_NAME}"
-   save_projectname_variables "--no-protect"
+   sde::project::set_name_variables "${PROJECT_NAME}"
+   sde::project::save_name_variables "--no-protect"
 
-   install_extensions "${marks}" "${onlyfilename}" "${force}"
+   sde::init::install_extensions "${marks}" "${onlyfilename}" "${force}"
 
    if [ ! -z "${onlyfilename}" ]
    then
       return
    fi
 
-   save_projectlanguage_variables "--no-protect"
+   sde::project::save_language_variables "--no-protect"
 
    if [ -z "${_INSTALLED_EXTENSIONS}" -a "${OPTION_UPGRADE}" != 'YES' ]
    then
@@ -2255,13 +2250,13 @@ ${motd}"
       ;;
    esac
 
-   install_motd "${_MOTD}"
+   sde::init::install_motd "${_MOTD}"
 }
 
 
-add_environment_variables()
+sde::init::add_environment_variables()
 {
-   log_entry "add_environment_variables" "$@"
+   log_entry "sde::init::add_environment_variables" "$@"
 
    local defines="$1"
 
@@ -2287,11 +2282,11 @@ changes into your subshell"
 }
 
 
-sde_run_add()
+sde::init::run_add()
 {
-   log_entry "sde_run_add" "$@"
+   log_entry "sde::init::run_add" "$@"
 
-   [ "$#" -eq 0 ] || sde_init_usage "extranous arguments \"$*\""
+   [ "$#" -eq 0 ] || sde::init::usage "extranous arguments \"$*\""
 
    [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--add and --reinit/--upgrade exclude each other"
@@ -2316,34 +2311,34 @@ ${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#${MULLE_USER_PWD}/}\" not present)"
 
    [ -z "${PROJECT_TYPE}" ] && fail "PROJECT_TYPE is not defined"
 
-   add_environment_variables "${OPTION_DEFINES}"
+   sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    local _INSTALLED_EXTENSIONS
 
-   _INSTALLED_EXTENSIONS="`recall_installed_extensions "${OPTION_EXTENSION_FILE}"`" || exit 1
+   _INSTALLED_EXTENSIONS="`sde::init::recall_installed_extensions "${OPTION_EXTENSION_FILE}"`" || exit 1
    log_debug "Installed extensions: ${_INSTALLED_EXTENSIONS}"
 
-   if ! install_extra_extensions "${OPTION_EXTRAS}" \
-                                 "${PROJECT_TYPE}" \
-                                 "${OPTION_MARKS}" \
-                                 "" \
-                                 "${MULLE_FLAG_MAGNUM_FORCE}"
+   if ! sde::init::install_extra_extensions "${OPTION_EXTRAS}" \
+                                            "${PROJECT_TYPE}" \
+                                            "${OPTION_MARKS}" \
+                                            "" \
+                                            "${MULLE_FLAG_MAGNUM_FORCE}"
    then
       return 1
    fi
 
-   memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
+   sde::init::memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
                                  "${OPTION_EXTENSION_FILE}"
 
-   install_oneshot_extensions "${OPTION_ONESHOTS}" \
-                              "${PROJECT_TYPE}" \
-                              "${OPTION_MARKS}" \
-                              "" \
-                              "${MULLE_FLAG_MAGNUM_FORCE}"
+   sde::init::install_oneshot_extensions "${OPTION_ONESHOTS}" \
+                                         "${PROJECT_TYPE}" \
+                                         "${OPTION_MARKS}" \
+                                         "" \
+                                         "${MULLE_FLAG_MAGNUM_FORCE}"
 }
 
 
-r_mset_quoted_env_line()
+sde::init::r_mset_quoted_env_line()
 {
    local line="$1"
 
@@ -2365,7 +2360,7 @@ r_mset_quoted_env_line()
 }
 
 
-__get_installed_extensions()
+sde::init::get_installed_extensions()
 {
    log_entry "mulle-objc/travis" "$@"
 
@@ -2381,7 +2376,7 @@ __get_installed_extensions()
       rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
    fi
 
-   extensions="`recall_installed_extensions "${extensionfile}"`" || exit 1
+   extensions="`sde::init::recall_installed_extensions "${extensionfile}"`" || exit 1
    if [ -z "${extensions}" ]
    then
       log_fluff "No installed extensions found"
@@ -2439,9 +2434,9 @@ __get_installed_extensions()
 }
 
 
-remove_from_marks()
+sde::init::remove_from_marks()
 {
-   log_entry "remove_from_marks" "$@"
+   log_entry "sde::init::remove_from_marks" "$@"
 
    local marks="$1"
    local mark="$2"
@@ -2469,9 +2464,9 @@ remove_from_marks()
 #
 # call this before__get_installed_extensions
 #
-read_project_environment()
+sde::init::read_project_environment()
 {
-   log_entry "read_project_environment" "$@"
+   log_entry "sde::init::read_project_environment" "$@"
 
    if [ -f ".mulle/etc/env/environment-project.sh" ]
    then
@@ -2511,9 +2506,9 @@ If you reinited the environment. Try:
 }
 
 
-run_user_post_init_script()
+sde::init::run_user_post_init_script()
 {
-   log_entry "run_user_post_init_script" "$@"
+   log_entry "sde::init::run_user_post_init_script" "$@"
 
    local scriptfile
 
@@ -2536,9 +2531,9 @@ run_user_post_init_script()
 }
 
 
-warn_if_unknown_mark()
+sde::init::warn_if_unknown_mark()
 {
-   log_entry "warn_if_unknown_mark" "$@"
+   log_entry "sde::init::warn_if_unknown_mark" "$@"
 
    local mark="$1"
    local description="$2"
@@ -2557,7 +2552,7 @@ warn_if_unknown_mark()
 
 
 # stupid old code
-_sde_validate_projecttype()
+sde::init::validate_projecttype()
 {
    local projecttype="$1"
    local force="$2"
@@ -2596,9 +2591,9 @@ ${C_INFO}Use -f to use \"${projecttype}\""
 }
 
 
-_sde_run_upgrade()
+sde::init::_run_upgrade()
 {
-   log_entry "_sde_run_upgrade" "$@"
+   log_entry "sde::init::_run_upgrade" "$@"
 
    rexekutor "${MULLE_ENV:-mulle-env}" \
                      ${MULLE_TECHNICAL_FLAGS} \
@@ -2610,10 +2605,10 @@ _sde_run_upgrade()
       fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
    fi
 
-   read_project_environment
-   _sde_validate_projecttype "${PROJECT_TYPE}" "${MULLE_FLAG_MAGNUM_FORCE}"
+   sde::init::read_project_environment
+   sde::init::validate_projecttype "${PROJECT_TYPE}" "${MULLE_FLAG_MAGNUM_FORCE}"
 
-   if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
+   if ! sde::init::get_installed_extensions "${OPTION_EXTENSION_FILE}"
    then
       case "${PROJECT_TYPE}" in
          "none")
@@ -2635,7 +2630,7 @@ This may hurt, but you have to init again."
 
    log_fluff "Erasing share/env contents to be written by upgrade anew"
 
-   if ! is_disabled_by_marks "${marks}" "no-env"
+   if ! sde::init::is_disabled_by_marks "${marks}" "no-env"
    then
       # should be part of mulle-env to clear a scope
       remove_file_if_present ".mulle/share/env/environment-extension.sh"
@@ -2651,12 +2646,12 @@ This may hurt, but you have to init again."
       shell_disable_nullglob
    fi
 
-   assert_project_name "${PROJECT_NAME}"
-   set_projectname_variables "${PROJECT_NAME}"
-   add_environment_variables "${OPTION_DEFINES}"
+   sde::project::assert_name "${PROJECT_NAME}"
+   sde::project::set_name_variables "${PROJECT_NAME}"
+   sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    # rmdir_safer ".mulle-env"
-   if ! install_extensions "${OPTION_MARKS}" \
+   if ! sde::init::install_extensions "${OPTION_MARKS}" \
                            "${OPTION_PROJECT_FILE}" \
                            "${MULLE_FLAG_MAGNUM_FORCE}"
    then
@@ -2682,20 +2677,20 @@ This may hurt, but you have to init again."
 }
 
 
-_sde_run_upgrade_projectfile()
+sde::init::_run_upgrade_projectfile()
 {
-   log_entry "_sde_run_upgrade_projectfile" "$@"
+   log_entry "sde::init::_run_upgrade_projectfile" "$@"
 
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
    then
       fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
    fi
 
-   read_project_environment
+   sde::init::read_project_environment
 
-   _sde_validate_projecttype "${PROJECT_TYPE}" "${MULLE_FLAG_MAGNUM_FORCE}"
+   sde::init::validate_projecttype "${PROJECT_TYPE}" "${MULLE_FLAG_MAGNUM_FORCE}"
 
-   if ! __get_installed_extensions "${OPTION_EXTENSION_FILE}"
+   if ! sde::init::get_installed_extensions "${OPTION_EXTENSION_FILE}"
    then
       case "${PROJECT_TYPE}" in
          "none")
@@ -2715,12 +2710,12 @@ been installed."
 This may hurt, but you have to init again."
    fi
 
-   assert_project_name "${PROJECT_NAME}"
-   set_projectname_variables "${PROJECT_NAME}"
-   add_environment_variables "${OPTION_DEFINES}"
+   sde::project::assert_name "${PROJECT_NAME}"
+   sde::project::set_name_variables "${PROJECT_NAME}"
+   sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    # rmdir_safer ".mulle-env"
-   if ! install_extensions "${OPTION_MARKS}" \
+   if ! sde::init::install_extensions "${OPTION_MARKS}" \
                            "${OPTION_PROJECT_FILE}" \
                            "${MULLE_FLAG_MAGNUM_FORCE}"
    then
@@ -2731,12 +2726,14 @@ This may hurt, but you have to init again."
 }
 
 
-r_sde_initenv_style()
+sde::init::r_initenv_style()
 {
-   RVAL="$1"
+   log_entry "sde::init::r_initenv_style" "$@"
+
+   local style="$1"
    local projecttype="$2"
 
-   if [ "${RVAL}" = 'DEFAULT' ]
+   if [ "${style}" = 'DEFAULT' ]
    then
       if [ "${projecttype}" = 'none' ]
       then
@@ -2744,18 +2741,20 @@ r_sde_initenv_style()
       else
          RVAL="mulle/relax"
       fi
+   else
+      RVAL="${style}"
    fi
 }
 
-_sde_pre_initenv()
+sde::init::_pre_initenv()
 {
-   log_entry "_sde_pre_initenv" "$@"
+   log_entry "sde::init::_pre_initenv" "$@"
 
    local style="$1"
    local projecttype="$2"
    local command="${3:-init}"
 
-   r_sde_initenv_style "${style}"
+   sde::init::r_initenv_style "${style}" "${projecttype}"
    style="${RVAL}"
 
    #
@@ -2797,15 +2796,15 @@ _sde_pre_initenv()
 }
 
 
-_sde_post_initenv()
+sde::init::_post_initenv()
 {
-   log_entry "_sde_post_initenv" "$@"
+   log_entry "sde::init::_post_initenv" "$@"
 
    local projecttype="$1"
 
    if [ "${projecttype}" = 'none' ]
    then
-      project_env_set_var "MULLE_SDE_CRAFT_TARGET" "craftorder" --no-protect
+      sde::project::env_set_var "MULLE_SDE_CRAFT_TARGET" "craftorder" --no-protect
       OPTION_BLURB='NO'
    fi
 
@@ -2826,15 +2825,15 @@ _sde_post_initenv()
 }
 
 
-_sde_run_init_reinit_common()
+sde::init::_run_common()
 {
-   log_entry "_sde_run_init_reinit_common" "$@"
+   log_entry "sde::init::_run_common" "$@"
 
    local projecttype="${1:-none}"
 
-   [ $# -lt 1 ] && shift && sde_init_usage "Superflous arguments \"$*\""
+   [ $# -lt 1 ] && shift && sde::init::usage "Superflous arguments \"$*\""
 
-   _sde_validate_projecttype "${projecttype}" "${MULLE_FLAG_MAGNUM_FORCE}"
+   sde::init::validate_projecttype "${projecttype}" "${MULLE_FLAG_MAGNUM_FORCE}"
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
@@ -2842,10 +2841,10 @@ _sde_run_init_reinit_common()
       then
          if [ -z "${OPTION_PROJECT_FILE}" ]
          then
-            _sde_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}" "reinit"
+            sde::init::_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}" "reinit"
          fi
       else
-         _sde_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}"
+         sde::init::_pre_initenv "${OPTION_ENV_STYLE}" "${projecttype}"
       fi
    fi
 
@@ -2881,11 +2880,11 @@ _sde_run_init_reinit_common()
       ;;
    esac
 
-   assert_project_name "${projectname}"
+   sde::project::assert_name "${projectname}"
 
-   add_environment_variables "${OPTION_DEFINES}"
+   sde::init::add_environment_variables "${OPTION_DEFINES}"
 
-   if ! install_project "${projectname}" \
+   if ! sde::init::install_project "${projectname}" \
                         "${projecttype}" \
                         "${OPTION_PROJECT_SOURCE_DIR}" \
                         "${OPTION_MARKS}" \
@@ -2895,26 +2894,26 @@ _sde_run_init_reinit_common()
                         "${OPTION_DIALECT}"  \
                         "${OPTION_EXTENSIONS}"
    then
-      internal_fail "install_project should exit not return errors"
+      internal_fail "sde::init::install_project should exit not return errors"
    fi
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
    then
-      _sde_post_initenv "${projecttype}"
+      sde::init::_post_initenv "${projecttype}"
    fi
 
    if [ "${OPTION_POST_INIT}" = 'YES' ]
    then
-      run_user_post_init_script "${PROJECT_LANGUAGE}" \
+      sde::init::run_user_post_init_script "${PROJECT_LANGUAGE}" \
                                 "${PROJECT_DIALECT}" \
                                 "${projecttype}"
    fi
 }
 
 
-_sde_run_reinit()
+sde::init::_run_reinit()
 {
-   log_entry "_sde_run_reinit" "$@"
+   log_entry "sde::init::_run_reinit" "$@"
 
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
    then
@@ -2922,18 +2921,18 @@ _sde_run_reinit()
    fi
 
 
-   read_project_environment
+   sde::init::read_project_environment
 
-   _sde_run_init_reinit_common "$@"
+   sde::init::_run_common "$@"
 }
 
 
 
-_sde_run_init()
+sde::init::_run_init()
 {
-   log_entry "_sde_run_init" "$@"
+   log_entry "sde::init::_run_init" "$@"
 
-   _sde_run_init_reinit_common "$@"
+   sde::init::_run_common "$@"
 }
 
 
@@ -2941,15 +2940,15 @@ _sde_run_init()
 # These funtions should save state and revert to previous state if the
 # init/upgrade failed.
 #
-sde_check_dot_init()
+sde::init::check_dot_init()
 {
-   log_entry "sde_check_dot_init" "$@"
+   log_entry "sde::init::check_dot_init" "$@"
 
    if [ -d "${MULLE_SDE_SHARE_DIR}" ]
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
       then
-         if _check_file "${MULLE_SDE_SHARE_DIR}/.init"
+         if sde::init::_check_file "${MULLE_SDE_SHARE_DIR}/.init"
          then
             fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"${PWD}\". \
 It looks like an init gone bad."
@@ -2963,9 +2962,9 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
 }
 
 
-sde_save_mulle_in_old()
+sde::init::save_mulle_in_old()
 {
-   log_entry "sde_save_mulle_in_old" "$@"
+   log_entry "sde::init::save_mulle_in_old" "$@"
 
    rmdir_safer ".mulle.old"
    exekutor mv ".mulle" ".mulle.old"
@@ -2986,9 +2985,9 @@ sde_save_mulle_in_old()
 }
 
 
-sde_restore_mulle_from_old()
+sde::init::restore_mulle_from_old()
 {
-   log_entry "sde_restore_mulle_from_old" "$@"
+   log_entry "sde::init::restore_mulle_from_old" "$@"
 
    if [ ! -d ".mulle.old" ]
    then
@@ -3004,9 +3003,9 @@ sde_restore_mulle_from_old()
 }
 
 
-sde_start_init()
+sde::init::start()
 {
-   log_entry "sde_start_init" "$@"
+   log_entry "sde::init::start" "$@"
 
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
    redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" \
@@ -3031,9 +3030,9 @@ sde_start_init()
 }
 
 
-sde_end_init()
+sde::init::end()
 {
-   log_entry "sde_end_init" "$@"
+   log_entry "sde::init::end" "$@"
 
 #   # remove if empty ??? Needed anymore ??
 #   exekutor rmdir "${MULLE_MATCH_SHARE_DIR}" 2>  /dev/null
@@ -3046,19 +3045,19 @@ sde_end_init()
 
 
 
-sde_run_init()
+sde::init::run()
 {
-   log_entry "sde_run_init" "$@"
+   log_entry "sde::init::run" "$@"
 
-   sde_check_dot_init
+   sde::init::check_dot_init
 
    log_verbose "Init start"
 
-   sde_start_init
+   sde::init::start
 
    local rval
    (
-      _sde_run_init "$@"
+      sde::init::_run_init "$@"
    )
    rval="$?"
 
@@ -3072,7 +3071,7 @@ sde_run_init()
       fi
    fi
 
-   sde_end_init
+   sde::init::end
 
    log_verbose "Init end"
 
@@ -3081,22 +3080,22 @@ sde_run_init()
 
 
 
-sde_run_reinit()
+sde::init::run_reinit()
 {
    # reinit, save the old
-   log_entry "sde_run_reinit" "$@"
+   log_entry "sde::init::run_reinit" "$@"
 
    log_verbose "Reinit start"
 
-   sde_check_dot_init
+   sde::init::check_dot_init
 
-   sde_save_mulle_in_old
+   sde::init::save_mulle_in_old
 
-   sde_start_init "Reinit"
+   sde::init::start "Reinit"
 
    local rval
    (
-      _sde_run_reinit "$@"
+      sde::init::_run_reinit "$@"
    )
    rval="$?"
 
@@ -3105,12 +3104,12 @@ sde_run_reinit()
    then
       log_info "The reinit failed. Restoring old configuration."
 
-      sde_restore_mulle_from_old
+      sde::init::restore_mulle_from_old
    else
       rmdir_safer ".mulle.old"
    fi
 
-   sde_end_init
+   sde::init::end
 
    log_verbose "Reinit end"
 
@@ -3118,9 +3117,9 @@ sde_run_reinit()
 }
 
 
-sde_run_upgrade()
+sde::init::run_upgrade()
 {
-   log_entry "sde_run_upgrade" "$@"
+   log_entry "sde::init::run_upgrade" "$@"
 
    if [ -d ".mulle.old" -a ! -d ".mulle" ]
    then
@@ -3140,13 +3139,13 @@ sde_run_upgrade()
    # (i.e. CMakeLists.txt). Keep "extension" file around in case something
    # goes wrong. Also temporarily keep old share
    #
-   sde_save_mulle_in_old
+   sde::init::save_mulle_in_old
 
-   sde_start_init "Upgrade"
+   sde::init::start "Upgrade"
 
    local rval
    (
-      _sde_run_upgrade "$@"
+      sde::init::_run_upgrade "$@"
    )
    rval="$?"
 
@@ -3155,12 +3154,12 @@ sde_run_upgrade()
    then
       log_info "The upgrade failed. Restoring old configuration for \"${PWD#${MULLE_USER_PWD}/}\""
 
-      sde_restore_mulle_from_old
+      sde::init::restore_mulle_from_old
    else
       rmdir_safer ".mulle.old"
    fi
 
-   sde_end_init "Upgrade"
+   sde::init::end "Upgrade"
 
    log_verbose "Upgrade end"
 
@@ -3169,15 +3168,15 @@ sde_run_upgrade()
 
 
 # this must not use start init /end init
-sde_run_upgrade_projectfile()
+sde::init::run_upgrade_projectfile()
 {
-   log_entry "sde_run_upgrade_projectfile" "$@"
+   log_entry "sde::init::run_upgrade_projectfile" "$@"
 
    log_verbose "Upgrade projectfile start"
    # probably nothing to do here (could save source but we don't)
    local rval
    (
-      _sde_run_upgrade_projectfile "$@"
+      sde::init::_run_upgrade_projectfile "$@"
    )
    rval="$?"
 
@@ -3186,9 +3185,9 @@ sde_run_upgrade_projectfile()
 }
 
 
-sde_protect_unprotect()
+sde::init::protect_unprotect()
 {
-   log_entry "sde_protect_unprotect" "$@"
+   log_entry "sde::init::protect_unprotect" "$@"
 
    local title="$1"
    local mode="$2"
@@ -3228,22 +3227,19 @@ sde_protect_unprotect()
 
    log_fluff "${title} ${MULLE_SDE_PROTECT_PATH}"
 
-   IFS=':'
-   for i in ${MULLE_SDE_PROTECT_PATH}
-   do
-      IFS="${DEFAULT_IFS}"
-      [ ! -e "${i}" ] && continue
+   .foreachpath i in ${MULLE_SDE_PROTECT_PATH}
+   .do
+      [ ! -e "${i}" ] && .continue
 
       # can only read protect files, because otherwise git freaks out
-      exekutor find "${i}" -type f -exec chmod ${mode} {} \;
-   done
-   IFS="${DEFAULT_IFS}"
+      exekutor find "${i}" -type f -exec chmod "${mode}" {} \;
+   .done
 }
 
 
-r_sde_get_old_version()
+sde::init::r_get_old_version()
 {
-   log_entry "r_sde_get_old_version" "$@"
+   log_entry "sde::init::r_get_old_version" "$@"
 
    local oldversion
 
@@ -3289,7 +3285,7 @@ MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
 }
 
 
-sde_init_include()
+sde::init::include()
 {
    if [ -z "${MULLE_PATH_SH}" ]
    then
@@ -3316,9 +3312,9 @@ sde_init_include()
 ###
 ### parameters and environment variables
 ###
-_sde_init_main()
+sde::init::_main()
 {
-   log_entry "_sde_init_main" "$@"
+   log_entry "sde::init::_main" "$@"
 
    local OPTION_ADD
    local OPTION_BLURB='YES'
@@ -3355,7 +3351,7 @@ _sde_init_main()
    local line
    local mark
 
-   sde_init_include
+   sde::init::include
 
    # don't accidentally inherit stuff from the environment
    # this is otherwise super hard to debug (sigh)
@@ -3364,10 +3360,10 @@ _sde_init_main()
       shift
       OPTION_ADD='YES'
    else
-      clear_project_variables
+      sde::project::clear_variables
    fi
 
-   clear_oneshot_variables
+   sde::project::clear_oneshot_variables
 
    OPTION_META="${MULLE_SDE_DEFAULT_META_EXTENSION}"
 
@@ -3378,20 +3374,20 @@ _sde_init_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_init_usage
+            sde::init::usage
          ;;
 
          -D?*)
-            r_mset_quoted_env_line "${1:2}"
+            sde::init::r_mset_quoted_env_line "${1:2}"
             r_concat "${OPTION_DEFINES}" "'${RVAL}'"
             OPTION_DEFINES="${RVAL}"
          ;;
 
          -D)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
-            r_mset_quoted_env_line "$1"
+            sde::init::r_mset_quoted_env_line "$1"
             r_concat "${OPTION_DEFINES}" "'${RVAL}'"
             OPTION_DEFINES="${RVAL}"
          ;;
@@ -3402,7 +3398,7 @@ _sde_init_main()
          ;;
 
          -b|--buildtool)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_BUILDTOOL="$1"
@@ -3417,7 +3413,7 @@ _sde_init_main()
          ;;
 
          -d|--directory)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             exekutor mkdir -p "$1" 2> /dev/null
@@ -3426,7 +3422,7 @@ _sde_init_main()
          ;;
 
          -e|--extra)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_add_line "${OPTION_EXTRAS}" "$1"
@@ -3441,7 +3437,7 @@ _sde_init_main()
          ;;
 
          --extension-file)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_EXTENSION_FILE="$1"
@@ -3452,14 +3448,14 @@ _sde_init_main()
          ;;
 
          -i|--init-flags)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_INIT_FLAGS="$1"
          ;;
 
          -o|--oneshot)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_add_line "${OPTION_ONESHOTS}" "$1"
@@ -3467,7 +3463,7 @@ _sde_init_main()
          ;;
 
          --oneshot-name)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             ONESHOT_FILENAME="$1"
@@ -3475,7 +3471,7 @@ _sde_init_main()
          ;;
 
          --oneshot-class)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             ONESHOT_CLASS="$1"
@@ -3483,7 +3479,7 @@ _sde_init_main()
          ;;
 
          --oneshot-category)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             ONESHOT_CATEGORY="$1"
@@ -3491,28 +3487,28 @@ _sde_init_main()
          ;;
 
          --template-header-file)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             TEMPLATE_HEADER_FILE="$1" # same name as in mulle-template
          ;;
 
          --template-footer-file)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             TEMPLATE_FOOTER_FILE="$1" # same name as in mulle-template
          ;;
 
          -m|--meta)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_META="$1"
          ;;
 
          -n|--name|--project-name)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable project-name during init (rename to it later)"
@@ -3521,7 +3517,7 @@ _sde_init_main()
 
          # little hack
          --github|--github-user)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             GITHUB_USER="$1"
@@ -3529,7 +3525,7 @@ _sde_init_main()
          ;;
 
          --project-file|--upgrade-project-file)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_PROJECT_FILE="$1"
@@ -3541,21 +3537,21 @@ _sde_init_main()
          ;;
 
          --project-dialect)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_DIALECT="$1"
          ;;
 
          --project-language)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_LANGUAGE="$1"
          ;;
 
          --project-extensions)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_EXTENSIONS="$1"
@@ -3563,7 +3559,7 @@ _sde_init_main()
 
          # only used for one-shotting none project types
          --project-type)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             PROJECT_TYPE="$1"
@@ -3571,7 +3567,7 @@ _sde_init_main()
          ;;
 
          --project-source-dir|--source-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable \
@@ -3581,21 +3577,21 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          ;;
 
          -r|--runtime)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_RUNTIME="$1"
          ;;
 
          -s|--style)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_ENV_STYLE="$1"
          ;;
 
          -v|--vendor)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             OPTION_VENDOR="$1"
@@ -3622,7 +3618,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
             OPTION_BLURB='NO'
             r_comma_concat "${OPTION_MARKS}" "no-demo"
             # r_comma_concat "${RVAL}" "no-project"
-            r_comma_concat "${RVAL}" "no-project-oneshot"
+            # r_comma_concat "${RVAL}" "no-project-oneshot"
             OPTION_MARKS="${RVAL}"
             OPTION_INIT_ENV='YES'
          ;;
@@ -3655,19 +3651,19 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          # keep these down here, so they don't catch flags prematurely
          --allow-*)
             mark="${1:8}"
-            warn_if_unknown_mark "${mark}" "allow-mark"
-            OPTION_MARKS="`remove_from_marks "${OPTION_MARKS}" "no-${mark}"`"
+            sde::init::warn_if_unknown_mark "${mark}" "allow-mark"
+            OPTION_MARKS="`sde::init::remove_from_marks "${OPTION_MARKS}" "no-${mark}"`"
          ;;
 
          --no-*)
             mark="${1:5}"
-            warn_if_unknown_mark "${mark}" "no-${mark}"
+            sde::init::warn_if_unknown_mark "${mark}" "no-${mark}"
             r_comma_concat "${OPTION_MARKS}" "no-${mark}"
             OPTION_MARKS="${RVAL}"
          ;;
 
          --addiction-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_escaped_doublequotes "$1"
@@ -3676,7 +3672,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          ;;
 
          --dependency-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_escaped_doublequotes "$1"
@@ -3685,7 +3681,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          ;;
 
          --kitchen-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_escaped_doublequotes "$1"
@@ -3694,7 +3690,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          ;;
 
          --stash-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_escaped_doublequotes "$1"
@@ -3703,7 +3699,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          ;;
 
          --source-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
             r_escaped_doublequotes "$1"
@@ -3712,7 +3708,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          ;;
 
          -*)
-            sde_init_usage "Unknown option \"$1\""
+            sde::init::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -3724,15 +3720,15 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    done
 
    # export to environment
-   set_oneshot_variables "${ONESHOT_FILENAME}" "${ONESHOT_CLASS}" "${ONESHOT_CATEGORY}"
-   export_oneshot_environment "${ONESHOT_FILENAME}" "${ONESHOT_CLASS}" "${ONESHOT_CATEGORY}"
+   sde::project::set_oneshot_variables "${ONESHOT_FILENAME}" "${ONESHOT_CLASS}" "${ONESHOT_CATEGORY}"
+   sde::project::export_oneshot_environment "${ONESHOT_FILENAME}" "${ONESHOT_CLASS}" "${ONESHOT_CATEGORY}"
 
    # old version will be used for migrate
    local oldversion
 
    if [ "${OPTION_UPGRADE}" = 'YES' ]
    then
-      r_sde_get_old_version
+      sde::init::r_get_old_version
       oldversion="${RVAL}"
    fi
 
@@ -3760,7 +3756,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done
 
-   sde_protect_unprotect "Unprotect" "ug+w"
+   sde::init::protect_unprotect "Unprotect" "ug+w"
    ### BEGIN
       local tmp_file
 
@@ -3790,7 +3786,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       fi
 
       # figure out a GITHUB user name for later
-      r_sde_githubname
+      sde::init::r_githubname
       GITHUB_USER="${RVAL}"
 
       log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
@@ -3814,23 +3810,23 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       (
          if [ "${OPTION_ADD}" = 'YES' ]
          then
-            sde_run_add "$@"
+            sde::init::run_add "$@"
          else
             if [ "${OPTION_UPGRADE}" = 'YES' ]
             then
                if [ -z "${OPTION_PROJECT_FILE}" ]
                then
-                  sde_run_upgrade "$@" || exit $?
+                  sde::init::run_upgrade "$@" || exit $?
                else
-                  sde_run_upgrade_projectfile "$@" || exit $?
+                  sde::init::run_upgrade_projectfile "$@" || exit $?
                fi
             else
 
                if [ "${OPTION_REINIT}" = 'YES' ]
                then
-                  sde_run_reinit "$@" || exit $?
+                  sde::init::run_reinit "$@" || exit $?
                else
-                  sde_run_init "$@" || exit $?
+                  sde::init::run "$@" || exit $?
                fi
             fi
 
@@ -3867,7 +3863,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
             log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
-            sde_migrate "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
+            sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
          fi
 
          if [ "${OPTION_REFLECT}" = 'YES' ]
@@ -3882,24 +3878,24 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
       rval=$?
    ### END
 
-   sde_protect_unprotect "Protect" "a-w"
+   sde::init::protect_unprotect "Protect" "a-w"
 
    return $rval
 }
 
 
-sde_init_main()
+sde::init::main()
 {
-   log_entry "sde_init_main" "$@"
+   log_entry "sde::init::main" "$@"
 
    local RERUN='NO'
 
-   _sde_init_main "$@"
+   sde::init::_main "$@"
    rval="$?"
 
    if [ "${RERUN}" = 'YES' ]
    then
-      exec_command_in_subshell init "$@"
+      sde::exec_command_in_subshell init "$@"
    fi
 
    return $rval

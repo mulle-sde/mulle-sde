@@ -32,13 +32,13 @@
 MULLE_SDE_SUBPROJECT_SH="included"
 
 
-SUBPROJECT_MARKS="dependency,no-update,no-delete,no-share"
+SUBPROJECT_MARKS="dependency,no-mainproject,no-update,no-delete,no-share"
 
 SUBPROJECT_LIST_MARKS="dependency,no-mainproject,no-delete"
 SUBPROJECT_LIST_NODETYPES="local"
 
 
-sde_subproject_usage()
+sde::subproject::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -51,6 +51,9 @@ Usage:
    similiar to a dependency but it can not be build on its own.
 
    The subproject feature is ** EXPERIMENTAL ** and in constant flux.
+
+   Subprojects will create and clobber an existing user (!) 30-subproject--none
+   ignore patternfile.
 
 Options:
    -h              : show this usage
@@ -69,7 +72,7 @@ EOF
 }
 
 
-sde_subproject_add_usage()
+sde::subproject::add_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -88,7 +91,7 @@ EOF
 
 
 
-sde_subproject_move_usage()
+sde::subproject::move_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -106,7 +109,7 @@ EOF
 }
 
 
-sde_subproject_set_usage()
+sde::subproject::set_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -130,7 +133,7 @@ EOF
 }
 
 
-sde_subproject_get_usage()
+sde::subproject::get_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -150,7 +153,7 @@ EOF
 }
 
 
-sde_subproject_init_usage()
+sde::subproject::init_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -161,7 +164,7 @@ Usage:
    ** BEWARE: SUBPROJECTS ARE HARD TO CONFIGURE CORRECTLY **
 
    Initialize a subproject for mulle-sde and add it to the list of
-   subprojects. The arguments are passed to \`mulle-sde init\`.
+   subprojects. Arguments are passed to \`mulle-sde init\`.
 
    By default the subproject inherits the extensions and the environment
    style from the main project.
@@ -179,9 +182,9 @@ EOF
 }
 
 
-sde_subproject_set_main()
+sde::subproject::set_main()
 {
-   log_entry "sde_subproject_set_main" "$@"
+   log_entry "sde::subproject::set_main" "$@"
 
    local OPTION_APPEND='NO'
 
@@ -194,7 +197,7 @@ sde_subproject_set_main()
 
          -*)
             log_error "Unknown option \"$1\""
-            sde_subproject_set_usage
+            sde::subproject::set_usage
          ;;
 
          *)
@@ -206,130 +209,99 @@ sde_subproject_set_main()
    done
 
    local address="$1"
-   [ -z "${address}" ] && log_error "missing address" && sde_subproject_set_usage
+   [ -z "${address}" ] && log_error "missing address" && sde::subproject::set_usage
    shift
 
    local field="$1"
-   [ -z "${field}" ] && log_error "missing field" && sde_subproject_set_usage
+   [ -z "${field}" ] && log_error "missing field" && sde::subproject::set_usage
    shift
 
    local value="$1"
 
    case "${field}" in
       platform-excludes)
-         _sourcetree_set_os_excludes "${address}" \
-                                     "${value}" \
-                                     "${SUBPROJECT_MARKS}" \
-                                     "${OPTION_APPEND}"
+         sde::common::_set_platform_excludes "${address}" \
+                                             "${value}" \
+                                             "${SUBPROJECT_MARKS}" \
+                                             "${OPTION_APPEND}"
       ;;
 
       aliases|include)
-         _sde_set_sourcetree_userinfo_field "${address}" \
-                                        "${field}" \
-                                        "${value}" \
-                                        "${OPTION_APPEND}"
+         sde::common::_set_userinfo_field "${address}" \
+                                          "${field}" \
+                                          "${value}" \
+                                          "${OPTION_APPEND}"
       ;;
 
       *)
          log_error "unknown field name \"${field}\""
-         sde_subproject_set_usage
+         sde::subproject::set_usage
       ;;
    esac
 }
 
 
-sde_subproject_get_main()
+sde::subproject::get_main()
 {
-   log_entry "sde_subproject_get_main" "$@"
+   log_entry "sde::subproject::get_main" "$@"
 
    local address="$1"
-   [ -z "${address}" ] && log_error "missing address" && sde_subproject_get_usage
+   [ -z "${address}" ] && log_error "missing address" && sde::subproject::get_usage
    shift
 
    local field="$1"
-   [ -z "${field}" ] && log_error "missing field" && sde_subproject_get_usage
+   [ -z "${field}" ] && log_error "missing field" && sde::subproject::get_usage
    shift
 
    case "${field}" in
       platform-excludes)
-         sourcetree_get_os_excludes "${address}"
+         sde::common::get_platform_excludes "${address}"
       ;;
 
       *)
          log_error "unknown field name \"${field}\""
-         sde_subproject_get_usage
+         sde::subproject::get_usage
       ;;
    esac
 }
 
 
-emit_ignore_patternfile()
+sde::subproject::emit_ignore_patternfile()
 {
    local subprojects="$1"
 
    local subproject
 
-   shell_disable_glob;  IFS=$'\n'
-   for subproject in ${subprojects}
-   do
+   .foreachline subproject in ${subprojects}
+   .do
       printf "%s\n" "${subproject}/"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
-update_ignore_patternfile()
+sde::subproject::update_ignore_patternfile()
 {
-   log_entry "update_ignore_patternfile" "$@"
+   log_entry "sde::subproject::update_ignore_patternfile" "$@"
 
    local subprojects
    local contents
 
-   subprojects="`sde_subproject_main list --format '%a\n' --no-output-header`"
-   contents="`emit_ignore_patternfile "${subprojects}"`"
+   subprojects="`sde::subproject::get_addresses`" || exit 1
 
-   local sharefile
-   local etcfile
+   contents="`sde::subproject::emit_ignore_patternfile "${subprojects}"`" || exit 1
 
-   sharefile="${MULLE_SDE_SHARE_DIR}/../match/ignore.d/30-subproject--none"
-   etcfile="${MULLE_SDE_ETC_DIR}/../match/ignore.d/30-subproject--none"
-
-   if [ -e "${sharefile}" ]
-   then
-      oldcontents="`cat "${sharefile}"`"
-      if [ "${oldcontents}" = "${contents}" ]
-      then
-         return
-      fi
-      exekutor chmod ug+w "${sharefile}"
-   fi
-
-   redirect_exekutor "${sharefile}" printf "%s\n" "${contents}"
-   exekutor chmod ug-w "${sharefile}"
-
-   local etcfile
-
-   #
-   # Overwrite etc, user should NOT dick with this file
-   #
-   if [ ! -e "${etcfile}" ]
-   then
-      return
-   fi
-
-   oldetccontents="`cat "${etcfile}"`"
-   if [ "${oldetccontents}" != "${oldcontents}" ]
-   then
-      fail "User edits in \"${etcfile}\" are not allowed"
-   fi
-
-   redirect_exekutor "${etcfile}" printf "%s\n" "${contents}"
+   # TODO: would be better to massage a env variable, so we don't
+   # disturb user space
+   exekutor "${MULLE_MATCH:-mulle-match}" patternfile add -i \
+                                                          -p 30 \
+                                                          -c none \
+                                                          subproject - <<< "${contents}"
 }
 
 
-sde_subproject_init_main()
+sde::subproject::init_main()
 {
-   log_entry "sde_subproject_init_main" "$@"
+   log_entry "sde::subproject::init_main" "$@"
 
    local directory
    local meta
@@ -339,25 +311,25 @@ sde_subproject_init_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_subproject_init_usage
+            sde::subproject::init_usage
          ;;
 
          -d|--directory)
-            [ $# -eq 1 ] && sde_subproject_init_usage "Missing option to \"$1\""
+            [ $# -eq 1 ] && sde::subproject::init_usage "Missing option to \"$1\""
             shift
 
             directory="$1"
          ;;
 
          -m|--meta)
-            [ $# -eq 1 ] && sde_subproject_init_usage "Missing option to \"$1\""
+            [ $# -eq 1 ] && sde::subproject::init_usage "Missing option to \"$1\""
             shift
 
             meta="$1"
          ;;
 
          -s|--style)
-            [ $# -eq 1 ] && sde_subproject_init_usage "Missing option to \"$1\""
+            [ $# -eq 1 ] && sde::subproject::init_usage "Missing option to \"$1\""
             shift
 
             style="$1"
@@ -371,7 +343,7 @@ sde_subproject_init_main()
       shift
    done
 
-   [ -z "${directory}" ]  && sde_subproject_init_usage
+   [ -z "${directory}" ] && sde::subproject::init_usage "directory is empty"
 
    if [ -d "${directory}/.mulle/share/sde" ]
    then
@@ -385,12 +357,9 @@ sde_subproject_init_main()
 
    if [ -z "${meta}" ]
    then
-      if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
-      then
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
-      fi
+      include "sde::extension"
 
-      meta="`sde_extension_main meta`"
+      meta="`sde::extension::main meta`"
       if [ -z "${meta}" ]
       then
          fail "Unknown installed meta extension. Specify it yourself"
@@ -403,7 +372,7 @@ sde_subproject_init_main()
    fi
 
    # get this error early
-   sde_subproject_main "add" "${directory}" || exit 1
+   sde::subproject::main "add" "${directory}" || exit 1
 
    (
       # shellcheck source=src/mulle-sde-init.sh
@@ -419,52 +388,52 @@ sde_subproject_init_main()
       PARENT_PROJECT_TYPE="${PROJECT_TYPE}" \
       PARENT_DIR="${MULLE_VIRTUAL_ROOT}" \
       MULLE_VIRTUAL_ROOT="" \
-         eval_exekutor sde_init_main -d "${directory}" \
-                                     -m "${meta}" \
-                                     ${flags} \
-                                     --style "${style}" \
-                                     --subproject \
-                                     --no-post-init \
-                                     --no-motd \
-                                     --no-blurb \
-                                     -f \
-                                     --project-source-dir "." \
-                                     "$@"
+         eval_exekutor sde::init::main -d "${directory}" \
+                                       -m "${meta}" \
+                                       ${flags} \
+                                       --style "${style}" \
+                                       --subproject \
+                                       --no-post-init \
+                                       --no-motd \
+                                       --no-blurb \
+                                       -f \
+                                       --project-source-dir "." \
+                                       "$@"
    )
 
    if [ $? -ne 0 ]
    then
       (
-         sde_subproject_main "remove" "${directory}" > /dev/null 2>&1
+         sde::subproject::main "remove" "${directory}" > /dev/null 2>&1
       )
       exit 1
    fi
 }
 
 
-exekutor_sourcetree_cmd_nofail()
+sde::subproject::list()
 {
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               --virtual-root \
-               ${MULLE_TECHNICAL_FLAGS} \
-            "$@" || exit 1
+   log_entry "sde::subproject::list" "$@"
+
+   include "sde::common"
+
+   sde::common::rexekutor_sourcetree_nofail list \
+     --marks "${SUBPROJECT_LIST_MARKS}" \
+      --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
+      --output-no-url \
+      --output-no-marks "${SUBPROJECT_MARKS}" \
+      --format '%a;%m;%i={aliases,,-------};%i={include,,-------}\n' \
+      "$@"
 }
 
 
-rexekutor_sourcetree_cmd_nofail()
+sde::subproject::get_addresses()
 {
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               --virtual-root \
-               ${MULLE_TECHNICAL_FLAGS} \
-            "$@" || exit 1
-}
+   log_entry "sde::subproject::get_addresses" "$@"
 
+   include "sde::common"
 
-sde_subproject_get_addresses()
-{
-   log_entry "sde_subproject_get_addresses" "$@"
-
-   rexekutor_sourcetree_cmd_nofail list \
+   sde::common::rexekutor_sourcetree_nofail list \
         --marks "${SUBPROJECT_LIST_MARKS}" \
         --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
         --no-output-header \
@@ -473,9 +442,9 @@ sde_subproject_get_addresses()
 }
 
 
-sde_subproject_map()
+sde::subproject::map()
 {
-   log_entry "sde_subproject_map" "$@"
+   log_entry "sde::subproject::map" "$@"
 
    local verb="${1:-Reflecting}" ; shift
    local mode="$1" ; shift
@@ -510,7 +479,7 @@ sde_subproject_map()
 
    [ $# -eq 0 ] && internal_fail "missing commandline"
 
-   subprojects="`sde_subproject_get_addresses`"
+   subprojects="`sde::subproject::get_addresses`"  || exit 1
    if [ -z "${subprojects}" ]
    then
       log_fluff "No subprojects, so done"
@@ -543,11 +512,8 @@ sde_subproject_map()
 
       rval=0
 
-      shell_disable_glob;  IFS=$'\n'
-      for subproject in ${subprojects}
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+      .foreachline subproject in ${subprojects}
+      .do
          local expanded_subproject
 
          r_filepath_concat "${MULLE_VIRTUAL_ROOT}" "${subproject}"
@@ -560,10 +526,11 @@ sde_subproject_map()
          then
             log_fluff "${verb} subproject \"${subproject}\" skipped, as it \
 has no \"${sdefolder}\" folder"
-            continue
+            .continue
          fi
 
-         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject} (parallel:$parallel env:$env)"
+         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject} \
+(parallel:$parallel env:$env)"
 
          if [ "${parallel}" = 'YES' ]
          then
@@ -610,7 +577,7 @@ has no \"${sdefolder}\" folder"
                log_fluff "Ignoring rval ${rval} coz we're lenient"
             fi
          fi
-      done
+      .done
 
       if [ "${parallel}" = 'YES' ]
       then
@@ -640,9 +607,9 @@ has no \"${sdefolder}\" folder"
 ### parameters and environment variables
 ### this is still pretty hacky and needs a rework
 ###
-sde_subproject_main()
+sde::subproject::main()
 {
-   log_entry "sde_subproject_main" "$@"
+   log_entry "sde::subproject::main" "$@"
 
    local SUBPROJECT
 
@@ -653,14 +620,14 @@ sde_subproject_main()
    do
       case "$1" in
          -s|--subproject)
-            [ $# -eq 1 ] && sde_subproject_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::subproject::usage "Missing argument to \"$1\""
             shift
 
             SUBPROJECT="$1"
          ;;
 
          -*)
-            sde_subproject_usage "Unknown option \"$1\""
+            sde::subproject::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -680,11 +647,12 @@ sde_subproject_main()
          [ -z "${MULLE_SDE_DEPENDENCY_SH}" ] && \
             . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
 
-         sde_dependency_add_main --address "$1" \
-                                 --marks "${SUBPROJECT_MARKS}" \
-                                 --nodetype local \
-                                 "$1"  || exit 1
-         update_ignore_patternfile # old cruft
+         sde::dependency::add_main --address "$1" \
+                                   --marks "${SUBPROJECT_MARKS}" \
+                                   --nodetype local \
+                                   "$1"  || exit 1
+         # hide subproject from main project
+         sde::subproject::update_ignore_patternfile
       ;;
 
       commands)
@@ -761,7 +729,8 @@ $1"
       get)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
-         sde_subproject_get_main "$@"
+
+         sde::subproject::get_main "$@"
       ;;
 
       enter)
@@ -769,7 +738,7 @@ $1"
       ;;
 
       init)
-         sde_subproject_init_main "$@"
+         sde::subproject::init_main "$@"
       ;;
 
       #
@@ -777,13 +746,7 @@ $1"
       # for now stay layme
       #
       list)
-         rexekutor_sourcetree_cmd_nofail list \
-           --marks "${SUBPROJECT_LIST_MARKS}" \
-            --nodetypes "${SUBPROJECT_LIST_NODETYPES}" \
-            --output-no-url \
-            --output-no-marks "${SUBPROJECT_MARKS}" \
-            --format '%a;%m;%i={aliases,,-------};%i={include,,-------}\n' \
-            "$@"
+         sde::subproject::list "$@"
       ;;
 
       mark|unmark)
@@ -795,38 +758,45 @@ $1"
             ;;
          esac
 
-         exekutor_sourcetree_cmd_nofail ${cmd} ${flags} "$@"
+         include "sde::common"
+
+         sde::common::exekutor_sourcetree_nofail ${cmd} ${flags} "$@"
       ;;
 
       move)
-         exekutor_sourcetree_cmd_nofail move "$@"
+         include "sde::common"
+
+         sde::common::exekutor_sourcetree_nofail move "$@"
       ;;
 
       remove)
-         exekutor_sourcetree_cmd_nofail remove "$@"
-         update_ignore_patternfile "$@"
+         include "sde::common"
+
+         sde::common::exekutor_sourcetree_nofail remove "$@" &&
+         # unhide subproject directory from main project
+         sde::subproject::update_ignore_patternfile "$@"
       ;;
 
       map)
-         sde_subproject_map 'Executing' 'default' "$@"
+         sde::subproject::map 'Executing' 'default' "$@"
       ;;
 
       set)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
-         sde_subproject_set_main "$@"
+         sde::subproject::set_main "$@"
       ;;
 
       update-patternfile)
-         update_ignore_patternfile "$@"
+         sde::subproject::update_ignore_patternfile "$@"
       ;;
 
       "")
-         sde_subproject_usage
+         sde::subproject::usage
       ;;
 
       *)
-         sde_subproject_usage "Unknown command \"${cmd}\""
+         sde::subproject::usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

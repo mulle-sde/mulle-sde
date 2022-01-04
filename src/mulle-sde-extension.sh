@@ -34,7 +34,7 @@
 MULLE_SDE_EXTENSION_SH="included"
 
 
-sde_extension_usage()
+sde::extension::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -66,7 +66,7 @@ EOF
 }
 
 
-sde_extension_list_usage()
+sde::extension::list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -84,7 +84,7 @@ EOF
 }
 
 
-sde_extension_find_usage()
+sde::extension::find_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -105,7 +105,7 @@ EOF
 }
 
 
-sde_extension_show_usage()
+sde::extension::show_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -138,7 +138,7 @@ EOF
 
 
 
-sde_extension_add_usage()
+sde::extension::add_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -158,12 +158,13 @@ Note:
 
 EOF
 
-   sde_extension_show_main extra >&2
+   sde::extension::show_main extra >&2
 
    exit 1
 }
 
-sde_extension_freshen_usage()
+
+sde::extension::freshen_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -179,13 +180,13 @@ Usage:
 
 EOF
 
-   sde_extension_show_main extra >&2
+   sde::extension::show_main extra >&2
 
    exit 1
 }
 
 
-sde_extension_remove_usage()
+sde::extension::remove_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -199,14 +200,13 @@ Usage:
 
 EOF
 
-   sde_extension_show_main extra >&2
+   sde::extension::show_main extra >&2
 
    exit 1
 }
 
 
-
-sde_extension_pimp_usage()
+sde::extension::pimp_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -228,7 +228,7 @@ EOF
 }
 
 
-sde_extension_usage_usage()
+sde::extension::usage_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -253,9 +253,9 @@ EOF
 # you want to avoid hardcoding in paths like /usr/local/share
 # and I tried...
 #
-r_extension_get_installdir()
+sde::extension::r_get_installdir()
 {
-   log_entry "r_extension_get_installdir" "$@"
+   log_entry "sde::extension::r_get_installdir" "$@"
 
    local dev="${1:-YES}"
 
@@ -307,9 +307,9 @@ r_extension_get_installdir()
 # /usr/local/share/mulle_sde/extensions/<vendor> or whereever mulle-sde is
 # installed
 #
-r_extension_get_searchpath()
+sde::extension::r_get_searchpath()
 {
-   log_entry "r_extension_get_searchpath" "$@"
+   log_entry "sde::extension::r_get_searchpath" "$@"
 
    if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
    then
@@ -347,7 +347,7 @@ r_extension_get_searchpath()
    r_colon_concat "${MULLE_SDE_EXTENSION_BASE_PATH}" "${homeprefdir}/mulle-sde/extensions"
    s="${RVAL}"
 
-   r_extension_get_installdir
+   sde::extension::r_get_installdir
    r_colon_concat "${s}" "${RVAL}"
    s="${RVAL}"
 
@@ -371,9 +371,9 @@ r_extension_get_searchpath()
 }
 
 
-r_extension_get_vendor_path()
+sde::extension::r_get_vendor_path()
 {
-   log_entry "r_extension_get_vendor_path" "$@"
+   log_entry "sde::extension::r_get_vendor_path" "$@"
 
    local vendor="$1" # can not be empty
 
@@ -382,7 +382,7 @@ r_extension_get_vendor_path()
    local searchpath
    local i
 
-   r_extension_get_searchpath
+   sde::extension::r_get_searchpath
    searchpath="${RVAL}"
 
    RVAL=""
@@ -401,9 +401,9 @@ r_extension_get_vendor_path()
 }
 
 
-r_extension_get_quoted_vendor_dirs()
+sde::extension::r_get_quoted_vendor_dirs()
 {
-   log_entry "r_extension_get_quoted_vendor_dirs" "$@"
+   log_entry "sde::extension::r_get_quoted_vendor_dirs" "$@"
 
    local vendor="$1"
    local s="$2"
@@ -412,7 +412,7 @@ r_extension_get_quoted_vendor_dirs()
    local vendorpath
    local i
 
-   r_extension_get_vendor_path "${vendor}"
+   sde::extension::r_get_vendor_path "${vendor}"
    vendorpath="${RVAL}"
 
    RVAL=""
@@ -426,14 +426,14 @@ r_extension_get_quoted_vendor_dirs()
 }
 
 
-_extension_list_vendors()
+sde::extension::_list_vendors()
 {
-   log_entry "_extension_list_vendors" "$@"
+   log_entry "sde::extension::_list_vendors" "$@"
 
    local searchpath
    local i
 
-   r_extension_get_searchpath
+   sde::extension::r_get_searchpath
    searchpath="${RVAL}"
 
    IFS=':'; shell_enable_nullglob
@@ -452,9 +452,9 @@ _extension_list_vendors()
 }
 
 
-extension_get_installed_version()
+sde::extension::get_installed_version()
 {
-   log_entry "extension_get_installed_version" "$@"
+   log_entry "sde::extension::get_installed_version" "$@"
 
    local extension="$1"
 
@@ -462,24 +462,24 @@ extension_get_installed_version()
 }
 
 
-extension_list_vendors()
+sde::extension::list_vendors()
 {
-   log_entry "extension_list_vendors" "$@"
+   log_entry "sde::extension::list_vendors" "$@"
 
    # plugins vendor name is not allowed
-   _extension_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | sed -e '/plugins/d' | LC_ALL=C sort -u
+   sde::extension::_list_vendors "$@" | LC_ALL=C sed -e s'|.*/||' | sed -e '/plugins/d' | LC_ALL=C sort -u
 }
 
 
-_extension_list_vendor_extensions()
+sde::extension::_list_vendor_extensions()
 {
-   log_entry "_extension_list_vendor_extensions" "$@"
+   log_entry "sde::extension::_list_vendor_extensions" "$@"
 
    local vendor="$1"
 
    local searchpaths
 
-   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   sde::extension::r_get_quoted_vendor_dirs "${vendor}" "'" "'"
    searchpaths="${RVAL}"
 
    if [ -z "${searchpath}" ]
@@ -490,17 +490,17 @@ _extension_list_vendor_extensions()
 }
 
 
-extension_list_vendor_extensions()
+sde::extension::list_vendor_extensions()
 {
-   log_entry "extension_list_vendor_extensions" "$@"
+   log_entry "sde::extension::list_vendor_extensions" "$@"
 
-   _extension_list_vendor_extensions "$@" | LC_ALL=C sed -e s'|.*/||' | LC_ALL=C sort -u
+   sde::extension::_list_vendor_extensions "$@" | LC_ALL=C sed -e s'|.*/||' | LC_ALL=C sort -u
 }
 
 
-r_find_extension_in_searchpath()
+sde::extension::r_find_in_searchpath()
 {
-   log_entry "r_find_extension_in_searchpath" "$@"
+   log_entry "sde::extension::r_find_in_searchpath" "$@"
 
    local vendor="$1"
    local name="$2"
@@ -533,15 +533,15 @@ Use / separator"
 }
 
 
-r_find_get_quoted_searchpath()
+sde::extension::r_find_get_quoted_searchpath()
 {
-   log_entry "r_find_get_quoted_searchpath" "$@"
+   log_entry "sde::extension::r_find_get_quoted_searchpath" "$@"
 
    local vendor="$1"
 
    local searchpath
 
-   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   sde::extension::r_get_quoted_vendor_dirs "${vendor}" "'" "'"
    searchpath="${RVAL}"
 
    if [ -z "${searchpath}" ]
@@ -555,29 +555,29 @@ r_find_get_quoted_searchpath()
 }
 
 
-r_find_extension()
+sde::extension::r_find()
 {
-   log_entry "r_find_extension" "$@"
+   log_entry "sde::extension::r_find" "$@"
 
    local vendor="$1"
    local name="$2"
 
    local searchpath
 
-   if ! r_find_get_quoted_searchpath "${vendor}"
+   if ! sde::extension::r_find_get_quoted_searchpath "${vendor}"
    then
       return 1
    fi
 
    searchpath="${RVAL}"
 
-   r_find_extension_in_searchpath "${vendor}" "${name}" "${searchpath}"
+   sde::extension::r_find_in_searchpath "${vendor}" "${name}" "${searchpath}"
 }
 
 
-r_extensionnames_from_vendorextensions()
+sde::extension::r_extensionnames_from_vendorextensions()
 {
-   log_entry "r_extensionnames_from_vendorextensions" "$@"
+   log_entry "sde::extension::r_extensionnames_from_vendorextensions" "$@"
 
    local vendorextensions="$1"
    local extensiontype="$2"
@@ -606,9 +606,9 @@ r_extensionnames_from_vendorextensions()
 }
 
 
-r_collect_vendorextensions()
+sde::extension::r_collect_vendorextensions()
 {
-   log_entry "r_collect_vendorextensions" "$@"
+   log_entry "sde::extension::r_collect_vendorextensions" "$@"
 
    local vendor="$1"
    local searchname="$2"
@@ -619,7 +619,7 @@ r_collect_vendorextensions()
    local extensiondir
    local foundtype
 
-   r_extension_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   sde::extension::r_get_quoted_vendor_dirs "${vendor}" "'" "'"
    searchpath="${RVAL}"
    if [ -z "${searchpath}" ]
    then
@@ -674,9 +674,9 @@ r_collect_vendorextensions()
 }
 
 
-collect_extension_projecttypes()
+sde::extension::collect_projecttypes()
 {
-   log_entry "collect_extension_projecttypes" "$@"
+   log_entry "sde::extension::collect_projecttypes" "$@"
 
    local extensiondir="$1"
 
@@ -693,9 +693,9 @@ collect_extension_projecttypes()
 }
 
 
-collect_extension_inherits()
+sde::extension::collect_inherits()
 {
-   log_entry "collect_extension_inherits" "$@"
+   log_entry "sde::extension::collect_inherits" "$@"
 
    local extensiondir="$1"
 
@@ -720,9 +720,9 @@ collect_extension_inherits()
 }
 
 
-extension_list_installed_vendors()
+sde::extension::list_installed_vendors()
 {
-   log_entry "extension_list_installed_vendors" "$@"
+   log_entry "sde::extension::list_installed_vendors" "$@"
 
    if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
    then
@@ -731,9 +731,9 @@ extension_list_installed_vendors()
 }
 
 
-sde_extension_vendors_main()
+sde::extension::vendors_main()
 {
-   log_entry "sde_extension_vendors_main" "$@"
+   log_entry "sde::extension::vendors_main" "$@"
 
    local OPTION_INSTALLED='NO'
 
@@ -767,16 +767,16 @@ sde_extension_vendors_main()
 
    if [ "${OPTION_INSTALLED}" = 'YES' ]
    then
-      extension_list_installed_vendors
+      sde::extension::list_installed_vendors
    else
-      extension_list_vendors
+      sde::extension::list_vendors
    fi
 }
 
 
-sde_extension_find_main()
+sde::extension::find_main()
 {
-   log_entry "sde_extension_find_main" "$@"
+   log_entry "sde::extension::find_main" "$@"
 
    local OPTION_QUIET='NO'
 
@@ -787,7 +787,7 @@ sde_extension_find_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_find_usage
+            sde::extension::find_usage
          ;;
 
          -q|--quiet)
@@ -795,7 +795,7 @@ sde_extension_find_main()
          ;;
 
          -*)
-            sde_extension_find_usage "Unknown option \"$1\""
+            sde::extension::find_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -806,8 +806,8 @@ sde_extension_find_main()
       shift
    done
 
-   [ $# -lt 1 ] && sde_extension_find_usage "Missing arguments"
-   [ $# -gt 2 ] && sde_extension_find_usage "Superflous arguments \"$*\""
+   [ $# -lt 1 ] && sde::extension::find_usage "Missing arguments"
+   [ $# -gt 2 ] && sde::extension::find_usage "Superflous arguments \"$*\""
 
    local vendor
    local name
@@ -833,19 +833,19 @@ sde_extension_find_main()
 
    if [ ! -z "${vendor}" ]
    then
-      r_collect_vendorextensions "${vendor}" "${name}" "${type}"
+      sde::extension::r_collect_vendorextensions "${vendor}" "${name}" "${type}"
       extensions="${RVAL}"
    else
       local all_vendors
 
-      all_vendors="`extension_list_vendors`" || exit 1
+      all_vendors="`sde::extension::list_vendors`" || exit 1
 
       shell_disable_glob; IFS=$'\n'
       for vendor in ${all_vendors}
       do
          IFS="${DEFAULT_IFS}"; shell_enable_glob
 
-         r_collect_vendorextensions "${vendor}" "${name}" "${type}"
+         sde::extension::r_collect_vendorextensions "${vendor}" "${name}" "${type}"
          r_add_line "${extensions}" "${RVAL}"
          extensions="${RVAL}"
       done
@@ -867,16 +867,16 @@ sde_extension_find_main()
 }
 
 
-_extension_get_usage()
+sde::extension::_get_usage()
 {
-   log_entry "_extension_get_usage" "$@"
+   log_entry "sde::extension::_get_usage" "$@"
 
    local vendor="$1"
    local name="$2"
 
    local directory
 
-   r_find_extension "${vendor}" "${name}"
+   sde::extension::r_find "${vendor}" "${name}"
    directory="${RVAL}"
 
    [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
@@ -895,25 +895,25 @@ _extension_get_usage()
 }
 
 
-extension_get_usage()
+sde::extension::get_usage()
 {
-   log_entry "extension_get_usage" "$@"
+   log_entry "sde::extension::get_usage" "$@"
 
    local extension="$1"
 
-   _extension_get_usage "${extension%%/*}" "${extension##*/}"
+   sde::extension::_get_usage "${extension%%/*}" "${extension##*/}"
 }
 
 
-_extension_get_version()
+sde::extension::_get_version()
 {
-   log_entry "_extension_get_version" "$@"
+   log_entry "sde::extension::_get_version" "$@"
 
    local vendor="$1"
    local name="$2"
 
    local directory
-   r_find_extension "${vendor}" "${name}"
+   sde::extension::r_find "${vendor}" "${name}"
    directory="${RVAL}"
 
    [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
@@ -933,19 +933,19 @@ _extension_get_version()
 }
 
 
-extension_get_version()
+sde::extension::get_version()
 {
-   log_entry "extension_get_version" "$@"
+   log_entry "sde::extension::get_version" "$@"
 
    local extension="$1"
 
-   _extension_get_version "${extension%%/*}" "${extension##*/}"
+   sde::extension::_get_version "${extension%%/*}" "${extension##*/}"
 }
 
 
-emit_extension()
+sde::extension::emit()
 {
-   log_entry "emit_extension" "$@"
+   log_entry "sde::extension::emit" "$@"
 
    local result="$1"
    local extensiontype="$2"
@@ -973,14 +973,14 @@ emit_extension()
          output="${extension}"
          if [ "${with_version}" = 'YES' ]
          then
-            version="`extension_get_version "${extension}"`"
+            version="`sde::extension::get_version "${extension}"`"
             r_concat "${output}" "${version}" ";"
             output="${RVAL}"
          fi
 
          if [ "${with_usage}" = 'YES' ]
          then
-            usage="`extension_get_usage "${extension}" | head -1`"
+            usage="`sde::extension::get_usage "${extension}" | head -1`"
             r_concat "${output}" "${usage}" ";"
             output="${RVAL}"
          fi
@@ -993,9 +993,9 @@ emit_extension()
 
 
 
-sde_extension_show_main()
+sde::extension::show_main()
 {
-   log_entry "sde_extension_show_main" "$@"
+   log_entry "sde::extension::show_main" "$@"
 
    local OPTION_VERSION='NO'
    local OPTION_OUTPUT_RAW='NO'
@@ -1009,7 +1009,7 @@ sde_extension_show_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_show_usage
+            sde::extension::show_usage
          ;;
 
          --usage)
@@ -1038,7 +1038,7 @@ sde_extension_show_main()
          ;;
 
          -*)
-            sde_extension_show_usage "Unknown option \"$1\""
+            sde::extension::show_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1049,7 +1049,7 @@ sde_extension_show_main()
       shift
    done
 
-   [ $# -gt 1 ] && sde_extension_show_usage "Superflous arguments \"$*\""
+   [ $# -gt 1 ] && sde::extension::show_usage "Superflous arguments \"$*\""
 
    local cmd
 
@@ -1078,18 +1078,18 @@ sde_extension_show_main()
    case "${cmd}" in
       vendor|vendors)
          log_info "Available vendors"
-         printf "%s\n" "`extension_list_vendors`"
+         printf "%s\n" "`sde::extension::list_vendors`"
          return
       ;;
    esac
 
    if [ "${OPTION_ALL}" != 'YES' ]
    then
-      vendors="`extension_list_installed_vendors`"
+      vendors="`sde::extension::list_installed_vendors`"
    fi
    if [ -z "${vendors}" -o "${OPTION_ALL}" = 'YES' ]
    then
-      vendors="`extension_list_vendors`"
+      vendors="`sde::extension::list_vendors`"
    fi
 
    if [ -z "${vendors}" ]
@@ -1112,7 +1112,7 @@ sde_extension_show_main()
 
       local vendorextensions
 
-      r_collect_vendorextensions "${vendor}"
+      sde::extension::r_collect_vendorextensions "${vendor}"
       vendorextensions="${RVAL}"
 
       if [ -z "${vendorextensions}" ]
@@ -1134,7 +1134,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|default|meta)
-            r_extensionnames_from_vendorextensions "${vendorextensions}" "meta" "${vendor}"
+            sde::extension::r_extensionnames_from_vendorextensions "${vendorextensions}" "meta" "${vendor}"
             r_add_line "${meta_extension}" "${RVAL}"
             meta_extension="${RVAL}"
          ;;
@@ -1142,7 +1142,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|default|extra)
-            r_extensionnames_from_vendorextensions "${vendorextensions}" "extra" "${vendor}"
+            sde::extension::r_extensionnames_from_vendorextensions "${vendorextensions}" "extra" "${vendor}"
             r_add_line "${extra_extension}" "${RVAL}"
             extra_extension="${RVAL}"
          ;;
@@ -1150,7 +1150,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|default|oneshot)
-            r_extensionnames_from_vendorextensions "${vendorextensions}" "oneshot" "${vendor}"
+            sde::extension::r_extensionnames_from_vendorextensions "${vendorextensions}" "oneshot" "${vendor}"
             r_add_line "${oneshot_extension}" "${RVAL}"
             oneshot_extension="${RVAL}"
          ;;
@@ -1158,7 +1158,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|runtime)
-            r_extensionnames_from_vendorextensions "${vendorextensions}" "runtime" "${vendor}"
+            sde::extension::r_extensionnames_from_vendorextensions "${vendorextensions}" "runtime" "${vendor}"
             r_add_line "${runtime_extension}" "${RVAL}"
             runtime_extension="${RVAL}"
          ;;
@@ -1166,7 +1166,7 @@ sde_extension_show_main()
 
       case "${cmd}" in
          all|buildtool)
-            r_extensionnames_from_vendorextensions "${vendorextensions}" "buildtool" "${vendor}"
+            sde::extension::r_extensionnames_from_vendorextensions "${vendorextensions}" "buildtool" "${vendor}"
             r_add_line "${buildtool_extension}" "${RVAL}"
             buildtool_extension="${RVAL}"
          ;;
@@ -1174,19 +1174,19 @@ sde_extension_show_main()
    done
    IFS="${DEFAULT_IFS}"; shell_enable_glob
 
-   emit_extension "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
-   emit_extension "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
-   emit_extension "${buildtool_extension}" "buildtool" "[-b <extension>]" "${OPTION_VERSION}" "${OPTION_USAGE}"
-   emit_extension "${extra_extension}"     "extra" "[-e <extension>]*"    "${OPTION_VERSION}" "${OPTION_USAGE}"
-   emit_extension "${oneshot_extension}"   "oneshot" "[-o <extension>]*"  "${OPTION_VERSION}" "${OPTION_USAGE}"
+   sde::extension::emit "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
+   sde::extension::emit "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
+   sde::extension::emit "${buildtool_extension}" "buildtool" "[-b <extension>]" "${OPTION_VERSION}" "${OPTION_USAGE}"
+   sde::extension::emit "${extra_extension}"     "extra" "[-e <extension>]*"    "${OPTION_VERSION}" "${OPTION_USAGE}"
+   sde::extension::emit "${oneshot_extension}"   "oneshot" "[-o <extension>]*"  "${OPTION_VERSION}" "${OPTION_USAGE}"
 
   :
 }
 
 
-sde_extension_list_main()
+sde::extension::list_main()
 {
-   log_entry "sde_extension_list_main" "$@"
+   log_entry "sde::extension::list_main" "$@"
 
    local OPTION_VERSION='YES'
 
@@ -1194,7 +1194,7 @@ sde_extension_list_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_extension_list_usage
+            sde::extension::list_usage
          ;;
 
          --version)
@@ -1206,7 +1206,7 @@ sde_extension_list_main()
          ;;
 
          -*)
-            sde_extension_list_usage
+            sde::extension::list_usage
          ;;
 
          *)
@@ -1270,9 +1270,9 @@ a mulle-sde project"
 }
 
 
-collect_file_info()
+sde::extension::collect_file_info()
 {
-   log_entry "collect_file_info" "$@"
+   log_entry "sde::extension::collect_file_info" "$@"
 
    local extensiondirs="$1"
    local filename="$2"
@@ -1290,9 +1290,9 @@ collect_file_info()
 }
 
 
-__set_extension_vars()
+sde::extension::__set_vars()
 {
-   log_entry "__set_extension_vars" "$@"
+   log_entry "sde::extension::__set_vars" "$@"
 
    vendor="${OPTION_VENDOR}"
 
@@ -1307,14 +1307,14 @@ __set_extension_vars()
       ;;
    esac
 
-   r_find_extension "${vendor}" "${extension}" || fail "Unknown extension \"${vendor}/${extension}\""
+   sde::extension::r_find "${vendor}" "${extension}" || fail "Unknown extension \"${vendor}/${extension}\""
    extensiondir="${RVAL}"
 
-   inherits="`collect_extension_inherits "${extensiondir}"`"
+   inherits="`sde::extension::collect_inherits "${extensiondir}"`"
 }
 
 
-__emit_extension_list_types()
+sde::extension::emit_list_types()
 {
    local extensiondir="$1"
    local regexp="$2"
@@ -1339,9 +1339,9 @@ __emit_extension_list_types()
    done
 }
 
-__emit_extension_usage()
+sde::extension::emit_usage()
 {
-   log_entry "__emit_extension_usage" "$@"
+   log_entry "sde::extension::emit_usage" "$@"
 
    local extension="$1"
 
@@ -1349,11 +1349,11 @@ __emit_extension_usage()
    local extensiondir
    local vendor
 
-   __set_extension_vars
+   sde::extension::__set_vars
 
    if [ "${OPTION_LIST_TYPES}" = 'YES' ]
    then
-       collect_extension_projecttypes "${extensiondir}"
+       sde::extension::collect_projecttypes "${extensiondir}"
        return
    fi
 
@@ -1370,7 +1370,7 @@ __emit_extension_usage()
 
    local usagetext
 
-   usagetext="`collect_file_info "${extensiondir}" "usage"`"
+   usagetext="`sde::extension::collect_file_info "${extensiondir}" "usage"`"
 
    if [ "${OPTION_USAGE_ONLY}" != 'YES' ]
    then
@@ -1383,7 +1383,7 @@ __emit_extension_usage()
 
    local inherit_text
 
-   inherit_text="`collect_extension_inherits "${extensiondir}"`"
+   inherit_text="`sde::extension::collect_inherits "${extensiondir}"`"
 
    if [ ! -z "${inherit_text}" ]
    then
@@ -1413,14 +1413,14 @@ __emit_extension_usage()
 
    local text
 
-   text="`collect_extension_projecttypes "${extensiondir}"`"
+   text="`sde::extension::collect_projecttypes "${extensiondir}"`"
    text="${text:-all}"
 
    echo "Types:"
    sed 's/^/   /' <<< "${text}"
    echo
 
-   text="`collect_extension_inherits "${extensiondir}"`"
+   text="`sde::extension::collect_inherits "${extensiondir}"`"
    text="${text:-none}"
 
    echo "Inherits:"
@@ -1517,15 +1517,15 @@ __emit_extension_usage()
    fi
 
    echo "Project Types:"
-   __emit_extension_list_types "${extensiondir}" "${OPTION_LIST}" \
+   sde::extension::emit_list_types "${extensiondir}" "${OPTION_LIST}" \
       | sed -e '/^[ ]*$/d' -e 's/^/   /'
    echo
 }
 
 
-emit_extension_usage()
+sde::extension::usage()
 {
-   log_entry "emit_extension_usage" "$@"
+   log_entry "sde::extension::usage" "$@"
 
    local extension="$1"
 
@@ -1537,17 +1537,17 @@ emit_extension_usage()
       local extensiondir
       local vendor
 
-      __set_extension_vars
+      sde::extension::__set_vars
 
       local dependencies
 
-      dependencies="`collect_extension_inherits "${extensiondir}"`"
+      dependencies="`sde::extension::collect_inherits "${extensiondir}"`"
       shell_disable_glob; IFS=$'\n'
       for dependency in ${dependencies}
       do
          shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-         emit_extension_usage "${dependency}"
+         sde::extension::usage "${dependency}"
          if [ "${OPTION_LIST_TYPES}" = 'NO' ]
          then
             echo "------------------------------------------------------------"
@@ -1556,13 +1556,13 @@ emit_extension_usage()
       done
       shell_enable_glob; IFS="${DEFAULT_IFS}"
    fi
-   __emit_extension_usage "${extension}"
+   sde::extension::emit_usage "${extension}"
 }
 
 
-sde_extension_usage_main()
+sde::extension::usage_main()
 {
-   log_entry "sde_extension_usage_main" "$@"
+   log_entry "sde::extension::usage_main" "$@"
 
    local OPTION_VENDOR="mulle-sde"
    local OPTION_LIST=
@@ -1576,7 +1576,7 @@ sde_extension_usage_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_usage_usage
+            sde::extension::usage_usage
          ;;
 
          -i|--info)
@@ -1584,7 +1584,7 @@ sde_extension_usage_main()
          ;;
 
          -l|--list)
-            [ $# -eq 1 ] && sde_extension_usage_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::extension::usage_usage "Missing argument to \"$1\""
             shift
 
             OPTION_LIST="$1"
@@ -1595,7 +1595,7 @@ sde_extension_usage_main()
          ;;
 
          -v|--vendor)
-            [ $# -eq 1 ] && sde_extension_usage_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::extension::usage_usage "Missing argument to \"$1\""
             shift
 
             OPTION_VENDOR="$1"
@@ -1610,7 +1610,7 @@ sde_extension_usage_main()
          ;;
 
          -*)
-            sde_extension_usage_usage "Unknown option \"$1\""
+            sde::extension::usage_usage "Unknown option \"$1\""
             ;;
 
          *)
@@ -1622,23 +1622,23 @@ sde_extension_usage_main()
    done
 
    local extension="$1"
-   [ -z "${extension}" ] && sde_extension_usage_usage "missing extension name"
+   [ -z "${extension}" ] && sde::extension::usage_usage "missing extension name"
    shift
 
-   [ "$#" -ne 0 ] && sde_extension_usage_usage "superflous arguments \"$*\""
+   [ "$#" -ne 0 ] && sde::extension::usage_usage "superflous arguments \"$*\""
 
    if [ "${OPTION_LIST_TYPES}" = 'YES' ]
    then
-      emit_extension_usage "${extension}" | LC_ALL=C sort -u
+      sde::extension::usage "${extension}" | LC_ALL=C sort -u
    else
-      emit_extension_usage "${extension}"
+      sde::extension::usage "${extension}"
    fi
 }
 
 
-hack_option_and_single_quote_everything()
+sde::extension::hack_option_and_single_quote_everything()
 {
-   log_entry "hack_option_and_single_quote_everything" "$@"
+   log_entry "sde::extension::hack_option_and_single_quote_everything" "$@"
 
    local option="$1"; shift
 
@@ -1662,9 +1662,9 @@ hack_option_and_single_quote_everything()
 }
 
 
-r_vendor_expanded_extensions()
+sde::extension::r_vendor_expanded_extensions()
 {
-   log_entry "r_vendor_expanded_extensions" "$@"
+   log_entry "sde::extension::r_vendor_expanded_extensions" "$@"
 
    local if_installed="${1:-NO}" ; shift
 
@@ -1673,7 +1673,7 @@ r_vendor_expanded_extensions()
    local installed_vendors
    local found
 
-   installed_vendors="`extension_list_installed_vendors`"
+   installed_vendors="`sde::extension::list_installed_vendors`"
 
    for extension in "$@"
    do
@@ -1681,7 +1681,7 @@ r_vendor_expanded_extensions()
          */*)
             if [ "${if_installed}" = 'YES' ]
             then
-               if ! extension_get_installed_version "${extension}" > /dev/null
+               if ! sde::extension::get_installed_version "${extension}" > /dev/null
                then
                   log_verbose "Skipping non-installed extension \"${extension}\""
                   continue
@@ -1698,11 +1698,11 @@ r_vendor_expanded_extensions()
             for installed in ${installed_vendors}
             do
                IFS="${DEFAULT_IFS}"; shell_enable_glob
-               if r_find_extension "${installed}" "${extension}"
+               if sde::extension::r_find "${installed}" "${extension}"
                then
                   if [ "${if_installed}" = 'YES' ]
                   then
-                     if ! extension_get_installed_version "${installed}/${extension}" > /dev/null
+                     if ! sde::extension::get_installed_version "${installed}/${extension}" > /dev/null
                      then
                         log_fluff "\"${installed}/${extension}\" not installed"
                         continue
@@ -1740,9 +1740,9 @@ r_vendor_expanded_extensions()
 }
 
 
-sde_extension_add_main()
+sde::extension::add_main()
 {
-   log_entry "sde_extension_add_main" "$@"
+   log_entry "sde::extension::add_main" "$@"
 
    local args
 
@@ -1750,7 +1750,7 @@ sde_extension_add_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_add_usage
+            sde::extension::add_usage
          ;;
 
          --reflect|--no-reflect)
@@ -1759,7 +1759,7 @@ sde_extension_add_main()
          ;;
 
          -*)
-            sde_extension_add_usage "Unknown option $1"
+            sde::extension::add_usage "Unknown option $1"
          ;;
 
          *)
@@ -1778,23 +1778,23 @@ sde_extension_add_main()
 
    local expanded_extensions
 
-   r_vendor_expanded_extensions "NO" "$@"
+   sde::extension::r_vendor_expanded_extensions "NO" "$@"
    expanded_extensions="${RVAL}"
 
    r_add_line "${args}" "${expanded_extensions}"
    args="${RVAL}"
 
-   args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
+   args="`sde::extension::hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
 
    # --add must be very first option
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-      eval sde_init_main --add --no-blurb --no-env "${args}"
+      eval sde::init::main --add --no-blurb --no-env "${args}"
 }
 
 
-sde_extension_freshen_main()
+sde::extension::freshen_main()
 {
-   log_entry "sde_extension_add_main" "$@"
+   log_entry "sde::extension::freshen_main" "$@"
 
    local args
 
@@ -1802,7 +1802,7 @@ sde_extension_freshen_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_freshen_usage
+            sde::extension::freshen_usage
          ;;
 
          --reflect|--no-reflect)
@@ -1811,7 +1811,7 @@ sde_extension_freshen_main()
          ;;
 
          -*)
-            sde_extension_freshen_usage "Unknown option $1"
+            sde::extension::freshen_usage "Unknown option $1"
          ;;
 
          *)
@@ -1830,7 +1830,7 @@ sde_extension_freshen_main()
 
    local expanded_extensions
 
-   r_vendor_expanded_extensions "YES" "$@"
+   sde::extension::r_vendor_expanded_extensions "YES" "$@"
    expanded_extensions="${RVAL}"
 
    r_add_line "${args}" "${expanded_extensions}"
@@ -1841,35 +1841,35 @@ sde_extension_freshen_main()
       return 0
    fi
 
-   args="`hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
+   args="`sde::extension::hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
 
    # environment variable likely to be lost.. check this
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension freshen" \
-      eval sde_init_main --add -f --no-blurb --no-env "${args}"
+      eval sde::init::main --add -f --no-blurb --no-env "${args}"
 }
 
 
 
-r_sane_vendor_name()
+sde::extension::r_sane_vendor_name()
 {
    # works in bash 3.2
    RVAL="${1//[^a-zA-Z0-9-]/_}"
 }
 
 
-sde_extension_remove_main()
+sde::extension::remove_main()
 {
-   log_entry "sde_extension_remove_main" "$@"
+   log_entry "sde::extension::remove_main" "$@"
 
    while :
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_remove_usage
+            sde::extension::remove_usage
          ;;
 
          -*)
-            sde_extension_remove_usage "Unknown option \"$1\""
+            sde::extension::remove_usage "Unknown option \"$1\""
             ;;
 
          *)
@@ -1968,9 +1968,9 @@ sde_extension_remove_main()
 ###
 ### parameters and environment variables
 ###
-sde_extension_main()
+sde::extension::main()
 {
-   log_entry "sde_extension_main" "$@"
+   log_entry "sde::extension::main" "$@"
 
    #
    # handle options
@@ -1979,11 +1979,11 @@ sde_extension_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_extension_usage
+            sde::extension::usage
          ;;
 
          -*)
-            sde_extension_usage "Unknown option \"$1\""
+            sde::extension::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1994,7 +1994,7 @@ sde_extension_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_extension_usage
+   [ $# -eq 0 ] && sde::extension::usage
 
    local cmd="$1"
    shift
@@ -2003,11 +2003,11 @@ sde_extension_main()
 
    case "$1" in
       -h|--help|help)
-         if shell_is_function "sde_extension_${cmd}_usage"
+         if shell_is_function "sde::extension::${cmd}_usage"
          then
-            sde_extension_${cmd}_usage
+            sde::extension::${cmd}_usage
          else
-            sde_extension_usage
+            sde::extension::usage
          fi
       ;;
    esac
@@ -2026,34 +2026,34 @@ sde_extension_main()
       add|remove|freshen)
          [ $# -eq 0 ] && sde_extension_${cmd}_usage
 
-         sde_extension_${cmd}_main "$@"
+         sde::extension::${cmd}_main "$@"
       ;;
 
       pimp)
-         [ $# -eq 0 ] && sde_extension_pimp_usage
+         [ $# -eq 0 ] && sde::extension::pimp_usage
 
          # shellcheck source=src/mulle-sde-init.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
          local args
 
-         args="`hack_option_and_single_quote_everything "--oneshot" "$@" | tr '\012' ' '`"
+         args="`sde::extension::hack_option_and_single_quote_everything "--oneshot" "$@" | tr '\012' ' '`"
 
          INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-            eval sde_init_main --add --no-blurb --no-env ${args}
+            eval sde::init::main --add --no-blurb --no-env ${args}
       ;;
 
       find|show|usage|vendors)
-         sde_extension_${cmd}_main "$@"
+         sde::extension::${cmd}_main "$@"
       ;;
 
       list)
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            exec_command_in_subshell extension ${cmd} "$@"
+            sde::exec_command_in_subshell extension ${cmd} "$@"
          fi
 
-         sde_extension_${cmd}_main "$@"
+         sde::extension::${cmd}_main "$@"
       ;;
 
       meta|runtime|buildtool)
@@ -2104,25 +2104,25 @@ sde_extension_main()
       searchpath)
          log_info "Extension searchpath"
 
-         r_extension_get_searchpath
+         sde::extension::r_get_searchpath
          printf "%s\n" "${RVAL}"
       ;;
 
       vendorpath)
-         [ $# -eq 0 ] && sde_extension_usage "Missing vendor argument"
+         [ $# -eq 0 ] && sde::extension::usage "Missing vendor argument"
 
          log_info "Extension vendor path"
-               r_extension_get_vendor_path "$1"
+               sde::extension::r_get_vendor_path "$1"
 
          printf "%s\n" "${RVAL}"
       ;;
 
       "")
-         sde_extension_usage
+         sde::extension::usage
       ;;
 
       *)
-         sde_extension_usage "unknown command \"${cmd}\""
+         sde::extension::usage "unknown command \"${cmd}\""
       ;;
    esac
 }

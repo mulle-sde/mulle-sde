@@ -32,7 +32,7 @@
 MULLE_SDE_REFLECT_SH="included"
 
 
-sde_reflect_usage()
+sde::reflect::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -72,9 +72,9 @@ EOF
 #
 # this just gets "source" and "sourcetree" back 
 #
-_callback_run()
+sde::reflect::callback_run()
 {
-   log_entry "_callback_run" "$@"
+   log_entry "sde::reflect::callback_run" "$@"
 
    local callback="$1"
 
@@ -87,9 +87,9 @@ _callback_run()
 }
 
 
-_task_run()
+sde::reflect::task_run()
 {
-   log_entry "_task_run" "$@"
+   log_entry "sde::reflect::task_run" "$@"
 
    local task="$1"
 
@@ -101,9 +101,9 @@ _task_run()
 }
 
 
-_task_status()
+sde::reflect::task_status()
 {
-   log_entry "_task_status" "$@"
+   log_entry "sde::reflect::task_status" "$@"
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
@@ -113,9 +113,9 @@ _task_status()
 #
 # TODO: shouldn't the monitor be able to do this better ?
 #
-_task_run_if_needed()
+sde::reflect::task_run_if_needed()
 {
-   log_entry "_task_run_if_needed"  "$@"
+   log_entry "sde::reflect::task_run_if_needed"  "$@"
 
    local task="$1"
 
@@ -125,7 +125,7 @@ _task_run_if_needed()
    else
       local taskstatus
 
-      taskstatus="`_task_status "${task}"`"
+      taskstatus="`sde::reflect::task_status "${task}"`"
       log_fluff "Last known status of task \"${task}\" is \"${taskstatus}\""
 
       case "${taskstatus}" in
@@ -136,13 +136,13 @@ _task_run_if_needed()
       esac
    fi
 
-   _task_run "${task}"
+   sde::reflect::task_run "${task}"
 }
 
 
-_sde_reflect_task()
+sde::reflect::task()
 {
-   log_entry "_sde_reflect_task" "$@"
+   log_entry "sde::reflect::task" "$@"
 
    local runner="$1"
    local name="$2"
@@ -151,7 +151,7 @@ _sde_reflect_task()
    local task
    local rval
 
-   task="`_callback_run "${name}"`"
+   task="`sde::reflect::callback_run "${name}"`"
    rval=$?
 
    if [ $rval -ne 0 ]
@@ -184,9 +184,9 @@ _sde_reflect_task()
 }
 
 
-_sde_reflect_main()
+sde::reflect::_main()
 {
-   log_entry "_sde_reflect_main" "$@"
+   log_entry "sde::reflect::_main" "$@"
 
    local parallel="$1"
    local runner="$2"
@@ -198,7 +198,7 @@ _sde_reflect_main()
 
    if [ $# -eq 1 ]
    then
-      _sde_reflect_task "${runner}" "$1"
+      sde::reflect::task "${runner}" "$1"
       return $?
    fi
 
@@ -217,9 +217,9 @@ _sde_reflect_main()
          then
             if [ "${parallel}" = 'YES' ]
             then
-               _sde_reflect_task "${runner}" "${name}" "${statusfile}" &
+               sde::reflect::task "${runner}" "${name}" "${statusfile}" &
             else
-               _sde_reflect_task "${runner}" "${name}" || exit $?
+               sde::reflect::task "${runner}" "${name}" || exit $?
             fi
          fi
       done
@@ -243,9 +243,9 @@ _sde_reflect_main()
 }
 
 
-_sde_reflect_subprojects()
+sde::reflect::_subprojects()
 {
-   log_entry "_sde_reflect_subprojects" "$@"
+   log_entry "sde::reflect::_subprojects" "$@"
 
    local parallel="$1"
    local runner="$2"
@@ -266,7 +266,7 @@ _sde_reflect_subprojects()
 
    local options
 
-   if [ "${runner}" = "_task_run_if_needed" ]
+   if [ "${runner}" = "sde::reflect::task_run_if_needed" ]
    then
       options="${options} --if-needed"
    fi
@@ -287,13 +287,13 @@ _sde_reflect_subprojects()
       mode="parallel"
    fi
 
-   sde_subproject_map 'Reflecting' "${mode}" "mulle-sde ${flags} reflect ${options} $*"
+   sde::subproject::map 'Reflecting' "${mode}" "mulle-sde ${flags} reflect ${options} $*"
 }
 
 
-sde_reflect_worker()
+sde::reflect::worker()
 {
-   log_entry "sde_reflect_worker" "$@"
+   log_entry "sde::reflect::worker" "$@"
 
    local recurse="$1"
    local if_needed="$2"
@@ -345,13 +345,13 @@ sde_reflect_worker()
 
    if [ "${recurse}" = 'YES' ]
    then
-      if ! _sde_reflect_subprojects "$@"
+      if ! sde::reflect::_subprojects "$@"
       then
          return 1
       fi
    fi
 
-   if ! _sde_reflect_main "$@"
+   if ! sde::reflect::_main "$@"
    then
       return 1
    fi
@@ -392,9 +392,9 @@ EOF
 }
 
 
-sde_reflect_main()
+sde::reflect::main()
 {
-   log_entry "sde_reflect_main" "$@"
+   log_entry "sde::reflect::main" "$@"
 
    local OPTION_RECURSE='YES'
    local OPTION_PARALLEL='YES'
@@ -402,7 +402,7 @@ sde_reflect_main()
 
    local runner
 
-   runner="_task_run"
+   runner="sde::reflect::task_run"
    #
    # handle options
    #
@@ -410,7 +410,7 @@ sde_reflect_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_reflect_usage
+            sde::reflect::usage
          ;;
 
          --if-needed)
@@ -418,7 +418,7 @@ sde_reflect_main()
          ;;
 
          --optimistic)
-            runner="_task_run_if_needed"
+            runner="sde::reflect::task_run_if_needed"
          ;;
 
          --no-recurse)
@@ -430,7 +430,7 @@ sde_reflect_main()
          ;;
 
          -*)
-            sde_reflect_usage "Unknown option \"$1\""
+            sde::reflect::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -460,11 +460,11 @@ sde_reflect_main()
 
    if [ $# -ne 0 ]
    then
-      sde_reflect_worker "${OPTION_RECURSE}" \
-                         "${OPTION_IF_NEEDED}" \
-                         "${OPTION_PARALLEL}" \
-                         "${runner}" \
-                         "$@"
+      sde::reflect::worker "${OPTION_RECURSE}" \
+                           "${OPTION_IF_NEEDED}" \
+                           "${OPTION_PARALLEL}" \
+                           "${runner}" \
+                           "$@"
       return $?
    fi
 
@@ -479,9 +479,9 @@ sde_reflect_main()
 
    log_fluff "Running tasks: ${tasks}"
 
-   eval sde_reflect_worker "'${OPTION_RECURSE}'" \
-                           "'${OPTION_IF_NEEDED}'" \
-                           "'${OPTION_PARALLEL}'" \
-                           "'${runner}'" \
-                           "${tasks}"
+   eval sde::reflect::worker "'${OPTION_RECURSE}'" \
+                             "'${OPTION_IF_NEEDED}'" \
+                             "'${OPTION_PARALLEL}'" \
+                             "'${runner}'" \
+                             "${tasks}"
 }

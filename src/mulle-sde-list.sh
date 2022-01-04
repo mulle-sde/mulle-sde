@@ -32,7 +32,7 @@
 MULLE_SDE_LIST_SH="included"
 
 
-sde_list_usage()
+sde::list::usage()
 {
    [ "$#" -ne 0 ] && log_error "$*"
 
@@ -61,9 +61,9 @@ EOF
 
 
 
-sde_list_files()
+sde::list::files()
 {
-   log_entry "sde_list_files" "$@"
+   log_entry "sde::list::files" "$@"
 
    local mode="${1:-cmake}"
 
@@ -132,9 +132,9 @@ sde_list_files()
 }
 
 
-sde_list_dependencies()
+sde::list::dependencies()
 {
-   log_entry "sde_list_dependencies" "$@"
+   log_entry "sde::list::dependencies" "$@"
 
    local text
    local separator
@@ -163,9 +163,9 @@ sde_list_dependencies()
 }
 
 
-sde_list_libraries()
+sde::list::libraries()
 {
-   log_entry "sde_list_dependencies" "$@"
+   log_entry "sde::list::libraries" "$@"
 
    local text
    local separator
@@ -194,9 +194,9 @@ sde_list_libraries()
 
 
 
-sde_list_definitions()
+sde::list::definitions()
 {
-   log_entry "sde_list_definitions" "$@"
+   log_entry "sde::list::definitions" "$@"
 
    if [ -z "${MULLE_SDE_DEFINITION_SH}" ]
    then
@@ -206,13 +206,13 @@ sde_list_definitions()
 
    local text
 
-   text="`sde_definition_main --terse --os "${MULLE_UNAME}" list`"
+   text="`sde::definition::main --terse --os "${MULLE_UNAME}" list`"
    if [ ! -z "${text}" ]
    then
       log_info "${C_MAGENTA}${C_BOLD}Definitions"
       sed 's|^||' <<< "${text}"
    else
-      text="`sde_definition_main --terse --global list`"
+      text="`sde::definition::main --terse --global list`"
       if [ ! -z "${text}" ]
       then
          log_info "${C_MAGENTA}${C_BOLD}Definitions"
@@ -222,9 +222,9 @@ sde_list_definitions()
 }
 
 
-sde_list_environment()
+sde::list::environment()
 {
-   log_entry "sde_list_environment" "$@"
+   log_entry "sde::list::environment" "$@"
 
    local text
 
@@ -242,9 +242,9 @@ sde_list_environment()
 }
 
 
-sde_list_main()
+sde::list::main()
 {
-   log_entry "sde_list_main" "$@"
+   log_entry "sde::list::main" "$@"
 
    local OPTION_LIST_DEFINITIONS='DEFAULT'
    local OPTION_LIST_DEPENDENCIES='DEFAULT'
@@ -259,7 +259,7 @@ sde_list_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_list_usage
+            sde::list::usage
          ;;
 
          --all)
@@ -311,7 +311,7 @@ sde_list_main()
          ;;
 
          -*)
-            sde_list_usage "Unknown option \"$1\""
+            sde::list::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -322,7 +322,7 @@ sde_list_main()
       shift
    done
 
-   [ $# -ne 0 ] && sde_list_usage "Superflous arguments $*"
+   [ $# -ne 0 ] && sde::list::usage "Superflous arguments $*"
 
    if [ "${OPTION_LIST_DEFINITIONS}" = 'DEFAULT' -a \
         "${OPTION_LIST_DEPENDENCIES}" = 'DEFAULT' -a \
@@ -336,35 +336,35 @@ sde_list_main()
 
    if [ "${OPTION_LIST_FILES}" = 'YES' -a "${PROJECT_TYPE}" != 'none' ]
    then
-      sde_list_files
+      sde::list::files
       spacer="echo"
    fi
 
    if [ "${OPTION_LIST_DEPENDENCIES}" = 'YES' ]
    then
       eval "${spacer}"
-      sde_list_dependencies
+      sde::list::dependencies
       spacer="echo"
    fi
 
    if [ "${OPTION_LIST_LIBRARRIES}" = 'YES' ]
    then
       eval "${spacer}"
-      sde_list_libraries
+      sde::list::libraries
       spacer="echo"
    fi
 
    if [ "${OPTION_LIST_DEFINITIONS}" = 'YES' ]
    then
       eval "${spacer}"
-      sde_list_definitions
+      sde::list::definitions
       spacer="echo"
    fi
 
    if [ "${OPTION_LIST_ENVIRONMENT}" = 'YES' ]
    then
       eval "${spacer}"
-      sde_list_environment
+      sde::list::environment
       spacer="echo"
    fi
 }

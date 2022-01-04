@@ -1,6 +1,57 @@
-#! /usr/bin/env bash
+#! /bin/sh
 
 [ "${TRACE}" = 'YES' -o "${MULLE_BUILD_SH_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+
+MULLE_EXECUTABLE_VERSION="0.0.1"
+##########################################################################
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###########################################################################
+# #
+# # PRELUDE - Standard startup code for loading mulle-bashfunctions
+# #
+###
+
+#
+# Figure out MULLE_BASHFUNCTIONS_LIBEXEC_DIR on this machine if needed.
+#
+if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
+then
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+fi
+
+#
+# The booter reruns the executable either with bash or zsh, whatever the
+# system provides. On the second run --no-auto-shell will be set first.
+#
+if [ "$1" != --no-auto-shell ]
+then
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+else
+   shift    # get rid of --no-auto-shell
+fi
+
+
+#
+# Include mulle-bashfunctions.sh         : default functions
+#         mulle-bashfunctions-none.sh    : almost no functions
+#         mulle-bashfunctions-minimal.sh : few functions for basic scripts
+#         mulle-bashfunctions-all.sh     : everything, even obscure functions
+#
+# Do this first to get aliases
+#
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+
+###
+# # Now we are in bash or zsh with mulle-bashfunctions loaded
+# #
+###########################################################################
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###########################################################################
+
+MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
+
 
 #
 # This is an example build script. Build scripts can be useful, if the
@@ -10,16 +61,16 @@
 # if its just applicable to <|MULLE_UNAME|>. 
 #
 # Enable it with:
-#    mulle-sde dependency craftinfo --platform <|MULLE_UNAME|> set <dependency> BUILD_SCRIPT <|ONESHOT_NAME|>-build.linux
+#    mulle-sde dependency craftinfo --os <|MULLE_UNAME|> \
+#                   set <dependency> BUILD_SCRIPT <|ONESHOT_NAME|>-build.<|MULLE_UNAME|>
 #
 # Enable scripts with:
 #    mulle-sde environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
 #
 # Hint: If this gets too complicated and you are tempted to massage the
-#       Makefile, maybe it's easier to use the project embedded and compile
-#       the sources yourself with cmake ?
+#       Makefile, maybe it's easier to use the dependency as an embedded 
+#       depednency and compile the sources yourself with cmake ?
 #
-MULLE_EXECUTABLE_VERSION=0.0.1
 
 
 usage()
@@ -30,8 +81,7 @@ usage()
 Usage:
    ${MULLE_USAGE_NAME} [flags] [command] [options]
 
-   Script to build <|ONESHOT_NAME|>. It's named <|ONESHOT_NAME|>-build
-   to minimize conflict with other build scripts and binaries.
+   Script to build <|ONESHOT_NAME|>.
 
 Flags:
 EOF
@@ -256,69 +306,4 @@ main()
 }
 
 
-########
-###
-### INIT
-###
-_fatal()
-{
-   echo "$0 fatal error: $*" >&2
-   exit 1
-}
-
-_init()
-{
-   #
-   # minimal setup exit
-   #
-   if [ "$1" = "version" ]
-   then
-      printf "%s\n" "${MULLE_EXECUTABLE_VERSION}"
-      exit 0
-   fi
-
-   #
-   # leading backslash ? looks like we're getting called from
-   # mingw via a .BAT or so
-   #
-   case "$PATH" in
-      '\\'*)
-         PATH="${PATH//\\/\/}"
-      ;;
-   esac
-
-   if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
-   then
-      MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions-env libexec-dir 2> /dev/null`"
-      if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
-      then
-         if [ -z "`command -v "mulle-bashfunctions-env"`" ]
-         then
-            echo "Fatal Error: Could not find mulle-bashfunctions-env in PATH (not installed ?)" >&2
-         else
-            echo "Fatal Error: Could not find libexec of mulle-bashfunctions-env ($PWD)" >&2
-         fi
-         exit 1
-      fi
-   fi
-
-      # shellcheck source=../mulle-bashfunctions/src/mulle-string.sh
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" ||
-      _fatal "failed to load bashfunctions from ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}"
-   shell_enable_pipefail
-   shell_enable_extglob
-}
-
-
-
-
-MULLE_EXECUTABLE="${MULLE_EXECUTABLE:-${BASH_SOURCE[0]:-${(%):-%x}}}"
-
-_init "$@" # needs params
-
 main "$@"
-
-###
-### INIT
-###
-########

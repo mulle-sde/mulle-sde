@@ -44,7 +44,7 @@ else
 fi
 
 
-install_project()
+sde::init::install_project()
 {
    vendor="$1"
    project="$2"
@@ -89,12 +89,12 @@ main()
 
    for project in ${MULLE_NAT_PROJECTS}
    do
-      install_project "mulle-nat" "${project}"
+      sde::init::install_project "mulle-nat" "${project}"
    done
 
    for project in ${SDE_PROJECTS}
    do
-      install_project "mulle-sde" "${project}"
+      sde::init::install_project "mulle-sde" "${project}"
    done
 
    for vendorproject in ${OTHER_PROJECTS}
@@ -102,7 +102,7 @@ main()
       vendor="${vendorproject%%/*}"
       project="${vendorproject#*/}"
 
-      install_project "${vendor}" "${project}"
+      sde::init::install_project "${vendor}" "${project}"
    done
 }
 

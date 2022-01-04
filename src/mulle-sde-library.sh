@@ -47,7 +47,7 @@ LIBRARY_FILTER_NODETYPES="none"
 # This puts some additional stuff into userinfo of the sourcetree
 # which is then queryable
 #
-sde_library_usage()
+sde::library::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -80,7 +80,7 @@ EOF
 }
 
 
-sde_library_add_usage()
+sde::library::add_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -104,7 +104,7 @@ EOF
 }
 
 
-sde_library_set_usage()
+sde::library::set_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -129,7 +129,7 @@ EOF
 }
 
 
-sde_library_get_usage()
+sde::library::get_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -151,7 +151,7 @@ EOF
 }
 
 
-sde_library_list_usage()
+sde::library::list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -172,9 +172,9 @@ EOF
 }
 
 
-sde_library_warn_stupid_name()
+sde::library::warn_stupid_name()
 {
-   log_entry "sde_library_warn_stupid_name" "$@"
+   log_entry "sde::library::warn_stupid_name" "$@"
 
    local libname="$1"
 
@@ -203,9 +203,9 @@ sde_library_warn_stupid_name()
 }
 
 
-sde_library_add_main()
+sde::library::add_main()
 {
-   log_entry "sde_library_add_main" "$@"
+   log_entry "sde::library::add_main" "$@"
 
    local marks="${LIBRARY_INIT_MARKS}"
 
@@ -221,7 +221,7 @@ sde_library_add_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_library_add_usage
+            sde::library::add_usage
          ;;
 
          -c|--c)
@@ -253,7 +253,7 @@ sde_library_add_main()
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_library_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${marks}" "$1"
@@ -261,7 +261,7 @@ sde_library_add_main()
          ;;
 
         --userinfo)
-            [ "$#" -eq 1 ] && sde_library_add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
             shift
 
             userinfo="--userinfo '$1'"
@@ -273,7 +273,7 @@ sde_library_add_main()
          ;;
 
          -*)
-            sde_library_add_usage "Unknown option \"$1\""
+            sde::library::add_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -284,7 +284,7 @@ sde_library_add_main()
       shift
    done
 
-   [ "$#" -ne 1 ] && sde_library_add_usage "Missing arguments"
+   [ "$#" -ne 1 ] && sde::library::add_usage "Missing arguments"
 
    local libname="$1"
 
@@ -339,14 +339,14 @@ sde_library_add_main()
                      "${options}" \
                      "'${libname}'" || return 1
 
-   log_info "${C_VERBOSE}You can change the library search name with:
+   log_info "${C_VERBOSE}You can change the library search names with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} aliases ${libname},${libname#lib}2
 ${C_VERBOSE}You can change the header include with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libname#lib}.h"
 
    if [ "${OPTION_FRAMEWORK}" = 'YES' ]
    then
-      _sde_set_sourcetree_userinfo_field "${libname}" \
+      sde::common::_set_userinfo_field "${libname}" \
                                          'include' \
                                          "<${libname}/${libname}.h>" \
                                          'NO'
@@ -354,9 +354,9 @@ ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libn
 }
 
 
-sde_library_set_main()
+sde::library::set_main()
 {
-   log_entry "sde_library_set_main" "$@"
+   log_entry "sde::library::set_main" "$@"
 
    local OPTION_APPEND='NO'
 
@@ -364,7 +364,7 @@ sde_library_set_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_library_set_usage
+            sde::library::set_usage
          ;;
 
          -a|--append)
@@ -372,7 +372,7 @@ sde_library_set_main()
          ;;
 
          -*)
-            sde_library_set_usage "Unknown option \"$1\""
+            sde::library::set_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -383,14 +383,14 @@ sde_library_set_main()
       shift
    done
 
-   [ "$#" -lt 2 ] && sde_library_add_usage "Missing arguments"
+   [ "$#" -lt 2 ] && sde::library::add_usage "Missing arguments"
 
    local address="$1"
-   [ -z "${address}" ] && sde_library_set_usage "Missing address"
+   [ -z "${address}" ] && sde::library::set_usage "Missing address"
    shift
 
    local field="$1"
-   [ -z "${field}" ]  && sde_library_set_usage "Missing field"
+   [ -z "${field}" ]  && sde::library::set_usage "Missing field"
    shift
 
    local value="$1"
@@ -403,7 +403,7 @@ sde_library_set_main()
       return 1
    fi
 
-   if ! sde_marks_compatible_with_marks "${marks}" "${LIBRARY_MARKS}"
+   if ! sde::common::marks_compatible_with_marks "${marks}" "${LIBRARY_MARKS}"
    then
       fail "${address} is not a library.
 ${C_INFO}Tip: Check for marks and duplicates with
@@ -412,39 +412,39 @@ ${C_RESET_BOLD}   mulle-sourcetree list -l -_"
 
    case "${field}" in
       aliases|include)
-         _sde_set_sourcetree_userinfo_field "${address}" \
+         sde::common::_set_userinfo_field "${address}" \
                                             "${field}" \
                                             "${value}" \
                                             "${OPTION_APPEND}"
       ;;
 
       platform-excludes)
-         _sourcetree_set_os_excludes "${address}" \
+         sde::common::_set_platform_excludes "${address}" \
                                      "${value}" \
                                      "${LIBRARY_INIT_MARKS}" \
                                      "${OPTION_APPEND}"
       ;;
 
       *)
-         sde_library_set_usage "Unknown field name \"${field}\""
+         sde::library::set_usage "Unknown field name \"${field}\""
       ;;
    esac
 }
 
 
-sde_library_get_main()
+sde::library::get_main()
 {
-   log_entry "sde_library_get_main" "$@"
+   log_entry "sde::library::get_main" "$@"
 
    while :
    do
       case "$1" in
          -h|--help|help)
-            sde_library_get_usage
+            sde::library::get_usage
          ;;
 
          -*)
-            sde_library_get_usage "Unknown option \"$1\""
+            sde::library::get_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -456,33 +456,33 @@ sde_library_get_main()
    done
 
    local address="$1"
-   [ -z "${address}" ] && sde_library_get_usage "Missing address"
+   [ -z "${address}" ] && sde::library::get_usage "Missing address"
    shift
 
    local field="$1"
-   [ -z "${field}" ] && sde_library_get_usage "Missing field"
+   [ -z "${field}" ] && sde::library::get_usage "Missing field"
    shift
 
    case "${field}" in
       # can be easily extended with more fields,
       aliases|include)
-         sde_get_sourcetree_userinfo_field "${address}" "${field}"
+         sde::common::get_sourcetree_userinfo_field "${address}" "${field}"
       ;;
 
       platform-excludes)
-         sourcetree_get_os_excludes "${address}"
+         sde::common::get_platform_excludes "${address}"
       ;;
 
       *)
-         sde_library_get_usage "Unknown field name \"${field}\""
+         sde::library::get_usage "Unknown field name \"${field}\""
       ;;
    esac
 }
 
 
-sde_library_list_main()
+sde::library::list_main()
 {
-   log_entry "sde_library_list_main" "$@"
+   log_entry "sde::library::list_main" "$@"
 
    local marks
    local qualifier
@@ -493,11 +493,11 @@ sde_library_list_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_library_list_usage
+            sde::library::list_usage
          ;;
 
          --marks)
-            [ "$#" -eq 1 ] && sde_library_list_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::library::list_usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${marks}" "$1"
@@ -505,7 +505,7 @@ sde_library_list_main()
          ;;
 
          --qualifier)
-            [ "$#" -eq 1 ] && sde_library_list_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::library::list_usage "Missing argument to \"$1\""
             shift
 
             qualifier="${RVAL}"
@@ -518,7 +518,7 @@ sde_library_list_main()
          ;;
 
          -*)
-            sde_library_list_usage "Unknown option \"$1\""
+            sde::library::list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -548,9 +548,9 @@ sde_library_list_main()
 ###
 ### parameters and environment variables
 ###
-sde_library_main()
+sde::library::main()
 {
-   log_entry "sde_library_main" "$@"
+   log_entry "sde::library::main" "$@"
 
    #
    # handle options
@@ -559,11 +559,11 @@ sde_library_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_library_usage
+            sde::library::usage
          ;;
 
          -*)
-            sde_library_usage "Unknown option \"$1\""
+            sde::library::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -587,7 +587,7 @@ sde_library_main()
 
    case "${cmd}" in
       add|get|list|set)
-         sde_library_${cmd}_main "$@"
+         sde::library::${cmd}_main "$@"
       ;;
 
 
@@ -602,11 +602,11 @@ sde_library_main()
       ;;
 
       "")
-         sde_library_usage
+         sde::library::usage
       ;;
 
       *)
-         sde_library_usage "Unknown command \"${cmd}\""
+         sde::library::usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

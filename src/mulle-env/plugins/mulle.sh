@@ -37,11 +37,11 @@ MULLE_ENV_MULLE_PLUGIN_SH="included"
 ####
 
 
-print_mulle_startup_sh()
+env::plugin::mulle::print_startup()
 {
-   log_entry "print_mulle_startup_sh" "$@"
+   log_entry "env::plugin::mulle::print_startup" "$@"
 
-   print_developer_startup_sh
+   env::plugin::developer::print_startup
 
    cat << EOF
 #######
@@ -89,9 +89,9 @@ EOF
 }
 
 
-print_mulle_environment_os_darwin_sh()
+env::plugin::mulle::print_environment_os_darwin()
 {
-   log_entry "print_mulle_environment_os_darwin_sh" "$@"
+   log_entry "env::plugin::mulle::print_environment_os_darwin" "$@"
 
    cat <<EOF
 #
@@ -108,9 +108,9 @@ EOF
 
 
 #
-print_mulle_environment_aux_sh()
+env::plugin::mulle::print_environment_aux()
 {
-   log_entry "print_mulle_environment_aux_sh" "$@"
+   log_entry "env::plugin::mulle::print_environment_aux" "$@"
 
    # dont inherit, just clobber
 
@@ -141,9 +141,9 @@ EOF
 }
 
 
-print_mulle_include_environment_sh()
+env::plugin::mulle::print_include_environment()
 {
-   log_entry "print_none_include_environment_sh" "$@"
+   log_entry "env::plugin::mulle::print_include_environment" "$@"
 
    cat <<EOF
 # Top/down order of inclusion. Left overrides right if present.
@@ -235,21 +235,21 @@ EOF
 }
 
 
-print_mulle_include_sh()
+env::plugin::mulle::print_include()
 {
-   log_entry "print_mulle_include_sh" "$@"
+   log_entry "env::plugin::mulle::print_include" "$@"
 
-   print_none_include_header_sh "$@"
-   print_mulle_include_environment_sh "$@"
-   print_none_include_footer_sh "$@"
+   env::plugin::none::print_include_header "$@"
+   env::plugin::mulle::print_include_environment "$@"
+   env::plugin::none::print_include_footer "$@"
 }
 
 
-print_mulle_tools_sh()
+env::plugin::mulle::print_tools()
 {
-   log_entry "print_mulle_tools_sh" "$@"
+   log_entry "env::plugin::mulle::print_tools" "$@"
 
-   print_developer_tools_sh "$@"
+   env::plugin::developer::print_tools "$@"
 
    #
    # for people doing mulle-sde init none
@@ -282,17 +282,17 @@ autoreconf;optional"
 # The only reason for that, that you have an idea, where it came from
 # though could "plop it" into the csv as well as a third field..
 #
-print_mulle_auxscope_sh()
+env::plugin::mulle::print_auxscope()
 {
-   log_entry "print_mulle_auxscope_sh" "$@"
+   log_entry "env::plugin::mulle::print_auxscope" "$@"
 
    echo "extension;30"
 }
 
 
-env_setup_mulle_tools()
+env::plugin::mulle::setup_tools()
 {
-   log_entry "env_setup_mulle_tools" "$@"
+   log_entry "env::plugin::mulle::setup_tools" "$@"
 
    local bindir="$1"; shift
    local libexecdir="$1"; shift
@@ -305,7 +305,7 @@ env_setup_mulle_tools()
    bindir="${MULLE_ENV_VAR_DIR}/bin"
    libexecdir="${MULLE_ENV_VAR_DIR}/libexec"
 
-   env_setup_developer_tools "${bindir}" "${libexecdir}"
+   env::plugin::developer::setup_tools "${bindir}" "${libexecdir}"
 
    #
    # Since the PATH is restricted, we need a basic set of tools
@@ -321,27 +321,27 @@ env_setup_mulle_tools()
    # local copystyle="${4:-tool}"
    # local optional="$5"
    (
-      env_link_mulle_tool "mulle-craft"      "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-dispense"   "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-domain"     "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-fetch"      "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-make"       "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-match"      "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-monitor"    "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-platform"   "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-sde"        "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-semver"     "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-sourcetree" "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-template"   "${bindir}" "${libexecdir}" &&
-      env_link_mulle_tool "mulle-test"       "${bindir}" "${libexecdir}" "tool" "optional"
+      env::tool::link_mulle_tool "mulle-craft"      "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-dispense"   "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-domain"     "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-fetch"      "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-make"       "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-match"      "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-monitor"    "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-platform"   "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-sde"        "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-semver"     "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-sourcetree" "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-template"   "${bindir}" "${libexecdir}" &&
+      env::tool::link_mulle_tool "mulle-test"       "${bindir}" "${libexecdir}" "tool" "optional"
    ) || return 1
 }
 
 
 ## callback
-env_r_mulle_add_runpath()
+env::plugin::mulle::r_add_runpath()
 {
-   log_entry "env_r_mulle_add_runpath" "$@"
+   log_entry "env::plugin::mulle::r_add_runpath" "$@"
 
    local directory="$1"
    local runpath="$2"
@@ -355,10 +355,10 @@ env_r_mulle_add_runpath()
 }
 
 
-env_mulle_initialize()
+env::plugin::mulle::initialize()
 {
-   env_load_plugin "developer"
+   env::plugin::load "developer"
 }
 
 
-env_mulle_initialize
+env::plugin::mulle::initialize

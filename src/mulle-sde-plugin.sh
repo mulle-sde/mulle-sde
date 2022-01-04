@@ -36,7 +36,7 @@ MULLE_SDE_PLUGIN_SH="included"
 # make this nicer, in that we provide the variable name to the
 # plugin and the plugin sets it witch its functionname
 #
-load_plugin_if_needed()
+sde::plugin::load_if_needed()
 {
    local varname="$1"
    local filename="$2"

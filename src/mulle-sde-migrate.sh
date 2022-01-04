@@ -33,9 +33,9 @@ MULLE_SDE_MIGRATE_SH="included"
 
 
 # gets executed in a subshell
-sde_migrate_from_v0_41_to_v42()
+sde::migrate::from_v0_41_to_v42()
 {
-   log_entry "sde_migrate_from_v0_41_to_v42" "$@"
+   log_entry "sde::migrate::from_v0_41_to_v42" "$@"
 
    exekutor "${MULLE_SDE:-mulle-sde}" \
                ${MULLE_TECHNICAL_FLAGS} \
@@ -91,9 +91,9 @@ list( INSERT CMAKE_MODULE_PATH 0 \"\${PROJECT_SOURCE_DIR}/cmake/reflect\")" CMak
 }
 
 
-sde_migrate_from_v0_46_to_v47()
+sde::migrate::from_v0_46_to_v47()
 {
-   log_entry "sde_migrate_from_v0_46_to_v47" "$@"
+   log_entry "sde::migrate::from_v0_46_to_v47" "$@"
 
    (
       shell_enable_nullglob
@@ -123,9 +123,9 @@ sde_migrate_from_v0_46_to_v47()
 }
 
 
-sde_migrate()
+sde::migrate::do()
 {
-   log_entry "sde_migrate" "$@"
+   log_entry "sde::migrate::do" "$@"
 
    local oldversion="$1"
    local version="$2"
@@ -155,7 +155,7 @@ sde_migrate()
    if [ "${oldmajor}" -eq 0 -a "${major}" -eq 0 -a "${oldminor}" -lt 42 ]
    then
       (
-         sde_migrate_from_v0_41_to_v42
+         sde::migrate::from_v0_41_to_v42
       ) || exit 1
       oldmajor=0
       oldminor=42
@@ -164,7 +164,7 @@ sde_migrate()
    if [ "${oldmajor}" -eq 0 -a "${major}" -eq 0 -a "${oldminor}" -lt 47 ]
    then
       (
-         sde_migrate_from_v0_46_to_v47
+         sde::migrate::from_v0_46_to_v47
       ) || exit 1
       oldmajor=0
       oldminor=47
@@ -182,9 +182,9 @@ sde_migrate()
 
 
 # useful for testing
-sde_migrate_main()
+sde::migrate::main()
 {
-   log_entry "sde_extension_main" "$@"
+   log_entry "sde::migrate::main" "$@"
 
    local newversion="${MULLE_EXECUTABLE_VERSION}"
    local oldversion
@@ -196,11 +196,11 @@ sde_migrate_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_migrate_usage
+            sde::migrate::usage
          ;;
 
          -*)
-            sde_migrate_usage "Unknown option \"$1\""
+            sde::migrate::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -223,7 +223,7 @@ sde_migrate_main()
       shift
    fi
 
-   [ $# -ne 0 ] && sde_migrate_usage "Supeflous arguments \"$*\""
+   [ $# -ne 0 ] && sde::migrate::usage "Supeflous arguments \"$*\""
 
    if [ -z "${MULLE_SDE_INIT_SH}" ]
    then
@@ -232,17 +232,17 @@ sde_migrate_main()
 
    if [ -z "${oldversion}" ]
    then
-      r_sde_get_old_version
+      sde::init::r_get_old_version
       oldversion="${RVAL}"
    fi
 
-   sde_protect_unprotect "Unprotect" "ug+w"
+   sde::init::protect_unprotect "Unprotect" "ug+w"
    (
-      sde_migrate "${oldversion}" "${newversion}"
+      sde::migrate::do "${oldversion}" "${newversion}"
    )
    rval=$?
 
-   sde_protect_unprotect "Protect" "a-w"
+   sde::init::protect_unprotect "Protect" "a-w"
 
    return $rval
 }

@@ -32,7 +32,7 @@
 MULLE_SDE_UPGRADE_SH="included"
 
 
-sde_upgrade_usage()
+sde::upgrade::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -83,22 +83,22 @@ EOF
 ###
 ### parameters and environment variables
 ###
-sde_upgrade_project()
+sde::upgrade::project()
 {
-   log_entry "sde_upgrade_project" "$@"
+   log_entry "sde::upgrade::project" "$@"
 
    # shellcheck source=src/mulle-sde-init.sh
    [ -z "${MULLE_SDE_INIT_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
 
-   eval_exekutor sde_init_main --upgrade "$@"
+   eval_exekutor sde::init::main --upgrade "$@"
 }
 
 
 ###
-sde_upgrade_subprojects()
+sde::upgrade::subprojects()
 {
-   log_entry "sde_upgrade_subprojects" "$@"
+   log_entry "sde::upgrade::subprojects" "$@"
 
    local parallel="$1"
 
@@ -124,13 +124,13 @@ sde_upgrade_subprojects()
    then
       mode="${mode},parallel"
    fi
-   sde_subproject_map 'Upgrading' "${mode}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
+   sde::subproject::map 'Upgrading' "${mode}" "mulle-sde ${flags} upgrade --no-test --no-subprojects"
 }
 
 
-sde_upgrade_test()
+sde::upgrade::test()
 {
-   log_entry "sde_upgrade_test" "$@"
+   log_entry "sde::upgrade::test" "$@"
 
    # this can fail on projects, which older. ignore
    MULLE_SDE_TEST_PATH="`mulle-env \
@@ -158,9 +158,9 @@ sde_upgrade_test()
 }
 
 
-sde_upgrade_main()
+sde::upgrade::main()
 {
-   log_entry "sde_upgrade_main" "$@"
+   log_entry "sde::upgrade::main" "$@"
 
    local OPTION_PARALLEL='YES'
    local OPTION_PROJECT='YES'
@@ -171,7 +171,7 @@ sde_upgrade_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_upgrade_usage
+            sde::upgrade::usage
          ;;
 
          --serial|--no-parallel)
@@ -201,7 +201,7 @@ sde_upgrade_main()
    if [ "${OPTION_PROJECT}" = 'YES' ]
    then
       (
-         sde_upgrade_project "$@"
+         sde::upgrade::project "$@"
       ) || exit 1
    fi
 
@@ -223,14 +223,14 @@ sde_upgrade_main()
          unset MULLE_MATCH_SHARE_DIR
          unset MULLE_MATCH_VAR_DIR
 
-         sde_upgrade_subprojects "${OPTION_PARALLEL}"
+         sde::upgrade::subprojects "${OPTION_PARALLEL}"
       ) || exit 1
    fi
 
    if [ "${OPTION_TEST}" = 'YES' ]
    then
       (
-         sde_upgrade_test "$@"
+         sde::upgrade::test "$@"
       ) || exit 1
    fi
 }

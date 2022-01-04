@@ -32,9 +32,9 @@
 MULLE_SDE_COMMON_SH="included"
 
 
-commalist_contains()
+sde::common::commalist_contains()
 {
-   log_entry "commalist_contains" "$@"
+   log_entry "sde::common::commalist_contains" "$@"
 
    local list="$1"
    local key="$2"
@@ -57,14 +57,14 @@ commalist_contains()
 }
 
 
-r_commalist_add()
+sde::common::r_commalist_add()
 {
    log_entry "commalist_add" "$@"
 
    local list="$1"
    local value="$2"
 
-   if commalist_contains "${list}" "${value}"
+   if sde::common::commalist_contains "${list}" "${value}"
    then
       log_info "\"${value}\" already set"
       return 0
@@ -73,9 +73,9 @@ r_commalist_add()
 }
 
 
-commalist_print()
+sde::common::commalist_print()
 {
-   log_entry "commalist_print" "$@"
+   log_entry "sde::common::commalist_print" "$@"
 
    local list="$1"
 
@@ -92,9 +92,29 @@ commalist_print()
 }
 
 
-sde_sourcetree_platform_excludes_print()
+
+sde::common::exekutor_sourcetree_nofail()
 {
-   log_entry "sde_sourcetree_platform_excludes_add" "$@"
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root \
+               ${MULLE_TECHNICAL_FLAGS} \
+            "$@" || exit 1
+}
+
+
+sde::common::rexekutor_sourcetree_nofail()
+{
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root \
+               ${MULLE_TECHNICAL_FLAGS} \
+            "$@" || exit 1
+}
+
+
+
+sde::common::print_platform_excludes()
+{
+   log_entry "sde::common::_append_platform_excludes" "$@"
 
    local list="$1"
 
@@ -111,9 +131,9 @@ sde_sourcetree_platform_excludes_print()
 }
 
 
-sde_sourcetree_platform_excludes_validate()
+sde::common::validate_platform_excludes()
 {
-   log_entry "sde_sourcetree_platform_excludes_validate" "$@"
+   log_entry "sde::common::validate_platform_excludes" "$@"
 
    case "$1" in
       no-*)
@@ -127,9 +147,9 @@ sde_sourcetree_platform_excludes_validate()
 }
 
 
-sde_sourcetree_platform_excludes_add()
+sde::common::_append_platform_excludes()
 {
-   log_entry "sde_sourcetree_platform_excludes_add" "$@"
+   log_entry "sde::common::_append_platform_excludes" "$@"
 
    local list="$1"
    local add="$2"
@@ -142,10 +162,10 @@ sde_sourcetree_platform_excludes_add()
    do
       IFS="${DEFAULT_IFS}"; shell_enable_glob
 
-      sde_sourcetree_platform_excludes_validate "$1"
+      sde::common::validate_platform_excludes "$1"
       i="no-platform-$i"
 
-      if commalist_contains "${list}" "$i"
+      if sde::common::commalist_contains "${list}" "$i"
       then
          continue
       fi
@@ -160,9 +180,9 @@ sde_sourcetree_platform_excludes_add()
 }
 
 
-_sde_set_sourcetree_platform_excludes()
+sde::common::_set_platform_excludes()
 {
-   log_entry "_sde_set_sourcetree_platform_excludes" "$@"
+   log_entry "sde::common::_set_platform_excludes" "$@"
 
    local address="$1"
    local value="$2"
@@ -181,7 +201,7 @@ _sde_set_sourcetree_platform_excludes()
                 get "${address}" "marks" `"
    fi
 
-   marks="`sde_sourcetree_platform_excludes_add "${marks}" "${value}" `"
+   marks="`sde::common::_append_platform_excludes "${marks}" "${value}" `"
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
@@ -190,25 +210,25 @@ _sde_set_sourcetree_platform_excludes()
 }
 
 
-sde_append_sourcetree_platform_excludes()
+sde::common::append_platform_excludes()
 {
-   log_entry "sde_append_sourcetree_platform_excludes" "$@"
+   log_entry "sde::common::append_platform_excludes" "$@"
 
-   _sde_set_sourcetree_platform_excludes "$1" "$2" "$3" 
+   sde::common::_set_platform_excludes "$1" "$2" "$3"
  }
 
 
-sde_set_sourcetree_platform_excludes()
+sde::common::set_platform_excludes()
 {
-   log_entry "sde_set_sourcetree_platform_excludes" "$@"
+   log_entry "sde::common::set_platform_excludes" "$@"
 
-   _sde_set_sourcetree_platform_excludes "$1" "$2" "$3" 
+   sde::common::_set_platform_excludes "$1" "$2" "$3"
 }
 
 
-sde_get_sourcetree_platform_excludes()
+sde::common::get_platform_excludes()
 {
-   log_entry "sde_get_sourcetree_platform_excludes" "$@"
+   log_entry "sde::common::get_platform_excludes" "$@"
 
    local address="$1"
 
@@ -222,14 +242,14 @@ sde_get_sourcetree_platform_excludes()
             get "${address}" "marks" `"
    [ $? -eq 0 ] || return 1
 
-   sde_sourcetree_platform_excludes_print "${marks}"
+   sde::common::print_platform_excludes "${marks}"
 }
 
 
 
-_sde_set_sourcetree_userinfo_field()
+sde::common::_set_userinfo_field()
 {
-   log_entry "_sde_set_sourcetree_userinfo_field" "$@"
+   log_entry "sde::common::_set_userinfo_field" "$@"
 
    local address="$1"
    local field="$2"
@@ -258,7 +278,7 @@ _sde_set_sourcetree_userinfo_field()
    if [ "${append}" = 'YES' ]
    then
       r_assoc_array_get "${userinfo}" "${field}"
-      r_commalist_add "${RVAL}" "${value}"
+      sde::common::r_commalist_add "${RVAL}" "${value}"
       value="${RVAL}"
    fi
 
@@ -273,25 +293,25 @@ _sde_set_sourcetree_userinfo_field()
 }
 
 
-sde_set_sourcetree_userinfo_field()
+sde::common::set_sourcetree_userinfo_field()
 {
-   log_entry "sde_set_sourcetree_userinfo_field" "$@"
+   log_entry "sde::common::set_sourcetree_userinfo_field" "$@"
 
-   _sde_set_sourcetree_userinfo_field "$1" "$2" "$3" 'YES' "$4"
+   sde::common::_set_userinfo_field "$1" "$2" "$3" 'YES' "$4"
 }
 
 
-sde_append_sourcetree_userinfo_field()
+sde::common::append_sourcetree_userinfo_field()
 {
-   log_entry "sde_append_sourcetree_userinfo_field" "$@"
+   log_entry "sde::common::append_sourcetree_userinfo_field" "$@"
 
-   _sde_set_sourcetree_userinfo_field "$1" "$2" "$3" 'NO' "$4"
+   sde::common::_set_userinfo_field "$1" "$2" "$3" 'NO' "$4"
 }
 
 
-sde_get_sourcetree_userinfo_field()
+sde::common::get_sourcetree_userinfo_field()
 {
-   log_entry "sde_get_sourcetree_userinfo_field" "$@"
+   log_entry "sde::common::get_sourcetree_userinfo_field" "$@"
 
    local address="$1"
    local field="$2"
@@ -314,11 +334,11 @@ sde_get_sourcetree_userinfo_field()
    fi
 
    r_assoc_array_get "${userinfo}" "${field}"
-   commalist_print "${RVAL}"
+   sde::common::commalist_print "${RVAL}"
 }
 
 
-sde_include_nodemarks_if_needed()
+sde::common::include_nodemarks_if_needed()
 {
    if [ -z "${MULLE_SOURCETREE_NODEMARKS_SH}" ]
    then
@@ -331,9 +351,9 @@ sde_include_nodemarks_if_needed()
 }
 
 
-sde_marks_compatible_with_marks()
+sde::common::marks_compatible_with_marks()
 {
-   sde_include_nodemarks_if_needed
+   sde::common::include_nodemarks_if_needed
 
-   nodemarks_compatible_with_nodemarks "$1" "$2"
+   sourcetree::nodemarks::compatible_with_nodemarks "$1" "$2"
 }

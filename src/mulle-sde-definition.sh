@@ -32,7 +32,7 @@
 MULLE_SDE_DEFINITION_SH="included"
 
 
-sde_definition_usage()
+sde::definition::usage()
 {
    [ $# -ne 0 ] && log_error "$1"
 
@@ -43,9 +43,11 @@ Usage:
    This command manipulates mulle-make definitions for a project. A common
    definition is CC to specify the compiler to use (e.g. mulle-clang).
    Definitions can be platform-specific, e.g. only valid for builds
-   targetting linux.
+   targetting linux. A commonly manipulated definition setting is \"CFLAGS\".
 
-   A commonly manipulated definition setting is \"CFLAGS\".
+   Definitions set by extensions are stored in .mulle/share/craft. Your
+   custom settings in .mulle/etc/craft will override them. Note that for
+   each platform, there can be a definition.
 
    See \`mulle-make definition\` for more detailed help about the available
    commands.
@@ -61,6 +63,7 @@ Options:
    --platform <name>      : use the platform specific scope instead of global
 
 Commands:
+   cat    : show definition file contents, similiar to list
    get    : get value of a definition
    keys   : get a list of known keys, unknown keys are possible too
    list   : list current definitions
@@ -74,7 +77,7 @@ EOF
 }
 
 
-r_pick_definition_dir()
+sde::definition::r_pick_dir()
 {
    local etcdir="$1"
    local sharedir="$2"
@@ -89,9 +92,9 @@ r_pick_definition_dir()
 }
 
 
-r_definition_scopes()
+sde::definition::r_scopes()
 {
-   log_entry "sde_definition_scopes" "$@"
+   log_entry "sde::definition::r_scopes" "$@"
 
    local etcdir="$1"
    local sharedir="$2"
@@ -127,13 +130,13 @@ r_definition_scopes()
 }
 
 
-sde_definition_scopes()
+sde::definition::scopes()
 {
-   log_entry "sde_definition_scopes" "$@"
+   log_entry "sde::definition::scopes" "$@"
 
    log_info "Defined Definition Scopes"
 
-   r_definition_scopes
+   sde::definition::r_scopes
 
    if [ ! -z "${RVAL}" ]
    then
@@ -142,9 +145,9 @@ sde_definition_scopes()
 }
 
 
-sde_call_definition()
+sde::definition::call()
 {
-   log_entry "sde_call_definition" "$@"
+   log_entry "sde::definition::call" "$@"
 
    local cmd="$1"      
    local flags="$2"    
@@ -163,22 +166,22 @@ sde_call_definition()
 }
 
 
-sde_call_definition_if_dir_exists()
+sde::definition::call_if_dir_exists()
 {
-   log_entry "sde_call_definition_if_dir_exists" "$@"
+   log_entry "sde::definition::call_if_dir_exists" "$@"
 
    if [ ! -d "$3" ]
    then
       return 2
    fi
-   sde_call_definition "$@"
+   sde::definition::call "$@"
 }
 
 
 
-_sde_definition_keys()
+sde::definition::_keys()
 {
-   log_entry "_sde_definition_keys" "$@"
+   log_entry "sde::definition::_keys" "$@"
 
    local scope="$1"
    local flags="$2"
@@ -192,9 +195,9 @@ _sde_definition_keys()
       ;;
 
       "DEFAULT")
-         if ! sde_call_definition_if_dir_exists "keys" "${flags}" "${etcdir}.${MULLE_UNAME}"
+         if ! sde::definition::call_if_dir_exists "keys" "${flags}" "${etcdir}.${MULLE_UNAME}"
          then
-            if sde_call_definition_if_dir_exists "keys" "${flags}" "${sharedir}.${MULLE_UNAME}"
+            if sde::definition::call_if_dir_exists "keys" "${flags}" "${sharedir}.${MULLE_UNAME}"
             then
                return
             fi
@@ -204,18 +207,18 @@ _sde_definition_keys()
    
    case "${scope}" in 
       DEFAULT|global)
-         if ! sde_call_definition_if_dir_exists "keys" "${flags}" "${etcdir}"
+         if ! sde::definition::call_if_dir_exists "keys" "${flags}" "${etcdir}"
          then
-            sde_call_definition_if_dir_exists "keys" "${flags}" "${sharedir}"
+            sde::definition::call_if_dir_exists "keys" "${flags}" "${sharedir}"
             return $?
          fi
          return 0
       ;;
    esac
 
-   if ! sde_call_definition_if_dir_exists "keys" "${flags}" "${etcdir}.${scope}"
+   if ! sde::definition::call_if_dir_exists "keys" "${flags}" "${etcdir}.${scope}"
    then
-      if sde_call_definition_if_dir_exists "keys" "${flags}" "${sharedir}.${scope}"
+      if sde::definition::call_if_dir_exists "keys" "${flags}" "${sharedir}.${scope}"
       then
          return
       fi
@@ -223,17 +226,17 @@ _sde_definition_keys()
 }
 
 
-sde_definition_keys()
+sde::definition::keys()
 {
-   log_entry "sde_definition_keys" "$@"
+   log_entry "sde::definition::keys" "$@"
 
-   _sde_definition_keys "$@" | sort -u
+   sde::definition::_keys "$@" | sort -u
 }
 
 
-sde_definition_get()
+sde::definition::get()
 {
-   log_entry "sde_definition_get" "$@"
+   log_entry "sde::definition::get" "$@"
 
    local scope="$1"
    local flags="$2"
@@ -245,11 +248,11 @@ sde_definition_get()
 
    case "${scope}" in
       ALL)
-         r_pick_definition_dir "${etcdir}" "${sharedir}" 
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
          directory="${RVAL}"
-         sde_call_definition "get" "${flags}" "${directory}" "$@"
+         sde::definition::call "get" "${flags}" "${directory}" "$@"
 
-         r_definition_scopes "no-global"
+         sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
 
          local i
@@ -259,90 +262,49 @@ sde_definition_get()
          do
             shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-            r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}" 
+            sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
             directory="${RVAL}"
 
-            sde_call_definition "get" "${flags}" "${directory}" "$@"
+            sde::definition::call "get" "${flags}" "${directory}" "$@"
          done
          shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
          ;;
 
       DEFAULT)
-         r_pick_definition_dir "${etcdir}" "${sharedir}" ".${MULLE_UNAME}"
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${MULLE_UNAME}"
          directory="${RVAL}"
-         if sde_call_definition "get" "${flags}" "${directory}" "$@"
+         if sde::definition::call "get" "${flags}" "${directory}" "$@"
          then
             return
          fi
-         r_pick_definition_dir "${etcdir}" "${sharedir}" 
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
          directory="${RVAL}"
       ;;
 
       global)
-         r_pick_definition_dir "${etcdir}" "${sharedir}" 
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
          directory="${RVAL}"
       ;;
 
       *)
-         r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}" 
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
          directory="${RVAL}"
       ;;
    esac
 
-   sde_call_definition "get" "${flags}" "${directory}" "$@"
+   sde::definition::call "get" "${flags}" "${directory}" "$@"
 }
 
-
-sde_definition_list_scope()
-{
-   log_entry "sde_definition_list_global" "$@"
-
-   local etcdir="$1"
-   local sharedir="$2"
-   local scope="$3"
-   shift 3
-
-   local directory
-
-   r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}"
-   directory="${RVAL}"
-
-   if [ -d "${directory}" ]
-   then
-      log_info "${scope}"
-      sde_call_definition "list" "${flags}" "${directory}" "$@" \
-      | sed 's/^/   /'
-   fi
-}
-
-
-sde_definition_list_global()
-{
-   log_entry "sde_definition_list_global" "$@"
-
-   local etcdir="$1"
-   local sharedir="$2"
-   shift 2
-
-   local directory
-
-   r_pick_definition_dir "${etcdir}" "${sharedir}" 
-   directory="${RVAL}"
-
-   log_info "Global"
-   sde_call_definition "list" "${flags}" "${directory}" "$@" \
-   | sed 's/^/   /'
-}
 
 
 #
 # We don't symlink the definitions, as they are usually small. We could
 # though.
 #
-sde_definition_set()
+sde::definition::set()
 {
-   log_entry "sde_definition_set" "$@"
+   log_entry "sde::definition::set" "$@"
 
    local scope="$1"
    local flags="$2"
@@ -355,9 +317,9 @@ sde_definition_set()
    case "${scope}" in
       ALL)
          etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
-         sde_call_definition "set" "${flags}" "${etcdir}" "$@"
+         sde::definition::call "set" "${flags}" "${etcdir}" "$@"
 
-         r_definition_scopes "no-global"
+         sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
 
          local i
@@ -368,7 +330,7 @@ sde_definition_set()
             shell_enable_glob; IFS="${DEFAULT_IFS}"
 
             etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" "NO"
-            sde_call_definition "set" "${flags}" "${etcdir}.${i}" "$@"
+            sde::definition::call "set" "${flags}" "${etcdir}.${i}" "$@"
          done
          shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
@@ -376,17 +338,17 @@ sde_definition_set()
 
       DEFAULT)
          etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" "NO"
-         sde_call_definition "set" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
+         sde::definition::call "set" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
       ;;
 
       global)
          etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
-         sde_call_definition "set" "${flags}" "${etcdir}" "$@"
+         sde::definition::call "set" "${flags}" "${etcdir}" "$@"
       ;;
 
       *)
          etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" "NO"
-         sde_call_definition "set" "${flags}" "${etcdir}.${scope}" "$@"
+         sde::definition::call "set" "${flags}" "${etcdir}.${scope}" "$@"
       ;;
    esac
 }
@@ -394,12 +356,12 @@ sde_definition_set()
 
 #
 # unset is kind of tricky, since we may need to unset a value set by
-# share, if this happens, we may need to create empty an empty etc
+# share, if this happens, we may need to create an empty etc
 # with a key "INTENTIONALLY_LEFT_BLANK" so it doesn't get erased
 #
-sde_scoped_definition_unset()
+sde::definition::scoped_unset()
 {
-   log_entry "sde_scoped_definition_unset" "$@"
+   log_entry "sde::definition::scoped_unset" "$@"
 
    local flags="$1"
    local etcdir="$2"
@@ -411,14 +373,14 @@ sde_scoped_definition_unset()
 
    if [ -d "${etcdir}" ]
    then
-      sde_call_definition "unset" "${flags}" "${etcdir}" "$@"
+      sde::definition::call "unset" "${flags}" "${etcdir}" "$@"
       rval=$?
-      etc_unset_if_possible "${etcdir}" "${sharedir}"
+      etc_remove_if_possible "${etcdir}" "${sharedir}"
       return $rval
    fi
 
    # check if value exists in sharedir
-   value="`sde_call_definition "get" "${flags}" "${sharedir}" "$@" `"
+   value="`sde::definition::call "get" "${flags}" "${sharedir}" "$@" `"
    if [ -z "${value}" ]
    then
       return 1
@@ -437,13 +399,13 @@ empty the 'keep' folder is required, to keep the \"$*\" definition
 upgrade.
 EOF
 
-   sde_call_definition "unset" "${flags}" "${etcdir}" "$@" # now we can unset
+   sde::definition::call "unset" "${flags}" "${etcdir}" "$@" # now we can unset
 }
 
 
-sde_definition_unset()
+sde::definition::unset()
 {
-   log_entry "sde_definition_unset" "$@"
+   log_entry "sde::definition::unset" "$@"
 
    local scope="$1"
    local flags="$2"
@@ -454,12 +416,12 @@ sde_definition_unset()
 
    case "${scope}" in
       ALL)
-         sde_scoped_definition_unset "${flags}" \
+         sde::definition::scoped_unset "${flags}" \
                                      "${etcdir}" \
                                      "${sharedir}" \
                                      "$@"
 
-         r_definition_scopes "no-global"
+         sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
 
          local i
@@ -469,7 +431,7 @@ sde_definition_unset()
          do
             shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-            sde_scoped_definition_unset "${flags}" \
+            sde::definition::scoped_unset "${flags}" \
                                         "${etcdir}.${i}" \
                                         "${sharedir}.${i}" \
                                         "$@"
@@ -479,12 +441,12 @@ sde_definition_unset()
       ;;
 
       DEFAULT)
-         if ! sde_scoped_definition_unset "${flags}" \
+         if ! sde::definition::scoped_unset "${flags}" \
                                           "${etcdir}.${MULLE_UNAME}" \
                                           "${sharedir}.${MULLE_UNAME}" \
                                           "$@"
          then
-            sde_scoped_definition_unset "${flags}" \
+            sde::definition::scoped_unset "${flags}" \
                                         "${etcdir}" \
                                         "${sharedir}" \
                                         "$@"
@@ -492,14 +454,14 @@ sde_definition_unset()
       ;; 
 
       global)
-         sde_scoped_definition_unset "${flags}" \
+         sde::definition::scoped_unset "${flags}" \
                                      "${etcdir}"  \
                                      "${sharedir}" \
                                      "$@"
       ;;
 
       *)
-         sde_scoped_definition_unset "${flags}" \
+         sde::definition::scoped_unset "${flags}" \
                                      "${etcdir}.${scope}" \
                                      "${sharedir}.${scope}" \
                                      "$@"
@@ -508,9 +470,9 @@ sde_definition_unset()
 }
 
 
-sde_definition_remove()
+sde::definition::remove()
 {
-   log_entry "sde_definition_remove" "$@"
+   log_entry "sde::definition::remove" "$@"
 
    local scope="$1"
    local flags="$2"
@@ -564,10 +526,60 @@ EOF
 }
 
 
-
-sde_definition_list()
+sde::definition::cmd_scope()
 {
-   log_entry "sde_definition_list" "$@"
+   log_entry "sde::definition::cmd_scope" "$@"
+
+   local cmd="$1"
+   shift 1
+
+   local etcdir="$1"
+   local sharedir="$2"
+   local scope="$3"
+   shift 3
+
+   local directory
+
+   sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
+   directory="${RVAL}"
+
+   if [ -d "${directory}" ]
+   then
+      log_info "${scope}"
+      sde::definition::call "${cmd}" "${flags}" "${directory}" "$@" \
+      | sed 's/^/   /'
+   fi
+}
+
+
+sde::definition::cmd_global()
+{
+   log_entry "sde::definition::cmd_global" "$@"
+
+   local cmd="$1"
+   shift 1
+
+   local etcdir="$1"
+   local sharedir="$2"
+   shift 2
+
+   local directory
+
+   sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
+   directory="${RVAL}"
+
+   log_info "global"
+   sde::definition::call "${cmd}" "${flags}" "${directory}" "$@" \
+   | sed 's/^/   /'
+}
+
+
+sde::definition::_cmd()
+{
+   log_entry "sde::definition::_cmd" "$@"
+
+   local cmd="$1"
+   shift 1
 
    local scope="$1"
    local flags="$2"
@@ -580,9 +592,9 @@ sde_definition_list()
 
    case "${scope}" in
       ALL)
-         sde_definition_list_global  "${etcdir}" "${sharedir}" 
+         sde::definition::cmd_global "${cmd}" "${etcdir}" "${sharedir}"
 
-         r_definition_scopes "no-global"
+         sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
 
          local i
@@ -591,35 +603,51 @@ sde_definition_list()
          for i in ${scopes}
          do
             shell_enable_glob; IFS="${DEFAULT_IFS}"
-            sde_definition_list_scope "${etcdir}" "${sharedir}" "${i}"
+            sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${i}"
          done
          shell_enable_glob; IFS="${DEFAULT_IFS}"
          return
          ;;
 
       DEFAULT)
-         sde_definition_list_scope "${etcdir}" "${sharedir}" "${MULLE_UNAME}"
-         sde_definition_list_global "${etcdir}" "${sharedir}" 
+         sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${MULLE_UNAME}"
+         sde::definition::cmd_global "${cmd}" "${etcdir}" "${sharedir}"
          return
       ;;
 
       global)
-         sde_definition_list_global "${etcdir}" "${sharedir}" 
+         sde::definition::cmd_global "${cmd}" "${etcdir}" "${sharedir}"
          return
       ;;
 
       *)
-         sde_definition_list_scope "${etcdir}" "${sharedir}" "${scope}"
-         r_pick_definition_dir "${etcdir}" "${sharedir}" ".${scope}"
+         sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${scope}"
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
          return
       ;;
    esac
 }
 
 
-sde_definition_main()
+sde::definition::list()
 {
-   log_entry "sde_definition_main" "$@"
+   log_entry "sde::definition::list" "$@"
+
+   sde::definition::_cmd "list" "$@"
+}
+
+
+sde::definition::cat()
+{
+   log_entry "sde::definition::cat" "$@"
+
+   sde::definition::_cmd "cat" "$@"
+}
+
+
+sde::definition::main()
+{
+   log_entry "sde::definition::main" "$@"
 
    local OPTION_SHARE_DEFINITION_DIR=".mulle/share/craft/definition"
    local OPTION_ETC_DEFINITION_DIR=".mulle/etc/craft/definition"
@@ -650,7 +678,7 @@ sde_definition_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_definition_usage
+            sde::definition::usage
          ;;
 
          --allow-unknown-option|--no-allow-unknown-option)
@@ -659,14 +687,14 @@ sde_definition_main()
          ;;
 
          --share-definition-dir)
-            [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::definition::usage "Missing argument to \"$1\""
             shift
 
             OPTION_SHARE_DEFINITION_DIR="$1"
          ;;
 
          --definition-dir|--etc-definition-dir)
-            [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::definition::usage "Missing argument to \"$1\""
             shift
 
             OPTION_ETC_DEFINITION_DIR="$1"
@@ -683,7 +711,7 @@ sde_definition_main()
          ;;
 
          --platform|--os|--scope)
-            [ $# -eq 1 ] && sde_definition_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::definition::usage "Missing argument to \"$1\""
             shift
 
             scope="$1"
@@ -696,7 +724,7 @@ sde_definition_main()
          ;;
 
          -*)
-            sde_definition_usage "Unknown definition option \"$1\""
+            sde::definition::usage "Unknown definition option \"$1\""
          ;;
 
          *)
@@ -709,7 +737,7 @@ sde_definition_main()
 
    local cmd="${1:-list}"
 
-   [ $# -ne 1 ] && shift
+   [ $# -ne 0 ] && shift
 
    case "${cmd}" in
       search)
@@ -724,12 +752,12 @@ sde_definition_main()
 
       scopes)
          MULLE_FLAG_LOG_TERSE="${terse}" \
-            sde_definition_scopes "$@"
+            sde::definition::scopes "$@"
       ;;
 
-      get|keys|list|remove|set|unset)
+      cat|get|keys|list|remove|set|unset)
          MULLE_FLAG_LOG_TERSE="${terse}" \
-            sde_definition_${cmd} "${scope}" \
+            sde::definition::${cmd} "${scope}" \
                                   "${flags}" \
                                   "${OPTION_ETC_DEFINITION_DIR}" \
                                   "${OPTION_SHARE_DEFINITION_DIR}" \
@@ -737,11 +765,11 @@ sde_definition_main()
       ;;
 
       '')
-         sde_definition_usage
+         sde::definition::usage
       ;;
 
       *)
-         sde_definition_usage "Unknown command \"${cmd}\""
+         sde::definition::usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

@@ -32,7 +32,7 @@
 MULLE_SDE_CONFIG_SH="included"
 
 
-sde_config_usage()
+sde::config::usage()
 {
    [ $# -ne 0 ] && log_error "$1"
 
@@ -55,7 +55,7 @@ EOF
 }
 
 
-sde_config_list_usage()
+sde::config::list_usage()
 {
    [ $# -ne 0 ] && log_error "$*"
 
@@ -82,7 +82,7 @@ EOF
 # this function is actually executed inside mulle-sourcetree so
 # globals and other functions are not necessarily available.
 #
-walk_config_name_callback()
+sde::config::walk_config_name_callback()
 {
    local reflectfile
    local config
@@ -98,7 +98,7 @@ walk_config_name_callback()
 }
 
 
-walk_config_name_callback_no_default()
+sde::config::walk_name_callback_no_default()
 {
    local reflectfile
    local config
@@ -117,7 +117,7 @@ walk_config_name_callback_no_default()
 }
 
 
-walk_config_callback()
+sde::config::walk_callback()
 {
    if [ -z "${MULLE_SOURCETREE_CONFIG_SH}" ]
    then
@@ -129,14 +129,14 @@ walk_config_callback()
 
    names="`(
       eval $(mulle-env mulle-tool-env sourcetree) ;
-      sourcetree_config_name_main -a --separator ':'
+      sourcetree::config::name_main -a --separator ':'
       )`"
 
    printf "%s: %s\n" "${NODE_FILENAME#${MULLE_USER_PWD}/}" "${names:--}"
 }
 
 
-walk_config_callback_no_default()
+sde::config::walk_callback_no_default()
 {
    if [ -z "${MULLE_SOURCETREE_CONFIG_SH}" ]
    then
@@ -148,7 +148,7 @@ walk_config_callback_no_default()
 
    names="`(
       eval $(mulle-env mulle-tool-env sourcetree) ;
-      sourcetree_config_name_main -a --separator ':'
+      sourcetree::config::name_main -a --separator ':'
       )`"
 
    if [ ! -z "${names}" -a "${names}" != "config" ]
@@ -158,7 +158,7 @@ walk_config_callback_no_default()
 }
 
 
-sde_config_dependency_walk()
+sde::config::dependency_walk()
 {
    local functionname="$1"
 
@@ -176,9 +176,9 @@ sde_config_dependency_walk()
 }
 
 
-sde_config_list()
+sde::config::list()
 {
-   log_entry "sde_config_list" "$@"
+   log_entry "sde::config::list" "$@"
 
    local OPTION_RECURSIVE='NO'
    local OPTION_IGNORE_DEFAULT='YES'
@@ -188,7 +188,7 @@ sde_config_list()
    do
       case "$1" in
          -h*|--help|help)
-            sde_config_list_usage
+            sde::config::list_usage
          ;;
 
          --ignore-default)
@@ -208,7 +208,7 @@ sde_config_list()
          ;;
 
          -*)
-            sde_config_list_usage "Unknown config option \"$1\""
+            sde::config::list_usage "Unknown config option \"$1\""
          ;;
 
          *)
@@ -226,16 +226,16 @@ sde_config_list()
       then
          if [ "${OPTION_IGNORE_DEFAULT}" = 'YES' ]
          then
-            sde_config_dependency_walk walk_config_name_callback_no_default
+            sde::config::dependency_walk sde::config::walk_name_callback_no_default
          else
-            sde_config_dependency_walk walk_config_name_callback
+            sde::config::dependency_walk sde::config::walk_config_name_callback
          fi
       else
          if [ "${OPTION_IGNORE_DEFAULT}" = 'YES' ]
          then
-            sde_config_dependency_walk walk_config_callback_no_default
+            sde::config::dependency_walk sde::config::walk_callback_no_default
          else
-            sde_config_dependency_walk walk_config_callback
+            sde::config::dependency_walk sde::config::walk_callback
          fi
       fi
       return $?
@@ -251,20 +251,20 @@ sde_config_list()
 
 
 
-sde_config_main()
+sde::config::main()
 {
-   log_entry "sde_config_main" "$@"
+   log_entry "sde::config::main" "$@"
 
 
    while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
-            sde_config_usage
+            sde::config::usage
          ;;
 
          -*)
-            sde_config_usage "Unknown config option \"$1\""
+            sde::config::usage "Unknown config option \"$1\""
          ;;
 
          *)
@@ -281,7 +281,7 @@ sde_config_main()
 
    case "${cmd:-list}" in
       list)
-         sde_config_list "$@"
+         sde::config::list "$@"
       ;;
 
       name|copy|remove)
@@ -294,11 +294,11 @@ sde_config_main()
       ;;
 
       '')
-         sde_config_usage
+         sde::config::usage
       ;;
 
       *)
-         sde_config_usage "Unknown command \"${cmd}\""
+         sde::config::usage "Unknown command \"${cmd}\""
       ;;
    esac
 }

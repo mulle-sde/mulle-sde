@@ -32,7 +32,7 @@
 MULLE_SDE_FETCH_SH="included"
 
 
-sde_fetch_usage()
+sde::fetch::usage()
 {
    [ "$#" -ne 0 ] && log_error "$*"
 
@@ -61,9 +61,9 @@ EOF
 }
 
 
-do_sync_sourcetree()
+sde::fetch::do_sync_sourcetree()
 {
-   log_entry "do_sync_sourcetree" "$@"
+   log_entry "sde::fetch::do_sync_sourcetree" "$@"
 
    if [ "${MULLE_SDE_FETCH}" = 'NO' ]
    then
@@ -79,9 +79,9 @@ do_sync_sourcetree()
 }
 
 
-sde_fetch_main()
+sde::fetch::main()
 {
-   log_entry "sde_fetch_main" "$@"
+   log_entry "sde::fetch::main" "$@"
 
    local OPTION_MODE
 
@@ -89,7 +89,7 @@ sde_fetch_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_fetch_usage
+            sde::fetch::usage
          ;;
 
          -r|--recurse|--flat|--share)
@@ -131,7 +131,7 @@ sde_fetch_main()
 
    if [ "${do_update}" = 'YES' ]
    then
-      do_sync_sourcetree "$@"
+      sde::fetch::do_sync_sourcetree "$@"
       return $?
    else
       log_verbose "Nothing to do"

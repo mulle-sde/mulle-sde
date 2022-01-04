@@ -32,7 +32,7 @@
 MULLE_SDE_LINKORDER_SH="included"
 
 
-sde_linkorder_usage()
+sde::linkorder::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -62,9 +62,9 @@ EOF
 }
 
 
-r_sde_locate_library()
+sde::linkorder::r_locate_library()
 {
-   log_entry "r_sde_locate_library" "$@"
+   log_entry "sde::linkorder::r_locate_library" "$@"
 
    local searchpath="$1"
    local libstyle="$2"
@@ -72,7 +72,7 @@ r_sde_locate_library()
 
    shift 3
 
-   r_platform_search "${searchpath}" \
+   platform::search::r_platform_search "${searchpath}" \
                      "${libstyle}" \
                      "static" \
                      "${require}" \
@@ -80,15 +80,15 @@ r_sde_locate_library()
 }
 
 
-r_sde_locate_framework()
+sde::linkorder::r_locate_framework()
 {
-   log_entry "r_sde_locate_library" "$@"
+   log_entry "sde::linkorder::r_locate_framework" "$@"
 
    local searchpath="$1"
 
    shift 1
 
-   r_platform_search "${searchpath}" \
+   platform::search::r_platform_search "${searchpath}" \
                      "framework" \
                      "" \
                      "" \
@@ -96,9 +96,9 @@ r_sde_locate_framework()
 }
 
 
-_emit_file_output()
+sde::linkorder::_emit_file_output()
 {
-   log_entry "_emit_file_output" "$@"
+   log_entry "sde::linkorder::_emit_file_output" "$@"
 
    local sep="${1: }"; shift
    local quote="${1: }"; shift
@@ -125,29 +125,29 @@ _emit_file_output()
 }
 
 
-emit_file_output()
+sde::linkorder::emit_file_output()
 {
-   log_entry "emit_file_output" "$@"
+   log_entry "sde::linkorder::emit_file_output" "$@"
 
    shift 4
 
-   _emit_file_output " " "" "$@"
+   sde::linkorder::_emit_file_output " " "" "$@"
 }
 
 
-emit_file_lf_output()
+sde::linkorder::emit_file_lf_output()
 {
-   log_entry "emit_file_lf_output" "$@"
+   log_entry "sde::linkorder::emit_file_lf_output" "$@"
 
    shift 4
 
-   _emit_file_output '$\n' "" "$@"
+   sde::linkorder::_emit_file_output '$\n' "" "$@"
 }
 
 
-_emit_ld_output()
+sde::linkorder::_emit_ld_output()
 {
-   log_entry "_emit_ld_output" "$@"
+   log_entry "sde::linkorder::_emit_ld_output" "$@"
 
    local sep="$1"
    local quote="$2"
@@ -165,27 +165,29 @@ _emit_ld_output()
 
    if [ "${withldpath}" = 'YES' ]
    then
-      r_platform_translate_lines "ldpath" \
+      platform::translate::r_translate_lines "ldpath" \
                                  "${preferredlibformat}" \
                                  "${wholearchiveformat}" \
                                  $'\n' \
+                                 "'" \
                                  "$@" || exit 1
       if [ ! -z "${RVAL}" ]
       then
-         r_add_line "${result}" "'${RVAL}'"  # quote protect this
+         r_add_line "${result}" "${RVAL}"  # quote protect this
          result="${RVAL}"
       fi
    fi
 
-   r_platform_translate_lines "ld" \
+   platform::translate::r_translate_lines "ld" \
                               "${preferredlibformat}" \
                               "${wholearchiveformat}" \
                               $'\n' \
+                              "" \
                               "$@" || exit 1
 
    if [ "${OPTION_SIMPLIFY}" = 'YES' ]
    then
-      r_platform_simplify_wholearchive "${RVAL}" "${wholearchiveformat}"
+      platform::translate::r_simplify_wholearchive "${RVAL}" "${wholearchiveformat}"
    fi
 
    r_add_line "${result}" "${RVAL}"  # dont protect
@@ -193,14 +195,15 @@ _emit_ld_output()
 
    if [ "${withrpath}" = 'YES' ]
    then
-      r_platform_translate_lines "rpath" \
-                                 "${preferredlibformat}" \
-                                 "${wholearchiveformat}" \
-                                 $'\n' \
-                                 "$@" || exit 1
+      platform::translate::r_translate_lines "rpath" \
+                                             "${preferredlibformat}" \
+                                             "${wholearchiveformat}" \
+                                             $'\n' \
+                                             "'" \
+                                             "$@" || exit 1
       if [ ! -z "${RVAL}" ]
       then
-         r_add_line "${result}" "'${RVAL}'" # protect
+         r_add_line "${result}" "${RVAL}" # protect
          result="${RVAL}"
       fi
    fi
@@ -225,7 +228,7 @@ _emit_ld_output()
    fi
 
    # omit trailing linefeed for cmake
-   printf "%s" "${result}"
+   rexekutor printf "%s" "${result}"
 
    if [ "${OPTION_OUTPUT_FINAL_LF}" = 'YES' ]
    then
@@ -234,33 +237,33 @@ _emit_ld_output()
 }
 
 
-emit_ld_output()
+sde::linkorder::emit_ld_output()
 {
-   log_entry "emit_ld_output" "$@"
+   log_entry "sde::linkorder::emit_ld_output" "$@"
 
-   _emit_ld_output " " "" "$@"
+   sde::linkorder::_emit_ld_output " " "" "$@"
 }
 
 
-emit_ld_lf_output()
+sde::linkorder::emit_ld_lf_output()
 {
-   log_entry "emit_ld_lf_output" "$@"
+   log_entry "sde::linkorder::emit_ld_lf_output" "$@"
 
-   _emit_ld_output $'\n' "" "$@"
+   sde::linkorder::_emit_ld_output $'\n' "" "$@"
 }
 
 
-emit_cmake_output()
+sde::linkorder::emit_cmake_output()
 {
-   log_entry "emit_cmake_output" "$@"
+   log_entry "sde::linkorder::emit_cmake_output" "$@"
 
-   _emit_ld_output ";" " " "$@"
+   sde::linkorder::_emit_ld_output ";" " " "$@"
 }
 
 
-emit_csv_output()
+sde::linkorder::emit_csv_output()
 {
-   log_entry "emit_csv_output" "$@"
+   log_entry "sde::linkorder::emit_csv_output" "$@"
 
    shift 4
 
@@ -268,9 +271,9 @@ emit_csv_output()
 }
 
 
-emit_node_output()
+sde::linkorder::emit_node_output()
 {
-   log_entry "emit_node_output" "$@"
+   log_entry "sde::linkorder::emit_node_output" "$@"
 
    shift 4
 
@@ -287,16 +290,16 @@ emit_node_output()
 # If we are inside dynamic or standalone we just want to list the
 # libraries, but not the linked dependencies.
 #
-linkorder_will_recurse()
+sde::linkorder::will_recurse()
 {
-   log_entry "linkorder_will_recurse" "$@"
+   log_entry "sde::linkorder::will_recurse" "$@"
 
-   if nodemarks_disable "${_marks}" "static-link"
+   if sourcetree::nodemarks::disable "${_marks}" "static-link"
    then
        INSIDE_DYNAMIC="${INSIDE_DYNAMIC}x"
    fi
 
-   if nodemarks_contain "${_marks}" "only-standalone"
+   if sourcetree::nodemarks::contain "${_marks}" "only-standalone"
    then
        INSIDE_STANDALONE="${INSIDE_STANDALONE}x"
    fi
@@ -305,16 +308,16 @@ linkorder_will_recurse()
 }
 
 
-linkorder_did_recurse()
+sde::linkorder::did_recurse()
 {
-   log_entry "linkorder_did_recurse" "$@"
+   log_entry "sde::linkorder::did_recurse" "$@"
 
-   if nodemarks_disable "${_marks}" "static-link"
+   if sourcetree::nodemarks::disable "${_marks}" "static-link"
    then
        INSIDE_DYNAMIC="${INSIDE_DYNAMIC%x}"
    fi
 
-   if nodemarks_enable "${_marks}" "standalone"
+   if sourcetree::nodemarks::enable "${_marks}" "standalone"
    then
       INSIDE_STANDALONE="${INSIDE_STANDALONE%x}"
    fi
@@ -323,33 +326,33 @@ linkorder_did_recurse()
 }
 
 
-linkorder_callback()
+sde::linkorder::callback()
 {
-   log_entry "linkorder_callback (${INSIDE_STANDALONE} ${INSIDE_DYNAMIC})" "$@"
+   log_entry "sde::linkorder::callback (${INSIDE_STANDALONE} ${INSIDE_DYNAMIC})" "$@"
 
    #
    # collect libraries not marked as dependencies
    #
    if [ ! -z "${INSIDE_STANDALONE}" -o ! -z "${INSIDE_DYNAMIC}" ] && \
-      nodemarks_enable "${_marks}" "dependency"
+      sourcetree::nodemarks::enable "${_marks}" "dependency"
    then
       # but hit me again later
-      walk_remove_from_visited "${WALK_MODE}"
+      sourcetree::walk::remove_from_visited "${WALK_MODE}"
       log_fluff "Skipped dependency \"${_address}\" as it's inside dynamic/standalone"
       return
    fi
 
-   log_verbose "Add \"${_address}\" to linkorder "
+   log_verbose "Add ${C_MAGENTA}${C_BOLD}${_address}${C_VERBOSE} to linkorder"
 
    printf "%s\n" "${_address};${_marks};${_raw_userinfo}"
 }
 
 
-r_sde_linkorder_all_nodes()
+sde::linkorder::r_all_nodes()
 {
-   log_entry "r_sde_linkorder_all_nodes" "$@"
+   log_entry "sde::linkorder::r_all_nodes" "$@"
 
-   include_mulle_tool_library "sourcetree" "walk"
+   include "sourcetree::walk"
 
    local INSIDE_STANDALONE
    local INSIDE_DYNAMIC
@@ -369,7 +372,12 @@ r_sde_linkorder_all_nodes()
    craft_qualifier="`"${MULLE_CRAFT:-mulle-craft}" qualifier print-no-build`" || exit 1
 
    r_concat "${qualifier}" "${craft_qualifier}" $'\n'"AND "
-   qualifier="${RVAL}"
+   craft_qualifier="${RVAL}"
+
+   local descend_qualifier
+
+   descend_qualifier="${craft_qualifier}"
+
 
    # local option_scope="$1"
    # local option_sharedir="$2"
@@ -378,15 +386,15 @@ r_sde_linkorder_all_nodes()
    # local option_use_fallback="$5"
    # local defer="$6"
    # local mode="$7"
-   include_mulle_tool_library "sourcetree" "environment"
+   include "sourcetree::environment"
 
-   sourcetree_environment "" \
-                          "${MULLE_SOURCETREE_STASH_DIRNAME}" \
-                          "" \
-                          "" \
-                          "" \
-                          "" \
-                          "${mode}"
+   sourcetree::environment::default "" \
+                                    "${MULLE_SOURCETREE_STASH_DIRNAME}" \
+                                    "" \
+                                    "" \
+                                    "" \
+                                    "" \
+                                    "${mode}"
 
    local bequeath_flag
 
@@ -396,7 +404,7 @@ r_sde_linkorder_all_nodes()
       bequeath_flag="--bequeath"
    fi
 
-   RVAL="`rexekutor sourcetree_walk_main \
+   RVAL="`rexekutor sourcetree::walk::main \
                                --lenient \
                                --no-eval \
                                --in-order \
@@ -404,25 +412,25 @@ r_sde_linkorder_all_nodes()
                                ${bequeath_flag} \
                                --configuration "Release" \
                                --dedupe "linkorder" \
-                               --callback-qualifier "${qualifier}" \
-                               --descend-qualifier "${qualifier}" \
-                               --will-recurse-callback linkorder_will_recurse \
-                               --did-recurse-callback linkorder_did_recurse \
+                               --callback-qualifier "${craft_qualifier}" \
+                               --descend-qualifier "${descend_qualifier}" \
+                               --will-recurse-callback sde::linkorder::will_recurse \
+                               --did-recurse-callback sde::linkorder::did_recurse \
                                --no-callback-trace \
-                               linkorder_callback `"
+                               sde::linkorder::callback `"
 
    log_fluff "Reversing lines"
    r_reverse_lines "${RVAL}"
-#   r_remove_leading_duplicate_nodes "${RVAL}"
+#   sde::linkorder::r_remove_leading_duplicate_nodes "${RVAL}"
 }
 
 
 #
 # this
 #
-r_search_os_library()
+sde::linkorder::r_search_os_library()
 {
-   log_entry "r_search_os_library" "$@"
+   log_entry "sde::linkorder::r_search_os_library" "$@"
 
    local aliases="$1"
 
@@ -432,7 +440,7 @@ r_search_os_library()
    for alias in ${aliases}
    do
       shell_enable_glob; IFS="${DEFAULT_IFS}"
-      if r_platform_search "" library "" "" "${alias}"
+      if platform::search::r_platform_search "" library "" "" "${alias}"
       then
          return 0
       fi
@@ -448,9 +456,9 @@ r_search_os_library()
 # local _optional_dependency_libs
 # local _os_specific_libs
 #
-r_linkorder_collect()
+sde::linkorder::r_collect()
 {
-   log_entry "r_linkorder_collect" "$@"
+   log_entry "sde::linkorder::r_collect" "$@"
 
    local address="$1"
    local marks="$2"
@@ -486,7 +494,7 @@ r_linkorder_collect()
 
    case ",${marks}," in
       *,no-actual-link,*)
-         log_fluff "headerless library ${name} with dependencies not linked"
+         log_fluff "Headerless library ${name} with dependencies not linked"
          return 4
       ;;
 
@@ -510,15 +518,14 @@ r_linkorder_collect()
          #
          #  check that library is present
          #
-         IFS=","; shell_disable_glob
-         for alias in ${aliases}
-         do
+         .foreachitem alias in ${aliases}
+         .do
             alias="${alias#*:}"  # remove type if any
-            if r_search_os_library "${alias}"
+            if sde::linkorder::r_search_os_library "${alias}"
             then
-               break
+               .break
             fi
-         done
+         .done
          shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          # otherwise prefer first alias
@@ -528,7 +535,7 @@ r_linkorder_collect()
             alias="${alias#*:}"  # remove type if any
          fi
 
-         log_fluff "Use OS library \"${alias}\""
+         log_verbose "Use OS library ${C_MAGENTA}${C_BOLD}${alias}"
          r_concat "${alias}" "${marks}" ";"
          return 0
       ;;
@@ -538,30 +545,28 @@ r_linkorder_collect()
    local aliasargs
    local aliasfail
 
-   IFS=","; shell_disable_glob
-   for alias in ${aliases}
-   do
+   .foreachitem alias in ${aliases}
+   .do
       alias="${alias#*:}"  # remove type if any
       r_concat "${aliasfail}" "'${alias}'" " or "
       aliasfail="${RVAL}"
       r_concat "${aliasargs}" "'${alias}'"
       aliasargs="${RVAL}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 
    # TODO: libraries are preferred over frameworks, which is arbitrary
 
-   eval r_sde_locate_library "'${library_searchpath}'" \
-                             "'${librarytype}'" \
-                             "'${requirement}'" \
-                             "${aliasargs}"
+   eval sde::linkorder::r_locate_library "'${library_searchpath}'" \
+                                         "'${librarytype}'" \
+                                         "'${requirement}'" \
+                                         "${aliasargs}"
    libpath="${RVAL}"
 
    if [ -z "${libpath}" ]
    then
       if [ ! -z "${framework_searchpath}" ]
       then
-         eval r_sde_locate_framework "'${framework_searchpath}'"  "${aliasargs}"
+         eval sde::linkorder::r_locate_framework "'${framework_searchpath}'"  "${aliasargs}"
          libpath="${RVAL}"
       fi
 
@@ -581,6 +586,7 @@ r_linkorder_collect()
          r_concat "${RVAL}" "${requirement}"
          r_concat "${RVAL}" "${librarytype}"
          r_concat "${RVAL}" "in searchpath \"${library_searchpath}\""
+
          if [ ! -z "${framework_searchpath}" ]
          then
             r_concat "${RVAL}" "or \"${framework_searchpath}\""
@@ -603,13 +609,13 @@ ${C_RESET_BOLD}   mulle-sde craft"
 }
 
 
-r_library_searchpath()
+sde::linkorder::r_library_searchpath()
 {
-   log_entry "r_library_searchpath" "$@"
+   log_entry "sde::linkorder::r_library_searchpath" "$@"
 
    local if_exists="$1"
 
-   include_mulle_tool_library "platform" "search"
+   include "platform::search"
 
    local options
 
@@ -640,13 +646,13 @@ ${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
 }
 
 
-r_framework_searchpath()
+sde::linkorder::r_framework_searchpath()
 {
-   log_entry "r_framework_searchpath" "$@"
+   log_entry "sde::linkorder::r_framework_searchpath" "$@"
 
    local if_exists="$1"
 
-   include_mulle_tool_library "platform" "search"
+   include "platform::search"
 
    local searchpath
    local configuration
@@ -677,9 +683,9 @@ ${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
 }
 
 
-r_get_emission_lib()
+sde::linkorder::r_get_emission_lib()
 {
-   log_entry "r_get_emission_lib" "$@"
+   log_entry "sde::linkorder::r_get_emission_lib" "$@"
 
    local address="$1"
    local marks="$2"
@@ -702,7 +708,7 @@ r_get_emission_lib()
       # TODO: WRONG!! must base64 decode ?
       case "${raw_userinfo}" in
          base64:*)
-            userinfo="`base64 --decode <<< "${raw_userinfo:7}"`"
+            userinfo="`base64 --decode <<< "${raw_userinfo:7}" `"
             if [ "$?" -ne 0 ]
             then
                internal_fail "userinfo could not be base64 decoded."
@@ -723,16 +729,16 @@ r_get_emission_lib()
    fi
 
    # TODO: could remove duplicates with awk
-   r_linkorder_collect "${address%#*}" \
-                       "${marks}" \
-                       "${aliases}" \
-                       "${library_searchpath}" \
-                       "${framework_searchpath}" \
-                       "${collect_libraries}"
+   sde::linkorder::r_collect "${address%#*}" \
+                             "${marks}" \
+                             "${aliases}" \
+                             "${library_searchpath}" \
+                             "${framework_searchpath}" \
+                             "${collect_libraries}"
 }
 
 
-r_remove_leading_duplicate_nodes()
+sde::linkorder::r_remove_leading_duplicate_nodes()
 {
    local nodes="$1"
 
@@ -748,7 +754,7 @@ r_remove_leading_duplicate_nodes()
 }
 
 
-r_remove_line_by_first_field()
+sde::linkorder::r_remove_line_by_first_field()
 {
    local lines="$1"
    local search="$2"
@@ -775,9 +781,9 @@ r_remove_line_by_first_field()
 }
 
 
-r_collect_emission_libs()
+sde::linkorder::r_collect_emission_libs()
 {
-   log_entry "r_collect_emission_libs" "$@"
+   log_entry "sde::linkorder::r_collect_emission_libs" "$@"
 
    local nodes="$1"
    local library_searchpath="$2"
@@ -796,17 +802,15 @@ r_collect_emission_libs()
    local _standalone_load
 
    local node
+   local rval
 
-   IFS=$'\n' ; shell_disable_glob
-   for node in ${nodes}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+   .foreachline node in ${nodes}
+   .do
       IFS=";" read address marks raw_userinfo <<< "${node}"
 
       case ",${omit}," in
          *,${address},*)
-            continue
+            .continue
          ;;
       esac
 
@@ -814,14 +818,16 @@ r_collect_emission_libs()
       then
          line="${address}"
       else
-         if ! r_get_emission_lib "${address}" \
-                                 "${marks}" \
-                                 "${raw_userinfo}" \
-                                 "${library_searchpath}" \
-                                 "${framework_searchpath}" \
-                                 "${collect_libraries}"
+         sde::linkorder::r_get_emission_lib "${address}" \
+                                            "${marks}" \
+                                            "${raw_userinfo}" \
+                                            "${library_searchpath}" \
+                                            "${framework_searchpath}" \
+                                            "${collect_libraries}"
+         rval=$?
+         if [ $rval = 4 ]
          then
-            continue
+            .continue
          fi
          line="${RVAL}"
       fi
@@ -830,8 +836,7 @@ r_collect_emission_libs()
       r_remove_line "${RVAL}" "${line}"
       r_add_line "${RVAL}" "${line}"
       dependency_libs="${RVAL}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 
    if [ "${OPTION_REVERSE}" = 'YES' ]
    then
@@ -844,7 +849,7 @@ r_collect_emission_libs()
 
 
 
-include_mulle_platform()
+sde::linkorder::include_mulle_platform()
 {
    #
    # load mulle-platform as library, since we would be calling the executable
@@ -880,9 +885,9 @@ include_mulle_platform()
 # of the non-static libraries removed... ugh
 #
 #
-sde_linkorder_main()
+sde::linkorder::main()
 {
-   log_entry "sde_linkorder_main" "$@"
+   log_entry "sde::linkorder::main" "$@"
 
    local OPTION_CONFIGURATION="${CONFIGURATIONS%%:*}"
    local OPTION_OUTPUT_FORMAT="ld_lf"
@@ -904,18 +909,18 @@ sde_linkorder_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_linkorder_usage
+            sde::linkorder::usage
          ;;
 
          -c|--configuration)
-           [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+           [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
             OPTION_CONFIGURATION="$1"
          ;;
 
          --preferred-library-style)
-           [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+           [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
             OPTION_PREFERRED_LIBRARY_STYLE="$1"
@@ -954,7 +959,7 @@ sde_linkorder_main()
          ;;
 
          --output-omit)
-            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${OPTION_OUTPUT_OMIT}" "$1"
@@ -998,7 +1003,7 @@ sde_linkorder_main()
          ;;
 
          --whole-archive-format)
-            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
             OPTION_WHOLE_ARCHIVE_FORMAT="$1"
@@ -1007,7 +1012,7 @@ sde_linkorder_main()
          ;;
 
          --output-format)
-            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
             OPTION_OUTPUT_FORMAT="$1"
@@ -1024,20 +1029,20 @@ sde_linkorder_main()
                ;;
 
                *)
-                  sde_linkorder_usage "Unknown format value \"${OPTION_OUTPUT_FORMAT}\""
+                  sde::linkorder::usage "Unknown format value \"${OPTION_OUTPUT_FORMAT}\""
                ;;
             esac
          ;;
 
          --stash-dir)
-            [ $# -eq 1 ] && sde_linkorder_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
             MULLE_SOURCETREE_STASH_DIR="$1"
          ;;
 
          -*)
-            sde_linkorder_usage "Unknown option \"$1\""
+            sde::linkorder::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1055,7 +1060,7 @@ sde_linkorder_main()
    local normal_loads
    local collect
 
-   r_sde_linkorder_all_nodes
+   sde::linkorder::r_all_nodes
    nodes="${RVAL}"
 
    if [ "${OPTION_OUTPUT_FORMAT}" = "debug" ]
@@ -1070,34 +1075,34 @@ sde_linkorder_main()
       return 0
    fi
 
-   include_mulle_platform
+   sde::linkorder::include_mulle_platform
 
    local library_searchpath
    local framework_searchpath
 
    if [ "${OPTION_OUTPUT_FORMAT}" != "node" ]
    then
-      r_library_searchpath "YES"
+      sde::linkorder::r_library_searchpath "YES"
       library_searchpath="${RVAL}"
 
       case "${MULLE_UNAME}" in
          darwin)
-            r_framework_searchpath # optional s
+            sde::linkorder::r_framework_searchpath # optional s
             framework_searchpath="${RVAL}"
          ;;
       esac
    fi
 
-   r_collect_emission_libs "${nodes}" \
-                           "${library_searchpath}" \
-                           "${framework_searchpath}" \
-                           "${collect_libraries}" \
-                           "${OPTION_OUTPUT_OMIT}"
+   sde::linkorder::r_collect_emission_libs "${nodes}" \
+                                           "${library_searchpath}" \
+                                           "${framework_searchpath}" \
+                                           "${collect_libraries}" \
+                                           "${OPTION_OUTPUT_OMIT}"
    dependency_libs="${RVAL}"
 
-   emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \
-                                       "${OPTION_RPATH}" \
-                                       "${OPTION_PREFERRED_LIBRARY_STYLE}" \
-                                       "${OPTION_WHOLE_ARCHIVE_FORMAT}" \
-                                       ${dependency_libs}
+   sde::linkorder::emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \
+                                                       "${OPTION_RPATH}" \
+                                                       "${OPTION_PREFERRED_LIBRARY_STYLE}" \
+                                                       "${OPTION_WHOLE_ARCHIVE_FORMAT}" \
+                                                       ${dependency_libs}
 }

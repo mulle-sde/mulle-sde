@@ -162,6 +162,12 @@ Leave the environment:
 $ exit
 ```
 
+> #### Tip:
+>
+> Use an alias like `alias sde=mulle-sde` to avoid typing the `mulle-` prefix
+> every time.
+
+
 ## mulle-sde add
 
 ![](dox/mulle-sde-add.png)
@@ -326,10 +332,12 @@ mulle-sde log cat
 mulle-sde log -p "MulleObjC" grep 'foo'
 ```
 
+
 ## mulle-sde patternfile
 
 ![](dox/mulle-sde-patternfile.png)
 
+Patternfile control the reflection of source files to the project files.
 Manage the *patternfiles* that are used by `mulle-sde list` to classify the
 files inside your project:
 
@@ -339,7 +347,6 @@ mulle-sde patternfile list
 
 See [mulle-match](https://github.com/mulle-sde/mulle-match) for more
 information on this command.
-
 
 
 ## mulle-sde status

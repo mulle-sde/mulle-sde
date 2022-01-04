@@ -32,7 +32,7 @@
 MULLE_SDE_CRAFT_SH="included"
 
 
-sde_craft_usage()
+sde::craft::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -83,9 +83,9 @@ EOF
 }
 
 
-sde_perform_fetch_if_needed()
+sde::craft::perform_fetch_if_needed()
 {
-   log_entry "sde_perform_fetch_if_needed" "$@"
+   log_entry "sde::craft::perform_fetch_if_needed" "$@"
 
    local dbrval="$1"
 
@@ -127,9 +127,9 @@ sde_perform_fetch_if_needed()
 }
 
 
-r_sde_perform_craftorder_reflects_if_needed()
+sde::craft::r_perform_craftorder_reflects_if_needed()
 {
-   log_entry "r_sde_perform_craftorder_reflects_if_needed" "$@"
+   log_entry "sde::craft::r_perform_craftorder_reflects_if_needed" "$@"
 
    local craftorderfile="$1"
 
@@ -213,9 +213,9 @@ r_sde_perform_craftorder_reflects_if_needed()
 }
 
 
-sde_perform_mainproject_reflect_if_needed()
+sde::craft::perform_mainproject_reflect_if_needed()
 {
-   log_entry "sde_perform_mainproject_reflect_if_needed" "$@"
+   log_entry "sde::craft::perform_mainproject_reflect_if_needed" "$@"
 
    local target="$1"
    local dbrval="$2"
@@ -268,7 +268,7 @@ sde_perform_mainproject_reflect_if_needed()
       [ -z "${MULLE_SDE_REFLECT_SH}" ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
-      sde_reflect_main ${reflectflags} ${tasks} || fail "reflect fail" 1
+      sde::reflect::main ${reflectflags} ${tasks} || fail "reflect fail" 1
    fi
 }
 
@@ -278,9 +278,9 @@ sde_perform_mainproject_reflect_if_needed()
 #       only, clean all if an inferior sourcetree is dirty (though this
 #       won't catch sourcechanges), so maybe pointless
 #
-sde_perform_clean_if_needed()
+sde::craft::perform_clean_if_needed()
 {
-   log_entry "sde_perform_clean_if_needed" "$@"
+   log_entry "sde::craft::perform_clean_if_needed" "$@"
 
    local dbrval="$1"
    local mode="$2"
@@ -301,14 +301,14 @@ sde_perform_clean_if_needed()
       [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
 
-      sde_clean_main --no-test
+      sde::clean::main --no-test
    fi
 }
 
 
-sde_create_craftorder_if_needed()
+sde::craft::create_craftorder_if_needed()
 {
-   log_entry "sde_create_craftorder_if_needed" "$@"
+   log_entry "sde::craft::create_craftorder_if_needed" "$@"
 
    local target="$1"
    local craftorderfile="$2"
@@ -322,14 +322,14 @@ sde_create_craftorder_if_needed()
       'craftorder'|'all')
          case ${dbrval} in
             0)
-               create_craftorder_file_if_needed "${craftorderfile}" "${cachedir}"
+               sde::craftorder::create_file_if_needed "${craftorderfile}" "${cachedir}"
             ;;
 
             1)
             ;;
 
             *)
-               create_craftorder_file "${craftorderfile}" "${cachedir}"
+               sde::craftorder::create_file "${craftorderfile}" "${cachedir}"
             ;;
          esac
       ;;
@@ -337,9 +337,9 @@ sde_create_craftorder_if_needed()
 }
 
 
-sde_craft_target()
+sde::craft::target()
 {
-   log_entry "sde_craft_target" "$@"
+   log_entry "sde::craft::target" "$@"
 
    local target="$1"
    local project_cmdline="$2"
@@ -409,9 +409,9 @@ sde_craft_target()
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
 #
-sde_craft_main()
+sde::craft::main()
 {
-   log_entry "sde_craft_main" "$@"
+   log_entry "sde::craft::main" "$@"
 
    local target
    local OPTION_REFLECT='YES'
@@ -447,7 +447,7 @@ sde_craft_main()
 
       case "$1" in
          -h|--help|help)
-            sde_craft_usage
+            sde::craft::usage
          ;;
 
          -q|--quick|no-update|no-reflect)
@@ -463,7 +463,7 @@ sde_craft_main()
          ;;
 
          --analyze-dir)
-            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
 
             MULLE_SCAN_BUILD_DIR="$1"
@@ -478,13 +478,13 @@ sde_craft_main()
          ;;
 
          --clean-domain)
-            [ $# -eq 1 ] && sde_craft_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
 
             [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
-            sde_clean_main "$1"
+            sde::clean::main "$1"
          ;;
 
          --no-motd)
@@ -520,7 +520,7 @@ sde_craft_main()
    local _craftorderfile
    local _cachedir
 
-   __get_craftorder_info
+   sde::craftorder::__get_info
 
    log_verbose "Check sourcetree for changes"
 
@@ -549,16 +549,16 @@ sde_craft_main()
    fi
 
    # do the clean first as it wipes the database
-   sde_perform_clean_if_needed "${dbrval}" "${OPTION_CLEAN}"
+   sde::craft::perform_clean_if_needed "${dbrval}" "${OPTION_CLEAN}"
 
-   sde_perform_fetch_if_needed "${dbrval}"
+   sde::craft::perform_fetch_if_needed "${dbrval}"
 
    if [ "${OPTION_REFLECT}" != 'NO' ]
    then
-      sde_perform_mainproject_reflect_if_needed "${target}" "${dbrval}"
+      sde::craft::perform_mainproject_reflect_if_needed "${target}" "${dbrval}"
    fi
 
-   sde_create_craftorder_if_needed "${target}" \
+   sde::craft::create_craftorder_if_needed "${target}" \
                                    "${_craftorderfile}" \
                                    "${_cachedir}" \
                                    "${dbrval}"
@@ -567,7 +567,7 @@ sde_craft_main()
    # we have to check that our craftorder dependencies have reflected to the
    # same sourcetree name. Usually this should be quick, as this is very rare
    #
-   r_sde_perform_craftorder_reflects_if_needed "${_craftorderfile}"
+   sde::craft::r_perform_craftorder_reflects_if_needed "${_craftorderfile}"
    if [ ! -z "${RVAL}" ]
    then
       log_warning "There have been changes in the dependencies ${RVAL}.
@@ -694,7 +694,7 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 
 #   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
-   sde_craft_target "${target}"  \
+   sde::craft::target "${target}"  \
                     "${project_cmdline}" \
                     "${craftorder_cmdline}" \
                     "${_craftorderfile}" \
@@ -723,9 +723,9 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 }
 
 
-sde_craftstatus_main()
+sde::craft::craftstatus_main()
 {
-   log_entry "sde_craftstatus_main" "$@"
+   log_entry "sde::craft::craftstatus_main" "$@"
 
    local _craftorderfile
    local _cachedir
@@ -733,7 +733,7 @@ sde_craftstatus_main()
    [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
-   __get_craftorder_info
+   sde::craftorder::__get_info
 
    if [ ! -f "${_craftorderfile}" ]
    then

@@ -32,7 +32,7 @@
 MULLE_SDE_STEAL_SH="included"
 
 
-sde_steal_usage()
+sde::steal::usage()
 {
    [ "$#" -ne 0 ] && log_error "$*"
 
@@ -57,9 +57,9 @@ EOF
 
 
 
-fetch_repositories()
+sde::steal::fetch_repositories()
 {
-   log_entry "fetch_repositories" "$@"
+   log_entry "sde::steal::fetch_repositories" "$@"
 
    local tmpdir="$1" ; shift
 
@@ -71,9 +71,9 @@ fetch_repositories()
 }
 
 
-combine_sources()
+sde::steal::combine_sources()
 {
-   log_entry "combine_sources" "$@"
+   log_entry "sde::steal::combine_sources" "$@"
 
    local dstdir="$1"; shift
    local tmpdir="$1"; shift
@@ -140,9 +140,9 @@ combine_sources()
 }
 
 
-create_include()
+sde::steal::create_include()
 {
-   log_entry "create_include" "$@"
+   log_entry "sde::steal::create_include" "$@"
 
    local identifier="$1"
 
@@ -163,9 +163,9 @@ create_include()
 }
 
 
-create_include_private()
+sde::steal::create_include_private()
 {
-   log_entry "create_include_private" "$@"
+   log_entry "sde::steal::create_include_private" "$@"
 
    local identifier="$1"
 
@@ -187,14 +187,14 @@ create_include_private()
 
 
 
-create_include_files()
+sde::steal::create_include_files()
 {
-   log_entry "create_include_files" "$@"
+   log_entry "sde::steal::create_include_files" "$@"
 
    local identifier="$1"
 
-   redirect_exekutor include.h create_include "${identifier}"  &&
-   redirect_exekutor include-private.h create_include_private "${identifier}"
+   redirect_exekutor "include.h" sde::steal::create_include "${identifier}"  &&
+   redirect_exekutor "include-private.h" sde::steal::create_include_private "${identifier}"
 }
 
 
@@ -204,9 +204,9 @@ create_include_files()
 # Doesn't work for mulle-thread, since it doesn't catch mintomic.
 #
 
-sde_steal_main()
+sde::steal::main()
 {
-   log_entry "sde_steal_main" "$@"
+   log_entry "sde::steal::main" "$@"
 
    local KEEP_TMP='DEFAULT'
 
@@ -217,7 +217,7 @@ sde_steal_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_steal_usage
+            sde::steal::usage
          ;;
 
          --keep-tmp)
@@ -225,7 +225,7 @@ sde_steal_main()
          ;;
 
          -d)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::steal::usage "Missing argument to \"$1\""
             shift
 
             exekutor mkdir -p "$1" 2> /dev/null
@@ -240,7 +240,7 @@ sde_steal_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde_steal_usage "Missing URL"
+   [ $# -eq 0 ] && sde::steal::usage "Missing URL"
 
    if [ -z "${MULLE_PATH_SH}" ]
    then
@@ -272,9 +272,9 @@ sde_steal_main()
    r_identifier "${name}"
    identifier="${RVAL:-unknown}"
 
-   fetch_repositories "${tmpdir}" "$@" &&
-   combine_sources "${PWD}" "${tmpdir}" &&
-   create_include_files "${identifier}" || exit 1
+   sde::steal::fetch_repositories "${tmpdir}" "$@" &&
+   sde::steal::combine_sources "${PWD}" "${tmpdir}" &&
+   sde::steal::create_include_files "${identifier}" || exit 1
 
    if [ "${KEEP_TMP}" = 'YES' ]
    then

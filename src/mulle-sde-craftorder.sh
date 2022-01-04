@@ -32,7 +32,7 @@
 MULLE_SDE_CRAFTORDER_SH="included"
 
 
-sde_craftorder_usage()
+sde::craftorder::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -53,7 +53,7 @@ EOF
 }
 
 
-__get_craftorder_info()
+sde::craftorder::__get_info()
 {
    local sdk="$1"
    local platform="$2"
@@ -68,7 +68,7 @@ __get_craftorder_info()
 # this function is injected into the sourcetree walker
 # it returns new marks in RVAL
 #
-r_append_mark_no_memo_to_subproject()
+sde::craftorder::r_append_mark_no_memo_to_subproject()
 {
    local datasource="$1"
    local address="$2"
@@ -101,9 +101,9 @@ r_append_mark_no_memo_to_subproject()
 # This should be another task so that it can run in parallel to the other
 # updates
 #
-create_craftorder_file()
+sde::craftorder::create_file()
 {
-   log_entry "create_craftorder_file" "$@"
+   log_entry "sde::craftorder::create_file" "$@"
 
    local craftorderfile="$1"; shift
    local cachedir="$1"; shift
@@ -118,7 +118,7 @@ create_craftorder_file()
    local callback
 
    # get "source" of function into callback
-   callback="`declare -f r_append_mark_no_memo_to_subproject`"
+   callback="`declare -f sde::craftorder::r_append_mark_no_memo_to_subproject`"
    mkdir_if_missing "${cachedir}"
    if ! redirect_exekutor "${craftorderfile}" \
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -136,9 +136,9 @@ create_craftorder_file()
 }
 
 
-create_craftorder_file_if_needed()
+sde::craftorder::create_file_if_needed()
 {
-   log_entry "create_craftorder_file_if_needed" "$@"
+   log_entry "sde::craftorder::create_file_if_needed" "$@"
 
    local craftorderfile="$1"; shift
    local cachedir="$1"; shift
@@ -167,16 +167,16 @@ create_craftorder_file_if_needed()
    #
    if [ "${sourcetreefile}" -nt "${craftorderfile}" ]
    then
-      create_craftorder_file "${craftorderfile}" "${cachedir}"
+      sde::craftorder::create_file "${craftorderfile}" "${cachedir}"
    else
       log_fluff "Craftorder file \"${craftorderfile#${MULLE_USER_PWD}/}\" is up-to-date"
    fi
 }
 
 
-show_cached_craftorder()
+sde::craftorder::show_cached()
 {
-   log_entry "show_cached_craftorder" "$@"
+   log_entry "sde::craftorder::show_cached" "$@"
 
    local craftorderfile="$1" ; shift
 
@@ -192,15 +192,15 @@ show_cached_craftorder()
 }
 
 
-show_uncached_craftorder()
+sde::craftorder::show_uncached()
 {
-   log_entry "show_uncached_craftorder" "$@"
+   log_entry "sde::craftorder::show_uncached" "$@"
 
    local callback
 
    log_info "Craftorder"
 
-   callback="`declare -f r_append_mark_no_memo_to_subproject`"
+   callback="`declare -f sde::craftorder::r_append_mark_no_memo_to_subproject`"
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
@@ -212,9 +212,9 @@ show_uncached_craftorder()
 }
 
 
-sde_craftorder_main()
+sde::craftorder::main()
 {
-   log_entry "sde_craftorder_main" "$@"
+   log_entry "sde::craftorder::main" "$@"
 
    local OPTION_CACHED='YES'
    local OPTION_REMOVE_CACHED='NO'
@@ -228,7 +228,7 @@ sde_craftorder_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_craftorder_usage
+            sde::craftorder::usage
          ;;
 
          --create)
@@ -268,7 +268,7 @@ sde_craftorder_main()
          ;;
 
          -*)
-            sde_craftorder_usage "Unknown option \"$1\""
+            sde::craftorder::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -287,7 +287,7 @@ sde_craftorder_main()
    local _craftorderfile
    local _cachedir
 
-   __get_craftorder_info
+   sde::craftorder::__get_info
 
 
    if [ "${OPTION_PRINT_CACHEFILE_PATH}" = 'YES'  ]
@@ -313,14 +313,14 @@ sde_craftorder_main()
 
    if [ "${OPTION_CREATE}" = 'YES'  ]
    then
-      create_craftorder_file "${_craftorderfile}" \
+      sde::craftorder::create_file "${_craftorderfile}" \
                              "${_cachedir}" \
       || fail "Failed to create craftorderfile"
    fi
 
    if [ "${OPTION_CACHED}" = 'YES' ]
    then
-      if show_cached_craftorder "${_craftorderfile}"
+      if sde::craftorder::show_cached "${_craftorderfile}"
       then
          if [ "${OPTION_UNCACHED}" = 'DEFAULT' ]
          then
@@ -331,7 +331,7 @@ sde_craftorder_main()
 
    if [ "${OPTION_UNCACHED}" != 'NO' ]
    then
-      show_uncached_craftorder
+      sde::craftorder::show_uncached
    fi
 
    if [ "${OPTION_REMAINING}" = 'YES' ]
@@ -339,7 +339,7 @@ sde_craftorder_main()
       log_info "Remaining"
       if [ -f "${_craftorderfile}" ]
       then
-         show_craftorder
+         sde::craftorder::show_cached "${_craftorderfile}"
          return 0
       else
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \

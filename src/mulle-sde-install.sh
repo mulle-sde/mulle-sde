@@ -32,7 +32,7 @@
 MULLE_SDE_INSTALL_SH="included"
 
 
-sde_install_usage()
+sde::install::usage()
 {
    [ "$#" -ne 0 ] && log_error "$*"
 
@@ -87,9 +87,9 @@ EOF
 }
 
 
-do_update_sourcetree()
+sde::install::do_update_sourcetree()
 {
-   log_entry "do_update_sourcetree" "$@"
+   log_entry "sde::install::do_update_sourcetree" "$@"
 
    if [ "${MULLE_SDE_FETCH}" = 'NO' ]
    then
@@ -108,9 +108,9 @@ do_update_sourcetree()
 # This method create a new custom project adds everything as dependencies
 # and installs all of them by setting DEPENDENCY_DIR to --prefix
 #
-install_in_tmp()
+sde::install::in_tmp()
 {
-   log_entry "install_in_tmp" "$@"
+   log_entry "sde::install::in_tmp" "$@"
 
    local url="$1"
    local directory="$2" 
@@ -286,9 +286,9 @@ Use -f flag to clobber."
 # This method clones/copies a project. Places all dependencies into a local
 # DEPENDENCY_DIR then build project with --prefix and runs make install
 #
-install_project_only_in_tmp()
+sde::install::project_only_in_tmp()
 {
-   log_entry "install_project_only_in_tmp" "$@"
+   log_entry "sde::install::project_only_in_tmp" "$@"
 
    local url="$1"
    local directory="$2"
@@ -362,9 +362,9 @@ install_project_only_in_tmp()
 }
 
 
-sde_install_main()
+sde::install::main()
 {
-   log_entry "sde_install_main" "$@"
+   log_entry "sde::install::main" "$@"
 
    local OPTION_BRANCH=
    local OPTION_CONFIGURATION='Release'
@@ -386,25 +386,25 @@ sde_install_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_install_usage
+            sde::install::usage
          ;;
 
          -d|--directory)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             OPTION_PROJECT_DIR="$1"
          ;;
 
          -b|--build-dir|-k|--kitchen-dir)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             KITCHEN_DIR="$1"
          ;;
 
          --branch)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             OPTION_BRANCH="$1"
@@ -420,14 +420,14 @@ sde_install_main()
          ;;
 
          --configuration)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             OPTION_CONFIGURATION="$1"
          ;;
 
          --language)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             OPTION_LANGUAGE="$1"
@@ -450,7 +450,7 @@ sde_install_main()
          ;;
 
          --marks)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             r_comma_concat "${OPTION_MARKS}" "$1"
@@ -462,14 +462,14 @@ sde_install_main()
          ;;
 
          --prefix)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             PREFIX_DIR="$1"
          ;;
 
          --preferred-library-style|--library-style)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             OPTION_PREFERRED_LIBRARY_STYLE="$1"
@@ -507,7 +507,7 @@ sde_install_main()
          ;;
 
          --tag)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             OPTION_TAG="$1"
@@ -518,7 +518,7 @@ sde_install_main()
          ;;
 
          --url)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
             URL="$1"
@@ -530,7 +530,7 @@ sde_install_main()
          ;;
 
          -*)
-            sde_install_usage "Unknown option \"$1\""
+            sde::install::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -543,7 +543,7 @@ sde_install_main()
 
    if [ -z "${URL}" ]
    then
-      [ "$#" -eq 0 ] && sde_install_usage "Missing url argument"
+      [ "$#" -eq 0 ] && sde::install::usage "Missing url argument"
 
       URL="$1"
       shift
@@ -566,7 +566,7 @@ sde_install_main()
    then
       if [ "$1" != "--"  ]
       then
-         sde_install_usage "Superflous argument \"$1\" (use -- for mulle-make \
+         sde::install::usage "Superflous argument \"$1\" (use -- for mulle-make \
 pass through)"
       fi
 
@@ -584,7 +584,7 @@ pass through)"
    #
    # What we want to achieve is running in a "clean" room environment
    #
-   set_custom_environment "${MULLE_DEFINE_FLAGS}"
+   sde::set_custom_environment "${MULLE_DEFINE_FLAGS}"
 
    if [ "${OPTION_LANGUAGE}" = 'DEFAULT' ]
    then
@@ -656,14 +656,14 @@ pass through)"
       fi
 
       # project should be ready now
-      install_project_only_in_tmp "${URL}" \
-                                  "${PROJECT_DIR}" \
-                                  "${PREFIX_DIR}" \
-                                  "${OPTION_CONFIGURATION}" \
-                                  "${OPTION_SERIAL}" \
-                                  "${OPTION_SYMLINK}" \
-                                  "${OPTION_PREFERRED_LIBRARY_STYLE}" \
-                                  "${arguments}"
+      sde::install::project_only_in_tmp "${URL}" \
+                                        "${PROJECT_DIR}" \
+                                        "${PREFIX_DIR}" \
+                                        "${OPTION_CONFIGURATION}" \
+                                        "${OPTION_SERIAL}" \
+                                        "${OPTION_SYMLINK}" \
+                                        "${OPTION_PREFERRED_LIBRARY_STYLE}" \
+                                        "${arguments}"
    else
       if [ -z "${OPTION_PROJECT_DIR}" ]
       then
@@ -708,7 +708,7 @@ pass through)"
          log_trace2 "PROJECT_DIR=${PROJECT_DIR}"
       fi
 
-      install_in_tmp "${URL}" \
+      sde::install::in_tmp "${URL}" \
                      "${PROJECT_DIR}" \
                      "${OPTION_MARKS}" \
                      "${OPTION_CONFIGURATION}" \

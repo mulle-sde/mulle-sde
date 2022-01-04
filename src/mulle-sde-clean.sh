@@ -67,7 +67,7 @@ MULLE_SDE_CLEAN_SH="included"
 # sde:         N/A
 # sourcetree:  touch, clean, reset  (do not clear graveyards,)
 #
-sde_clean_domains_usage()
+sde::clean::domains_usage()
 {
    cat <<EOF
    all         : clean craftinfos, craftorder, project. Remove folder "`basename -- "${DEPENDENCY_DIR}"`"
@@ -86,7 +86,7 @@ EOF
 }
 
 
-sde_clean_usage()
+sde::clean::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -119,7 +119,7 @@ EOF
 
 Domains:
 EOF
-   sde_clean_domains_usage >&2
+   sde::clean::domains_usage >&2
    exit 1
 }
 
@@ -128,9 +128,9 @@ EOF
 # use rexekutor to show call, put pass -n flag via technical flags so
 # nothing gets actually deleted with -n
 #
-sde_clean_kitchendir_main()
+sde::clean::kitchendir()
 {
-   log_entry "sde_clean_kitchendir_main" "$@"
+   log_entry "sde::clean::kitchendir" "$@"
 
    KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
 
@@ -144,9 +144,9 @@ sde_clean_kitchendir_main()
 }
 
 
-sde_clean_dependencydir_main()
+sde::clean::dependencydir()
 {
-   log_entry "sde_clean_dependencydir_main" "$@"
+   log_entry "sde::clean::dependencydir" "$@"
 
    if [ ! -z "${DEPENDENCY_DIR}" ]
    then
@@ -158,21 +158,21 @@ sde_clean_dependencydir_main()
 }
 
 
-sde_clean_output_main()
+sde::clean::output()
 {
-   log_entry "sde_clean_output_main" "$@"
+   log_entry "sde::clean::output" "$@"
 
    log_verbose "Cleaning \"addiction\" directory"
    [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
 
-   sde_clean_kitchendir_main "$@"
-   sde_clean_dependencydir_main "$@"
+   sde::clean::kitchendir "$@"
+   sde::clean::dependencydir "$@"
 }
 
 
-sde_clean_dependency_main()
+sde::clean::dependency()
 {
-   log_entry "sde_clean_dependency_main" "$@"
+   log_entry "sde::clean::dependency" "$@"
 
    log_verbose "Cleaning \"dependency\" directory"
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
@@ -182,9 +182,9 @@ sde_clean_dependency_main()
 }
 
 
-sde_clean_project_main()
+sde::clean::project()
 {
-   log_entry "sde_clean_project_main" "$@"
+   log_entry "sde::clean::project" "$@"
 
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} \
@@ -193,9 +193,9 @@ sde_clean_project_main()
 }
 
 
-sde_clean_craftinfo_main()
+sde::clean::craftinfo()
 {
-   log_entry "sde_clean_craftinfo_main" "$@"
+   log_entry "sde::clean::craftinfo" "$@"
 
    if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
    then
@@ -206,7 +206,7 @@ sde_clean_craftinfo_main()
    local craftinfos
    local craftinfo
 
-   craftinfos="`sde_dependency_craftinfo_get_addresses`"
+   craftinfos="`sde::craftinfo::get_addresses`"
    if [ -z "${craftinfos}" ]
    then
       log_fluff "No craftinfos, so done"
@@ -226,9 +226,9 @@ sde_clean_craftinfo_main()
 }
 
 
-sde_clean_subproject_main()
+sde::clean::subproject()
 {
-   log_entry "sde_clean_subproject_main" "$@"
+   log_entry "sde::clean::subproject" "$@"
 
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
@@ -239,7 +239,7 @@ sde_clean_subproject_main()
    local subprojects
    local subproject
 
-   subprojects="`sde_subproject_get_addresses`"
+   subprojects="`sde::subproject::get_addresses`"
    if [ -z "${subprojects}" ]
    then
       log_fluff "No subprojects, so none to clean."
@@ -264,9 +264,9 @@ sde_clean_subproject_main()
 }
 
 
-sde_clean_craftordercache_main()
+sde::clean::craftordercache()
 {
-   log_entry "sde_clean_craftordercache_main" "$@"
+   log_entry "sde::clean::craftordercache" "$@"
 
    [ -z "${MULLE_SDE_VAR_DIR}" ] && internal_fail "MULLE_SDE_VAR_DIR not defined"
 
@@ -280,9 +280,9 @@ sde_clean_craftordercache_main()
 # also wipe archive cache. Does not wipe git mirror cache unless -f is given
 # because thats supposed to be harmless
 #
-sde_clean_archive_main()
+sde::clean::archive()
 {
-   log_entry "sde_clean_archive_main" "$@"
+   log_entry "sde::clean::archive" "$@"
 
    if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
    then
@@ -295,9 +295,9 @@ sde_clean_archive_main()
 }
 
 
-sde_clean_mirror_main()
+sde::clean::mirror()
 {
-   log_entry "sde_clean_mirror_main" "$@"
+   log_entry "sde::clean::mirror" "$@"
 
    if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
    then
@@ -315,9 +315,9 @@ sde_clean_mirror_main()
 }
 
 
-sde_clean_var_main()
+sde::clean::var()
 {
-   log_entry "sde_clean_var_main" "$@"
+   log_entry "sde::clean::var" "$@"
 
    log_verbose "Cleaning \"${MULLE_SDE_VAR_DIR}\" folder"
 
@@ -325,9 +325,9 @@ sde_clean_var_main()
 }
 
 
-sde_clean_tmp_main()
+sde::clean::tmp()
 {
-   log_entry "sde_clean_tmp_main" "$@"
+   log_entry "sde::clean::tmp" "$@"
 
    local dir
 
@@ -346,9 +346,9 @@ sde_clean_tmp_main()
 }
 
 
-sde_clean_db_main()
+sde::clean::db()
 {
-   log_entry "sde_clean_db_main" "$@"
+   log_entry "sde::clean::db" "$@"
 
    log_verbose "Cleaning sourcetree database"
 
@@ -359,9 +359,9 @@ sde_clean_db_main()
 }
 
 
-sde_clean_sourcetree_main()
+sde::clean::sourcetree()
 {
-   log_entry "sde_clean_sourcetree_main" "$@"
+   log_entry "sde::clean::sourcetree" "$@"
 
    log_verbose "Cleaning sourcetree"
 
@@ -372,9 +372,9 @@ sde_clean_sourcetree_main()
 }
 
 
-sde_clean_sourcetree_share_main()
+sde::clean::sourcetree_share()
 {
-   log_entry "sde_clean_sourcetree_share_main" "$@"
+   log_entry "sde::clean::sourcetree_share" "$@"
 
    log_verbose "Cleaning sourcetree and stash"
 
@@ -385,9 +385,9 @@ sde_clean_sourcetree_share_main()
 }
 
 
-sde_clean_patternfile_main()
+sde::clean::patternfile()
 {
-   log_entry "sde_clean_patternfile_main" "$@"
+   log_entry "sde::clean::patternfile" "$@"
 
    log_verbose "Cleaning patternfiles"
 
@@ -397,9 +397,9 @@ sde_clean_patternfile_main()
 }
 
 
-sde_clean_monitor_main()
+sde::clean::monitor()
 {
-   log_entry "sde_clean_monitor_main" "$@"
+   log_entry "sde::clean::monitor" "$@"
 
    log_verbose "Cleaning monitor files"
 
@@ -410,9 +410,9 @@ sde_clean_monitor_main()
 }
 
 
-sde_clean_graveyard_main()
+sde::clean::graveyard()
 {
-   log_entry "sde_clean_graveyard_main" "$@"
+   log_entry "sde::clean::graveyard" "$@"
 
    log_verbose "Cleaning graveyard"
 
@@ -423,9 +423,9 @@ sde_clean_graveyard_main()
 }
 
 
-sde_clean_test_main()
+sde::clean::test()
 {
-   log_entry "sde_clean_test_main" "$@"
+   log_entry "sde::clean::test" "$@"
 
    log_verbose "Cleaning test"
 
@@ -435,9 +435,9 @@ sde_clean_test_main()
 }
 
 
-sde_clean_testall_main()
+sde::clean::testall()
 {
-   log_entry "sde_clean_testall_main" "$@"
+   log_entry "sde::clean::testall" "$@"
 
    log_verbose "Cleaning all test"
 
@@ -448,9 +448,9 @@ sde_clean_testall_main()
 
 
 
-sde_clean_main()
+sde::clean::main()
 {
-   log_entry "sde_clean_main" "$@"
+   log_entry "sde::clean::main" "$@"
 
    local OPTION_TEST="YES"
 
@@ -461,7 +461,7 @@ sde_clean_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_clean_usage
+            sde::clean::usage
          ;;
 
          --no-graveyard)
@@ -478,7 +478,7 @@ sde_clean_main()
          ;;
 
          -*)
-            sde_clean_usage "Unknown option \"$1\""
+            sde::clean::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -507,7 +507,7 @@ sde_clean_main()
    local domain
    local domains
 
-   [ $# -gt 1 ] && shift && sde_clean_usage "superflous arguments \"$*\""
+   [ $# -gt 1 ] && shift && sde::clean::usage "superflous arguments \"$*\""
 
    case "${1:-default}" in
       'domains')
@@ -600,7 +600,7 @@ test"
       ;;
 
       domains-usage)
-         sde_clean_domains_usage
+         sde::clean::domains_usage
          return 0
       ;;
 
@@ -660,7 +660,7 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    do
       shell_enable_glob
 
-      functionname="sde_clean_${domain}_main"
+      functionname="sde::clean::${domain}"
       if shell_is_function "${functionname}"
       then
          "${functionname}"

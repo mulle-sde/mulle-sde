@@ -32,7 +32,7 @@
 MULLE_SDE_STATUS_SH="included"
 
 
-sde_status_usage()
+sde::status::usage()
 {
    [ "$#" -ne 0 ] &&  log_error "$1"
 
@@ -64,9 +64,9 @@ EOF
 }
 
 
-sde_project_status()
+sde::status::project()
 {
-   log_entry "sde_project_status" "$@"
+   log_entry "sde::status::project" "$@"
 
    local indent="$1"
 
@@ -78,7 +78,7 @@ sde_project_status()
 
    directory="`pwd -P`"
 
-   if ! r_determine_project_dir "${directory}"
+   if ! sde::r_determine_project_dir "${directory}"
    then
       log_warning "${indent}There is no mulle-sde project in \"${directory#${MULLE_USER_PWD}/}\"."
       if [ -d .mulle-sde ]
@@ -105,7 +105,7 @@ sde_project_status()
    fi
 
    r_dirname "${projectdir}"
-   if r_determine_project_dir "${RVAL}"
+   if sde::r_determine_project_dir "${RVAL}"
    then
       parentdir="${RVAL}"
       log_verbose "${indent}The parent directory is ${parentdir}"
@@ -155,9 +155,9 @@ sde_project_status()
 }
 
 
-sde_config_status()
+sde::status::config()
 {
-   log_entry "sde_config_status" "$@"
+   log_entry "sde::status::config" "$@"
 
    local indent="$1"
 
@@ -167,7 +167,7 @@ sde_config_status()
    [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
-   __get_craftorder_info
+   sde::craftorder::__get_info
 
    if [ ! -f "${_craftorderfile}" ]
    then
@@ -218,9 +218,9 @@ sde_config_status()
 }
 
 
-sde_sourcetree_status()
+sde::status::sourcetree()
 {
-   log_entry "sde_sourcetree_status" "$@"
+   log_entry "sde::status::sourcetree" "$@"
 
    if [ -z "${MULLE_SOURCETREE_ETC_DIR}" ]
    then
@@ -292,9 +292,9 @@ sde_sourcetree_status()
 }
 
 
-sde_stash_status()
+sde::status::stash()
 {
-   log_entry "sde_stash_status" "$@"
+   log_entry "sde::status::stash" "$@"
 
    local indent="$1"
 
@@ -363,9 +363,9 @@ sde_stash_status()
 }
 
 
-sde_graveyard_status()
+sde::status::graveyard()
 {
-   log_entry "sde_graveyard_status" "$@"
+   log_entry "sde::status::graveyard" "$@"
 
    local indent="$1"
 
@@ -390,9 +390,9 @@ ${C_RESET_BOLD}${indent}   mulle-sde clean graveyard"
 }
 
 
-sde_status_main()
+sde::status::main()
 {
-   log_entry "sde_status_main" "$@"
+   log_entry "sde::status::main" "$@"
 
    local statustypes
    local indent
@@ -414,7 +414,7 @@ sde_status_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_status_usage
+            sde::status::usage
          ;;
 
          --clear|--reset)
@@ -432,7 +432,7 @@ sde_status_main()
          ;;
 
          -*)
-            sde_status_usage "Unknown option \"$1\""
+            sde::status::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -443,7 +443,7 @@ sde_status_main()
       shift
    done
 
-   [ $# -eq 0 ] || sde_status_usage "Superflous arguments \"$*\""
+   [ $# -eq 0 ] || sde::status::usage "Superflous arguments \"$*\""
 
    if [ -z "${MULLE_STRING_SH}" ]
    then
@@ -469,19 +469,19 @@ sde_status_main()
    case ",${statustypes}," in
       *,project,*)
          log_verbose "Project status:"
-         sde_project_status "${indent}" || return 1
+         sde::status::project "${indent}" || return 1
       ;;
    esac
 
    case ",${statustypes}," in
       *,config,*)
-         sde_config_status "${indent}"
+         sde::status::config "${indent}"
       ;;
    esac
 
    case ",${statustypes}," in
       *,sourcetree,*|*,database,*|*,quickstatus,*|*,treestatus,*)
-         sde_sourcetree_status "${indent}"
+         sde::status::sourcetree "${indent}"
       ;;
    esac
 
@@ -498,7 +498,7 @@ sde_status_main()
          then
             log_verbose "Stash status: (${abs_stashdir#${MULLE_USER_PWD}/})"
 
-            sde_stash_status ""  \
+            sde::status::stash ""  \
             | rexecute_column_table_or_cat ';' \
             | sed -e "s/^/   ${indent}/"
          fi
@@ -508,7 +508,7 @@ sde_status_main()
    case ",${statustypes}," in
       *,graveyard,*)
          log_verbose "Graveyard status:"
-         sde_graveyard_status "${indent}"
+         sde::status::graveyard "${indent}"
       ;;
    esac
 

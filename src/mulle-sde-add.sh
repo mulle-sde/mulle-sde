@@ -44,7 +44,7 @@ MULLE_SDE_ADD_SH="included"
 # .m -> mulle-foundation/file_m
 # .h -> mulle-foundation/file_h ??
 #
-sde_add_usage()
+sde::add::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -85,7 +85,7 @@ EOF
 
    echo >&2
 
-   sde_extension_show_main --all oneshot \
+   sde::extension::show_main --all oneshot \
       | sed -n -e 's|^mulle-sde/||' -e '/\.[a-z]*$/p' \
       | sort >&2
 
@@ -93,7 +93,7 @@ EOF
 }
 
 
-sde_add_include()
+sde::add::include()
 {
    if [ -z "${MULLE_PATH_SH}" ]
    then
@@ -118,9 +118,9 @@ sde_add_include()
 
 
 
-_sde_add_oneshot_extension()
+sde::add::oneshot_extension()
 {
-   log_entry "_sde_add_oneshot_extension" "$@"
+   log_entry "sde::add::oneshot_extension" "$@"
 
    local filepath="$1"
    local extension="$2"
@@ -135,24 +135,24 @@ _sde_add_oneshot_extension()
    (
       OPTION_ADD='YES'
 
-      clear_oneshot_variables
+      sde::project::clear_oneshot_variables
       #
       # Use this hacky way, so we can add oneshot extensions without
       # the need for a project to exist already
       #
-      set_oneshot_variables "${filepath}" "${class}" "${category}"
-      export_oneshot_environment "${filepath}" "${class}" "${category}"
+      sde::project::set_oneshot_variables "${filepath}" "${class}" "${category}"
+      sde::project::export_oneshot_environment "${filepath}" "${class}" "${category}"
 
       export VENDOR_NAME="${extension%%/*}"
 
-      install_oneshot_extensions "${extension}"
+      sde::init::install_oneshot_extensions "${extension}"
    )
 }
 
 
-_sde_add_file_via_oneshot_extension()
+sde::add::_file_via_oneshot_extension()
 {
-   log_entry "_sde_add_file_via_oneshot_extension" "$@"
+   log_entry "sde::add::_file_via_oneshot_extension" "$@"
 
    local filepath="$1"
    local vendors="$2"
@@ -173,9 +173,9 @@ _sde_add_file_via_oneshot_extension()
    do
       shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-      if sde_extension_find_main -q "${vendor}/${name}" "oneshot"
+      if sde::extension::find_main -q "${vendor}/${name}" "oneshot"
       then
-         _sde_add_oneshot_extension "${filepath}" \
+         sde::add::oneshot_extension "${filepath}" \
                                     "${vendor}/${name}" \
                                     "${class}" \
                                     "${category}"
@@ -196,9 +196,9 @@ _sde_add_file_via_oneshot_extension()
       do
          shell_enable_glob; IFS="${DEFAULT_IFS}"
 
-         if sde_extension_find_main -q "${vendor}/${genericname}" "oneshot"
+         if sde::extension::find_main -q "${vendor}/${genericname}" "oneshot"
          then
-            _sde_add_oneshot_extension "${filepath}" \
+            sde::add::oneshot_extension "${filepath}" \
                                        "${vendor}/${genericname}" \
                                        "${class}" \
                                        "${category}"
@@ -219,9 +219,9 @@ _sde_add_file_via_oneshot_extension()
 #   local _category
 #   local _class
 #
-_r_sde_get_class_category_genericname()
+sde::add::r_get_class_category_genericname()
 {
-   log_entry "_r_sde_get_class_category_genericname" "$@"
+   log_entry "sde::add::r_get_class_category_genericname" "$@"
 
    local filepath="$1"
    local name="$2"
@@ -306,9 +306,9 @@ _r_sde_get_class_category_genericname()
 }
 
 
-sde_add_file_via_oneshot_extension()
+sde::add::file_via_oneshot_extension()
 {
-   log_entry "sde_add_file_via_oneshot_extension" "$@"
+   log_entry "sde::add::file_via_oneshot_extension" "$@"
 
    local filename="$1"
    local vendors="$2"
@@ -321,11 +321,11 @@ sde_add_file_via_oneshot_extension()
    local _category
    local _class
 
-   _r_sde_get_class_category_genericname "${filename}" \
-                                         "${name}" \
-                                         "${type}" \
-                                         "${type_default}" \
-                                         "${ext}"
+   sde::add::r_get_class_category_genericname "${filename}" \
+                                              "${name}" \
+                                              "${type}" \
+                                              "${type_default}" \
+                                              "${ext}"
    if [ -z "${name}" ]
    then
       name="${RVAL}"
@@ -340,21 +340,21 @@ sde_add_file_via_oneshot_extension()
       log_trace2 "genericname:  ${_genericname}"
    fi
 
-   _sde_add_file_via_oneshot_extension "${filename}" \
-                                       "${vendors}" \
-                                       "${name}" \
-                                       "${_class}" \
-                                       "${_category}" \
-                                       "${_genericname}"
+   sde::add::_file_via_oneshot_extension "${filename}" \
+                                         "${vendors}" \
+                                         "${name}" \
+                                         "${_class}" \
+                                         "${_category}" \
+                                         "${_genericname}"
 }
 
 
 #
 # filepath is relative
 #
-sde_add_in_project()
+sde::add::in_project()
 {
-   log_entry "sde_add_in_project" "$@"
+   log_entry "sde::add::in_project" "$@"
 
    local filename="$1"
    local vendors="$2"
@@ -385,18 +385,18 @@ sde_add_in_project()
       if [ -z "${vendors}" -a "${all}" = 'NO' ]
       then
          # it's not terrible if this fails though
-         vendors="`sde_extension_main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
+         vendors="`sde::extension::main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
       fi
 
       # otherwise fallback to
       if [ -z "${vendors}" ]
       then
-         vendors="`sde_extension_main vendors`"
+         vendors="`sde::extension::main vendors`"
       fi
 
       local rval
 
-      sde_add_file_via_oneshot_extension "${filename}" \
+      sde::add::file_via_oneshot_extension "${filename}" \
                                          "${vendors}" \
                                          "${name}" \
                                          "${type}" \
@@ -421,6 +421,7 @@ sde_add_in_project()
       # where an add command adds a predefined filename
       #
       r_extensionless_basename "${filename}"
+
       if [ ! -z "${RVAL}" -a "${RVAL}" != "NONE" ]
       then
          if [ -e "${filename}" ]
@@ -456,9 +457,9 @@ ${C_RESET_BOLD}mulle-sde add \"${RVAL#${MULLE_USER_PWD}/}\""
 # It's sometimes nice to produce quick source files outside of a mulle-sde
 # project. We facilitate this
 #
-sde_add_not_in_project()
+sde::add::not_in_project()
 {
-   log_entry "sde_add_not_in_project" "$@"
+   log_entry "sde::add::not_in_project" "$@"
 
    local filepath="$1"
    local vendors="$2"
@@ -474,7 +475,7 @@ sde_add_not_in_project()
 
    if [ -z "${vendors}" ]
    then
-      vendors="`extension_list_vendors`" || exit 1
+      vendors="`sde::extension::list_vendors`" || exit 1
    fi
 
    local directory
@@ -499,12 +500,12 @@ sde_add_not_in_project()
       export TEMPLATE_NO_ENVIRONMENT="YES" # hacky
 
 
-      sde_add_file_via_oneshot_extension "${filename}" \
-                                         "${vendors}" \
-                                         "${name}" \
-                                         "${type}" \
-                                         "${type_default}" \
-                                         "${ext}"
+      sde::add::file_via_oneshot_extension "${filename}" \
+                                           "${vendors}" \
+                                           "${name}" \
+                                           "${type}" \
+                                           "${type_default}" \
+                                           "${ext}"
 
       rval=$?
       case $rval in
@@ -529,16 +530,16 @@ sde_add_not_in_project()
 ###
 ### parameters and environment variables
 ###
-sde_add_main()
+sde::add::main()
 {
-   log_entry "sde_add_main" "$@"
+   log_entry "sde::add::main" "$@"
 
    # if we are in a project, but not not really within yet, rexecute
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       if rexekutor mulle-sde -s status --clear --project
       then
-         exec_command_in_subshell add "$@"
+         sde::exec_command_in_subshell add "$@"
       fi
    fi
 
@@ -549,7 +550,7 @@ sde_add_main()
    local OPTION_TYPE
    # need includes for usage
 
-   sde_add_include
+   sde::add::include
 
    #
    # handle options
@@ -558,7 +559,7 @@ sde_add_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_add_usage
+            sde::add::usage
          ;;
 
          -a|--all-vendors)
@@ -566,21 +567,21 @@ sde_add_main()
          ;;
 
          -t|--type)
-            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             OPTION_TYPE="$1"
          ;;
 
          -fe|--file-extension)
-            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             OPTION_FILE_EXTENSION="$1"
          ;;
 
          -o|--oneshot-extension|-e|--extension)
-            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             OPTION_NAME=
@@ -599,7 +600,7 @@ sde_add_main()
          ;;
 
          -n|--name)
-            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             OPTION_NAME="$1"
@@ -607,21 +608,21 @@ sde_add_main()
 
          # only used for one-shotting none project types
          --project-type)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             PROJECT_TYPE="$1"
          ;;
 
          --project-dialect)
-            [ $# -eq 1 ] && sde_init_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             PROJECT_DIALECT="$1"
          ;;
 
          -v|--vendor)
-            [ $# -eq 1 ] && sde_add_usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             r_add_line "${OPTION_VENDOR}" "$1"
@@ -629,7 +630,7 @@ sde_add_main()
          ;;
 
          -*)
-            sde_add_usage "Unknown option \"$1\""
+            sde::add::usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -640,7 +641,7 @@ sde_add_main()
       shift
    done
 
-   [ $# -ne 1  ] && sde_add_usage
+   [ $# -ne 1  ] && sde::add::usage
 
 
    local filename
@@ -674,27 +675,28 @@ sde_add_main()
 
       r_relative_path_between "${filepath}" "${MULLE_VIRTUAL_ROOT}"
       log_debug "${C_RED}${filepath} - ${MULLE_VIRTUAL_ROOT} = relative=${RVAL}"
+
       case "${RVAL}" in
          ../*)
          ;;
 
          *)
-            sde_add_in_project "${filepath#${MULLE_VIRTUAL_ROOT}/}" \
-                               "${OPTION_VENDOR}" \
-                               "${OPTION_NAME}" \
-                               "${OPTION_TYPE}" \
-                               "${type_default}" \
-                               "${OPTION_FILE_EXTENSION}" \
-                               "${OPTION_ALL_VENDORS}"
+            sde::add::in_project "${filepath#${MULLE_VIRTUAL_ROOT}/}" \
+                                 "${OPTION_VENDOR}" \
+                                 "${OPTION_NAME}" \
+                                 "${OPTION_TYPE}" \
+                                 "${type_default}" \
+                                 "${OPTION_FILE_EXTENSION}" \
+                                 "${OPTION_ALL_VENDORS}"
             return $?
          ;;
       esac
    fi
 
-   sde_add_not_in_project "${filename}" \
-                          "${OPTION_VENDOR}" \
-                          "${OPTION_NAME}" \
-                          "${OPTION_TYPE}" \
-                          "${OPTION_FILE_EXTENSION}"
+   sde::add::not_in_project "${filename}" \
+                            "${OPTION_VENDOR}" \
+                            "${OPTION_NAME}" \
+                            "${OPTION_TYPE}" \
+                            "${OPTION_FILE_EXTENSION}"
 }
 

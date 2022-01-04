@@ -32,7 +32,7 @@
 MULLE_SDE_TEST_SH="included"
 
 
-sde_test_usage()
+sde::test::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -66,13 +66,18 @@ Command:
    test-dir   : list test directories
 
 Environment:
-   MULLE_SDE_TEST_PATH : test directories to run (test)
+   MULLE_TEST_DIR          : tests directory (test)
+   MULLE_TEST_OBJC_DIALECT : use mulle-objc for mulle-clang
+   PROJECT_DIALECT         : dialect of the tests, can be objc
+   PROJECT_EXTENSIONS      : file extensions of the test files
+   PROJECT_LANGUAGE        : language of the tests (c)
+
 EOF
    exit 1
 }
 
 
-sde_test_generate_usage()
+sde::test::generate_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
@@ -86,9 +91,9 @@ EOF
 }
 
 
-sde_hack_test_environment()
+sde::test::hack_environment()
 {
-   log_entry "sde_hack_test_environment" "$@"
+   log_entry "sde::test::hack_environment" "$@"
 
    #
    # hackish undo some stuff, because we are probably entering a
@@ -127,9 +132,9 @@ problematic, as this is a \"wild\" environment."
 }
 
 
-sde_test_generate()
+sde::test::generate()
 {
-   log_entry "sde_test_generate" "$@"
+   log_entry "sde::test::generate" "$@"
 
    local cmd="$1"
    local flags
@@ -139,7 +144,7 @@ sde_test_generate()
    do
       case "$1" in
          -h|--help|help)
-            sde_test_generate_usage
+            sde::test::generate_usage
          ;;
 
          -f|--full)
@@ -238,9 +243,9 @@ sde_test_generate()
 #
 # Execute command in the test environment
 #
-_sde_test_run()
+sde::test::_run()
 {
-   log_entry "_sde_test_run" "$@"
+   log_entry "sde::test::_run" "$@"
 
    local directory="$1"; shift
    local cmd="$1"; shift
@@ -290,14 +295,14 @@ _sde_test_run()
          shift
       done
 
-      run_mulle_env -C "${cmdline}"
+      sde::run_mulle_env -C "${cmdline}"
    )
 }
 
 
-sde_test_run()
+sde::test::run()
 {
-   log_entry "sde_test_run" "$@"
+   log_entry "sde::test::run" "$@"
 
    local harmless="$1"; shift
    local cmd="$1"; shift
@@ -317,11 +322,11 @@ sde_test_run()
       . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
 
    (
-      sde_hack_test_environment
+      sde::test::hack_environment
 
-      if is_test_directory "."
+      if sde::is_test_directory "."
       then
-         _sde_test_run "." "${cmd}" "$@"
+         sde::test::_run "." "${cmd}" "$@"
          exit $?
       fi
 
@@ -339,7 +344,7 @@ sde_test_run()
             continue
          fi
 
-         if ! is_test_directory "${directory}"
+         if ! sde::is_test_directory "${directory}"
          then
             if [ "${harmless}" = 'NO' ]
             then
@@ -348,7 +353,7 @@ sde_test_run()
             continue
          fi
 
-         if ! _sde_test_run "${directory}" "${cmd}" "$@"
+         if ! sde::test::_run "${directory}" "${cmd}" "$@"
          then
             exit 1
          fi
@@ -357,12 +362,12 @@ sde_test_run()
 }
 
 
-sde_test_path_environment()
+sde::test::path_environment()
 {
-   log_entry "sde_test_path_environment" "$@"
+   log_entry "sde::test::path_environment" "$@"
 
    MULLE_SDE_TEST_PATH="`rexekutor mulle-env -s environment get MULLE_SDE_TEST_PATH`"
-   if is_test_directory "."
+   if sde::is_test_directory "."
    then
       MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
    else
@@ -375,9 +380,9 @@ sde_test_path_environment()
 }
 
 
-r_sde_test_init()
+sde::test::r_init()
 {
-   log_entry "r_sde_test_init" "$@"
+   log_entry "sde::test::r_init" "$@"
 
    local projecttype
    local options
@@ -453,9 +458,9 @@ MULLE_SOURCETREE_RESOLVE_TAG"
 # This function may or not be running in a subshell! It will not have been
 # forced into a subshell.
 #
-r_sde_test_main()
+sde::test::r_main()
 {
-   log_entry "r_sde_test_main" "$@"
+   log_entry "sde::test::r_main" "$@"
 
    local rval
 
@@ -463,7 +468,7 @@ r_sde_test_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_test_usage
+            sde::test::usage
          ;;
 
          -*)
@@ -477,7 +482,7 @@ r_sde_test_main()
       shift
    done
 
-   sde_test_path_environment
+   sde::test::path_environment
 
    RVAL=""
    case "${1}" in
@@ -492,7 +497,8 @@ r_sde_test_main()
       ;;
 
       # build commands
-      clean|crun|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft|recrun|rerun|run)
+      clean|crun|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft|\
+recrun|rerun|run)
          RVAL='DEFAULT'
          return 1;
       ;;
@@ -515,9 +521,9 @@ r_sde_test_main()
          shift
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            exec_command_in_subshell test generate "$@"
+            sde::exec_command_in_subshell test generate "$@"
          else
-            sde_test_generate "$@"
+            sde::test::generate "$@"
          fi
          rval=$?
          RVAL="DONE"
@@ -528,7 +534,7 @@ r_sde_test_main()
       # no environment needed to run these properly
       init)
          shift
-         r_sde_test_init "$@"
+         sde::test::r_init "$@"
       ;;
 
       *)
@@ -539,13 +545,13 @@ r_sde_test_main()
 }
 
 
-sde_test_main()
+sde::test::main()
 {
-   log_entry "sde_test_main" "$@"
+   log_entry "sde::test::main" "$@"
 
    local rval
 
-   r_sde_test_main "$@"
+   sde::test::r_main "$@"
    rval=$?
 
    if [ $rval -eq 1 ]
@@ -555,17 +561,17 @@ sde_test_main()
          ;;
 
          'DEFAULT')
-            sde_test_run 'NO' "$@"
+            sde::test::run 'NO' "$@"
             rval=$?
          ;;
 
          'HARMLESS')
-            sde_test_run 'YES' "$@"
+            sde::test::run 'YES' "$@"
             rval=$?
          ;;
 
          'RUN')
-            sde_test_run 'NO' run "$@"
+            sde::test::run 'NO' run "$@"
             rval=$?
          ;;
       esac
