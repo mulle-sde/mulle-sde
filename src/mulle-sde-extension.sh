@@ -61,6 +61,7 @@ Commands:
    show       : show available extensions
    usage      : show usage information for an extension
    vendors    : list installed vendors
+
 EOF
    exit 1
 }
@@ -1523,9 +1524,9 @@ sde::extension::emit_usage()
 }
 
 
-sde::extension::usage()
+sde::extension::do_usage()
 {
-   log_entry "sde::extension::usage" "$@"
+   log_entry "sde::extension::do_usage" "$@"
 
    local extension="$1"
 
@@ -1629,9 +1630,9 @@ sde::extension::usage_main()
 
    if [ "${OPTION_LIST_TYPES}" = 'YES' ]
    then
-      sde::extension::usage "${extension}" | LC_ALL=C sort -u
+      sde::extension::do_usage "${extension}" | LC_ALL=C sort -u
    else
-      sde::extension::usage "${extension}"
+      sde::extension::do_usage "${extension}"
    fi
 }
 
