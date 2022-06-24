@@ -46,8 +46,9 @@ Options:
    -h     : show this usage
 
 Commands:
-   rename : rename the project
-   remove : remove the project
+   rename    : rename the project
+   remove    : remove the project
+   variables : show project related variable values
 EOF
    exit 1
 }
@@ -100,7 +101,7 @@ sde::project::set_name_variables()
 
    PROJECT_NAME="${1:-${PROJECT_NAME}}"
 
-   [ -z "${PROJECT_NAME}" ] && internal_fail "PROJECT_NAME can't be empty.
+   [ -z "${PROJECT_NAME}" ] && _internal_fail "PROJECT_NAME can't be empty.
 ${C_INFO}Are you running inside a mulle-sde environment ?"
 
    r_identifier "${PROJECT_NAME}"
@@ -113,12 +114,13 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
    r_lowercase "${RVAL}"
    PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${RVAL}"
 
-   r_tweaked_de_camel_case "${PROJECT_IDENTIFIER}"
+   include "case"
+
+   r_smart_upcase_identifier "${PROJECT_NAME}"
+   PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+
    r_lowercase "${RVAL}"
    PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
-
-   r_uppercase "${PROJECT_DOWNCASE_IDENTIFIER}"
-   PROJECT_UPCASE_IDENTIFIER="${RVAL}"
 }
 
 
@@ -161,7 +163,7 @@ sde::project::r_add_template_named_file()
    #
    # figure out if we want to add a header
    #
-   if [ ! -z "${ZSH_VERSION}" ]
+   if [ ${ZSH_VERSION+x} ]
    then
       RVAL="${(P)envvar}"
    else
@@ -243,7 +245,7 @@ sde::project::set_oneshot_variables()
 
    if is_absolutepath "${filename}"
    then
-      internal_fail "filename \"${filename}\" must be relative"
+      _internal_fail "filename \"${filename}\" must be relative"
    fi
 
    ONESHOT_FILENAME="${filename}"
@@ -267,7 +269,9 @@ sde::project::set_oneshot_variables()
    r_uppercase "${ONESHOT_IDENTIFIER}"
    ONESHOT_UPCASE_IDENTIFIER="${RVAL}"
 
-   r_de_camel_case_upcase_identifier "${ONESHOT_NAME}"
+   include "case"
+
+   r_smart_upcase_identifier "${ONESHOT_NAME}"
    ONESHOT_UPCASE_C_IDENTIFIER="${RVAL}"
 
    r_lowercase "${ONESHOT_UPCASE_C_IDENTIFIER}"
@@ -338,9 +342,9 @@ sde::project::export_name_environment()
 {
    log_entry "sde::project::export_name_environment" "$@"
 
-   [ -z "${PROJECT_IDENTIFIER}" ]          && internal_fail "PROJECT_IDENTIFIER not set"
-   [ -z "${PROJECT_DOWNCASE_IDENTIFIER}" ] && internal_fail "PROJECT_DOWNCASE_IDENTIFIER not set"
-   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]   && internal_fail "PROJECT_UPCASE_IDENTIFIER not set"
+   [ -z "${PROJECT_IDENTIFIER}" ]          && _internal_fail "PROJECT_IDENTIFIER not set"
+   [ -z "${PROJECT_DOWNCASE_IDENTIFIER}" ] && _internal_fail "PROJECT_DOWNCASE_IDENTIFIER not set"
+   [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]   && _internal_fail "PROJECT_UPCASE_IDENTIFIER not set"
 
    export PROJECT_NAME  \
           PROJECT_IDENTIFIER \
@@ -398,7 +402,7 @@ sde::project::env_set_var()
                      "$@" \
                   environment \
                      --scope project \
-                     set "${key}" "${value}" || internal_fail "failed env set"
+                     set "${key}" "${value}" || _internal_fail "failed env set"
 }
 
 
@@ -495,10 +499,10 @@ sde::project::search_and_replace_filenames()
    local name="$3"
    local type="$4"
 
-   [ -z "${dir}" ]  && internal_fail "dir is empty"
-   [ -z "${old}" ]  && internal_fail "old is empty"
-   [ -z "${name}" ] && internal_fail "name is empty"
-   [ -z "${type}" ] && internal_fail "type is empty"
+   [ -z "${dir}" ]  && _internal_fail "dir is empty"
+   [ -z "${old}" ]  && _internal_fail "old is empty"
+   [ -z "${name}" ] && _internal_fail "name is empty"
+   [ -z "${type}" ] && _internal_fail "type is empty"
 
    if [ -e "${dir}" ]
    then
@@ -670,14 +674,16 @@ sde::project::r_rename_current_project()
    # used to be different so only do it on demand
    if [ -z "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" ]
    then
-      r_tweaked_de_camel_case "${OLD_PROJECT_IDENTIFIER}"
-      r_lowercase "${RVAL}"
+      include "case"
+
+      r_smart_downcase_identifier "${OLD_PROJECT_IDENTIFIER}"
       OLD_PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
    fi
    if [ -z "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
    then
-      r_tweaked_de_camel_case "${OLD_PROJECT_IDENTIFIER}"
-      r_uppercase "${RVAL}"
+      include "case"
+
+      r_smart_upcase_identifier "${OLD_PROJECT_IDENTIFIER}"
       OLD_PROJECT_UPCASE_IDENTIFIER="${RVAL}"
    fi
 
@@ -687,7 +693,7 @@ sde::project::r_rename_current_project()
 
    if [ -z "${MULLE_SDE_PROJECT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || _internal_fail "missing file"
    fi
 
    sde::project::set_name_variables "${newname}"
@@ -699,7 +705,7 @@ sde::project::r_rename_current_project()
       changes="${changes}changes"
    fi
 
-   [ "${PROJECT_NAME}" != "${newname}" ] && internal_fail "Did not set PROJECT_NAME"
+   [ "${PROJECT_NAME}" != "${newname}" ] && _internal_fail "Did not set PROJECT_NAME"
 
    if [ "${OPTION_SEARCH_REPLACE_FILENAMES}" != 'NO' ]
    then
@@ -966,7 +972,7 @@ sde::project::remove_main()
 
    [ $# -eq 0 ] || sde_remove_usage "Superflous arguments \$*\""
 
-   [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT not set"
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && _internal_fail "MULLE_VIRTUAL_ROOT not set"
 
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
@@ -1001,6 +1007,14 @@ sde::project::main()
    done
 
    case "$1" in
+      list)
+         # shellcheck source=src/mulle-sde-list.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
+
+         shift
+         sde::list::main --no-files "$@"
+      ;;
+
       rename)
          shift
          sde::project::rename_main "$@"
@@ -1011,12 +1025,24 @@ sde::project::main()
          sde::project::remove_main "$@"
       ;;
 
-      list)
-         # shellcheck source=src/mulle-sde-list.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
-
-         shift
-         sde::list::main --no-files "$@"
+      variables)
+         sde::project::set_name_variables "${PROJECT_NAME}"
+         sde::project::set_language_variables "${PROJECT_LANGUAGE}"
+         cat <<EOF
+PROJECT_NAME="${PROJECT_NAME}"
+PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}"
+PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
+PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}"
+PROJECT_LANGUAGE="${PROJECT_LANGUAGE}"
+PROJECT_DOWNCASE_LANGUAGE="${PROJECT_DOWNCASE_LANGUAGE}"
+PROJECT_UPCASE_LANGUAGE="${PROJECT_UPCASE_LANGUAGE}"
+PROJECT_DIALECT="${PROJECT_DIALECT}"
+PROJECT_DOWNCASE_DIALECT="${PROJECT_DOWNCASE_DIALECT}"
+PROJECT_UPCASE_DIALECT="${PROJECT_UPCASE_DIALECT}"
+PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}"
+PROJECT_PREFIXLESS_NAME="${PROJECT_PREFIXLESS_NAME}"
+PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}"
+EOF
       ;;
 
       *)
@@ -1035,11 +1061,11 @@ sde::project::initialize()
    fi
    if [ -z "${MULLE_PATH_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || _internal_fail "missing file"
    fi
    if [ -z "${MULLE_FILE_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || _internal_fail "missing file"
    fi
 }
 

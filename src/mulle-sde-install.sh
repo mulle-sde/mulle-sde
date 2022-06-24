@@ -169,11 +169,11 @@ sde::install::in_tmp()
 
    if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      ${MULLE_TECHNICAL_FLAGS}  \
-                     ${MULLE_SOURCETREE_FLAGS}  \
+                     ${MULLE_SOURCETREE_FLAGS:-}  \
                      -s --no-defer \
                      dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
-      log_verbose "Reusing previous sourcetree folder unchanged. \
+      _log_verbose "Reusing previous sourcetree folder unchanged. \
 Use -f flag to clobber."
       add='NO'
    else
@@ -200,7 +200,7 @@ Use -f flag to clobber."
 
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                          ${MULLE_TECHNICAL_FLAGS}  \
-                         ${MULLE_SOURCETREE_FLAGS}  \
+                         ${MULLE_SOURCETREE_FLAGS:-}  \
                          --no-defer \
                          -s \
                      add --nodetype git \
@@ -210,7 +210,7 @@ Use -f flag to clobber."
          eval_exekutor MULLE_FETCH_SEARCH_PATH="'${searchpath}'" \
                            "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                                  "${MULLE_TECHNICAL_FLAGS}"  \
-                                 "${MULLE_SOURCETREE_FLAGS}"  \
+                                 "${MULLE_SOURCETREE_FLAGS:-}"  \
                                  --no-defer \
                               update ${update_options} || return 1
       else
@@ -229,7 +229,7 @@ Use -f flag to clobber."
          fi
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                               "${MULLE_TECHNICAL_FLAGS}" \
-                              "${MULLE_SOURCETREE_FLAGS}"  \
+                              "${MULLE_SOURCETREE_FLAGS:-}"  \
                               --no-defer \
                               -s \
                            add \
@@ -238,7 +238,7 @@ Use -f flag to clobber."
 
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS:-} \
                            --no-defer \
                         update ${update_options} || return 1
       fi
@@ -246,7 +246,7 @@ Use -f flag to clobber."
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS:-} \
                   --no-defer \
                   -s \
                 craftorder \
@@ -549,7 +549,7 @@ sde::install::main()
       shift
    fi 
 
-   [ -z "${MULLE_STRING_SH}" ]    && internal_fail "need MULLE_FILE"
+   [ -z "${MULLE_STRING_SH}" ]    && _internal_fail "need MULLE_FILE"
    [ -z "${MULLE_VIRTUAL_ROOT}" ] \
    || log_warning "MULLE_VIRTUAL_ROOT should not be defined at this point ever!"
 
@@ -701,11 +701,11 @@ pass through)"
 
       if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
       then
-         log_trace2 "KITCHEN_DIR=${KITCHEN_DIR}"
-         log_trace2 "DEPENDENCY_DIR=${DEPENDENCY_DIR}"
-         log_trace2 "MULLE_VIRTUAL_ROOT=${PROJECT_DIR}"
-         log_trace2 "PATH=${DEPENDENCY_DIR}/bin:$PATH"
-         log_trace2 "PROJECT_DIR=${PROJECT_DIR}"
+         log_setting "KITCHEN_DIR=${KITCHEN_DIR}"
+         log_setting "DEPENDENCY_DIR=${DEPENDENCY_DIR}"
+         log_setting "MULLE_VIRTUAL_ROOT=${PROJECT_DIR}"
+         log_setting "PATH=${DEPENDENCY_DIR}/bin:$PATH"
+         log_setting "PROJECT_DIR=${PROJECT_DIR}"
       fi
 
       sde::install::in_tmp "${URL}" \

@@ -34,7 +34,7 @@ expect()
    local result
    local diff
 
-   [ ! -f "${expected_filename}" ] && internal_fail "expected file missing"
+   [ ! -f "${expected_filename}" ] && _internal_fail "expected file missing"
    [ ! -f "${filename}" ]          && fail "Result file '${filename}' is missing"
 
    diff="`diff "${expected_filename}" "${filename}"`"

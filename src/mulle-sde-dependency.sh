@@ -327,13 +327,9 @@ EOF
 
 sde::dependency::r_upcaseid()
 {
-   if [ -z "${MULLE_CASE_SH}" ]
-   then
-      # shellcheck source=mulle-case.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"  || return 1
-   fi
+   include "case"
 
-   r_de_camel_case_upcase_identifier "$1"
+   r_smart_upcase_identifier "$1"
 }
 
 #
@@ -454,17 +450,17 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
    case "${field}" in
       platform-excludes)
          sde::common::_set_platform_excludes "${address}" \
-                                     "${value}" \
-                                     "${DEPENDENCY_MARKS}" \
-                                     "${OPTION_APPEND}"
+                                             "${value}" \
+                                             "${DEPENDENCY_MARKS}" \
+                                             "${OPTION_APPEND}"
          return $?
       ;;
 
       aliases|include)
          sde::common::_set_userinfo_field "${address}" \
-                                            "${field}" \
-                                            "${value}" \
-                                            "${OPTION_APPEND}"
+                                          "${field}" \
+                                          "${value}" \
+                                          "${OPTION_APPEND}"
          return $?
       ;;
 
@@ -483,7 +479,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
                                           ${MULLE_TECHNICAL_FLAGS} \
                                           ${MULLE_DOMAIN_FLAGS} \
                                        typeguess \
-                                          "${url}"`" || exit 1
+                                          "${value}"`" || exit 1
                log_debug "Nodetype guessed as \"${nodetype}\""
             fi
 
@@ -510,7 +506,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                     ${MULLE_TECHNICAL_FLAGS} \
-                    ${MULLE_SOURCETREE_FLAGS} \
+                    ${MULLE_SOURCETREE_FLAGS:-} \
                 set "${address}" "${field}" "${value}"
 }
 
@@ -541,7 +537,7 @@ sde::dependency::get_main()
       *)
          rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_SOURCETREE_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS:-} \
                      get "${address}" "${field}"
       ;;
    esac
@@ -746,7 +742,7 @@ sde::dependency::__enhance_url()
    then
       # one of the major pain points. I can't get this right and I am
       # constantly adjusting this. And I can't figure out a better way.
-      case "${BASH_VERSION}" in 
+      case "${BASH_VERSION:-}" in
          [01236].*|5.1*)
             r_escaped_sed_pattern "${tag}"
             url="$(sed -e "s/${RVAL}/\\\${MULLE_TAG}/g" <<< "${url}" )"
@@ -782,7 +778,7 @@ sde::dependency::sde::init::add_to_sourcetree()
 
    local filename="$1"
 
-   [ -z "${filename}" ] && internal_fail "filename is empty"
+   [ -z "${filename}" ] && _internal_fail "filename is empty"
 
    local line
    local lines
@@ -800,7 +796,7 @@ sde::dependency::sde::init::add_to_sourcetree()
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS:-} \
                         eval-add --filename "${filename}" "${lines}" || exit 1
 }
 
@@ -1485,7 +1481,7 @@ ${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${a
             then
                case "${MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE}" in
                   'NONE'|'DISABLE')
-                     log_warning "MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE is set to DISABLE.
+                     _log_warning "MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE is set to DISABLE.
 ${C_INFO}The library header of ${dependency} may not be available automatically.
 To enable:
 ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE ON"
@@ -1494,7 +1490,7 @@ ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FI
             else
                case "${MULLE_SOURCETREE_TO_C_INCLUDE_FILE}" in
                   'NONE'|'DISABLE')
-                     log_warning "MULLE_SOURCETREE_TO_C_INCLUDE_FILE is set to DISABLE.
+                     _log_warning "MULLE_SOURCETREE_TO_C_INCLUDE_FILE is set to DISABLE.
 ${C_INFO}The library header of ${dependency} may not be available automatically.
 To enable:
 ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"

@@ -328,7 +328,7 @@ sde::craftinfo::copy_mulle_make_definitions()
 
    if [ ! -d "${srcdir}" ]
    then
-      log_warning "Source directory not there yet, be careful not to \
+      _log_warning "Source directory not there yet, be careful not to \
 clobber possibly existing .mulle/etc/craft definitions"
       return
    fi
@@ -364,9 +364,9 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
    local copy="$3"
    local clobber="$4"
 
-   [ -z "${subprojectdir}" ] && internal_fail "empty subprojectdir"
-   [ -z "${name}" ]          && internal_fail "empty name"
-   [ -z "${clobber}" ]       && internal_fail "empty clobber"
+   [ -z "${subprojectdir}" ] && _internal_fail "empty subprojectdir"
+   [ -z "${name}" ]          && _internal_fail "empty name"
+   [ -z "${clobber}" ]       && _internal_fail "empty clobber"
 
    if [ -d "${subprojectdir}" ]
    then
@@ -407,7 +407,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
                                           mulle-sde/craftinfo
       ) || return 1
       [ -d "${subprojectdir}" ] || \
-         internal_fail "did not produce \"${subprojectdir}\""
+         _internal_fail "did not produce \"${subprojectdir}\""
 
       if [ "${copy}" = 'YES' ]
       then
@@ -418,7 +418,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS:-} \
                add \
                   --if-missing \
                   --marks "${CRAFTINFO_MARKS}" \
@@ -428,7 +428,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS:-} \
                move \
                   "${subprojectdir}" \
                   top || return 1
@@ -452,7 +452,7 @@ sde::craftinfo::__vars_with_url_or_address()
                               --virtual-root \
                               -s \
                               ${MULLE_TECHNICAL_FLAGS} \
-                              ${MULLE_SOURCETREE_FLAGS} \
+                              ${MULLE_SOURCETREE_FLAGS:-} \
                            get \
                               "${url}"`"
    if [ -z "${_address}" ]
@@ -472,7 +472,7 @@ sde::craftinfo::__vars_with_url_or_address()
                               --virtual-root \
                               -s \
                               ${MULLE_TECHNICAL_FLAGS} \
-                              ${MULLE_SOURCETREE_FLAGS} \
+                              ${MULLE_SOURCETREE_FLAGS:-} \
                            get "${_address}" marks`"
    case ",${marks}," in
       *,no-build,*|*,no-fs,*)
@@ -486,13 +486,10 @@ sde::craftinfo::__vars_with_url_or_address()
    _subprojectdir="craftinfo/${_name}-craftinfo"
    _folder="${_subprojectdir}/definition"
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}"  = 'YES' ]
-   then
-      log_trace2 "_name:          ${_name}"
-      log_trace2 "_address:       ${_address}"
-      log_trace2 "_subprojectdir: ${_subprojectdir}"
-      log_trace2 "_folder:        ${_folder}"
-   fi
+   log_setting "_name:          ${_name}"
+   log_setting "_address:       ${_address}"
+   log_setting "_subprojectdir: ${_subprojectdir}"
+   log_setting "_folder:        ${_folder}"
 }
 
 
@@ -617,7 +614,7 @@ sde::craftinfo::remove_main()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS:-} \
                remove \
                   "${_name}-craftinfo"  || return 1
    rmdir_safer "${_subprojectdir}"

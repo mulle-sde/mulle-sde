@@ -78,7 +78,7 @@ sde::reflect::callback_run()
 
    local callback="$1"
 
-   [ -z "${callback}" ] && internal_fail "callback is empty"
+   [ -z "${callback}" ] && _internal_fail "callback is empty"
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
    MULLE_MONITOR_CALLBACK_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
@@ -93,7 +93,7 @@ sde::reflect::task_run()
 
    local task="$1"
 
-   [ -z "${task}" ] && internal_fail "task is empty"
+   [ -z "${task}" ] && _internal_fail "task is empty"
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MONITOR:-mulle-monitor}" ${MULLE_TECHNICAL_FLAGS} \
@@ -321,7 +321,24 @@ sde::reflect::worker()
    #
    local names
 
-   names="${MULLE_SOURCETREE_CONFIG_NAMES:-config}"
+   if [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]
+   then
+      include "case"
+
+      r_smart_upcase_identifier "${PROJECT_NAME:-local}"
+      PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+   fi
+
+   var="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
+   if [ ! -z "${ZSH_VERSION}" ]
+   then
+      names="${(P)var}"
+   else
+      names="${!var}"
+   fi
+
+   names="${names:-config}"
+
    if [ "${if_needed}" = 'YES' ]
    then
       if [ -z "${previous}" ]
@@ -341,7 +358,7 @@ sde::reflect::worker()
       fi
    fi
 
-   log_fluff "Reflect callbacks: \"${MULLE_SDE_REFLECT_CALLBACKS}\""
+   log_fluff "Reflect callbacks: \"${MULLE_SDE_REFLECT_CALLBACKS:-}\""
 
    if [ "${recurse}" = 'YES' ]
    then
@@ -363,17 +380,19 @@ sde::reflect::worker()
    local current_name
    local names
 
-   names="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" config name -a`"
-   if [ "${names}" = "config" ]
+   # get list of possible known names (but current name may not be in there
+   # if there is no config for that name)
+   names="`rexekutor "${MULLE_SDE:-mulle-sourcetree}" config list -n`"
+   if [ -z "${names}" -o "${names}" = "config" ]
    then
       remove_file_if_present "${donefile}"
       return 0
    fi
 
    # this extra call, pains a little
-   current_name="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" config name`"
+   current_name="`rexekutor "${MULLE_SDE:-mulle-sde}" config name`"
 
-   log_verbose "Remembering \"${current_name}\" as sourcetree"
+   log_info "Reflected ${C_RESET_BOLD}${current_name}${C_INFO} sourcetree"
 
    # It's also inconvenient for git, if this file timestamp fluctuates.
    # So try to keep it stable.
@@ -406,7 +425,7 @@ sde::reflect::main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -441,18 +460,9 @@ sde::reflect::main()
       shift
    done
 
-   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
-   fi
+   include "sde::subproject"
+   include "path"
+   include "file"
 
    # gratuitous optimization ?
    export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
@@ -470,7 +480,8 @@ sde::reflect::main()
 
    local tasks
 
-   tasks="${MULLE_SDE_REFLECT_CALLBACKS//:/ }"
+   tasks="${MULLE_SDE_REFLECT_CALLBACKS:-}"
+   tasks="${tasks//:/ }"
    if [ -z "${tasks}" ]
    then
       log_fluff "Nothing to do as no tasks are configured by MULLE_SDE_REFLECT_CALLBACKS"

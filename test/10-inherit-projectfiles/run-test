@@ -117,7 +117,7 @@ main()
                          -f \
                          -d "${directory}" \
                          -e test-vendor/b \
-                         executable || internal_fail "failed to init project"
+                         executable || _internal_fail "failed to init project"
 
    expect_files "${directory}"
 
@@ -126,7 +126,7 @@ main()
    (
       cd "${directory}" &&
       run_mulle_sde upgrade
-   ) || internal_fail "upgrade failed"
+   ) || _internal_fail "upgrade failed"
 
    expect_files "${directory}"
 
@@ -143,7 +143,7 @@ main()
    (
       cd "${directory}" &&
       run_mulle_sde upgrade
-   ) || internal_fail "upgrade failed"
+   ) || _internal_fail "upgrade failed"
    expect_files "${directory}"
 
    log_verbose "----- #3 PASSED -----"
@@ -154,7 +154,7 @@ main()
    (
       cd "${directory}" &&
       run_mulle_sde -f upgrade
-   ) || internal_fail "upgrade failed"
+   ) || _internal_fail "upgrade failed"
    expect_files "${directory}"
 
    log_verbose "----- #4 PASSED -----"

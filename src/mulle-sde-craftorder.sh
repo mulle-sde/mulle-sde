@@ -55,9 +55,9 @@ EOF
 
 sde::craftorder::__get_info()
 {
-   local sdk="$1"
-   local platform="$2"
-   local configuration="$3"
+#   local sdk="$1"
+#   local platform="$2"
+#   local configuration="$3"
 
    _cachedir="${MULLE_SDE_VAR_DIR}/cache"
    _craftorderfile="${_cachedir}/craftorder"
@@ -124,7 +124,7 @@ sde::craftorder::create_file()
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
             --virtual-root \
             -s \
-            ${MULLE_TECHNICAL_FLAGS} \
+            ${MULLE_TECHNICAL_FLAGS:-} \
          craftorder \
             --no-print-env \
             --callback "${callback}" \
@@ -149,9 +149,9 @@ sde::craftorder::create_file_if_needed()
    #
    # our craftorder is specific to a host
    #
-   [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
+   [ -z "${MULLE_HOSTNAME}" ] &&  _internal_fail "old mulle-bashfunctions installed"
 
-   if [ -z "${MULLE_SOURCETREE_ETC_DIR}" ]
+   if ! [ ${MULLE_SOURCETREE_ETC_DIR+x} ]
    then
       eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`
    fi

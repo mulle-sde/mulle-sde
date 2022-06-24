@@ -1,3 +1,12 @@
+## 1.1.0
+
+* new command **env-identifier**
+* support for multiple sourcetrees with the improved **config** command
+* fixed --analyze option of the **craft** command
+* use style none/wild for project type none, instead of mulle/wild during the **init** command
+* new subcommand *variables* for the **project** command
+
+
 ### 1.0.1
 
 * fix installer

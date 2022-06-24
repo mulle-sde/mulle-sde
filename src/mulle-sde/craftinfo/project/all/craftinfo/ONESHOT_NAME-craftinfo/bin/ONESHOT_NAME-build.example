@@ -15,7 +15,7 @@ MULLE_EXECUTABLE_VERSION="0.0.1"
 #
 # Figure out MULLE_BASHFUNCTIONS_LIBEXEC_DIR on this machine if needed.
 #
-if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
+if ! [ ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR+x} ]
 then
    MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
    export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
@@ -25,7 +25,7 @@ fi
 # The booter reruns the executable either with bash or zsh, whatever the
 # system provides. On the second run --no-auto-shell will be set first.
 #
-if [ "$1" != --no-auto-shell ]
+if [ "${1:-}" != --no-auto-shell ]
 then
    . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
 else
@@ -41,6 +41,7 @@ fi
 #
 # Do this first to get aliases
 #
+MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
 . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
 
 ###
@@ -50,7 +51,6 @@ fi
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###########################################################################
 
-MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
 
 
 #
@@ -278,17 +278,14 @@ main()
    fi
 
    # see with -ls
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "CONFIGURATION = \"${CONFIGURATION}\""
-      log_trace2 "KITCHEN_DIR   = \"${KITCHEN_DIR}\""
-      log_trace2 "PLATFORM      = \"${PLATFORM}\""
-      log_trace2 "PREFIX        = \"${PREFIX}\""
-      log_trace2 "PWD           = \"${PWD}\""
-      log_trace2 "SDK           = \"${SDK}\""
-      log_trace2 "TEEFILE       = \"${TEEFILE}\""
-      log_trace2 "LOGFILE       = \"${LOGFILE}\""
-   fi
+   log_setting "CONFIGURATION = \"${CONFIGURATION}\""
+   log_setting "KITCHEN_DIR   = \"${KITCHEN_DIR}\""
+   log_setting "PLATFORM      = \"${PLATFORM}\""
+   log_setting "PREFIX        = \"${PREFIX}\""
+   log_setting "PWD           = \"${PWD}\""
+   log_setting "SDK           = \"${SDK}\""
+   log_setting "TEEFILE       = \"${TEEFILE}\""
+   log_setting "LOGFILE       = \"${LOGFILE}\""
 
    local cmd
 

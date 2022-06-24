@@ -10,3 +10,5 @@ publisher-info.sh
 mulle-sde.graffle/
 dox/*Wishlist.txt
 research/
+.gitignore
+.mulle-make-build-dir

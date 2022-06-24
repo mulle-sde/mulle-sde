@@ -104,7 +104,7 @@ sde::upgrade::subprojects()
 
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || _internal_fail "missing file"
    fi
 
    local flags

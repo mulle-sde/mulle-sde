@@ -29,10 +29,11 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-[ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+[ "${TRACE}" = 'YES' -o "${MULLE_SDE_TRACE:-}" = 'YES' ] && set -x && : "$0" "$@"
+[ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=1.0.1
+MULLE_EXECUTABLE_VERSION=1.1.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 ##########################################################################
@@ -46,7 +47,7 @@ MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 #
 # Figure out MULLE_BASHFUNCTIONS_LIBEXEC_DIR on this machine if needed.
 #
-if [ -z "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}" ]
+if ! [ ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR+x} ]
 then
    MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
    export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
@@ -56,7 +57,7 @@ fi
 # The booter reruns the executable either with bash or zsh, whatever the
 # system provides. On the second run --no-auto-shell will be set first.
 #
-if [ "$1" != --no-auto-shell ]
+if [ "${1:-}" != --no-auto-shell ]
 then
    . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
 else
@@ -72,6 +73,7 @@ fi
 #
 # Do this first to get aliases
 #
+MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
 . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
 
 ###
@@ -81,14 +83,13 @@ fi
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###########################################################################
 
-MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
 
 #
 # Determine location of own libexec directory. Which is `src` in development
 # and ../libexec when deployed. MULLE_EXECUTABLE needs to be defined for this.
 #
 
-if [ -z "${MULLE_SDE_LIBEXEC_DIR}" ]
+if ! [ ${MULLE_SDE_LIBEXEC_DIR+x} ]
 then
    r_get_libexec_dir "${MULLE_EXECUTABLE}" "mulle-sde" "mulle-sde-clean.sh"
    MULLE_SDE_LIBEXEC_DIR="${RVAL}"
@@ -145,6 +146,7 @@ sde::print_commands()
    donefile       : show contents of donefiles
    crun           : craft and run if project is an executable
    callback       : manage reflect callbacks
+   env-identifier : get variable name "MULLE_UIOS" for a name like "MulleUIOS"
    extension      : show available language and buildtool extensions
    fetch          : fetch the sourcetree
    init           : create a new project
@@ -172,15 +174,21 @@ sde::print_commands()
 
 sde::print_flags()
 {
+   local verbose="${1:-NO}"
+
    local delm
 
    delm="          : "
 
-   echo "   -d <dir>       : change to dir before executing commands"
-   echo "   -e             : bypass mulle-env check"
-   echo "   -f             : force operation"
-   echo "   -N             : do not search for enclosing environment"
-   echo "   -DKEY=VALUE    : define one-time environment variable"
+   if [ "${verbose}" = 'YES' ]
+   then
+      echo "   -d <dir>       : change to dir before executing commands"
+      echo "   -e             : bypass mulle-env check"
+      echo "   -f             : force operation"
+      echo "   -N             : do not search for enclosing environment"
+   fi
+
+      echo "   -DKEY=VALUE    : define one-time environment variable"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
@@ -199,9 +207,7 @@ sde::_usage()
 Usage:
    ${MULLE_USAGE_NAME} [flags] [command] [options]
 
-   The commandline IDE. The development cycle is:
-
-      Edit -> Reflect -> Craft/Test -> Edit.
+   The commandline IDE with the development cycle Edit -> Reflect -> Craft.
 
    * Edit     mulle-sde has no facility for editing, use your preferred editor.
    * Reflect  Create necessary files for cmake (or others)
@@ -217,11 +223,11 @@ EOF
 EOF
    else
       cat <<EOF
-   To start development edit source files in '${PROJECT_SOURCE_DIR:-src}'. When you
-   add or delete a source file run \`mulle-sde reflect\`. Use
-   \`mulle-sde craft\` to craft your project.
-   Add binary libraries with \`mulle-sde library\` and source code libraries
-   with \`mulle-sde dependency\`.
+   To start development edit source files in '${PROJECT_SOURCE_DIR:-src}'. \
+When you add or delete
+   a source file run \`mulle-sde reflect\`. Use \`mulle-sde craft\` to craft your
+   project. Add binary libraries with \`mulle-sde library\` and source code
+   libraries with \`mulle-sde dependency\`.
 
 EOF
    fi
@@ -232,7 +238,7 @@ EOF
 
 Flags:
 EOF
-   sde::print_flags  | LC_ALL=C sort
+   sde::print_flags "${verbose}" | LC_ALL=C sort
 
 
    cat <<EOF
@@ -245,7 +251,7 @@ EOF
    if [ "${verbose}" = 'NO' ]
    then
       cat <<EOF
-      (use mulle-sde -v help to show more commands)
+      (use mulle-sde -v help to show more flags and commands)
 EOF
    fi
 
@@ -322,10 +328,10 @@ sde::run_mulle_env()
    log_entry "sde::exec_mulle_env" "$@"
 
    rexekutor "${MULLE_ENV:-mulle-env}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_ENV_FLAGS} \
-                  ${MULLE_FWD_FLAGS} \
-                  --defines "${MULLE_DEFINE_FLAGS}" \
+                  ${MULLE_TECHNICAL_FLAGS:-} \
+                  ${MULLE_ENV_FLAGS:-} \
+                  ${MULLE_FWD_FLAGS:-} \
+                  --defines "${MULLE_DEFINE_FLAGS:-}" \
                   "$@"
 }
 
@@ -338,10 +344,10 @@ sde::exec_mulle_env()
    log_entry "sde::exec_mulle_env" "$@"
 
    rexekutor exec "${MULLE_ENV:-mulle-env}" \
-                       ${MULLE_TECHNICAL_FLAGS} \
-                       ${MULLE_ENV_FLAGS} \
-                       ${MULLE_FWD_FLAGS} \
-                       --defines "${MULLE_DEFINE_FLAGS}" \
+                       ${MULLE_TECHNICAL_FLAGS:-} \
+                       ${MULLE_ENV_FLAGS:-} \
+                       ${MULLE_FWD_FLAGS:-} \
+                       --defines "${MULLE_DEFINE_FLAGS:-}" \
                        "$@"
 }
 
@@ -390,7 +396,7 @@ sde::assert_test_environment()
       return
    fi
 
-   if [ "${MULLE_TEST_ENVIRONMENT}" = 'YES' ]
+   if [ "${MULLE_TEST_ENVIRONMENT:-}" = 'YES' ]
    then
       if sde::is_test_directory "$PWD"
       then
@@ -441,7 +447,7 @@ ${C_RESET_BOLD}   mulle-sde init"
 
    if [ "${current}" != "${RVAL}" ]
    then
-      [ -z "${MULLE_USER_PWD}" ] && internal_fail "MULLE_USER_PWD not set"
+      [ -z "${MULLE_USER_PWD}" ] && _internal_fail "MULLE_USER_PWD not set"
       exekutor cd "${RVAL}"
    fi
 
@@ -454,7 +460,7 @@ ${C_RESET_BOLD}   mulle-sde init"
    cmdline="${MULLE_EXECUTABLE}"
 
    shell_disable_glob # keep it
-   for flag in ${MULLE_TECHNICAL_FLAGS} ${MULLE_FWD_FLAGS}
+   for flag in ${MULLE_TECHNICAL_FLAGS:-} ${MULLE_FWD_FLAGS:-}
    do
       cmdline="${cmdline}
 ${flag}"
@@ -476,9 +482,9 @@ $1"
    #
    MULLE_USAGE_NAME="mulle-sde" \
       rexekutor exec "${MULLE_ENV:-mulle-env}" \
-                        ${MULLE_ENV_FLAGS} \
-                        ${MULLE_FWD_FLAGS} \
-                        --defines "${MULLE_DEFINE_FLAGS}" \
+                        ${MULLE_ENV_FLAGS:-} \
+                        ${MULLE_FWD_FLAGS:-} \
+                        --defines "${MULLE_DEFINE_FLAGS:-}" \
                         -C "${cmdline}"
 }
 
@@ -524,7 +530,7 @@ sde::cd_virtual_root()
       then
          if [ "${subenvwarn}" = 'YES' ]
          then
-            log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are \
+            _log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are \
 in a subshell already ($physdir)"
          fi
       else
@@ -598,7 +604,7 @@ sde::try_to_enter_or_download()
 
 sde::is_help_request_commandline()
 {
-   case "$1" in
+   case "${1:-}" in
       -h|--help|help)
          return 0
       ;;
@@ -618,12 +624,14 @@ sde::main()
    local MULLE_FLAG_LOG_DEBUG='NO'
    local MULLE_FLAG_LOG_EXEKUTOR='NO'
    local MULLE_FLAG_LOG_FLUFF='NO'
+   local MULLE_FLAG_LOG_TERSE='NO'
    local MULLE_FLAG_LOG_SCRIPTS='NO'
    local MULLE_FLAG_LOG_SETTINGS='NO'
    local MULLE_FLAG_LOG_VERBOSE='NO'
    local MULLE_FLAG_LOG_MERGE='NO'
    local MULLE_TRACE_POSTPONE='NO'
    local FLAG_TEST_CHECK="${MULLE_SDE_TEST_CHECK:-YES}"
+   local FLAG_OUTSIDE_ENV='NO'
 
    local defines
 
@@ -738,7 +746,7 @@ sde::main()
 
          -*)
             log_error "Unknown option \"$1\""
-            sde::usage "${MULLE_TRACE}"
+            sde::usage "${MULLE_TRACE:-}"
          ;;
 
          *)
@@ -749,7 +757,7 @@ sde::main()
       shift
    done
 
-   options_setup_trace "${MULLE_TRACE}" && set -x
+   options_setup_trace "${MULLE_TRACE:-}" && set -x
 
    local cmd
 
@@ -765,13 +773,13 @@ sde::main()
       #
       cmd="$1"
 
-      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      if [ -z "${MULLE_VIRTUAL_ROOT:-}" ]
       then
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|extension|init|init-and-enter|install|\
 reinit|status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
-steal|test|upgrade)
+env-identifier|steal|test|upgrade)
             ;;
 
             # commands where we want to start a subshell and these don't have
@@ -790,7 +798,7 @@ files|find|ignore|library|linkorder|list|log|\
 mark|match|migrate|monitor|patternfile|project|protect|reflect|run|\
 sourcetree|subproject|style|task|tool|treestatus|unmark|unprotect|update|\
 dep|ext|lib|pat|sub)
-               if ! sde::is_help_request_commandline "$2"
+               if ! sde::is_help_request_commandline "${2:-}"
                then
                   sde::exec_command_in_subshell "$@"
                fi
@@ -843,11 +851,8 @@ dep|ext|lib|pat|sub)
    # think about having a second MULLE_VIRTUAL_ROOT so that the project can
    # be read only and we keep the bookkeeping somewhere on the outside
    #
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
-      log_trace2 "MULLE_TECHNICAL_FLAGS=\"${MULLE_TECHNICAL_FLAGS}\""
-   fi
+   log_setting "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+   log_setting "MULLE_TECHNICAL_FLAGS=\"${MULLE_TECHNICAL_FLAGS}\""
 
    if ! sde::is_help_request_commandline "$@"
    then
@@ -869,13 +874,14 @@ dep|ext|lib|pat|sub)
             fi
          fi
 
-         if [ ! -z "${defines}" ]
+         if [ ! -z "${defines:-}" ]
          then
             sde::set_custom_environment "${defines}"
          fi
 
          local hook
          local cmdidentifier
+         local value
 
          # problem here is that cmdidentifier is not validate to be sane
 
@@ -887,7 +893,17 @@ dep|ext|lib|pat|sub)
             hook="MULLE_SDE_${cmdidentifier}_PRELUDE"
 
             # run hook if environment variable is set
-            eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\" >&2" >&2
+            if [ ${ZSH_VERSION+x} ]
+            then
+               value="${(P)hook}"
+            else
+               value="${!hook}"
+            fi
+
+            if [ ! -z "${value}" ]
+            then
+               "${value}" >&2
+            fi
          fi
       fi
    fi
@@ -895,7 +911,7 @@ dep|ext|lib|pat|sub)
    case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-add.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-add.sh" || exit 1
 
          sde::add::main "$@"
       ;;
@@ -936,7 +952,7 @@ dep|ext|lib|pat|sub)
          fi
 
          # shellcheck source=src/mulle-sde-clean.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh" || exit 1
 
          sde::clean::main "$@"
       ;;
@@ -1010,7 +1026,7 @@ version"
             sde::assert_test_environment "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-config.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-config.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-config.sh" || exit 1
          sde::config::main "$@"
       ;;
 
@@ -1023,7 +1039,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh" || exit 1
          sde::craft::main "$@"
       ;;
 
@@ -1036,7 +1052,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-craftinfo.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh" || exit 1
 
          sde::craftinfo::main "$@"
       ;;
@@ -1051,7 +1067,7 @@ version"
 
 
          # shellcheck source=src/mulle-sde-craftorder.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh" || exit 1
 
          sde::craftorder::main "$@"
       ;;
@@ -1078,7 +1094,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh" || exit 1
          sde::craft::main --run "$@"
       ;;
 
@@ -1094,7 +1110,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-definition.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-definition.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-definition.sh" || exit 1
 
          sde::definition::main "$@"
       ;;
@@ -1105,7 +1121,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-dependency.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
 
          sde::dependency::main "$@"
       ;;
@@ -1129,9 +1145,17 @@ version"
             sde::exec_mulle_env -N "environment" "$@"
       ;;
 
+      env-identifier)
+         include "case"
+
+         r_smart_upcase_identifier "$1"
+
+         rexekutor printf "%s\n" "${RVAL}"
+      ;;
+
       extension|extensions|ext)
          # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
 
          sde::extension::main "$@"
       ;;
@@ -1142,7 +1166,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-fetch.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh" || exit 1
 
          sde::fetch::main "$@"
       ;;
@@ -1153,7 +1177,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-list.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
 
          sde::list::main --files
       ;;
@@ -1164,7 +1188,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-list.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
 
          sde::list::main "$@"
       ;;
@@ -1175,14 +1199,14 @@ version"
 
       ignore)
          # shellcheck source=src/mulle-sde-ignore.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-ignore.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-ignore.sh" || exit 1
 
          sde::ignore::main "$@"
       ;;
 
       init)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
 
          unset MULLE_SDE_VAR_DIR
          unset MULLE_SDE_ETC_DIR
@@ -1193,7 +1217,7 @@ version"
 
       init-and-enter)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
 
          # interactive shell, dont set sde::usage
          sde::init::main --no-blurb "$@" && sde::exec_mulle_env
@@ -1219,7 +1243,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-library.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh" || exit 1
 
          sde::library::main "$@"
       ;;
@@ -1236,7 +1260,7 @@ version"
             sde::assert_test_environment "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-dependency.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-linkorder.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-linkorder.sh" || exit 1
 
          sde::linkorder::main "$@"
       ;;
@@ -1281,7 +1305,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
             # shellcheck source=src/mulle-sde-dependency.sh
-            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
          fi
          sde::dependency::main "${cmd}" "$@"
       ;;
@@ -1292,14 +1316,14 @@ version"
       ;;
 
       migrate)
-         log_warning "Command only to be used for development of mulle-sde"
+         _log_warning "Command only to be used for development of mulle-sde"
 
          if ! sde::is_help_request_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-migrate.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh" || exit 1
 
          sde::migrate::main "$@"
       ;;
@@ -1316,7 +1340,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-monitor.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh" || exit 1
 
          sde::monitor::main "$@"
       ;;
@@ -1334,7 +1358,7 @@ version"
 
       project)
          # shellcheck source=src/mulle-sde-project.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || exit 1
 
          sde::project::main "$@"
       ;;
@@ -1348,7 +1372,7 @@ version"
 
       protect)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
 
          sde::init::protect_unprotect "Protect" "a-w"
       ;;
@@ -1360,7 +1384,7 @@ version"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-reflect.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh" || exit 1
 
          sde::reflect::main "$@"
       ;;
@@ -1383,7 +1407,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
 
          sde::init::main --reinit "$@"
       ;;
@@ -1409,7 +1433,7 @@ version"
 
       show)
          # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
 
          if [ $# -ne 0 ]
          then
@@ -1427,14 +1451,14 @@ version"
 
       status|doctor)
          # shellcheck source=src/mulle-sde-status.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-status.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-status.sh" || exit 1
 
          sde::status::main "$@"
       ;;
 
       steal)
          # shellcheck source=src/mulle-sde-steal.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-steal.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-steal.sh" || exit 1
 
          sde::steal::main "$@"
       ;;
@@ -1456,7 +1480,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-subproject.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || exit 1
 
          sde::subproject::main "$@"
       ;;
@@ -1472,7 +1496,7 @@ version"
          fi
 
          # shellcheck source=src/mulle-sde-test.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-test.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-test.sh" || exit 1
 
          sde::test::main "$@"
       ;;
@@ -1505,14 +1529,14 @@ version"
 
       unprotect)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
 
          sde::init::protect_unprotect "Unprotect" "ug+w"
       ;;
 
       upgrade)
          # shellcheck source=src/mulle-sde-upgrade.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh"
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh" || exit 1
 
          sde::upgrade::main "$@"
       ;;
@@ -1552,4 +1576,4 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
 }
 
 
-call_with_flags "sde::main" "${MULLE_SDE_FLAGS}" "$@"
+call_with_flags "sde::main" "${MULLE_SDE_FLAGS:-}" "$@"

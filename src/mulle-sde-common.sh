@@ -197,7 +197,7 @@ sde::common::_set_platform_excludes()
       marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
                   ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS}  \
+                  ${MULLE_SOURCETREE_FLAGS:-}  \
                 get "${address}" "marks" `"
    fi
 
@@ -205,7 +205,7 @@ sde::common::_set_platform_excludes()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_SOURCETREE_FLAGS}  \
+               ${MULLE_SOURCETREE_FLAGS:-}  \
             set "${address}" "marks" "${marks}"
 }
 
@@ -238,7 +238,7 @@ sde::common::get_platform_excludes()
                --virtual-root \
                -s \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_SOURCETREE_FLAGS} \
+               ${MULLE_SOURCETREE_FLAGS:-} \
             get "${address}" "marks" `"
    [ $? -eq 0 ] || return 1
 
@@ -267,7 +267,7 @@ sde::common::_set_userinfo_field()
    userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS}  \
-                     ${MULLE_SOURCETREE_FLAGS}  \
+                     ${MULLE_SOURCETREE_FLAGS:-}  \
                  get "${address}" "userinfo" `" || return 1
 
    if [ -z "${MULLE_ARRAY_SH}" ]
@@ -288,7 +288,7 @@ sde::common::_set_userinfo_field()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                       --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS}  \
-                     ${MULLE_SOURCETREE_FLAGS}  \
+                     ${MULLE_SOURCETREE_FLAGS:-}  \
                   set "${address}" "userinfo" "${userinfo}"
 }
 
@@ -320,7 +320,7 @@ sde::common::get_sourcetree_userinfo_field()
    userinfo="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_SOURCETREE_FLAGS}  \
+               ${MULLE_SOURCETREE_FLAGS:-}  \
             get "${address}" "userinfo" `"
 
    if [ $? -ne 0 ]

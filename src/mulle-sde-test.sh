@@ -124,7 +124,7 @@ sde::test::hack_environment()
                  | grep -e "${pattern}" `"
       if [ ! -z "${problems}" ]
       then
-         log_warning "These environment variables may or may not be \
+         _log_warning "These environment variables may or may not be \
 problematic, as this is a \"wild\" environment."
          printf "%s\n" "${problems}" >&2
       fi
@@ -366,17 +366,15 @@ sde::test::path_environment()
 {
    log_entry "sde::test::path_environment" "$@"
 
-   MULLE_SDE_TEST_PATH="`rexekutor mulle-env -s environment get MULLE_SDE_TEST_PATH`"
+   MULLE_SDE_TEST_PATH="`rexekutor mulle-env -s environment get --lenient MULLE_SDE_TEST_PATH`" || exit 1
    if sde::is_test_directory "."
    then
       MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
    else
       MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
    fi
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
-   fi
+
+   log_setting "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
 }
 
 
@@ -387,7 +385,7 @@ sde::test::r_init()
    local projecttype
    local options
 
-   projecttype="`rexekutor "${MULLE_ENV:-mulle-env}" environment get PROJECT_TYPE`"
+   projecttype="`rexekutor "${MULLE_ENV:-mulle-env}" environment get PROJECT_TYPE`" || exit 1
    case "${projecttype}" in
       executable)
          options="--executable"

@@ -113,6 +113,9 @@ Usage:
 Options:
    --no-graveyard : do not create backups in graveyard
    --no-test      : do not check, if a dependecy exists
+
+Environment:
+   MULLE_SDE_CLEAN_DEFAULT : default domains to clear 
 EOF
 
    cat <<EOF >&2
@@ -200,7 +203,7 @@ sde::clean::craftinfo()
    if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh" || \
-         internal_fail "missing file"
+         _internal_fail "missing file"
    fi
 
    local craftinfos
@@ -233,7 +236,7 @@ sde::clean::subproject()
    if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || \
-         internal_fail "missing file"
+         _internal_fail "missing file"
    fi
 
    local subprojects
@@ -268,7 +271,7 @@ sde::clean::craftordercache()
 {
    log_entry "sde::clean::craftordercache" "$@"
 
-   [ -z "${MULLE_SDE_VAR_DIR}" ] && internal_fail "MULLE_SDE_VAR_DIR not defined"
+   [ -z "${MULLE_SDE_VAR_DIR}" ] && _internal_fail "MULLE_SDE_VAR_DIR not defined"
 
    log_verbose "Cleaning sde cache"
    remove_file_if_present "${MULLE_SDE_VAR_DIR}/cache/craftorder"

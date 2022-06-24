@@ -330,7 +330,7 @@ sde::library::add_main()
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_SOURCETREE_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS:-} \
                      ${MULLE_FWD_FLAGS} \
                    add \
                      --nodetype none \
@@ -534,7 +534,7 @@ sde::library::list_main()
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                 --virtual-root -s \
                 ${MULLE_TECHNICAL_FLAGS} \
-                ${MULLE_SOURCETREE_FLAGS} \
+                ${MULLE_SOURCETREE_FLAGS:-} \
                list \
                   --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
                   --marks "${marks}" \

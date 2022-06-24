@@ -191,7 +191,7 @@ sde::definition::_keys()
 
    case "${scope}" in 
       "ALL")
-         internal_fail "keys can not use --all"
+         _internal_fail "keys can not use --all"
       ;;
 
       "DEFAULT")

@@ -472,12 +472,12 @@ sde::subproject::map()
    esac
 
 
-   [ -z "${MULLE_VIRTUAL_ROOT}" ] && internal_fail "MULLE_VIRTUAL_ROOT undefined"
-   [ -z "${MULLE_SDE_VAR_DIR}" ]  && internal_fail "MULLE_SDE_VAR_DIR undefined"
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && _internal_fail "MULLE_VIRTUAL_ROOT undefined"
+   [ -z "${MULLE_SDE_VAR_DIR}" ]  && _internal_fail "MULLE_SDE_VAR_DIR undefined"
 
    local subprojects
 
-   [ $# -eq 0 ] && internal_fail "missing commandline"
+   [ $# -eq 0 ] && _internal_fail "missing commandline"
 
    subprojects="`sde::subproject::get_addresses`"  || exit 1
    if [ -z "${subprojects}" ]
@@ -492,7 +492,7 @@ sde::subproject::map()
    then
       if [ "${lenient}" = "YES" ]
       then
-         internal_fail "Can't have parallel and lenient together"
+         _internal_fail "Can't have parallel and lenient together"
       fi
 
       [ -z "${MULLE_PATH_SH}" ] && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
@@ -524,13 +524,12 @@ sde::subproject::map()
          sdefolder="${expanded_subproject}/.mulle/share/sde"
          if [ ! -d "${sdefolder}" ]
          then
-            log_fluff "${verb} subproject \"${subproject}\" skipped, as it \
+            _log_fluff "${verb} subproject \"${subproject}\" skipped, as it \
 has no \"${sdefolder}\" folder"
             .continue
          fi
 
-         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject} \
-(parallel:$parallel env:$env)"
+         log_verbose "${verb} subproject ${C_MAGENTA}${C_BOLD}${subproject} (parallel:$parallel env:$env)"
 
          if [ "${parallel}" = 'YES' ]
          then

@@ -72,8 +72,8 @@ Targets:
 
 Environment:
    MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
-   MULLE_SCAN_BUILD_DIR           : output directory ($KITCHEN_DIR/analyzer)
-   MULLE_SDE_MAKE_FLAGS           : flags to be passed to mulle-make (via craft)
+   MULLE_SCAN_BUILD_DIR           : output directory (${KITCHEN_DIR:-kitchen}/analyzer)
+   MULLE_SDE_MAKE_FLAGS           : flags to pass to mulle-make via mulle-craft
    MULLE_SDE_TARGET               : default target (all)
    MULLE_SDE_CRAFT_STYLE          : configuration to build (Debug)
    MULLE_SDE_REFLECT_CALLBACKS    : callbacks called during reflect
@@ -97,15 +97,15 @@ sde::craft::perform_fetch_if_needed()
    then
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
-      if [ "${MULLE_SDE_FETCH}" = 'NO' ]
+      if [ "${MULLE_SDE_FETCH:-}" = 'NO' ]
       then
          log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
       else
          log_verbose "Run sourcetree sync"
 
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                              "${MULLE_TECHNICAL_FLAGS}" \
-                              "${MULLE_SOURCETREE_FLAGS}" \
+                              "${MULLE_TECHNICAL_FLAGS:-}" \
+                              "${MULLE_SOURCETREE_FLAGS:-}" \
                            "sync" \
                                "${OPTION_SYNCFLAGS}" || fail "sync fail"
 
@@ -115,12 +115,12 @@ sde::craft::perform_fetch_if_needed()
 
          if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         --virtual-root \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                         ${MULLE_SOURCETREE_FLAGS} \
+                         ${MULLE_TECHNICAL_FLAGS:-} \
+                         ${MULLE_SOURCETREE_FLAGS:-} \
                        -s \
                      dbstatus
          then
-            internal_fail "Database not clean after sync"
+            _internal_fail "Database not clean after sync"
          fi
       fi
    fi
@@ -142,8 +142,26 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
    local names
    local first_name
+   local var
 
-   names="${MULLE_SOURCETREE_CONFIG_NAMES:-config}"
+   if [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]
+   then
+      include "case"
+
+      r_smart_upcase_identifier "${PROJECT_NAME:-local}"
+      PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+   fi
+
+   var="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
+   if [ ! -z "${ZSH_VERSION}" ]
+   then
+      names="${(P)var}"
+   else
+      names="${!var}"
+   fi
+
+   names="${names:-config}"
+
    first_name="${names%%:*}"
 
    local line
@@ -151,6 +169,8 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
    local filename
    local previous
    local changes
+
+   changes=""
 
    IFS=$'\n'
    for repository in `sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `
@@ -178,16 +198,15 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
       log_fluff "${repository} may need reflection"
 
-      [ -z "${MULLE_SDE_REFLECT_SH}" ] && \
+      ! [ -x ${MULLE_SDE_REFLECT_SH} ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
-      # can easily parallelize, we need to reflect with out settings though
+      # can easily parallelize, we need to reflect with our settings though
       # but not too many settings.
       (
         MULLE_VIRTUAL_ROOT=
         exekutor cd "${repository}" &&
         rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} \
-                                            -DMULLE_SOURCETREE_CONFIG_NAMES="${MULLE_SOURCETREE_CONFIG_NAMES}" \
                                             reflect
       )
 
@@ -223,9 +242,10 @@ sde::craft::perform_mainproject_reflect_if_needed()
    local reflectflags
    local tasks
 
+   tasks=""
    reflectflags="--if-needed"
 
-   case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
+   case ":${MULLE_SDE_REFLECT_CALLBACKS:-}:" in
       *:source:*)
          tasks="source"
       ;;
@@ -237,7 +257,7 @@ sde::craft::perform_mainproject_reflect_if_needed()
    # If yes, then lets reflect once. If there is no craftorder file, let's
    # do it
    #
-   if [ "${MULLE_SDE_REFLECT_BEFORE_CRAFT}" = 'YES' ]
+   if [ "${MULLE_SDE_REFLECT_BEFORE_CRAFT:-}" = 'YES' ]
    then
       log_debug "MULLE_SDE_REFLECT_BEFORE_CRAFT forces reflect"
       reflectflags="" # "force" reflect
@@ -256,16 +276,17 @@ sde::craft::perform_mainproject_reflect_if_needed()
    # run task sourcetree, if present (0) or was dirty (2)
    if [ ${dbrval} -ne 1 ]
    then
-      case ":${MULLE_SDE_REFLECT_CALLBACKS}:" in
+      case ":${MULLE_SDE_REFLECT_CALLBACKS:-}:" in
          *:sourcetree:*)
-            tasks="${tasks} sourcetree"
+            r_concat "${tasks}" "sourcetree"
+            tasks="${RVAL}"
          ;;
       esac
    fi
 
    if [ "${target}" = 'all' -o "${target}" = 'project' ]
    then
-      [ -z "${MULLE_SDE_REFLECT_SH}" ] && \
+      ! [ ${MULLE_SDE_REFLECT_SH+x} ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
 
       sde::reflect::main ${reflectflags} ${tasks} || fail "reflect fail" 1
@@ -298,7 +319,7 @@ sde::craft::perform_clean_if_needed()
 
    if [ "${clean:-${mode}}" = 'YES' ]
    then
-      [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
+      ! [ ${MULLE_SDE_CLEAN_SH+x} ] && \
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
 
       sde::clean::main --no-test
@@ -348,7 +369,7 @@ sde::craft::target()
    local flags="$5"
    local arguments="$6"
 
-   [ $# -eq 6 ] || internal_fail "API error"
+   [ $# -eq 6 ] || _internal_fail "API error"
 
    case "${target}" in
       'all')
@@ -379,7 +400,7 @@ sde::craft::target()
       ;;
 
       "")
-         internal_fail "target is empty"
+         _internal_fail "target is empty"
       ;;
 
       *)
@@ -405,6 +426,63 @@ sde::craft::target()
    esac
 }
 
+
+sde::craft::r_scan_build_executable()
+{
+   log_entry "sde::craft::r_scan_build_executable" "$@"
+
+   RVAL="${MULLE_SCAN_BUILD:-}"
+   if [ -z "${RVAL}" ]
+   then
+      case "${PROJECT_DIALECT}" in
+         objc)
+            case "${MULLE_UNAME}" in
+               windows)
+                  RVAL="scan-build.exe" # sic
+               ;;
+
+               *)
+                  RVAL="mulle-scan-build"
+               ;;
+            esac
+         ;;
+      esac
+   fi
+
+   if [ -z "${RVAL}" ]
+   then
+      case "${MULLE_UNAME}" in
+         windows)
+            RVAL="scan-build.exe"
+         ;;
+
+         *)
+            RVAL="scan-build"
+         ;;
+      esac
+   fi
+}
+
+
+sde::craft::r_scan_build_anaylzer()
+{
+   log_entry "sde::craft::r_scan_build_anaylzer" "$@"
+
+   local scanbuild="$1"
+
+   RVAL=
+
+   case "${scanbuild}" in
+      mulle-scan-build*)
+         local compiler
+
+         compiler="`command -v "mulle-clang" `"
+         r_resolve_symlinks "${compiler}"
+      ;;
+   esac
+}
+
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
@@ -413,12 +491,13 @@ sde::craft::main()
 {
    log_entry "sde::craft::main" "$@"
 
-   local target
+   local target=""
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
    local OPTION_CLEAN='DEFAULT'
-   local OPTION_SYNCFLAGS
+   local OPTION_SYNCFLAGS=""
+   local OPTION_ANALYZE=""
 
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
 
@@ -428,12 +507,12 @@ sde::craft::main()
       OPTION_REFLECT='NO'
    fi
 
-   MULLE_SDE_TARGET="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET}}"
+   MULLE_SDE_TARGET="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET:-}}"
 
    target="${target:-${MULLE_SDE_TARGET}}"
    target="${target:-all}"
 
-   while :
+   while [ $# -ne 0 ]
    do
       #
       # reparse technical flags here, because we want to have -v and friends
@@ -481,7 +560,7 @@ sde::craft::main()
             [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
 
-            [ -z "${MULLE_SDE_CLEAN_SH}" ] && \
+            ! [ ${MULLE_SDE_CLEAN_SH+x} ] && \
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
 
             sde::clean::main "$1"
@@ -489,6 +568,13 @@ sde::craft::main()
 
          --no-motd)
             OPTION_MOTD='NO'
+         ;;
+
+         --dump-env)
+            echo ">>>>>>>>>>>>>>>>>> [ ENV ] >>>>>>>>>>>>>>>>>>>>>>>>" >&2
+            rexekutor env | sort >&2
+            echo "<<<<<<<<<<<<<<<<<< [ ENV ] <<<<<<<<<<<<<<<<<<<<<<<<" >&2
+            exit 1
          ;;
 
          --run)
@@ -512,9 +598,9 @@ sde::craft::main()
    #
    # our craftorder is specific to a host
    #
-   [ -z "${PROJECT_TYPE}" ] && internal_fail "PROJECT_TYPE is undefined"
-   [ -z "${MULLE_HOSTNAME}" ] &&  internal_fail "old mulle-bashfunctions installed"
-   [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
+   [ -z "${PROJECT_TYPE}" ] && _internal_fail "PROJECT_TYPE is undefined"
+   [ -z "${MULLE_HOSTNAME}" ] &&  _internal_fail "old mulle-bashfunctions installed"
+   ! [ ${MULLE_SDE_CRAFTORDER_SH+x} ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
    local _craftorderfile
@@ -540,8 +626,8 @@ sde::craft::main()
    else
       rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                     --virtual-root \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_SOURCETREE_FLAGS} \
+                     ${MULLE_TECHNICAL_FLAGS:-} \
+                     ${MULLE_SOURCETREE_FLAGS:-} \
                     -s \
                      dbstatus
       dbrval="$?"
@@ -587,7 +673,7 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
    local project_cmdline
    local flags
 
-   flags="${MULLE_TECHNICAL_FLAGS}"
+   flags="${MULLE_TECHNICAL_FLAGS:-}"
 
    craftorder_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
 
@@ -607,31 +693,73 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 
    if [ "${OPTION_ANALYZE}" = 'YES' ]
    then
-      case "${PROJECT_DIALECT}" in
-         objc)
-            project_cmdline="${MULLE_SCAN_BUILD:-mulle-scan-build} \
-                                 ${MULLE_SCAN_BUILD_OPTIONS} \
-                                 -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' \
-                                 ${project_cmdline}"
-         ;;
+      local scanbuild
 
-         *)
-            project_cmdline="${MULLE_SCAN_BUILD:-scan-build} \
-                                 ${MULLE_SCAN_BUILD_OPTIONS} \
-                                 -o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR}/analyzer}' \
-                                 ${project_cmdline}"
-         ;;
-      esac
+      sde::craft::r_scan_build_executable
+      scanbuild="${RVAL}"
+
+      sde::craft::r_scan_build_anaylzer "${scanbuild}"
+      analyzer="${RVAL}"
+
+      local cmdline
+
+      cmdline="'${scanbuild}' ${MULLE_SCAN_BUILD_OPTIONS:-} \
+-o '${MULLE_SCAN_BUILD_DIR:-${KITCHEN_DIR:-kitchen}}/analyzer'"
+
+      if [ ! -z "${analyzer}" ]
+      then
+         cmdline="${cmdline} -v --use-analyzer '${analyzer}'"
+      fi
+
+      # add some analyzers to default
+      #
+      cmdline="${cmdline} \
+-enable-checker optin.performance.Padding \
+-enable-checker optin.portability.UnixAPI \
+-enable-checker osx.NumberObjectConversion \
+-enable-checker osx.ObjCProperty \
+-enable-checker osx.cocoa.AutoreleaseWrite \
+-enable-checker osx.cocoa.ClassRelease \
+-enable-checker osx.cocoa.Dealloc \
+-enable-checker osx.cocoa.ClassRelease \
+-enable-checker osx.cocoa.IncompatibleMethodTypes \
+-enable-checker osx.cocoa.Loops \
+-enable-checker osx.cocoa.MissingSuperCall \
+-enable-checker osx.cocoa.Loops \
+-enable-checker osx.cocoa.NonNilReturnValue  \
+-enable-checker osx.cocoa.Loops \
+-enable-checker osx.cocoa.RetainCount \
+-enable-checker osx.cocoa.RunLoopAutoreleaseLeak \
+-enable-checker osx.cocoa.SelfInit  \
+-enable-checker osx.cocoa.SuperDealloc \
+-enable-checker osx.cocoa.UnusedIvars \
+-enable-checker osx.cocoa.VariadicMethodTypes \
+-enable-checker security.FloatLoopCounter \
+-enable-checker security.insecureAPI.bzero \
+-enable-checker security.insecureAPI.bcopy \
+-enable-checker security.insecureAPI.bcmp"
+
+      project_cmdline="${cmdline} ${project_cmdline}"
    fi
 
    local arguments
 
-   if [ "${MULLE_SDE_ALLOW_BUILD_SCRIPT}" = 'YES' ]
+   arguments=""
+   if [ "${MULLE_SDE_ALLOW_BUILD_SCRIPT:-}" = 'YES' ]
    then
       arguments="--allow-script"
    fi
 
    local mulle_make_flags
+
+   mulle_make_flags="${MULLE_CRAFT_MAKE_FLAGS}"
+
+   if [ "${OPTION_ANALYZE}" = 'YES' ]
+   then
+      r_concat "${mulle_make_flags}" "--analyze"
+      mulle_make_flags="${RVAL}"
+   fi
+
    local buildstyle
    local runstyle
    local need_dashdash='YES'
@@ -650,41 +778,56 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
          ;;
       esac
 
-      arguments="${arguments} '$1'"
+      r_concat "${arguments}" "'$1'"
+      arguments="${RVAL}"
       shift
    done
 
-   if [ ! -z "${MULLE_CRAFT_MAKE_FLAGS}" ]
+   if [ ! -z "${mulle_make_flags:-}" ]
    then
       if [ "${need_dashdash}" = 'YES' ]
       then
-         arguments="${arguments} '--'"
+         r_concat "${arguments}" '--'
+         arguments="${RVAL}"
       fi
 
       local i
 
-      shell_enable_nullglob
-      for i in ${MULLE_CRAFT_MAKE_FLAGS}
-      do
-         arguments="${arguments} '$i'"
-      done
-      shell_disable_nullglob
+      .for i in ${mulle_make_flags}
+      .do
+         r_concat "${arguments}" "'$i'"
+         arguments="${RVAL}"
+      .done
    fi
 
-   buildstyle="${buildstyle:-${MULLE_SDE_CRAFT_STYLE}}"
+   if [ -z "${buildstyle:-}" ]
+   then
+      buildstyle="${MULLE_SDE_CRAFT_STYLE:-}}"
+      if [ ! -z "${buildstyle:-}" ]
+      then
+         log_fluff "Buildstyle set from MULLE_SDE_CRAFT_STYLE"
+      fi
+   fi
+
    case "${buildstyle}" in
       [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+         log_fluff "Buildstyle is Release"
          runstyle="Release"
-         arguments=" --release ${arguments}"
+         r_concat "--release" "${arguments}"
+         arguments="${RVAL}"
       ;;
 
       [Dd][Ee][Bb][Uu][Gg])
+         log_fluff "Buildstyle is Debug"
          runstyle="Debug"
-         arguments=" --debug ${arguments}"
+         r_concat "--debug" "${arguments}"
+         arguments="${RVAL}"
       ;;
 
       [Tt][Ee][Ss][Tt])
-         arguments="--test --library-style dynamic ${arguments}"
+         log_fluff "Buildstyle is test"
+         r_concat "--test --library-style dynamic" "${arguments}"
+         arguments="${RVAL}"
       ;;
 
       *)
@@ -695,11 +838,11 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 #   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
    sde::craft::target "${target}"  \
-                    "${project_cmdline}" \
-                    "${craftorder_cmdline}" \
-                    "${_craftorderfile}" \
-                    "${flags}" \
-                    "${arguments}" || return 1
+                      "${project_cmdline}" \
+                      "${craftorder_cmdline}" \
+                      "${_craftorderfile}" \
+                      "${flags}" \
+                      "${arguments}" || return 1
 
    log_verbose "Craft was successful"
 
@@ -730,7 +873,7 @@ sde::craft::craftstatus_main()
    local _craftorderfile
    local _cachedir
 
-   [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
+   ! [ ${MULLE_SDE_CRAFTORDER_SH+x} ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
    sde::craftorder::__get_info
@@ -743,7 +886,7 @@ sde::craft::craftstatus_main()
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_CRAFT:-mulle-craft}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_TECHNICAL_FLAGS:-} \
                      --craftorder-file "${_craftorderfile}" \
                   status \
                      "$@"

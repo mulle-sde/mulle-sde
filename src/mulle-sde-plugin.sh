@@ -44,15 +44,15 @@ sde::plugin::load_if_needed()
    local functionname="$4"
    local fallback="$5"
 
-   [ -z "${varname}" ] && internal_fail "varname is empty"
-   [ -z "${filename}" ] && internal_fail "filename is empty"
-   [ -z "${definename}" ] && internal_fail "definename is empty"
-   [ -z "${functionname}" ] && internal_fail "functionname is empty"
+   [ -z "${varname}" ] && _internal_fail "varname is empty"
+   [ -z "${filename}" ] && _internal_fail "filename is empty"
+   [ -z "${definename}" ] && _internal_fail "definename is empty"
+   [ -z "${functionname}" ] && _internal_fail "functionname is empty"
 
    local plugin
    local libexedir
 
-   if [ ! -z "${ZSH_VERSION}" ]
+   if [ ${ZSH_VERSION+x} ]
    then
       plugin="${(P)varname}"
    else
@@ -77,7 +77,7 @@ sde::plugin::load_if_needed()
 
    local value
 
-   if [ ! -z "${ZSH_VERSION}" ]
+   if [ ${ZSH_VERSION+x} ]
    then
       value="${(P)definename}"
    else

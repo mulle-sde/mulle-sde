@@ -97,22 +97,22 @@ sde::add::include()
 {
    if [ -z "${MULLE_PATH_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "include fail"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || _internal_fail "include fail"
    fi
 
    if [ -z "${MULLE_FILE_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "include fail"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || _internal_fail "include fail"
    fi
 
    if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "include fail"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || _internal_fail "include fail"
    fi
 
    if [ -z "${MULLE_SDE_INIT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || internal_fail "include fail"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || _internal_fail "include fail"
    fi
 }
 
@@ -129,7 +129,7 @@ sde::add::oneshot_extension()
 
    if [ -z "${MULLE_SDE_PROJECT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || _internal_fail "missing file"
    fi
 
    (
@@ -331,14 +331,11 @@ sde::add::file_via_oneshot_extension()
       name="${RVAL}"
    fi
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "filename:     ${filename}"
-      log_trace2 "name:         ${name}"
-      log_trace2 "class:        ${_class}"
-      log_trace2 "category:     ${_category}"
-      log_trace2 "genericname:  ${_genericname}"
-   fi
+   log_setting "filename:     ${filename}"
+   log_setting "name:         ${name}"
+   log_setting "class:        ${_class}"
+   log_setting "category:     ${_category}"
+   log_setting "genericname:  ${_genericname}"
 
    sde::add::_file_via_oneshot_extension "${filename}" \
                                          "${vendors}" \
@@ -442,7 +439,7 @@ sde::add::in_project()
    then
       r_filepath_concat "${PROJECT_SOURCE_DIR}" "${filename}"
 
-      log_warning "The new file \"${filename}\" will not be found by \`reflect\`.
+      _log_warning "The new file \"${filename}\" will not be found by \`reflect\`.
 ${C_INFO}Tip: The PROJECT_SOURCE_DIR environment variable is ${C_RESET_BOLD}${PROJECT_SOURCE_DIR}.
 ${C_INFO}Maybe remove the generated file and try anew with:
 ${C_RESET_BOLD}mulle-sde add \"${RVAL#${MULLE_USER_PWD}/}\""

@@ -178,8 +178,25 @@ sde::status::config()
 
    local names
    local first_name
+   local var
 
-   names="${MULLE_SOURCETREE_CONFIG_NAMES:-config}"
+   if [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]
+   then
+      include "case"
+
+      r_smart_upcase_identifier "${PROJECT_NAME:-local}"
+      PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+   fi
+
+   var="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
+   if [ ! -z "${ZSH_VERSION}" ]
+   then
+      names="${(P)var}"
+   else
+      names="${!var}"
+   fi
+
+   names="${names:-config}"
    first_name="${names%%:*}"
 
    local line
@@ -222,7 +239,7 @@ sde::status::sourcetree()
 {
    log_entry "sde::status::sourcetree" "$@"
 
-   if [ -z "${MULLE_SOURCETREE_ETC_DIR}" ]
+   if ! [ ${MULLE_SOURCETREE_ETC_DIR+x} ]
    then
       eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`
    fi
@@ -257,7 +274,6 @@ sde::status::sourcetree()
          fi
       ;;
    esac
-
 
    case ",${statustypes}," in
       *,quickstatus,*)
@@ -384,7 +400,7 @@ sde::status::graveyard()
       else
          log_warning "${indent}There is a sourcetree grayeyard here"
       fi
-      log_info "${indent}You can remove it with
+      _log_info "${indent}You can remove it with
 ${C_RESET_BOLD}${indent}   mulle-sde clean graveyard"
    fi
 }

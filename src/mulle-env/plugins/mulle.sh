@@ -297,7 +297,7 @@ env::plugin::mulle::setup_tools()
    local bindir="$1"; shift
    local libexecdir="$1"; shift
 
-   [ -z "${MULLE_ENV_VAR_DIR}" ] && internal_fail "MULLE_ENV_VAR_DIR not set"
+   [ -z "${MULLE_ENV_VAR_DIR}" ] && _internal_fail "MULLE_ENV_VAR_DIR not set"
 
    #
    # avoid colliding with hosts names bin or libexec
@@ -346,7 +346,7 @@ env::plugin::mulle::r_add_runpath()
    local directory="$1"
    local runpath="$2"
 
-   [ -z "${MULLE_ENV_VAR_DIR}" ] && internal_fail "MULLE_ENV_VAR_DIR not set"
+   [ -z "${MULLE_ENV_VAR_DIR}" ] && _internal_fail "MULLE_ENV_VAR_DIR not set"
 
    # reverse order of precedence
    r_colon_concat "${MULLE_ENV_VAR_DIR}/bin" "${runpath}"

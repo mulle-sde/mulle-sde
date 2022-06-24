@@ -312,11 +312,8 @@ sde::extension::r_get_searchpath()
 {
    log_entry "sde::extension::r_get_searchpath" "$@"
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "MULLE_SDE_EXTENSION_PATH=\"${MULLE_SDE_EXTENSION_PATH}\""
-      log_trace2 "MULLE_SDE_EXTENSION_BASE_PATH=\"${MULLE_SDE_EXTENSION_BASE_PATH}\""
-   fi
+   log_setting "MULLE_SDE_EXTENSION_PATH=\"${MULLE_SDE_EXTENSION_PATH}\""
+   log_setting "MULLE_SDE_EXTENSION_BASE_PATH=\"${MULLE_SDE_EXTENSION_BASE_PATH}\""
 
    #
    # allow environment to add more extensions, mostly useful for development
@@ -509,7 +506,7 @@ sde::extension::r_find_in_searchpath()
 
    case "${name}" in
       */*)
-         internal_fail "Inherit \"${name}\" was not correctly parsed"
+         _internal_fail "Inherit \"${name}\" was not correctly parsed"
       ;;
 
       *:*)
@@ -880,7 +877,7 @@ sde::extension::_get_usage()
    sde::extension::r_find "${vendor}" "${name}"
    directory="${RVAL}"
 
-   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
+   [ -z "${directory}" ] && _internal_fail "invalid extension \"${vendor}/${result}\""
 
    local usagefile
 
@@ -917,7 +914,7 @@ sde::extension::_get_version()
    sde::extension::r_find "${vendor}" "${name}"
    directory="${RVAL}"
 
-   [ -z "${directory}" ] && internal_fail "invalid extension \"${vendor}/${result}\""
+   [ -z "${directory}" ] && _internal_fail "invalid extension \"${vendor}/${result}\""
 
    local versionfile
 
@@ -1299,7 +1296,7 @@ sde::extension::__set_vars()
 
    case "${extension}" in
       *:*)
-         internal_fail "obsolete extension format"
+         _internal_fail "obsolete extension format"
       ;;
 
       */*)
@@ -2087,7 +2084,7 @@ sde::extension::main()
             exekutor exec mulle-sde run mulle-sde extension "${cmd}"
          fi
 
-         [ ! -z "${MULLE_SDE_SHARE_DIR}" ] || internal_fail "MULLE_SDE_SHARE_DIR undefined"
+         [ ! -z "${MULLE_SDE_SHARE_DIR}" ] || _internal_fail "MULLE_SDE_SHARE_DIR undefined"
 
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
          then

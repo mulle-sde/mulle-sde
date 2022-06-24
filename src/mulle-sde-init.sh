@@ -115,7 +115,7 @@ sde::init::_copy_extension_dir()
 
    local directory="$1"
    local overwrite="${2:-YES}"
-   local writeprotect="${3:-NO}"
+   # local writeprotect="${3:-NO}"
 
    if [ ! -d "${directory}" ]
    then
@@ -156,7 +156,7 @@ sde::init::_copy_extension_dir()
       ;;
    esac
 
-   log_verbose "Installing files from \"${directory#${MULLE_USER_PWD}/}\" \
+   _log_verbose "Installing files from \"${directory#${MULLE_USER_PWD}/}\" \
 into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
 
    # need L flag since homebrew creates relative links
@@ -166,6 +166,8 @@ into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
 
 sde::init::_check_file()
 {
+   log_entry "sde::init::_check_file" "$@"
+
    local filename="$1"
 
    if [ ! -f "${filename}" ]
@@ -180,6 +182,8 @@ sde::init::_check_file()
 
 sde::init::_check_dir()
 {
+   log_entry "sde::init::_check_dir" "$@"
+
    local dirname="$1"
 
    if [ ! -d "${dirname}" ]
@@ -187,6 +191,13 @@ sde::init::_check_dir()
       log_debug "\"${dirname}\" does not exist ($PWD)"
       return 1
    fi
+
+   if [ -e "${dirname}/.empty" ]
+   then
+      log_debug "\"${dirname}\" has .empty file ($PWD)"
+      return 1
+   fi
+
    log_fluff "Directory \"${dirname}\" FOUND"
    return 0
 }
@@ -278,7 +289,7 @@ sde::init::install_inheritfile()
          ;;
 
          *\;*)
-            IFS=";" read extension exttype depmarks <<< "${line}"
+            IFS=";" read -r extension exttype depmarks <<< "${line}"
 
             r_comma_concat "${marks}" "${depmarks}"
             depmarks="${RVAL}"
@@ -298,12 +309,12 @@ sde::init::install_inheritfile()
          ;;
 
          *)
-            internal_fail "\"${inheritfilename}\": missing vendor for \"${extension}\" (need vendor/extension)"
+            _internal_fail "\"${inheritfilename}\": missing vendor for \"${extension}\" (need vendor/extension)"
          ;;
       esac
 
-      [ -z "${vendor}" ] &&  internal_fail "\"${inheritfilename}\": missing vendor for \"${extension}\""
-      [ -z "${extname}" ] &&  internal_fail "\"${inheritfilename}\": missing extenson name for \"${extension}\""
+      [ -z "${vendor}" ] &&  _internal_fail "\"${inheritfilename}\": missing vendor for \"${extension}\""
+      [ -z "${extname}" ] &&  _internal_fail "\"${inheritfilename}\": missing extenson name for \"${extension}\""
 
       exttype="${exttype:-${defaultexttype}}"
       if [ "${exttype}" = "meta" ]
@@ -332,13 +343,13 @@ sde::init::install_inheritfile()
 
       # why are we using _install here ?
       sde::init::_install_extension "${projecttype}" \
-                         "${exttype}" \
-                         "${vendor}" \
-                         "${extname}" \
-                         "${marks}" \
-                         "${onlyfilename}" \
-                         "${force}" \
-                         "$@"
+                                    "${exttype}" \
+                                    "${vendor}" \
+                                    "${extname}" \
+                                    "${marks}" \
+                                    "${onlyfilename}" \
+                                    "${force}" \
+                                    "$@"
    done <<< "${text}"
 }
 
@@ -370,7 +381,6 @@ sde::init::environment_mset_log()
             log_verbose "Environment: ${key:1}=${value}"
          ;;
       esac
-
    done <<< "${environment}"
    IFS="${DEFAULT_IFS}"
 }
@@ -399,7 +409,7 @@ sde::init::environment_text_to_mset()
             fail "environment line \"${line}\": comment must not contain ##"
          ;;
 
-         *\\\n*)
+         *\\n*)
             fail "environment line \"${line}\": comment must not contain \\n (two characters)"
          ;;
 
@@ -458,8 +468,6 @@ sde::init::r_githubname()
    # right in mulle-allocator, use mulle-c as github name,
    # unless its prefixed with "src"
    #
-   local name
-   local filtered
    local directory
 
    # clumsy fix if called from test directory
@@ -472,12 +480,15 @@ sde::init::r_githubname()
       ;;
    esac
 
+   local name
    r_dirname "${directory}"
    r_basename "${RVAL}"
    name="${RVAL}"
 
    # github don't like underscores, so we adapt here
    name="${name//_/-}"
+
+   local filtered
 
    # is it a github identifier (engl.) ?
    r_identifier "${name}"
@@ -508,7 +519,7 @@ sde::init::import_template_generate()
       || fail "mulle-template not in PATH ($PATH)"
 
       . "${MULLE_TEMPLATE_LIBEXEC_DIR}/mulle-template-generate.sh" \
-      || internal_fail "include fail"
+      || _internal_fail "include fail"
    fi
 }
 
@@ -524,7 +535,7 @@ sde::init::read_template_expanded_file()
 
    sde::init::import_template_generate
 
-   [ -z "${GITHUB_USER}" ] && internal_fail "GITHUB_USER undefined"
+   [ -z "${GITHUB_USER}" ] && _internal_fail "GITHUB_USER undefined"
 
    #
    # CLUMSY HACKS:
@@ -589,7 +600,7 @@ sde::init::add_to_sourcetree()
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      -N \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_SOURCETREE_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS:-} \
                      --use-fallback \
                   eval-add \
                      --filename "${filename}" \
@@ -603,11 +614,17 @@ sde::init::add_to_environment()
    log_entry "sde::init::add_to_environment" "$@"
 
    local filename="$1"
+   local projecttype="$2"
 
    local environment
    local text
 
-   sde::init::_check_file "${filename}" || return 0
+   if sde::init::_check_file "${filename}-${projecttype}"
+   then
+      filename="${filename}-${projecttype}"
+   else
+      sde::init::_check_file "${filename}" || return 0
+   fi
 
    text="`cat "${filename}" `"
 
@@ -791,7 +808,7 @@ sde::init::is_disabled_by_marks()
 
    shift 2
 
-   [ -z "${description}" ] && internal_fail "description must not be empty"
+   [ -z "${description}" ] && _internal_fail "description must not be empty"
 
    # make sure all individual marks are enlosed by ','
    # now we can check against an , enclosed pattern
@@ -1220,15 +1237,17 @@ sde::init::_install_extension()
 {
    log_entry "sde::init::_install_extension" "$@"
 
-   local projecttype="$1"; shift
-   local exttype="$1"; shift
-   local vendor="$1"; shift
-   local extname="$1"; shift
-   local marks="$1"; shift
-   local onlyfilename="$1"; shift
-   local force="$1"; shift
+   local projecttype="$1"
+   local exttype="$2"
+   local vendor="$3"
+   local extname="$4"
+   local marks="$5"
+   local onlyfilename="$6"
+   local force="$7"
 
-   [ -z "${projecttype}" ] && internal_fail "Empty project type"
+   shift 7
+
+   [ -z "${projecttype}" ] && _internal_fail "Empty project type"
 
    # user can turn off extensions by passing ""
    if [ -z "${extname}" ]
@@ -1242,7 +1261,7 @@ sde::init::_install_extension()
       ;;
 
       *)
-         internal_fail "Unknown extension type \"${exttype}\""
+         _internal_fail "Unknown extension type \"${exttype}\""
       ;;
    esac
 
@@ -1317,7 +1336,7 @@ for \"${vendor}/${extname}\"."
             if sde::init::_check_file "${extensiondir}/language"
             then
                tmp="`egrep -v '^#' "${extensiondir}/language"`"
-               IFS=";" read PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
+               IFS=";" read -r PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
                [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
 
@@ -1330,9 +1349,9 @@ for \"${vendor}/${extname}\"."
 
 
    if sde::init::is_disabled_by_marks "${marks}" \
-                           "${vendor}/${extname}" \
-                           "no-extension" \
-                           "no-extension/${vendor}/${extname}"
+                                      "${vendor}/${extname}" \
+                                      "no-extension" \
+                                      "no-extension/${vendor}/${extname}"
    then
       return
    fi
@@ -1352,9 +1371,9 @@ for \"${vendor}/${extname}\"."
    # file is called inherit,
    #
    if ! sde::init::is_file_disabled_by_marks "${marks}" \
-                                  "${extensiondir}/inherit" \
-                                  "no-inherit" \
-                                  "no-inherit/${vendor}/${extname}"
+                                             "${extensiondir}/inherit" \
+                                             "no-inherit" \
+                                             "no-inherit/${vendor}/${extname}"
    then
       #
       # inheritmarks are a way to tune the inherited marks. WHAT DOES THAT MEAN ?
@@ -1370,9 +1389,9 @@ for \"${vendor}/${extname}\"."
       inheritmarks="${marks}"
 
       if ! sde::init::is_disabled_by_marks "${marks}" \
-                                "${filename}" \
-                                "no-inheritmarks" \
-                                "no-inheritmarks/${vendor}/${extname}"
+                                           "${filename}" \
+                                           "no-inheritmarks" \
+                                           "no-inheritmarks/${vendor}/${extname}"
       then
          if sde::init::_check_file "${filename}"
          then
@@ -1393,18 +1412,18 @@ for \"${vendor}/${extname}\"."
       fi
 
       sde::init::install_inheritfile "${extensiondir}/inherit" \
-                          "${projecttype}" \
-                          "${exttype}" \
-                          "${inheritmarks}" \
-                          "${onlyfilename}" \
-                          "${force}" \
-                          "$@"
+                                     "${projecttype}" \
+                                     "${exttype}" \
+                                     "${inheritmarks}" \
+                                     "${onlyfilename}" \
+                                     "${force}" \
+                                     "$@"
    fi
 
 
    if [ -z "${onlyfilename}" ]
    then
-      log_verbose "${C_INFO}${verb} ${exttype} extension \
+      _log_verbose "${C_INFO}${verb} ${exttype} extension \
 ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RESET_BOLD}${projecttype:-none}"
    fi
 
@@ -1430,17 +1449,18 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       #
       # mulle-env stuff
       #
-      if ! sde::init::is_disabled_by_marks "${marks}" "${extensiondir}/environment" \
+      if ! sde::init::is_disabled_by_marks "${marks}" \
+                                           "${extensiondir}/environment" \
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
          if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
-            sde::init::add_to_environment "${extensiondir}/environment-upgrade"
+            sde::init::add_to_environment "${extensiondir}/environment-upgrade" "${projecttype}"
          else
-            sde::init::add_to_environment "${extensiondir}/environment-init"
+            sde::init::add_to_environment "${extensiondir}/environment-init" "${projecttype}"
          fi
-         sde::init::add_to_environment "${extensiondir}/environment"
+         sde::init::add_to_environment "${extensiondir}/environment" "${projecttype}"
 
          sde::init::add_to_tools "${extensiondir}/tool"
 
@@ -1458,40 +1478,40 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
    #  no-project
    #  no-clobber
    #
-   if [ "${projecttype}" != 'none' ] || [ "${exttype}" = 'extra' -o  "${exttype}" = 'oneshot' ]
+   if [ "${projecttype}" != 'none' ] || [ "${exttype}" = 'extra' -o "${exttype}" = 'oneshot' ]
    then
       if [ -z "${onlyfilename}" ]
       then
          # part of project really
          if ! sde::init::is_directory_disabled_by_marks "${marks}" \
-                                             "${extensiondir}/delete" \
-                                             "no-delete" \
-                                             "no-delete/${vendor}/${extname}"
+                                                        "${extensiondir}/delete" \
+                                                        "no-delete" \
+                                                        "no-delete/${vendor}/${extname}"
          then
             sde::init::_delete_extension_template_directory "${extensiondir}" \
-                                                 "delete" \
-                                                 "${projecttype}"
+                                                            "delete" \
+                                                            "${projecttype}"
          fi
       fi
 
       if ! sde::init::is_directory_disabled_by_marks "${marks}" \
-                                          "${extensiondir}/demo" \
-                                          "no-demo" \
-                                          "no-demo/${vendor}/${extname}"
+                                                     "${extensiondir}/demo" \
+                                                     "no-demo" \
+                                                     "no-demo/${vendor}/${extname}"
       then
          sde::init::_copy_extension_template_directory "${extensiondir}" \
-                                            "demo" \
-                                            "${projecttype}" \
-                                            "${vendor}/${extname}" \
-                                            "${force}" \
-                                            "${onlyfilename}" \
-                                            "$@"
+                                                       "demo" \
+                                                       "${projecttype}" \
+                                                       "${vendor}/${extname}" \
+                                                       "${force}" \
+                                                       "${onlyfilename}" \
+                                                       "$@"
       fi
 
       local subdirectory
 
 
-      if [ ! -z "${OPTION_INIT_TYPE}" -a  -d "${extensiondir}/${OPTION_INIT_TYPE}-oneshot" ]
+      if [ ! -z "${OPTION_INIT_TYPE}" -a -d "${extensiondir}/${OPTION_INIT_TYPE}-oneshot" ]
       then
          subdirectory="${OPTION_INIT_TYPE}-oneshot"
       else
@@ -1499,17 +1519,17 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       fi
 
       if ! sde::init::is_directory_disabled_by_marks "${marks}" \
-                                          "${extensiondir}/${subdirectory}" \
-                                          "no-project-oneshot" \
-                                          "no-project-oneshot/${vendor}/${extname}"
+                                                     "${extensiondir}/${subdirectory}" \
+                                                     "no-project-oneshot" \
+                                                     "no-project-oneshot/${vendor}/${extname}"
       then
          sde::init::_copy_extension_template_directory "${extensiondir}" \
-                                            "${subdirectory}" \
-                                            "${projecttype}" \
-                                            "${vendor}/${extname}" \
-                                            "${force}" \
-                                            "${onlyfilename}" \
-                                            "$@"
+                                                       "${subdirectory}" \
+                                                       "${projecttype}" \
+                                                       "${vendor}/${extname}" \
+                                                       "${force}" \
+                                                       "${onlyfilename}" \
+                                                       "$@"
       fi
 
       if [ ! -z "${OPTION_INIT_TYPE}" -a -d "${extensiondir}/${OPTION_INIT_TYPE}" ]
@@ -1520,19 +1540,18 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       fi
 
       if ! sde::init::is_directory_disabled_by_marks "${marks}" \
-                                          "${extensiondir}/${subdirectory}" \
-                                          "no-project" \
-                                          "no-project/${vendor}/${extname}"
+                                                     "${extensiondir}/${subdirectory}" \
+                                                     "no-project" \
+                                                     "no-project/${vendor}/${extname}"
       then
          sde::init::_copy_extension_template_directory "${extensiondir}" \
-                                            "${subdirectory}" \
-                                            "${projecttype}" \
-                                            "${vendor}/${extname}" \
-                                            "${force}" \
-                                            "${onlyfilename}" \
-                                            "$@"
+                                                       "${subdirectory}" \
+                                                       "${projecttype}" \
+                                                       "${vendor}/${extname}" \
+                                                       "${force}" \
+                                                       "${onlyfilename}" \
+                                                       "$@"
       fi
-
 
       #
       # the clobber folder is like project but may always overwrite
@@ -1540,17 +1559,17 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       # not edit. A feature now obsoleted by "delete"
       #
       if ! sde::init::is_directory_disabled_by_marks "${marks}" \
-                                          "${extensiondir}/clobber" \
-                                          "no-clobber" \
-                                          "no-clobber/${vendor}/${extname}"
+                                                     "${extensiondir}/clobber" \
+                                                     "no-clobber" \
+                                                     "no-clobber/${vendor}/${extname}"
       then
          sde::init::_copy_extension_template_directory "${extensiondir}" \
-                                            "clobber" \
-                                            "${projecttype}" \
-                                            "${vendor}/${extname}" \
-                                            'YES' \
-                                            "${onlyfilename}" \
-                                            "$@"
+                                                       "clobber" \
+                                                       "${projecttype}" \
+                                                       "${vendor}/${extname}" \
+                                                       'YES' \
+                                                       "${onlyfilename}" \
+                                                       "$@"
       fi
    else
       log_verbose "Not installing project or demo files for \"${extname}\", as project-type is \"none\""
@@ -1563,10 +1582,10 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       # turn it off with no-sourcetree
       #
       sde::init::install_sourcetree_files "${extensiondir}" \
-                               "${vendor}" \
-                               "${extname}" \
-                               "${marks}" \
-                               "${projecttype}"
+                                          "${vendor}" \
+                                          "${extname}" \
+                                          "${marks}" \
+                                          "${projecttype}"
    fi
 
 
@@ -1585,14 +1604,13 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
    #  no-sourcetree
    #
    if ! sde::init::is_directory_disabled_by_marks "${marks}" \
-                                       "${extensiondir}/share" \
-                                       "no-share" \
-                                       "no-share/${vendor}/${extname}"
+                                                  "${extensiondir}/share" \
+                                                  "no-share" \
+                                                  "no-share/${vendor}/${extname}"
    then
       sde::init::_copy_extension_dir "${extensiondir}/share" 'YES' 'YES' ||
          fail "Could not copy \"${extensiondir}/share\""
    fi
-
 #   #
 #   # etc is also disabled by no-share
 #   #
@@ -1736,16 +1754,16 @@ sde::init::install_extension()
 
       executable="${extensiondir}/init"
       if ! sde::init::is_file_disabled_by_marks "${marks}" \
-                                     "${executable}" \
-                                     "no-init" \
-                                     "no-init/${vendor}/${extname}"
+                                                "${executable}" \
+                                                "no-init" \
+                                                "no-init/${vendor}/${extname}"
       then
          sde::init::run_init "${executable}" "${projecttype}" \
-                                  "${exttype}" \
-                                  "${vendor}" \
-                                  "${extname}" \
-                                  "${marks}" \
-                                  "${force}"
+                                             "${exttype}" \
+                                             "${vendor}" \
+                                             "${extname}" \
+                                             "${marks}" \
+                                             "${force}"
       fi
 
       # happens for oneshot extensions
@@ -1753,16 +1771,16 @@ sde::init::install_extension()
       then
          executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
          if ! sde::init::is_file_disabled_by_marks "${marks}" \
-                                        "${executable}" \
-                                        "no-init" \
-                                        "no-init/${vendor}/${extname}"
+                                                   "${executable}" \
+                                                   "no-init" \
+                                                   "no-init/${vendor}/${extname}"
          then
             sde::init::run_init "${executable}" "${projecttype}" \
-                                     "${exttype}" \
-                                     "${vendor}" \
-                                     "${extname}" \
-                                     "${marks}" \
-                                     "${force}"
+                                                "${exttype}" \
+                                                "${vendor}" \
+                                                "${extname}" \
+                                                "${marks}" \
+                                                "${force}"
          fi
       fi
    fi
@@ -1832,11 +1850,8 @@ sde::init::_install_simple_extension()
    sde::project::set_name_variables "${PROJECT_NAME}"
    sde::init::add_environment_variables "${OPTION_DEFINES}"
 
-   IFS=$'\n'; shell_disable_glob
-   for extra in ${extras}
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
-
+   .foreachline extra in ${extras}
+   .do
       case "${extra}" in
          "")
          ;;
@@ -1858,14 +1873,13 @@ sde::init::_install_simple_extension()
       [ -z "${extra_vendor}" ] && fail "Missing extension vendor \"${extra}\""
 
       sde::init::install_extension "${projecttype}" \
-                        "${exttype}" \
-                        "${extra_vendor}" \
-                        "${extra_name}" \
-                        "${marks}" \
-                        "${onlyfilename}" \
-                        "${force}"
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+                                   "${exttype}" \
+                                   "${extra_vendor}" \
+                                   "${extra_name}" \
+                                   "${marks}" \
+                                   "${onlyfilename}" \
+                                   "${force}"
+   .done
 }
 
 
@@ -1977,7 +1991,7 @@ sde::init::set_environment_var()
                      --no-protect \
                   environment \
                      --scope "${scope}" \
-                     set "${key}" "${value}" || internal_fail "failed env set"
+                     set "${key}" "${value}" || _internal_fail "failed env set"
 }
 
 
@@ -1990,8 +2004,8 @@ sde::init::install_extensions()
    local onlyfilename="$2"
    local force="$3"
 
-   [ -z "${PROJECT_TYPE}" ] && internal_fail "missing PROJECT_TYPE"
-   [ -z "${PROJECT_NAME}" ] && internal_fail "missing PROJECT_NAME"
+   [ -z "${PROJECT_TYPE}" ] && _internal_fail "missing PROJECT_TYPE"
+   [ -z "${PROJECT_NAME}" ] && _internal_fail "missing PROJECT_NAME"
 
    # this is OK for none
    # [ -z "${PROJECT_SOURCE_DIR}" ] && log "missing PROJECT_SOURCE_DIR"
@@ -2077,32 +2091,32 @@ sde::init::install_extensions()
    # projectdir, if that happens, we have done the least pollution yet
    #
    sde::init::install_extension "${PROJECT_TYPE}" \
-                     "meta" \
-                     "${meta_vendor}" \
-                     "${meta_name}" \
-                     "${marks}" \
-                     "${onlyfilename}" \
-                     "${force}"
+                                "meta" \
+                                "${meta_vendor}" \
+                                "${meta_name}" \
+                                "${marks}" \
+                                "${onlyfilename}" \
+                                "${force}"
    sde::init::install_extension "${PROJECT_TYPE}" \
-                     "runtime" \
-                     "${runtime_vendor}" \
-                     "${runtime_name}" \
-                     "${marks}" \
-                     "${onlyfilename}" \
-                     "${force}"
+                                "runtime" \
+                                "${runtime_vendor}" \
+                                "${runtime_name}" \
+                                "${marks}" \
+                                "${onlyfilename}" \
+                                "${force}"
    sde::init::install_extension "${PROJECT_TYPE}" \
-                     "buildtool" \
-                     "${buildtool_vendor}" \
-                     "${buildtool_name}" \
-                     "${marks}" \
-                     "${onlyfilename}" \
-                     "${force}"
+                                "buildtool" \
+                                "${buildtool_vendor}" \
+                                "${buildtool_name}" \
+                                "${marks}" \
+                                "${onlyfilename}" \
+                                "${force}"
 
    sde::init::install_extra_extensions "${OPTION_EXTRAS}" \
-                            "${PROJECT_TYPE}" \
-                            "${marks}" \
-                            "${onlyfilename}" \
-                            "${force}"
+                                       "${PROJECT_TYPE}" \
+                                       "${marks}" \
+                                       "${onlyfilename}" \
+                                       "${force}"
 
 
    if [ ! -z "${onlyfilename}" ]
@@ -2114,14 +2128,14 @@ sde::init::install_extensions()
    # remember type and installed extensions
    #
    sde::init::memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
-                                 "${OPTION_EXTENSION_FILE}"
+                                            "${OPTION_EXTENSION_FILE}"
 
    # oneshots aren't memorized
    sde::init::install_oneshot_extensions "${OPTION_ONESHOTS}" \
-                              "${PROJECT_TYPE}" \
-                              "${marks}" \
-                              "" \
-                              "${force}"
+                                         "${PROJECT_TYPE}" \
+                                         "${marks}" \
+                                         "" \
+                                         "${force}"
 }
 
 
@@ -2215,7 +2229,7 @@ sde::init::install_project()
    then
       case "${OPTION_ENV_STYLE}" in
          */tight|*/relax|*/restrict)
-            log_warning "No extensions were installed and the style is ${OPTION_ENV_STYLE}.
+            _log_warning "No extensions were installed and the style is ${OPTION_ENV_STYLE}.
 ${C_INFO}Check the available command line tools with:
    ${C_RESET_BOLD}mulle-sde tool list${C_INFO}
 add more with:
@@ -2265,7 +2279,7 @@ sde::init::add_environment_variables()
    if [ "${OPTION_UPGRADE}" = 'YES' -a "${_INFOED_ENV_RELOAD}" != 'YES' ]
    then
       _INFOED_ENV_RELOAD='YES'
-      log_warning "Use ${C_RESET_BOLD}mulle-env-reload${C_INFO} to get environment \
+      _log_warning "Use ${C_RESET_BOLD}mulle-env-reload${C_INFO} to get environment \
 changes into your subshell"
    fi
 
@@ -2490,19 +2504,16 @@ sde::init::read_project_environment()
    fi
 
    [ -z "${PROJECT_TYPE}" ] && \
-     fail "Could not find required PROJECT_TYPE in environment. \
+     fail "Could not find required PROJECT_TYPE in environment.
 If you reinited the environment. Try:
    ${C_RESET}${C_BOLD}mulle-sde environment --project set PROJECT_TYPE library"
 
-   if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-   then
-      log_trace2 "PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
-      log_trace2 "PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
-      log_trace2 "PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
-      log_trace2 "PROJECT_NAME=\"${PROJECT_NAME}\""
-      log_trace2 "PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
-      log_trace2 "PROJECT_TYPE=\"${PROJECT_TYPE}\""
-   fi
+   log_setting "PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
+   log_setting "PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""
+   log_setting "PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
+   log_setting "PROJECT_NAME=\"${PROJECT_NAME}\""
+   log_setting "PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+   log_setting "PROJECT_TYPE=\"${PROJECT_TYPE}\""
 }
 
 
@@ -2614,7 +2625,7 @@ sde::init::_run_upgrade()
          "none")
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
-               log_verbose "Nothing to upgrade in \
+               _log_verbose "Nothing to upgrade in \
 ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have \
 been installed."
             else
@@ -2696,7 +2707,7 @@ sde::init::_run_upgrade_projectfile()
          "none")
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
-               log_verbose "Nothing to upgrade in \
+               _log_verbose "Nothing to upgrade in \
 ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have \
 been installed."
             else
@@ -2737,7 +2748,7 @@ sde::init::r_initenv_style()
    then
       if [ "${projecttype}" = 'none' ]
       then
-         RVAL="none/wild"
+         RVAL="mulle/wild"
       else
          RVAL="mulle/relax"
       fi
@@ -2745,6 +2756,7 @@ sde::init::r_initenv_style()
       RVAL="${style}"
    fi
 }
+
 
 sde::init::_pre_initenv()
 {
@@ -2788,7 +2800,7 @@ sde::init::_pre_initenv()
       *)
          if [ "${purge_mulle_on_error}" = 'YES' -a -d .mulle ]
          then
-            internal_fail "mulle-env should have cleaned up after itself after init failure"
+            _internal_fail "mulle-env should have cleaned up after itself after init failure"
          fi
          exit 1
       ;;
@@ -2819,7 +2831,7 @@ sde::init::_post_initenv()
 
    if [ "${OPTION_BLURB}" = 'YES' ]
    then
-      log_info "Enter the environment:
+      _log_info "Enter the environment:
    ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
    fi
 }
@@ -2894,7 +2906,7 @@ sde::init::_run_common()
                         "${OPTION_DIALECT}"  \
                         "${OPTION_EXTENSIONS}"
    then
-      internal_fail "sde::init::install_project should exit not return errors"
+      _internal_fail "sde::init::install_project should exit not return errors"
    fi
 
    if [ "${OPTION_INIT_ENV}" = 'YES' ]
@@ -3271,12 +3283,12 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
          && fail "There is no mulle-sde project in \"${PWD#${MULLE_USER_PWD}/}\""
 
          oldversion="0.0.0"
-         log_warning "Can not get previous installed version from \
+         _log_warning "Can not get previous installed version from \
 MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
       ;;
 
       *)
-         internal_fail "Unparsable version info in \
+         _internal_fail "Unparsable version info in \
 MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
       ;;
    esac
@@ -3289,22 +3301,22 @@ sde::init::include()
 {
    if [ -z "${MULLE_PATH_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || internal_fail "missing file"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || _internal_fail "missing file"
    fi
 
    if [ -z "${MULLE_FILE_SH}" ]
    then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || internal_fail "missing file"
+      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || _internal_fail "missing file"
    fi
 
    if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || _internal_fail "missing file"
    fi
 
    if [ -z "${MULLE_SDE_PROJECT_SH}" ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || internal_fail "missing file"
+      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || _internal_fail "missing file"
    fi
 }
 
@@ -3791,21 +3803,18 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
       log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
 
-      if [ "${MULLE_FLAG_LOG_SETTINGS}" = 'YES' ]
-      then
-         log_trace2 "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
-         log_trace2 "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
-         log_trace2 "MULLE_CRAFT_SHARE_DIR=\"${MULLE_CRAFT_SHARE_DIR}\""
-         log_trace2 "MULLE_SOURCETREE_SHARE_DIR=\"${MULLE_SOURCETREE_SHARE_DIR}\""
-         log_trace2 "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
-         log_trace2 "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
-         log_trace2 "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
-         log_trace2 "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
-         log_trace2 "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
-         log_trace2 "GITHUB_USER=\"${GITHUB_USER}\""
-         log_trace2 "PROJECT_NAME=\"${PROJECT_NAME}\""
-         log_trace2 "PWD=\"${PWD}\""
-      fi
+      log_setting "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
+      log_setting "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
+      log_setting "MULLE_CRAFT_SHARE_DIR=\"${MULLE_CRAFT_SHARE_DIR}\""
+      log_setting "MULLE_SOURCETREE_SHARE_DIR=\"${MULLE_SOURCETREE_SHARE_DIR}\""
+      log_setting "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
+      log_setting "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
+      log_setting "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
+      log_setting "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
+      log_setting "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
+      log_setting "GITHUB_USER=\"${GITHUB_USER}\""
+      log_setting "PROJECT_NAME=\"${PROJECT_NAME}\""
+      log_setting "PWD=\"${PWD}\""
 
       (
          if [ "${OPTION_ADD}" = 'YES' ]
@@ -3842,7 +3851,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
                      environment \
                         --scope "plugin" \
                         set "MULLE_SDE_INSTALLED_VERSION" \
-                            "${MULLE_EXECUTABLE_VERSION}" || internal_fail "failed env set"
+                            "${MULLE_EXECUTABLE_VERSION}" || _internal_fail "failed env set"
          fi
       )
       rval=$?
@@ -3861,7 +3870,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
                . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
             fi
 
-            log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
+            _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
             sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
          fi

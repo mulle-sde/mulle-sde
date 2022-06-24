@@ -158,8 +158,8 @@ sde::linkorder::_emit_ld_output()
 
    shift 6
 
-   [ -z "${wholearchiveformat}" ] && internal_fail "wholearchiveformat is empty"
-   [ -z "${preferredlibformat}" ] && internal_fail "preferredlibformat is empty"
+   [ -z "${wholearchiveformat}" ] && _internal_fail "wholearchiveformat is empty"
+   [ -z "${preferredlibformat}" ] && _internal_fail "preferredlibformat is empty"
 
    local result
 
@@ -364,6 +364,7 @@ sde::linkorder::r_all_nodes()
    qualifier='MATCHES link'
    if [ "${OPTION_STARTUP}" = 'NO' ]
    then
+      # startup is marked as no-intermediate-link, filter it out
       qualifier='MATCHES link AND MATCHES intermediate-link'
    fi
 
@@ -637,7 +638,7 @@ sde::linkorder::r_library_searchpath()
                                  library`"
    if [ -z "${searchpath}" ]
    then
-      log_warning "The library searchpath is empty.
+      _log_warning "The library searchpath is empty.
 ${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
    fi
 
@@ -674,7 +675,7 @@ sde::linkorder::r_framework_searchpath()
                                  framework`"
    if [ -z "${searchpath}" ]
    then
-      log_warning "The framework searchpath is empty.
+      _log_warning "The framework searchpath is empty.
 ${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
    fi
 
@@ -711,7 +712,7 @@ sde::linkorder::r_get_emission_lib()
             userinfo="`base64 --decode <<< "${raw_userinfo:7}" `"
             if [ "$?" -ne 0 ]
             then
-               internal_fail "userinfo could not be base64 decoded."
+               _internal_fail "userinfo could not be base64 decoded."
             fi
          ;;
 
@@ -762,6 +763,7 @@ sde::linkorder::r_remove_line_by_first_field()
    local line
    local delim
 
+   delim=""
    RVAL=
    shell_disable_glob; IFS=$'\n'
    for line in ${lines}
@@ -1008,7 +1010,7 @@ sde::linkorder::main()
 
             OPTION_WHOLE_ARCHIVE_FORMAT="$1"
             [ -z "${OPTION_WHOLE_ARCHIVE_FORMAT}" ] \
-            && internal_fail " --whole-archive-format argument can't be empty"
+            && _internal_fail " --whole-archive-format argument can't be empty"
          ;;
 
          --output-format)
