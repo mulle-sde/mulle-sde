@@ -109,6 +109,24 @@ EOF
 }
 
 
+sde::config::list_usage()
+{
+   [ $# -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} config list
+
+   List the currently active sourcetree configuration overrides. There will
+   be always a line for the current project, though there may not be an
+   actual environment entry.
+
+EOF
+   exit 1
+}
+
+
+
 
 sde::config::show_usage()
 {
@@ -312,7 +330,7 @@ sde::config::show()
       shift
    done
 
-   [ "$#" -ne 0 ] && sde::config::list_usage "Superflous arguments $*"
+   [ "$#" -ne 0 ] && sde::config::show_usage "Superflous arguments $*"
 
    local identifier
 
@@ -379,17 +397,31 @@ sde::config::list()
       shift
    done
 
+   include "sde::project"
 
+   sde::project::set_name_variables
 
-   MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-      rexekutor "${MULLE_ENV:-mulle-env}" \
+   result="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+   rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            -s \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS:-} \
                         environment list --output-eval  \
    | egrep '^MULLE_SOURCETREE_CONFIG_NAMES_' \
-   | sort
+   | sort `"
+
+   local key
+
+   key="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
+
+   if [ -z "`egrep "^${key}=" <<< "${result}" > /dev/null `" ]
+   then
+      r_add_line "${key}=config" "${result}"
+      result="${RVAL}"
+   fi
+
+   printf "%s\n" "${result}"
 }
 
 
@@ -605,11 +637,24 @@ sde::config::main()
    log_entry "sde::config::main" "$@"
 
 
+   local flags
+
    while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
             sde::config::usage
+         ;;
+
+         --config-names|--config-scope)
+            r_concat "${flags}" "$1"
+            flags="${RVAL}"
+
+            [ $# -eq 1 ] && sourcetree::walk::usage "Missing argument to \"$1\""
+            shift
+
+            r_concat "${flags}" "$1"
+            flags="${RVAL}"
          ;;
 
          -*)
@@ -638,12 +683,14 @@ sde::config::main()
       ;;
 
       copy|remove)
+         MULLE_USAGE_NAME="mulle-sde" \
          MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
             rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               -N \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_SOURCETREE_FLAGS:-} \
-                           "$@" || exit 1
+                              ${flags} \
+                           config "${cmd}" "$@" || exit 1
       ;;
 
       switch)
@@ -655,11 +702,12 @@ sde::config::main()
       ;;
 
       get)
+         MULLE_USAGE_NAME="mulle-sde" \
          MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
+                           ${MULLE_ENV_FLAGS:-} \
                         environment get "$@"  || exit 1
       ;;
 

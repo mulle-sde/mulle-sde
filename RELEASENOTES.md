@@ -1,3 +1,7 @@
+### 1.1.1
+
+* fix config copy/remove command
+
 ## 1.1.0
 
 * new command **env-identifier**
