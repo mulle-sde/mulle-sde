@@ -1,3 +1,7 @@
+### 1.1.2
+
+* fix duplicate display of current state
+
 ### 1.1.1
 
 * fix config copy/remove command

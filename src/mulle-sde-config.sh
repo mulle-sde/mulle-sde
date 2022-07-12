@@ -415,7 +415,7 @@ sde::config::list()
 
    key="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
 
-   if [ -z "`egrep "^${key}=" <<< "${result}" > /dev/null `" ]
+   if [ -z "`egrep "^${key}=" <<< "${result}"`" ]
    then
       r_add_line "${key}=config" "${result}"
       result="${RVAL}"
@@ -674,12 +674,14 @@ sde::config::main()
    [ $# -ge 1 ] && shift
 
    case "${cmd:-name}" in
-      name)
-         sde::config::switch -p "$@"
-      ;;
-
-      list)
-         sde::config::list "$@"
+      get)
+         MULLE_USAGE_NAME="mulle-sde" \
+         MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           -N \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS:-} \
+                        environment get "$@"  || exit 1
       ;;
 
       copy|remove)
@@ -693,26 +695,24 @@ sde::config::main()
                            config "${cmd}" "$@" || exit 1
       ;;
 
-      switch)
-         sde::config::switch "$@"
+      list)
+         sde::config::list "$@"
+      ;;
+
+      name)
+         sde::config::switch -p "$@"
+      ;;
+
+      set)
+         sde::config::switch --env-name "$@"
       ;;
 
       show)
          sde::config::show "$@"
       ;;
 
-      get)
-         MULLE_USAGE_NAME="mulle-sde" \
-         MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                           -N \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS:-} \
-                        environment get "$@"  || exit 1
-      ;;
-
-      set)
-         sde::config::switch --env-name "$@"
+      switch)
+         sde::config::switch "$@"
       ;;
 
       '')
