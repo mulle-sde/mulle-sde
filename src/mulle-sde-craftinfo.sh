@@ -276,6 +276,21 @@ EOF
 }
 
 
+sde::craftinfo::show_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo show
+
+   Show available remote craftinfos
+
+EOF
+  exit 1
+}
+
+
 sde::craftinfo::remove_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -1265,7 +1280,7 @@ sde::craftinfo::show_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_dependency_craftinfo_show_usage
+            sde::craftinfo::show_usage
          ;;
 
          --)
@@ -1274,7 +1289,7 @@ sde::craftinfo::show_main()
          ;;
 
          -*)
-            sde_dependency_craftinfo_show_usage "Unknown option \"$1\""
+            sde::craftinfo::show_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -1365,7 +1380,7 @@ sde::craftinfo::main()
 
    case "${subcmd:-list}" in
       create|set|get|list|fetch|exists|remove|show|unset)
-         sde_dependency_craftinfo_${subcmd}_main "${extension}" "$@" || return 1
+         sde::craftinfo::${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" ]
          then
             log_info "Your edits will be used after:

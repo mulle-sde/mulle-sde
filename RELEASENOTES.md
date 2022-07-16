@@ -1,3 +1,7 @@
+### 1.1.3
+
+* fix craftinfo command
+
 ### 1.1.2
 
 * fix duplicate display of current state
