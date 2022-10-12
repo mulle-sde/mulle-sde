@@ -169,20 +169,49 @@ sde::project::r_add_template_named_file()
    else
       RVAL="${!envvar}"
    fi
-
    rexekutor [ -f "${RVAL}" ] && return 0
 
    RVAL="${MULLE_SDE_ETC_DIR}/${name}.${extension}"
    rexekutor [ -f "${RVAL}" ] && return 0
 
-   RVAL="${MULLE_SDE_ETC_DIR}/${name}.default"
+   if [ "${extension}" != "default" ]
+   then
+      RVAL="${MULLE_SDE_ETC_DIR}/${name}.default"
+      rexekutor [ -f "${RVAL}" ] && return 0
+   fi
+
+   RVAL="${MULLE_SDE_SHARE_DIR}/${name}.${extension}"
    rexekutor [ -f "${RVAL}" ] && return 0
 
-   RVAL="${HOME}/.mulle/etc/sde/${name}.${extension}"
-   rexekutor [ -f "${RVAL}" ] && return 0
+   if [ "${extension}" != "default" ]
+   then
+      RVAL="${MULLE_SDE_SHARE_DIR}/${name}.default"
+      rexekutor [ -f "${RVAL}" ] && return 0
+   fi
 
-   RVAL="${HOME}/.mulle/etc/sde/${name}.default"
-   rexekutor [ -f "${RVAL}" ] && return 0
+   case "${MULLE_UNAME}" in 
+      linux)
+         RVAL="${HOME}/.config/mulle/etc/sde/${name}.${extension}"
+         rexekutor [ -f "${RVAL}" ] && return 0
+
+         if [ "${extension}" != "default" ]
+         then
+            RVAL="${HOME}/.config/mulle/etc/sde/${name}.default"
+            rexekutor [ -f "${RVAL}" ] && return 0
+         fi
+      ;;
+
+      *)
+         RVAL="${HOME}/.mulle/etc/sde/${name}.${extension}"
+         rexekutor [ -f "${RVAL}" ] && return 0
+
+         if [ "${extension}" != "default" ]
+         then
+            RVAL="${HOME}/.mulle/etc/sde/${name}.default"
+            rexekutor [ -f "${RVAL}" ] && return 0
+         fi
+      ;;
+   esac
 
    RVAL=""
    return 1
