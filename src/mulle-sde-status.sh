@@ -40,12 +40,7 @@ sde::status::usage()
 Usage:
    ${MULLE_USAGE_NAME} status [options]
 
-   Get some information about the current mulle-sde environment (if any).
-   To check if you are in a valid project directory, you can suppress output
-   and do a small check with:
-
-   mulle-sde -s status --clear --project
-
+   Get information about the current mulle-sde project status.
 
 Options:
    --clear       : clear default information settings
@@ -57,7 +52,7 @@ Options:
    --quickstatus : add dependency status information (default)
    --sourcetree  : add sourcetree information (default)
    --stash       : add sourcetree stash information( default)
-   --tool        : add tool information (defaukt)
+   --tool        : add tool information (default)
    --treestatus  : add source files information
 EOF
    exit 1
@@ -461,24 +456,28 @@ sde::status::main()
 
    [ $# -eq 0 ] || sde::status::usage "Superflous arguments \"$*\""
 
-   if [ -z "${MULLE_STRING_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-string.sh" || return 1
-   fi
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
-   fi
+   include "string"
+   include "path"
+   include "file"
+
+#   if [ -z "${MULLE_STRING_SH}" ]
+#   then
+#      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-string.sh" || return 1
+#   fi
+#   if [ -z "${MULLE_PATH_SH}" ]
+#   then
+#      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
+#   fi
+#   if [ -z "${MULLE_FILE_SH}" ]
+#   then
+#      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
+#   fi
 
    case ",${statustypes}," in
       *,tool,*)
          log_verbose "Tool status:"
 
-         mulle-env ${MULLE_TECHNICAL_FLAGS} tool doctor || return 1
+         rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool doctor || return 1
       ;;
    esac
 
@@ -532,7 +531,7 @@ sde::status::main()
       *,patternfile,*)
          log_verbose "Patternfile status:"
 
-         mulle-sde ${MULLE_TECHNICAL_FLAGS} patternfile status
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} patternfile status
       ;;
    esac
 
@@ -540,7 +539,7 @@ sde::status::main()
       *,craftstatus,*)
          log_verbose "Craft status:"
 
-         mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check craftstatus --output-terse
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check craftstatus --output-terse
       ;;
    esac
 

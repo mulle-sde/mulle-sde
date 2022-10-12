@@ -40,7 +40,7 @@ sde::ignore::usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} ignore <pattern>
+   ${MULLE_USAGE_NAME} ignore [options] <pattern>
 
    Ignore a file or a directory for crafts.
 
@@ -48,6 +48,9 @@ Examples:
       mulle-sde ignore src/foo
       mulle-sde ignore "*.js"
 
+Options:
+   --list : list user ignore file (if one exists)
+   --cat  : show contents of user ignore file
 EOF
    exit 1
 }
@@ -57,11 +60,21 @@ sde::ignore::main()
 {
    log_entry "sde::ignore::main" "$@"
 
+   local cmd="ignore"
+
    while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
             sde::ignore::usage
+         ;;
+
+         --cat|--print)
+            cmd="cat"
+         ;;
+
+         -l|--list)
+            cmd="list"
          ;;
 
          --)
@@ -81,21 +94,39 @@ sde::ignore::main()
       shift
    done
 
-   [ "$#" -eq 0 ] && sde::ignore::usage "Missing argument"
-   [ "$#" -ne 1 ] && sde::ignore::usage "superflous arguments \"$*\""
-
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-
-   [ -z "${MULLE_FILE_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+   include "path"
+   include "file"
 
    local filepath
+
+   filepath="`rexekutor "${MULLE_MATCH:-mulle-match}" -s patternfile -i path -p 00 'user'`"
+
+   case "${cmd}" in
+      list)
+         [ "$#" -ne 0 ] && sde::ignore::usage "superflous arguments \"$*\""
+         if [ ! -z "${filepath}" ]
+         then
+            printf "%s\n" "${filepath#${MULLE_USER_PWD}/}"
+         fi
+         return
+      ;;
+
+      cat)
+         [ "$#" -ne 0 ] && sde::ignore::usage "superflous arguments \"$*\""
+         if [ ! -z "${filepath}" ]
+         then
+            cat "${filepath}"
+         fi
+         return
+      ;;
+   esac
+
+   [ "$#" -eq 0 ] && sde::ignore::usage "Missing argument"
+   [ "$#" -ne 1 ] && sde::ignore::usage "superflous arguments \"$*\""
 
    #
    # we just happen to know that 00 is not used by any extensions
    #
-   filepath="`rexekutor "${MULLE_MATCH:-mulle-match}" -s patternfile -i path -p 00 'user'`"
    if [ ! -z "${filepath}" ]
    then
       merge_line_into_file "$1" "${filepath}"

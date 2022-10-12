@@ -47,7 +47,7 @@ Usage:
 Commands:
    copy   : copy a sourcetree configuration
    list   : list current sourcetree configurations
-   name   : get name of current sourcetree configuratioon
+   name   : get name of current sourcetree configuration
    switch : change to a different sourcetree configuration
    remove : remove a sourcetree configuration
    show   : show available configurations of the current sourcetree

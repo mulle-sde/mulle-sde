@@ -56,8 +56,8 @@ Usage:
    ${MULLE_USAGE_NAME} library [options] [command]
 
    A library is a usually a globally installed C library. Like -lm for
-   example. They are added into the sourcetree so that the appropriate link
-   statements can be generated.
+   example. Libraries are added to the sourcetree so that the
+   appropriate link statements can be generated.
 
    The link statements can be conditionalized according to platform.
 
@@ -69,7 +69,7 @@ Options:
    -h     : show this usage
 
 Commands:
-   add    : add a library
+   add    : add a library or multiple libraries
    get    : retrieve library settings
    list   : list libraries (default)
    remove : remove a library
@@ -86,18 +86,21 @@ sde::library::add_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} library add <name>
+   ${MULLE_USAGE_NAME} library add [options] [name]
 
    Add a sytem library to your project. The name of the library is
-   without prefix or suffix. E.g. "libm.a" is just "m"
+   without prefix or suffix. E.g. "libm.a" is just "m".
 
-   Example:
+Examples:
       ${MULLE_USAGE_NAME} libraries add pthread
+      ${MULLE_USAGE_NAME} libraries add -lpthread -lm
+      ${MULLE_USAGE_NAME} libraries add $(pkg-config --static --libs-only-l glfw3)
 
 Options:
+   -l<name>    : add a system library, multiple use possible
    --framework : library is a MacOS framework (does NOT imply --objc)
    --objc      : used for static Objective-C libraries
-   --optional  : is not required to exist
+   --optional  : library is not required to exist
    --private   : headers are not visible to API consumers
 EOF
   exit 1
@@ -199,94 +202,17 @@ sde::library::warn_stupid_name()
          esac
       ;;
    esac
-
 }
 
 
-sde::library::add_main()
+sde::library::add_framework()
 {
-   log_entry "sde::library::add_main" "$@"
-
-   local marks="${LIBRARY_INIT_MARKS}"
-
-   local OPTION_DIALECT="c"
-   local OPTION_PRIVATE='NO'
-   local OPTION_OPTIONAL='NO'
-   local OPTION_IF_MISSING='NO'
-   local OPTION_FRAMEWORK='NO'
-   local options
-   local userinfo
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde::library::add_usage
-         ;;
-
-         -c|--c)
-            OPTION_DIALECT="c"
-         ;;
-
-         -m|--objc)
-            OPTION_DIALECT="objc"
-         ;;
-
-         --framework)
-            OPTION_FRAMEWORK="YES"
-         ;;
-
-         --plain)
-            OPTION_ENHANCE='NO'
-         ;;
-
-         --private)
-            OPTION_PRIVATE='YES'
-         ;;
-
-         --public)
-            OPTION_PRIVATE='NO'
-         ;;
-
-         --optional)
-            OPTION_OPTIONAL='YES'
-         ;;
-
-         --marks)
-            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
-            shift
-
-            r_comma_concat "${marks}" "$1"
-            marks="${RVAL}"
-         ;;
-
-        --userinfo)
-            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
-            shift
-
-            userinfo="--userinfo '$1'"
-         ;;
-
-         --if-missing)
-            r_concat "${options}" "--if-missing"
-            options="${RVAL}"
-         ;;
-
-         -*)
-            sde::library::add_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ "$#" -ne 1 ] && sde::library::add_usage "Missing arguments"
+   log_entry "sde::library::add_framework" "$@"
 
    local libname="$1"
+   local marks="$2"
+   local options="$3"
+   local userinfo="$4"
 
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
@@ -296,35 +222,6 @@ sde::library::add_main()
  and prefix)"
          ;;
       esac
-   fi
-
-   case "${OPTION_DIALECT}" in
-      c)
-         # prepend is better in this case
-         r_comma_concat "no-import,no-all-load,no-cmake-inherit" "${marks}"
-         marks="${RVAL}"
-      ;;
-
-      objc)
-      ;;
-   esac
-
-   if [  "${OPTION_FRAMEWORK}" = 'YES' ]
-   then
-      r_comma_concat "only-framework,only-platform-darwin,no-cmake-inherit" "${marks}"
-      marks="${RVAL}"
-   fi
-   
-   if [ "${OPTION_PRIVATE}" = 'YES' ]
-   then
-      r_comma_concat "${marks}" "no-public"
-      marks="${RVAL}"
-   fi
-
-   if [ "${OPTION_OPTIONAL}" = 'YES' ]
-   then
-      r_comma_concat "${marks}" "no-require"
-      marks="${RVAL}"
    fi
 
    eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -344,13 +241,197 @@ ${C_RESET_BOLD}   mulle-sde library set ${libname} aliases ${libname},${libname#
 ${C_VERBOSE}You can change the header include with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libname#lib}.h"
 
-   if [ "${OPTION_FRAMEWORK}" = 'YES' ]
+   sde::common::_set_userinfo_field "${libname}" \
+                                      'include' \
+                                      "<${libname}/${libname}.h>" \
+                                      'NO'
+}
+
+
+sde::library::add_library()
+{
+   log_entry "sde::library::add_library" "$@"
+
+   local libname="$1"
+   local marks="$2"
+   local options="$3"
+   local userinfo="$4"
+
+   if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
-      sde::common::_set_userinfo_field "${libname}" \
-                                         'include' \
-                                         "<${libname}/${libname}.h>" \
-                                         'NO'
-   fi                     
+      case "${libname}" in
+         ""|-*|*.*|lib*)
+            fail "Invalid library name \"${libname}\" (use name w/o extension \
+ and prefix)"
+         ;;
+      esac
+   fi
+
+   eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     --virtual-root \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS:-} \
+                     ${MULLE_FWD_FLAGS} \
+                   add \
+                     --nodetype none \
+                     --marks "'${marks}'" \
+                     "${userinfo}" \
+                     "${options}" \
+                     "'${libname}'" || return 1
+
+   log_info "${C_VERBOSE}You can change the library search names with:
+${C_RESET_BOLD}   mulle-sde library set ${libname} aliases ${libname},${libname#lib}2
+${C_VERBOSE}You can change the header include with:
+${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libname#lib}.h"
+}
+
+
+# let add run mulitple times over input
+sde::library::add_main()
+{
+   log_entry "sde::library::add_main" "$@"
+
+   local options
+   local userinfo
+   local names
+   local added
+   local marks
+   local defaultmarks
+   local OPTION_FRAMEWORK='NO'
+
+   # default is
+   defaultmarks="${LIBRARY_INIT_MARKS},no-import,no-import,no-cmake-inherit"
+   marks="${defaultmarks}"
+
+   include "mulle-sourcetree::nodemarks"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::library::add_usage
+         ;;
+
+         -c|--c)
+            sourcetree::nodemarks::r_add "${marks}" "no-import"
+            sourcetree::nodemarks::r_add "${RVAL}"  "no-all-load"
+            sourcetree::nodemarks::r_add "${RVAL}"  "no-cmake-inherit"
+            marks="${RVAL}"
+         ;;
+
+         -m|--objc)
+            sourcetree::nodemarks::r_remove "${marks}" "no-import"
+            sourcetree::nodemarks::r_remove "${RVAL}"  "no-all-load"
+            sourcetree::nodemarks::r_remove "${RVAL}"  "no-cmake-inherit"
+            marks="${RVAL}"
+         ;;
+
+         -framework)
+            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+            shift
+
+            sourcetree::nodemarks::r_add "${marks}" "only-framework"
+            sourcetree::nodemarks::r_add "${RVAL}"  "only-platform-darwin"
+            sourcetree::nodemarks::r_add "${RVAL}"  "no-cmake-inherit"
+
+            sde::library::add_framework "$1" "${RVAL}" "${options}" "${userinfo}"
+
+            added="YES"
+         ;;
+
+         # backwards compatibility
+         --framework)
+            OPTION_FRAMEWORK='YES'
+         ;;
+
+         --library|--no-framework)
+            OPTION_FRAMEWORK='NO'
+         ;;
+
+         --private)
+            sourcetree::nodemarks::r_add "${marks}" "no-public"
+            marks="${RVAL}"
+         ;;
+
+         --public)
+            sourcetree::nodemarks::r_add "${marks}" "public"
+            marks="${RVAL}"
+         ;;
+
+         --optional)
+            sourcetree::nodemarks::r_add "${marks}" "no-require"
+            marks="${RVAL}"
+         ;;
+
+         --required|--require)
+            sourcetree::nodemarks::r_add "${marks}" "require"
+            marks="${RVAL}"
+         ;;
+
+         --reset-marks)
+            marks="${LIBRARY_INIT_MARKS}"
+         ;;
+
+         --marks)
+            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+            shift
+
+            sourcetree::nodemarks::r_add "${marks}" "$1"
+            marks="${RVAL}"
+         ;;
+
+        --userinfo)
+            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+            shift
+
+            userinfo="--userinfo '$1'"
+         ;;
+
+         --reset-options|--unconditonally)
+            options=""
+         ;;
+
+         --if-missing)
+            options="--if-missing"
+         ;;
+
+         -l*)
+            sde::library::add_library "${1:2}" "${marks}" "${options}" "${userinfo}"
+
+            added="YES"
+         ;;
+
+         -*)
+            sde::library::add_usage "Unknown option \"$1\""
+         ;;
+
+         "")
+            sde::library::add_usage "Empty argument"
+         ;;
+
+         *)
+            if [ "${OPTION_FRAMEWORK}" = 'YES' ]
+            then
+               sourcetree::nodemarks::r_add "${marks}" "only-framework"
+               sourcetree::nodemarks::r_add "${RVAL}"  "only-platform-darwin"
+               sourcetree::nodemarks::r_add "${RVAL}"  "no-cmake-inherit"
+
+               sde::library::add_framework "$1" "${RVAL}" "${options}" "${userinfo}"
+            else
+               sde::library::add_library "$1" "${marks}" "${options}" "${userinfo}"
+            fi
+
+            added="YES"
+         ;;
+      esac
+
+      shift
+   done
+
+   if [ -z "${added}" ]
+   then
+      sde::library::add_usage "Missing arguments"
+   fi
 }
 
 
@@ -484,10 +565,14 @@ sde::library::list_main()
 {
    log_entry "sde::library::list_main" "$@"
 
-   local marks
+   local no_marks
    local qualifier
+   local OPTIONS
+   local formatstring
 
-   marks="${LIBRARY_FILTER_MARKS}"
+   formatstring="%a;%i={aliases,,-------};%i={include,,-------}"
+
+   no_marks="${LIBRARY_MARKS}"
 
    while :
    do
@@ -496,12 +581,16 @@ sde::library::list_main()
             sde::library::list_usage
          ;;
 
-         --marks)
+         -m)
+            formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
+         ;;
+
+         --no-marks|--no-mark)
             [ "$#" -eq 1 ] && sde::library::list_usage "Missing argument to \"$1\""
             shift
 
-            r_comma_concat "${marks}" "$1"
-            marks="${RVAL}"
+            r_comma_concat "${no_marks}" "$1"
+            no_marks="${RVAL}"
          ;;
 
          --qualifier)
@@ -509,6 +598,11 @@ sde::library::list_main()
             shift
 
             qualifier="${RVAL}"
+         ;;
+
+         -l|-ll|-r|-g|-u|-G|-U)
+            r_concat "${OPTIONS}" "$1"
+            OPTIONS="${RVAL}"
          ;;
 
          --)
@@ -536,11 +630,12 @@ sde::library::list_main()
                 ${MULLE_TECHNICAL_FLAGS} \
                 ${MULLE_SOURCETREE_FLAGS:-} \
                list \
-                  --format "%a;%m;%i={aliases,,-------};%i={include,,-------}\\n" \
-                  --marks "${marks}" \
+                  --format "${formatstring}\\n" \
+                  --marks "${LIBRARY_FILTER_MARKS}" \
                   --qualifier "${qualifier}" \
                   --nodetypes "${LIBRARY_FILTER_NODETYPES}" \
-                  --output-no-marks "${LIBRARY_MARKS}" \
+                  --output-no-marks "${no_marks}" \
+                  ${OPTIONS} \
                   "$@"
 }
 

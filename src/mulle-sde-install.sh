@@ -265,6 +265,7 @@ Use -f flag to clobber."
          "${MULLE_CRAFT_FLAGS}" \
          --craftorder-file craftorder \
       craftorder \
+         --no-donefiles \
          --no-protect \
          ${serial} \
          --no-keep-dependency-state \

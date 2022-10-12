@@ -209,9 +209,9 @@ Usage:
 
    The commandline IDE with the development cycle Edit -> Reflect -> Craft.
 
-   * Edit     mulle-sde has no facility for editing, use your preferred editor.
-   * Reflect  Create necessary files for cmake (or others)
-   * Craft    Crafts (runs cmake) on dependencies and the project itself
+   * Edit     you use your preferred editors and file managers
+   * Reflect  mulle-sde creates the necessary make files
+   * Craft    mulle-sde builds the dependencies and the project itself
 
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .mulle ]
@@ -239,7 +239,6 @@ EOF
 Flags:
 EOF
    sde::print_flags "${verbose}" | LC_ALL=C sort
-
 
    cat <<EOF
 
@@ -376,6 +375,7 @@ sde::is_test_directory()
    rexekutor [ -d "${directory}" ]
 }
 
+
 #
 # why is this important ?
 #
@@ -472,7 +472,6 @@ ${flag}"
 $1"
       shift
    done
-
 
    #
    # here we are just bouncing through mulle-env, we don't want
@@ -794,8 +793,8 @@ env-identifier|steal|test|upgrade)
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
 craft-status|crun|doctor|donefile|dependency|definition|env|environment|fetch|\
-files|find|ignore|library|linkorder|list|log|\
-mark|match|migrate|monitor|patternfile|project|protect|reflect|run|\
+files|filename|find|ignore|library|linkorder|list|log|\
+mark|match|migrate|monitor|patternfile|patternfiles|project|protect|reflect|run|\
 sourcetree|subproject|style|task|tool|treestatus|unmark|unprotect|update|\
 dep|ext|lib|pat|sub)
                if ! sde::is_help_request_commandline "${2:-}"
@@ -978,6 +977,7 @@ dependency-dir
 environment
 extension
 fetch
+filename
 files
 find
 ignore
@@ -1281,7 +1281,8 @@ version"
                            "$@"
       ;;
 
-      match|patternfile|pat)
+      match|patternfile|pat|patternfiles|filename)
+         cmd="${cmd//patternfiles/patternfile}"
          if ! sde::is_help_request_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}" 'NO'

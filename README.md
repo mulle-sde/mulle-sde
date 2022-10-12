@@ -35,15 +35,33 @@ If you want to compile some dependencies without setting up a mulle-sde project,
 you can do an *install* with an archive. Here is an example where the latest *mulle-allocator*
 and its dependencies is installed into `/tmp/foo`:
 
-```
+``` sh
 mulle-sde install --prefix /tmp/foo https://github.com/mulle-c/mulle-allocator/archive/latest.tar.gz
+tree /tmp/foo
+/tmp/foo
+├── include
+│   ├── mulle-allocator
+│   │   ├── cmake
+│   │   │   ├── DependenciesAndLibraries.cmake
+│   │   │   ├── _Dependencies.cmake
+│   │   │   └── _Libraries.cmake
+│   │   ├── include.h
+│   │   ├── mulle-allocator.h
+│   │   ├── _mulle-allocator-include.h
+│   │   ├── mulle-allocator-struct.h
+│   │   ├── _mulle-allocator-versioncheck.h
+│   │   └── version.h
+│   └── mulle-c11
+│       └── mulle-c11.h
+└── lib
+    └── libmulle-allocator.a
 ```
 
 If you don't want to use the mulle-sde project features to, but you only want
 to maintain dependencies of an existing project, you can use a `none`
 project type:
 
-```
+``` sh
 mulle-sde init # none is implicit
 mulle-sde dependency add --github madler zlib
 mulle-sde craft
@@ -58,6 +76,9 @@ This will create four folders:
 ├── .mulle       # internal mulle-sde maintenance
 └── stash        # downloaded dependencies
 ```
+
+In `dependency` you will then find the familiar file structure with include and
+lib folders, ready for inclusion and linking in your project.
 
 
 ## Documentation
@@ -104,19 +125,19 @@ can coexist on a filesystem with minimized interference.
 
 This is an example, that creates a cmake project for C (this is the default):
 
-``` console
-$ mulle-sde init -d hello -m mulle-sde/c-developer executable
+``` sh
+mulle-sde init -d hello -m mulle-sde/c-developer executable
 ```
 
 You can now enter the environment sub-shell with:
 
-``` console
-$ mulle-sde hello
+``` sh
+mulle-sde hello
 ```
 
 or just `cd` to your project:
 
-``` console
+``` sh
 $ cd hello
 ```
 
@@ -127,40 +148,40 @@ $ cd hello
 
 Maybe have a look at the project configuration:
 
-``` console
-$ mulle-sde list
+``` sh
+mulle-sde list
 ```
 
 Build it:
 
-```
-$ mulle-sde craft
+``` sh
+mulle-sde craft
 ```
 
 Run it:
 
-```
+``` sh
 $ ./kitchen/Debug/hello
 ```
 
 Update your source or project files manually. Then let mulle-sde reflect your
 changes back into the Makefiles and into header files and build again:
 
-```
-$ mulle-sde reflect
-$ mulle-sde craft
+``` sh
+mulle-sde reflect
+mulle-sde craft
 
 ```
 
 Or add a template generated source file with reflection for free:
 
-```
-$ mulle-sde add src/foo.c
+``` sh
+mulle-sde add src/foo.c
 ```
 
 Leave the environment:
 
-```
+``` sh
 $ exit
 ```
 
@@ -178,7 +199,7 @@ You can create a templated source file for installed languages with
 the `add` command. These files can be optionally pre-loaded with
 personalized copyright statements and so forth.
 
-```
+``` sh
 mulle-sde add src/Foo.m
 ```
 
@@ -206,7 +227,7 @@ mulle-sde craft
 or headers only. These will be downloaded, unpacked and built into `dependency`
 with the next build:
 
-```
+``` sh
 mulle-sde dependency add https://github.com/madler/zlib/archive/v1.2.11.tar.gz
 ```
 
@@ -229,11 +250,11 @@ depending on operating system, host or user.
 
 You can add or remove environment variables with *environment*.
 
-```
+``` sh
 mulle-sde environment list
 ```
 
-```
+``` sh
 mulle-sde environment set FOO "my foo value"
 ```
 
@@ -258,21 +279,21 @@ runtime        | Support for language/runtime combinations like C or Objective-C
 Extensions are installable plugins. The package [mulle-sde-developer](//github.com/mulle-sde/mulle-sde-developer)
 provides the basic set of extension. Use *list* to see the *extensions* installed on your system:
 
-```
+``` sh
 mulle-sde extension list
 ```
 
 Use *usage* to see special notes for a certain *extension*:
 
 
-```
+``` sh
 mulle-sde extension usage mulle-sde/extension
 ```
 
 *upgrade* is the mechanism to install newer or different versions of your
 choice of *extensions*:
 
-```
+``` sh
 mulle-sde extension upgrade
 ```
 
@@ -287,13 +308,13 @@ information about adding and writing extensions.
 List environment variables, definitions, files and dependencies that comprise
 your project:
 
-```
+``` sh
 mulle-sde list
 ```
 
 To see only the project files use:
 
-```
+``` sh
 mulle-sde list --files
 ```
 
@@ -308,7 +329,7 @@ information on this command.
 Libraries are operating system provided libraries (like `libm.a`) that you
 don't build yourself.
 
-```
+``` sh
 mulle-sde library add m
 ```
 
@@ -328,7 +349,7 @@ information about managing libraries.
 
 List and inspect log files produced by craft.
 
-```
+``` sh
 mulle-sde log list
 mulle-sde log cat
 mulle-sde log -p "MulleObjC" grep 'foo'
@@ -343,7 +364,7 @@ Patternfile control the reflection of source files to the project files.
 Manage the *patternfiles* that are used by `mulle-sde list` to classify the
 files inside your project:
 
-```
+``` sh
 mulle-sde patternfile list
 ```
 
@@ -357,7 +378,7 @@ information on this command.
 
 Get a quick description about the state of the mulle-sde project.
 
-```
+``` sh
 mulle-sde status
 ```
 
@@ -373,7 +394,7 @@ You can add or remove tools with this command set.
 > This is only applicable to environment styles `restricted` and `tight`.
 > The `inherit` style uses the default **PATH**.
 
-```
+``` sh
 mulle-sde tool add nroff
 ```
 
@@ -387,7 +408,7 @@ build-system "Makefiles", typically the `cmake/reflect` folder. In a C
 language family based project, the reflection will also create header files
 for inclusion in the `src/reflect` folder:
 
-```
+``` sh
 rm src/foo.*
 mulle-sde reflect
 ```
@@ -406,7 +427,7 @@ use to link your *dependencies* and *libraries* outside of *mulle-sde*:
 
 e.g.
 
-```
+``` sh
 mulle-sde linkorder --output-format ld
 
 -Wl,--whole-archive -Wl,--no-as-needed -lMulleObjC -Wl,--as-needed -Wl,--no-whole-archive -ldl -lmulle-container -Wl,--whole-archive -Wl,--no-as-needed -lmulle-objc-runtime -Wl,--as-needed -Wl,--no-whole-archive -lmulle-stacktrace -lmulle-vararg -lmulle-concurrent -lmulle-aba -lmulle-thread -lpthread -lmulle-allocator
@@ -438,7 +459,7 @@ r        | reflect project
 To have the same functionality without entering the subshell, define these
 aliases in your `.bashrc`:
 
-```
+``` sh
 alias c="mulle-sde craft"
 alias C="mulle-sde clean; mulle-sde craft"
 alias CC="mulle-sde clean all; mulle-sde craft"

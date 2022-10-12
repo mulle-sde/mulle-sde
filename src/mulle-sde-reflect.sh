@@ -343,7 +343,7 @@ sde::reflect::worker()
    then
       if [ -z "${previous}" ]
       then
-         log_fluff "Nothing needs to be reflected"
+         log_fluff "Nothing needs to be reflected for $names in $PROJECT_NAME"
          return
       fi
 

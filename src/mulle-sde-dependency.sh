@@ -129,27 +129,22 @@ Usage:
 
 Examples:
    Add dependency via craftinfo:
-
       ${MULLE_USAGE_NAME} dependency add craftinfo:openssl
 
    Add a github repository as a dependency:
-
       ${MULLE_USAGE_NAME} dependency add --github madler --scm git zlib
 
    Add a tar archive as a dependency:
-
       ${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
 
    Add a remote hosted file to your project:
-
       ${MULLE_USAGE_NAME} dependency add --embedded --scm file \\
-                  --address src/foo.c https://foo.com/foo_2.11.c
+                               --address src/foo.c https://foo.com/foo_2.11.c
 
    Add an archive with flexible versioning to the project:
-
-      ${MULLE_USAGE_NAME} dependency add --c --address postgres --tag 11.2 \
-                                         --marks singlephase \
-'https://ftp.postgresql.org/pub/source/v${MULLE_TAG}/postgresql-${MULLE_TAG}.tar.bz2'
+      ${MULLE_USAGE_NAME} dependency add --c --address postgres --tag 11.2 \\
+                               --marks singlephase \\
+'https://ftp.postgresql.org/pub/source/v\${MULLE_TAG}/postgresql-\${MULLE_TAG}.tar.bz2'
       ${MULLE_USAGE_NAME} environment set POSTGRES_TAG 11.1 # look in config
 
 Options:
@@ -295,13 +290,15 @@ Usage:
    single entries between projects.
 
 Options:
-   -l    : output long information
-   -ll   : output full information
-   -r    : recursive list
-   -g    : output branch/tag information (use -G for raw output)
-   -u    : output URL information  (use -U for raw output)
-   --url : show URL
-   --    : pass remaining arguments to mulle-sourcetree list
+   -l               : output long information
+   -ll              : output full information
+   -m               : show marks output (overwrites other flags)
+   -r               : recursive list
+   -g               : output branch/tag information (use -G for raw output)
+   -u               : output URL information  (use -U for raw output)
+   --url            : show URL
+   --no-mark <mark> : remove mark from output
+   --               : pass remaining arguments to mulle-sourcetree list
 
 
 EOF
@@ -548,12 +545,12 @@ sde::dependency::list_main()
 {
    log_entry "sde::dependency::list_main" "$@"
 
-   local marks
+   local no_marks
    local qualifier
    local formatstring
 
-   formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
-   marks="${DEPENDENCY_MARKS}"
+   formatstring="%a;%i={aliases,,-------};%i={include,,-------}"
+   no_marks="${DEPENDENCY_MARKS}"
 
    local OPTION_OUTPUT_COMMAND='NO'
    local OPTIONS
@@ -573,14 +570,17 @@ sde::dependency::list_main()
             formatstring="${formatstring};%u"
          ;;
 
-         --marks)
+         -m|--more)
+            formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
+         ;;
+
+         --no-mark|--no-marks)
             [ "$#" -eq 1 ] && sde::dependency::list_usage "Missing argument to \"$1\""
             shift
 
-            r_comma_concat "${marks}" "$1"
-            marks="${RVAL}"
+            r_comma_concat "${no_marks}" "$1"
+            no_marks="${RVAL}"
          ;;
-
 
          --qualifier)
             [ "$#" -eq 1 ] && sde::dependency::list_usage "Missing argument to \"$1\""
@@ -632,7 +632,7 @@ sde::dependency::list_main()
                --output-no-url \
                --output-no-column \
                --output-no-header \
-               --output-no-marks "${DEPENDENCY_MARKS}" \
+               --output-no-marks "${no_marks}" \
                --output-cmdline "${MULLE_USAGE_NAME} dependency add" \
                ${OPTIONS} \
                "$@"
@@ -646,7 +646,7 @@ sde::dependency::list_main()
                --marks "${DEPENDENCY_LIST_MARKS}" \
                --qualifier "${qualifier}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
-               --output-no-marks "${DEPENDENCY_MARKS}" \
+               --output-no-marks "${no_marks}" \
                ${OPTIONS} \
                "$@"
    fi
@@ -1459,11 +1459,6 @@ sde::dependency::add_main()
       return 1
    fi
 
-   log_info "${C_VERBOSE}You can change the library search names with:
-${C_RESET_BOLD}   mulle-sde dependency set ${address} aliases ${address#lib},${address#lib}2
-${C_VERBOSE}You can change the header include with:
-${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${address#lib}.h"
-
    local dependency
 
    dependency="${address:-${originalurl}}"
@@ -1473,8 +1468,16 @@ ${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${a
       sde::dependency::use_craftinfo_main "${dependency}" "NO"
    fi
 
-   if [ "${OPTION_EMBEDDED}" != 'YES' ]
+   if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
+      _log_info "${C_VERBOSE}Ignore embedded files with:
+${C_RESET_BOLD}   mulle-sde ignore <gitignore-like-pattern>"
+   else
+      _log_info "${C_VERBOSE}You can change the library search names with:
+${C_RESET_BOLD}   mulle-sde dependency set ${address} aliases ${address#lib},${address#lib}2
+${C_VERBOSE}You can change the header include with:
+${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${address#lib}.h"
+
       case "${OPTION_DIALECT}" in
          c)
             if [ "${OPTION_PRIVATE}" = 'YES' ]

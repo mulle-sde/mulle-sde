@@ -77,6 +77,7 @@ sde::clean::domains_usage()
    default     : clean project and subprojects (default)
    fetch       : clean to force a fresh fetch from remotes
    graveyard   : clean graveyard (which can become quite large)
+   gravetidy   : clean everything and graveyards (tidy + graveyard)
    mirror      : clean the repository mirror
    project     : clean project, keep dependencies
    subprojects : clean subprojects
@@ -525,6 +526,7 @@ default
 dependency
 fetch
 graveyard
+gravetidy
 mirror
 project
 subprojects
@@ -580,6 +582,12 @@ test"
 
       graveyard)
          domains="graveyard"
+      ;;
+
+      gravetidy|grave-tidy|gtidy)
+         domains="graveyard sourcetree_share craftordercache output var db monitor patternfile"
+         MULLE_SOURCETREE_GRAVEYARD_ENABLED='NO'
+         export MULLE_SOURCETREE_GRAVEYARD_ENABLED
       ;;
 
       subproject|subprojects)

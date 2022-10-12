@@ -59,7 +59,7 @@ Options:
    -v                      : show tool output inline
    -q                      : skip uptodate checks
    --clean                 : clean before crafting (see: mulle-sde clean)
-   --clean-domain <domain> : clean specific domain before crafting (s.a)
+   --from <domain>         : clean specific depenency before crafting (s.a)
    --run                   : attempt to run produced executable
    --analyze               : run clang analyzer when crafting the project
    --serial                : compile one file at a time
@@ -135,7 +135,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
    if [ ! -f "${craftorderfile}" ]
    then
-      log_fluff "No craftorderfile to no dependencies to reflect"
+      log_fluff "No craftorderfile, so no dependencies to reflect"
       RVAL=""
       return 0
    fi
@@ -184,7 +184,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       # if the file exists, we implicitly know its a mulle-sde project
       if [ ! -f "${filename}" ]
       then
-         log_debug "${repository} has only a single sourcetree"
+         log_fluff "${repository} has only a single sourcetree"
          continue
       fi
 
@@ -192,7 +192,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       previous="`egrep -v '^#' "${filename}" 2> /dev/null `"
       if [ "${previous}" = "${first_name}" ]
       then
-         log_debug "${repository} is already reflected for sourcetree \"${first_name}\""
+         log_fluff "${repository} is already reflected for sourcetree \"${first_name}\""
          continue
       fi
 
@@ -319,8 +319,7 @@ sde::craft::perform_clean_if_needed()
 
    if [ "${clean:-${mode}}" = 'YES' ]
    then
-      ! [ ${MULLE_SDE_CLEAN_SH+x} ] && \
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh"
+      include "sde::clean"
 
       sde::clean::main --no-test
    fi
@@ -556,12 +555,11 @@ sde::craft::main()
             OPTION_CLEAN='NO'
          ;;
 
-         --clean-domain)
+         --from|--clean-domain)
             [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
 
-            ! [ ${MULLE_SDE_CLEAN_SH+x} ] && \
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
+            include "sde::clean"
 
             sde::clean::main "$1"
          ;;
@@ -631,7 +629,7 @@ sde::craft::main()
                     -s \
                      dbstatus
       dbrval="$?"
-      log_fluff "dbstatus is $dbrval (0: ok, 1: missing, 2:dirty)"
+      log_verbose "Sourcetree status is $dbrval (0: ok, 1: missing, 2:dirty)"
    fi
 
    # do the clean first as it wipes the database

@@ -80,6 +80,7 @@ Commands:
    info            : find online help for a dependency
    list            : list builds settings of a dependency
    remove          : remove the craftinfo with all settings
+   readd           : add the craftinfo dependency back
    set             : set a build setting of a dependency
    show            : show craftinfos that are available online
    unset           : remove a build setting of a dependency
@@ -276,6 +277,23 @@ EOF
 }
 
 
+sde::craftinfo::readd_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo readd <url>
+
+   Add the automatically generated dependency back to the sourcetree, if
+   it was accidentally deleted. This dependency copies the craftinfo into
+   the dependency/share/mulle-craft folder during crafting.
+
+EOF
+  exit 1
+}
+
+
 sde::craftinfo::show_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -370,6 +388,83 @@ clobber possibly existing .mulle/etc/craft definitions"
 }
 
 
+sde::craftinfo::add_craftinfo_subproject()
+{
+   log_entry "sde::craftinfo::add_craftinfo_subproject" "$@"
+
+   local subprojectdir="$1"
+
+   [ -z "${subprojectdir}" ] && _internal_fail "empty subprojectdir"
+
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS:-} \
+               add \
+                  --if-missing \
+                  --marks "${CRAFTINFO_MARKS}" \
+                  --nodetype "local" \
+                  "${subprojectdir}"  || return 1
+
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_SOURCETREE_FLAGS:-} \
+               move \
+                  "${subprojectdir}" \
+                  top || return 1
+}
+
+
+sde::craftinfo::readd_main()
+{
+   log_entry "sde::craftinfo::readd_main" "$@"
+
+   local extension="$1"; shift
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::craftinfo::readd_usage
+         ;;
+
+         --lenient)
+            OPTION_LENIENT='YES'
+         ;;
+
+         -*)
+            sde::craftinfo::readd_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -eq 0 ] && sde::craftinfo::readd_usage "Missing url or address argument"
+   [ $# -ne 1 ] && sde::craftinfo::readd_usage "Superflous arguments \"$*\""
+
+   local url="$1"
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" "${OPTION_LENIENT}"
+   then
+      return 1
+   fi
+
+   sde::craftinfo::add_craftinfo_subproject "${_subprojectdir}"
+}
+
+
+
 sde::craftinfo::add_craftinfo_subproject_if_needed()
 {
    log_entry "sde::craftinfo::add_craftinfo_subproject_if_needed" "$@"
@@ -418,8 +513,8 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
          MULLE_SDE_EXTENSION_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_PATH"'`"
 
          exekutor sde::extension::main pimp --project-type "unknown" \
-                                          --oneshot-name "${name}" \
-                                          mulle-sde/craftinfo
+                                            --oneshot-name "${name}" \
+                                            mulle-sde/craftinfo
       ) || return 1
       [ -d "${subprojectdir}" ] || \
          _internal_fail "did not produce \"${subprojectdir}\""
@@ -430,23 +525,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
       fi
    fi
 
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS:-} \
-               add \
-                  --if-missing \
-                  --marks "${CRAFTINFO_MARKS}" \
-                  --nodetype "local" \
-                  "${subprojectdir}"  || return 1
-
-   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_SOURCETREE_FLAGS:-} \
-               move \
-                  "${subprojectdir}" \
-                  top || return 1
+   sde::craftinfo::add_craftinfo_subproject "${subprojectdir}"
 }
 
 
@@ -568,9 +647,9 @@ sde::craftinfo::create_main()
       return 1
    fi
    sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
-                                                     "${_name}" \
-                                                     "${OPTION_COPY}" \
-                                                     "${OPTION_CLOBBER}"
+                                                      "${_name}" \
+                                                      "${OPTION_COPY}" \
+                                                      "${OPTION_CLOBBER}"
    case "$?" in
       0|2)
          return 0
@@ -1025,9 +1104,9 @@ sde::craftinfo::set_main()
    fi
 
    sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
-                                          "${_name}" \
-                                          "${OPTION_COPY}" \
-                                          "DEFAULT"
+                                                      "${_name}" \
+                                                      "${OPTION_COPY}" \
+                                                      "DEFAULT"
    case "$?" in
       0|2)
       ;;
@@ -1379,7 +1458,7 @@ sde::craftinfo::main()
    fi
 
    case "${subcmd:-list}" in
-      create|set|get|list|fetch|exists|remove|show|unset)
+      create|set|get|list|fetch|exists|readd|remove|show|unset)
          sde::craftinfo::${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" ]
          then

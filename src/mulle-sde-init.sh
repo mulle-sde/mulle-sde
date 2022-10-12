@@ -2879,6 +2879,7 @@ sde::init::_run_common()
          if [ -z "${projectname}" ]
          then
             r_basename "${PWD}"
+            RVAL="${RVAL//[^a-zA-Z0-9-]/_}"
             projectname="${RVAL}"
          fi
       ;;
@@ -2897,14 +2898,14 @@ sde::init::_run_common()
    sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    if ! sde::init::install_project "${projectname}" \
-                        "${projecttype}" \
-                        "${OPTION_PROJECT_SOURCE_DIR}" \
-                        "${OPTION_MARKS}" \
-                        "${OPTION_PROJECT_FILE}" \
-                        "${MULLE_FLAG_MAGNUM_FORCE}" \
-                        "${OPTION_LANGUAGE}"  \
-                        "${OPTION_DIALECT}"  \
-                        "${OPTION_EXTENSIONS}"
+                                   "${projecttype}" \
+                                   "${OPTION_PROJECT_SOURCE_DIR}" \
+                                   "${OPTION_MARKS}" \
+                                   "${OPTION_PROJECT_FILE}" \
+                                   "${MULLE_FLAG_MAGNUM_FORCE}" \
+                                   "${OPTION_LANGUAGE}"  \
+                                   "${OPTION_DIALECT}"  \
+                                   "${OPTION_EXTENSIONS}"
    then
       _internal_fail "sde::init::install_project should exit not return errors"
    fi
