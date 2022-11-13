@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -63,6 +63,7 @@ Options:
    --run                   : attempt to run produced executable
    --analyze               : run clang analyzer when crafting the project
    --serial                : compile one file at a time
+   --build-style <style>   : known styles are Debug/Release/Test/RelDebug
 
 Targets:
    all                     : build dependency folder, then project
@@ -109,10 +110,11 @@ sde::craft::perform_fetch_if_needed()
                            "sync" \
                                "${OPTION_SYNCFLAGS}" || fail "sync fail"
 
+         #
          # run this quickly, because incomplete previous fetches trip me
          # up too often (not doing this since mulle-sde doctor is OK now)
          # exekutor mulle-sde status --stash-only
-
+         #
          if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         --virtual-root \
                          ${MULLE_TECHNICAL_FLAGS:-} \
@@ -144,24 +146,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
    local first_name
    local var
 
-   if [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]
-   then
-      include "case"
-
-      r_smart_upcase_identifier "${PROJECT_NAME:-local}"
-      PROJECT_UPCASE_IDENTIFIER="${RVAL}"
-   fi
-
-   var="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
-   if [ ! -z "${ZSH_VERSION}" ]
-   then
-      names="${(P)var}"
-   else
-      names="${!var}"
-   fi
-
-   names="${names:-config}"
-
+   names="${MULLE_SOURCETREE_CONFIG_NAME:-config}"
    first_name="${names%%:*}"
 
    local line
@@ -177,7 +162,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
    do
       IFS="${DEFAULT_IFS}"
 
-      filename="${repository}/${MULLE_SDE_ETC_DIR#${MULLE_VIRTUAL_ROOT}/}/reflect"
+      filename="${repository}/${MULLE_SDE_ETC_DIR#"${MULLE_VIRTUAL_ROOT}/"}/reflect"
 
       # if the file does not exist, this means
       # a) it's not a multi sourcetree project
@@ -370,11 +355,12 @@ sde::craft::target()
 
    [ $# -eq 6 ] || _internal_fail "API error"
 
+   # uses rexekutor because -n flag should be passed down
    case "${target}" in
       'all')
          if [ -f "${craftorderfile}" ]
          then
-            eval_exekutor "${craftorder_cmdline}" \
+            eval_rexekutor "${craftorder_cmdline}" \
                                  --craftorder-file "'${craftorderfile}'" \
                               craftorder \
                                  --no-memo-makeflags "'${flags}'" \
@@ -387,7 +373,7 @@ sde::craft::target()
       'craftorder')
          if [ -f "${craftorderfile}" ]
          then
-            eval_exekutor "${craftorder_cmdline}" \
+            eval_rexekutor "${craftorder_cmdline}" \
                                  --craftorder-file "'${craftorderfile}'" \
                               craftorder \
                                  --no-memo-makeflags "'${flags}'" \
@@ -405,7 +391,7 @@ sde::craft::target()
       *)
          if [ -f "${craftorderfile}" ]
          then
-            eval_exekutor "${craftorder_cmdline}" \
+            eval_rexekutor "${craftorder_cmdline}" \
                                  --craftorder-file "'${craftorderfile}'" \
                               "${target}" \
                                  --no-memo-makeflags "'${flags}'" \
@@ -419,9 +405,15 @@ sde::craft::target()
 
    # project doesn't pay of in multiphase
    case "${target}" in
-      'project'|'all')
+      'project')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
-            eval_exekutor "${project_cmdline}" project "${arguments}"  || return 1
+            eval_rexekutor "${project_cmdline}" project "${arguments}"  || return 1
+      ;;
+
+      'all')
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME} craft" \
+            eval_rexekutor "${project_cmdline}" project "${arguments}"  || return 1
+      ;;
    esac
 }
 
@@ -491,6 +483,7 @@ sde::craft::main()
    log_entry "sde::craft::main" "$@"
 
    local target=""
+   local buildstyle=""
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
@@ -500,15 +493,15 @@ sde::craft::main()
 
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
 
+   target="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET}}"
+
    if [ "${PROJECT_TYPE}" = "none" ]
    then
+      log_fluff "PROJECT_TYPE is \"none\", so only craftorder will be built"
       target="craftorder"
       OPTION_REFLECT='NO'
    fi
 
-   MULLE_SDE_TARGET="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET:-}}"
-
-   target="${target:-${MULLE_SDE_TARGET}}"
    target="${target:-all}"
 
    while [ $# -ne 0 ]
@@ -562,6 +555,13 @@ sde::craft::main()
             include "sde::clean"
 
             sde::clean::main "$1"
+         ;;
+
+         --build-type|--build-style)
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
+            shift
+
+            buildstyle="$1"
          ;;
 
          --no-motd)
@@ -684,6 +684,9 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 #   fi
 
    project_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
+
+   # keep flags around for no-memo-flags
+
    if [ "${OPTION_MOTD}" = 'YES' ]
    then
       project_cmdline="${project_cmdline} '--motd'"
@@ -758,7 +761,6 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
       mulle_make_flags="${RVAL}"
    fi
 
-   local buildstyle
    local runstyle
    local need_dashdash='YES'
    local i
@@ -800,30 +802,37 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 
    if [ -z "${buildstyle:-}" ]
    then
-      buildstyle="${MULLE_SDE_CRAFT_STYLE:-}}"
+      buildstyle="${MULLE_SDE_CRAFT_STYLE:-}"
       if [ ! -z "${buildstyle:-}" ]
       then
-         log_fluff "Buildstyle set from MULLE_SDE_CRAFT_STYLE"
+         log_verbose "Buildstyle set from MULLE_SDE_CRAFT_STYLE (${buildstyle})"
       fi
    fi
 
    case "${buildstyle}" in
       [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
-         log_fluff "Buildstyle is Release"
+         log_verbose "Buildstyle is Release"
          runstyle="Release"
          r_concat "--release" "${arguments}"
          arguments="${RVAL}"
       ;;
 
+      [Rr][Ee][Ll][Dd][Ee][Bb][Uu][Gg])
+         log_verbose "Buildstyle is RelDebug"
+         runstyle="RelDebug"
+         r_concat "--release-debug" "${arguments}"
+         arguments="${RVAL}"
+      ;;
+
       [Dd][Ee][Bb][Uu][Gg])
-         log_fluff "Buildstyle is Debug"
+         log_verbose "Buildstyle is Debug"
          runstyle="Debug"
          r_concat "--debug" "${arguments}"
          arguments="${RVAL}"
       ;;
 
       [Tt][Ee][Ss][Tt])
-         log_fluff "Buildstyle is test"
+         log_verbose "Buildstyle is test"
          r_concat "--test --library-style dynamic" "${arguments}"
          arguments="${RVAL}"
       ;;
@@ -833,7 +842,21 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
       ;;
    esac
 
-#   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
+   #
+   # always specify is better, because then we don't get accidentally
+   # mulle-clang as the C compiler.
+   #
+   # if plain C, don't emot language
+   #if [ "${PROJECT_LANGUAGE}" != "${PROJECT_DIALECT}" ] && \
+   #   ! [ "${PROJECT_LANGUAGE}" == "c" -a -z "${PROJECT_DIALECT}" ]
+   #then
+   # can only do this for the project, which makes it kinda pointless
+   #
+   #   r_concat "--language c --dialect ${PROJECT_DIALECT}" "${project_cmdline}"
+   #   project_cmdline="${RVAL}"
+   #fi
+
+   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
    sde::craft::target "${target}"  \
                       "${project_cmdline}" \

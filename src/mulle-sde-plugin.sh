@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -52,12 +52,8 @@ sde::plugin::load_if_needed()
    local plugin
    local libexedir
 
-   if [ ${ZSH_VERSION+x} ]
-   then
-      plugin="${(P)varname}"
-   else
-      plugin="${!varname}"
-   fi
+   r_shell_indirect_expand "${varname}"
+   plugin="${RVAL}"
 
    if [ -z "${plugin}" ]
    then
@@ -77,12 +73,8 @@ sde::plugin::load_if_needed()
 
    local value
 
-   if [ ${ZSH_VERSION+x} ]
-   then
-      value="${(P)definename}"
-   else
-      value="${!definename}"
-   fi
+   r_shell_indirect_expand "${definename}"
+   value="${RVAL}"
 
    if [ -z "${value}" ]
    then

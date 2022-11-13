@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -75,18 +75,18 @@ sde::status::project()
 
    if ! sde::r_determine_project_dir "${directory}"
    then
-      log_warning "${indent}There is no mulle-sde project in \"${directory#${MULLE_USER_PWD}/}\"."
+      log_warning "${indent}There is no mulle-sde project in \"${directory#"${MULLE_USER_PWD}/"}\"."
       if [ -d .mulle-sde ]
       then
-        log_warning "${indent}There is and old possibly upgradable mulle-sde project in \"${directory#${MULLE_USER_PWD}/}\"."
+        log_warning "${indent}There is and old possibly upgradable mulle-sde project in \"${directory#"${MULLE_USER_PWD}/"}\"."
       fi
       if [ -d .mulle-env ]
       then
-        log_warning "${indent}There is and old possibly upgradable mulle-env environment in \"${directory#${MULLE_USER_PWD}/}\"."
+        log_warning "${indent}There is and old possibly upgradable mulle-env environment in \"${directory#"${MULLE_USER_PWD}/"}\"."
       fi
       if [ -d .mulle-bootstrap ]
       then
-        log_warning "${indent}There is and old non-upgradable mulle-bootstrap project in \"${directory#${MULLE_USER_PWD}/}\"."
+        log_warning "${indent}There is and old non-upgradable mulle-bootstrap project in \"${directory#"${MULLE_USER_PWD}/"}\"."
       fi
       exit 1
    fi
@@ -122,25 +122,25 @@ sde::status::project()
       indir)
          if [ -z "${parentdir}" ]
          then
-            log_verbose "${indent}mulle-sde commands are executed in ${projectdir#${MULLE_USER_PWD}/}."
+            log_verbose "${indent}mulle-sde commands are executed in ${projectdir#"${MULLE_USER_PWD}/"}."
          else
-            log_info "${indent}mulle-sde commands are executed in ${projectdir#${MULLE_USER_PWD}/}, but there is a parent project in ${parentdir#${MULLE_USER_PWD}/}"
+            log_info "${indent}mulle-sde commands are executed in ${projectdir#"${MULLE_USER_PWD}/"}, but there is a parent project in ${parentdir#"${MULLE_USER_PWD}/"}"
          fi
       ;;
 
       inproject)
-         log_info "${indent}mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir#${MULLE_USER_PWD}/}"
+         log_info "${indent}mulle-sde commands are executed in the project directory ${C_RESET_BOLD}${projectdir#"${MULLE_USER_PWD}/"}"
       ;;
 
       inparent)
-         log_info "${indent}mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir#${MULLE_USER_PWD}/}"
+         log_info "${indent}mulle-sde commands are deferred to the parent project directory ${C_RESET_BOLD}${parentdir#"${MULLE_USER_PWD}/"}"
       ;;
    esac
 
 
    if [ "${directory}" != "${projectdir}" ]
    then
-      log_verbose "${indent}The current directory is ${directory#${MULLE_USER_PWD}/}"
+      log_verbose "${indent}The current directory is ${directory#"${MULLE_USER_PWD}/"}"
    fi
 
    if [ ! -z "${projectdir}" ]
@@ -173,25 +173,8 @@ sde::status::config()
 
    local names
    local first_name
-   local var
 
-   if [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]
-   then
-      include "case"
-
-      r_smart_upcase_identifier "${PROJECT_NAME:-local}"
-      PROJECT_UPCASE_IDENTIFIER="${RVAL}"
-   fi
-
-   var="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
-   if [ ! -z "${ZSH_VERSION}" ]
-   then
-      names="${(P)var}"
-   else
-      names="${!var}"
-   fi
-
-   names="${names:-config}"
+   names="${MULLE_SOURCETREE_CONFIG_NAME:-config}"
    first_name="${names%%:*}"
 
    local line
@@ -202,30 +185,27 @@ sde::status::config()
 
    log_verbose "Sourcetree configurations:"
 
-   IFS=$'\n'
-   for repository in `rexekutor sed -e 's/^\([^;]*\).*/\1/' "${_craftorderfile}" `
-   do
-      IFS="${DEFAULT_IFS}"
-
-      filename="${repository}/${MULLE_SDE_ETC_DIR#${MULLE_VIRTUAL_ROOT}/}/reflect"
+   .foreachline repository in `rexekutor sed -e 's/^\([^;]*\).*/\1/' "${_craftorderfile}" `
+   .do
+      filename="${repository}/${MULLE_SDE_ETC_DIR#"${MULLE_VIRTUAL_ROOT}/"}/reflect"
 
       # if the file does not exist, this means
       # a) it's not a multi sourcetree project
       # if the file exists, we implicitly know its a mulle-sde project
       if [ ! -f "${filename}" ]
       then
-         continue
+         .continue
       fi
 
       # if we are in sync, we don't need to reflect
       previous="`egrep -v '^#' "${filename}" 2> /dev/null `"
       if [ "${previous}" = "${first_name}" ]
       then
-         continue
+         .continue
       fi
 
       printf "${indent}%s\n" "${repository};${previous}"
-   done
+   .done
    IFS="${DEFAULT_IFS}"
 }
 
@@ -250,7 +230,7 @@ sde::status::sourcetree()
    if [ ! -f "${sourcetreefile}" ]
    then
       log_verbose "Sourcetree status:"
-      log_info "${indent}There is no sourcetree (${PWD#${MULLE_USER_PWD}/})"
+      log_info "${indent}There is no sourcetree (${PWD#"${MULLE_USER_PWD}/"})"
       return
    fi
 
@@ -260,7 +240,8 @@ sde::status::sourcetree()
    case ",${statustypes}," in
       *,database,*)
          log_verbose "Database status:"
-         if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -s dbstatus
+         if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           -s dbstatus
          then
             log_info "${indent}Nothing needs to be fetched"
          else
@@ -511,7 +492,7 @@ sde::status::main()
 
          if [ -d "${abs_stashdir}" ]
          then
-            log_verbose "Stash status: (${abs_stashdir#${MULLE_USER_PWD}/})"
+            log_verbose "Stash status: (${abs_stashdir#"${MULLE_USER_PWD}/"})"
 
             sde::status::stash ""  \
             | rexecute_column_table_or_cat ';' \

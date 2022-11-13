@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2019 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -163,12 +163,7 @@ sde::project::r_add_template_named_file()
    #
    # figure out if we want to add a header
    #
-   if [ ${ZSH_VERSION+x} ]
-   then
-      RVAL="${(P)envvar}"
-   else
-      RVAL="${!envvar}"
-   fi
+   r_shell_indirect_expand "${envvar}"
    rexekutor [ -f "${RVAL}" ] && return 0
 
    RVAL="${MULLE_SDE_ETC_DIR}/${name}.${extension}"
@@ -900,7 +895,7 @@ sde::project::rename_main()
 
    if [ "${PROJECT_NAME}" = "${newname}" ]
    then
-      fail "No change in name \"${newname}\" (${PWD#${MULLE_USER_PWD}/})"
+      fail "No change in name \"${newname}\" (${PWD#"${MULLE_USER_PWD}/"})"
    fi
 
    (

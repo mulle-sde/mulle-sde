@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -68,7 +68,7 @@ Usage:
    that contain a '+' look for a template of type "category" first, before
    falling back on type "file".
 
-   Create a "${MULLE_SDE_ETC_DIR#${MULLE_USER_PWD}/}/header.default" or
+   Create a "${MULLE_SDE_ETC_DIR#"${MULLE_USER_PWD}/"}/header.default" or
    "~/.mulle/etc/sde/header.default" file to prepend copyright information
    to your file. Change "default" to the desired file extension if you want
    to have different contents for different languages.
@@ -442,7 +442,7 @@ sde::add::in_project()
       _log_warning "The new file \"${filename}\" will not be found by \`reflect\`.
 ${C_INFO}Tip: The PROJECT_SOURCE_DIR environment variable is ${C_RESET_BOLD}${PROJECT_SOURCE_DIR}.
 ${C_INFO}Maybe remove the generated file and try anew with:
-${C_RESET_BOLD}mulle-sde add \"${RVAL#${MULLE_USER_PWD}/}\""
+${C_RESET_BOLD}mulle-sde add \"${RVAL#"${MULLE_USER_PWD}/"}\""
       return
    fi
 
@@ -507,7 +507,7 @@ sde::add::not_in_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create file \"${filepath#${MULLE_USER_PWD}/}\""
+            fail "No matching template found to create file \"${filepath#"${MULLE_USER_PWD}/"}\""
          ;;
 
          0)
@@ -519,7 +519,7 @@ sde::add::not_in_project()
       esac
    ) || exit $?
 
-   log_info "Created \"${filepath#${MULLE_USER_PWD}/}\""
+   log_info "Created \"${filepath#"${MULLE_USER_PWD}/"}\""
 }
 
 
@@ -678,7 +678,7 @@ sde::add::main()
          ;;
 
          *)
-            sde::add::in_project "${filepath#${MULLE_VIRTUAL_ROOT}/}" \
+            sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
                                  "${OPTION_VENDOR}" \
                                  "${OPTION_NAME}" \
                                  "${OPTION_TYPE}" \

@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -73,10 +73,10 @@ sde::linkorder::r_locate_library()
    shift 3
 
    platform::search::r_platform_search "${searchpath}" \
-                     "${libstyle}" \
-                     "static" \
-                     "${require}" \
-                     "$@"
+                                       "${libstyle}" \
+                                       "static" \
+                                       "${require}" \
+                                       "$@"
 }
 
 
@@ -89,10 +89,10 @@ sde::linkorder::r_locate_framework()
    shift 1
 
    platform::search::r_platform_search "${searchpath}" \
-                     "framework" \
-                     "" \
-                     "" \
-                     "$@"
+                                       "framework" \
+                                       "" \
+                                       "" \
+                                       "$@"
 }
 
 
@@ -109,17 +109,13 @@ sde::linkorder::_emit_file_output()
    local marks
    local csv
 
-   IFS=$'\n' ; shell_disable_glob
    for csv in "$@"
    do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
-
       filename="${csv%%;*}"
 
-      r_concat "${result}" "${RVAL}" "${sep}"
+      r_concat "${filename}" "${RVAL}" "${sep}"
       cmdline="${RVAL}"
    done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
 
    [ ! -z "${cmdline}" ] && rexekutor printf "%s\n" "${cmdline}"
 }
@@ -166,11 +162,11 @@ sde::linkorder::_emit_ld_output()
    if [ "${withldpath}" = 'YES' ]
    then
       platform::translate::r_translate_lines "ldpath" \
-                                 "${preferredlibformat}" \
-                                 "${wholearchiveformat}" \
-                                 $'\n' \
-                                 "'" \
-                                 "$@" || exit 1
+                                             "${preferredlibformat}" \
+                                             "${wholearchiveformat}" \
+                                             $'\n' \
+                                             "'" \
+                                             "$@" || exit 1
       if [ ! -z "${RVAL}" ]
       then
          r_add_line "${result}" "${RVAL}"  # quote protect this
@@ -179,11 +175,11 @@ sde::linkorder::_emit_ld_output()
    fi
 
    platform::translate::r_translate_lines "ld" \
-                              "${preferredlibformat}" \
-                              "${wholearchiveformat}" \
-                              $'\n' \
-                              "" \
-                              "$@" || exit 1
+                                          "${preferredlibformat}" \
+                                          "${wholearchiveformat}" \
+                                          $'\n' \
+                                          "" \
+                                          "$@" || exit 1
 
    if [ "${OPTION_SIMPLIFY}" = 'YES' ]
    then
@@ -703,23 +699,11 @@ sde::linkorder::r_get_emission_lib()
 
    if [ ! -z "${raw_userinfo}" ]
    then
-      [ -z "${MULLE_ARRAY_SH}" ] && \
-         . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh"
+      include "array"
+      include "sourcetree::node"
 
-      # TODO: WRONG!! must base64 decode ?
-      case "${raw_userinfo}" in
-         base64:*)
-            userinfo="`base64 --decode <<< "${raw_userinfo:7}" `"
-            if [ "$?" -ne 0 ]
-            then
-               _internal_fail "userinfo could not be base64 decoded."
-            fi
-         ;;
-
-         *)
-            userinfo="${raw_userinfo}"
-         ;;
-      esac
+      sourcetree::node::r_decode_raw_userinfo "${raw_userinfo}"
+      userinfo="${RVAL}"
 
       case "${userinfo}" in
          *aliases*)
@@ -891,7 +875,7 @@ sde::linkorder::main()
 {
    log_entry "sde::linkorder::main" "$@"
 
-   local OPTION_CONFIGURATION="${CONFIGURATIONS%%:*}"
+   local OPTION_CONFIGURATION="${MULLE_CRAFT_CONFIGURATIONS%%,*}"
    local OPTION_OUTPUT_FORMAT="ld_lf"
    local OPTION_LD_PATH='YES'
    local OPTION_REVERSE='DEFAULT'
@@ -899,7 +883,7 @@ sde::linkorder::main()
    local OPTION_SIMPLIFY='YES'
    local OPTION_FORCE_LOAD='NO'
    local OPTION_BEQUEATH='DEFAULT'
-   local OPTION_WHOLE_ARCHIVE_FORMAT='DEFAULT'
+   local OPTION_WHOLE_ARCHIVE_FORMAT="${MULLE_CRAFT_WHOLE_ARCHIVE_FORMAT:-DEFAULT}"
    local OPTION_OUTPUT_OMIT
    local OPTION_STARTUP='YES'           # default executable link
    local OPTION_OUTPUT_FINAL_LF='YES'

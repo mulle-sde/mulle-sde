@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -120,7 +120,11 @@ sde::craftorder::create_file()
    # get "source" of function into callback
    callback="`declare -f sde::craftorder::r_append_mark_no_memo_to_subproject`"
    mkdir_if_missing "${cachedir}"
-   if ! redirect_exekutor "${craftorderfile}" \
+
+   # remove old file, so if we get CTRL-Ced the state is more reasonable
+   remove_file_if_present "${craftorderfile}"
+
+   if text="`
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
             --virtual-root \
             -s \
@@ -128,11 +132,13 @@ sde::craftorder::create_file()
          craftorder \
             --no-print-env \
             --callback "${callback}" \
-            "$@"
+            "$@" `"
    then
-      remove_file_if_present "${craftorderfile}"
-      return 1
+      redirect_exekutor "${craftorderfile}" printf "%s\n" "${text}"
+      return $?
    fi
+
+   return 1
 }
 
 
@@ -156,10 +162,15 @@ sde::craftorder::create_file_if_needed()
       eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`
    fi
 
-   sourcetreefile="${MULLE_SOURCETREE_ETC_DIR}/config"
+   local configname
+
+   configname="${MULLE_SOURCETREE_CONFIG_NAME:-config}"
+   configname="${configname%%:*}"
+
+   sourcetreefile="${MULLE_SOURCETREE_ETC_DIR}/${configname}"
    if [ ! -f "${sourcetreefile}" ]
    then
-      sourcetreefile="${MULLE_SOURCETREE_SHARE_DIR}/config"
+      sourcetreefile="${MULLE_SOURCETREE_SHARE_DIR}/${configname}"
    fi
 
    #
@@ -169,7 +180,7 @@ sde::craftorder::create_file_if_needed()
    then
       sde::craftorder::create_file "${craftorderfile}" "${cachedir}"
    else
-      log_fluff "Craftorder file \"${craftorderfile#${MULLE_USER_PWD}/}\" is up-to-date"
+      log_fluff "Craftorder file \"${craftorderfile#"${MULLE_USER_PWD}/"}\" is up-to-date"
    fi
 }
 
@@ -182,7 +193,7 @@ sde::craftorder::show_cached()
 
    if [ -f "${craftorderfile}" ]
    then
-      log_info "Cached craftorder (${craftorderfile#${MULLE_USER_PWD}/})"
+      log_info "Cached craftorder (${craftorderfile#"${MULLE_USER_PWD}/"})"
       cat "${craftorderfile}"
       return 0
    fi
@@ -292,7 +303,7 @@ sde::craftorder::main()
 
    if [ "${OPTION_PRINT_CACHEFILE_PATH}" = 'YES'  ]
    then
-      printf "%s\n" "${_craftorderfile#${MULLE_USER_PWD}/}"
+      printf "%s\n" "${_craftorderfile#"${MULLE_USER_PWD}/"}"
       exit 0
    fi
 
@@ -314,7 +325,7 @@ sde::craftorder::main()
    if [ "${OPTION_CREATE}" = 'YES'  ]
    then
       sde::craftorder::create_file "${_craftorderfile}" \
-                             "${_cachedir}" \
+                                   "${_cachedir}" \
       || fail "Failed to create craftorderfile"
    fi
 

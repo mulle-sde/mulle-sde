@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -479,7 +479,8 @@ sde::library::set_main()
    # make sure its really a library, less surprising for the user (i.e. me)
    local marks
 
-   if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" get "${address}" marks`"
+   if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}"  \
+                              get "${address}" marks`"
    then
       return 1
    fi

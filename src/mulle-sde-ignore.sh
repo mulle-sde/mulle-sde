@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2020 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -106,7 +106,7 @@ sde::ignore::main()
          [ "$#" -ne 0 ] && sde::ignore::usage "superflous arguments \"$*\""
          if [ ! -z "${filepath}" ]
          then
-            printf "%s\n" "${filepath#${MULLE_USER_PWD}/}"
+            printf "%s\n" "${filepath#"${MULLE_USER_PWD}/"}"
          fi
          return
       ;;
@@ -124,17 +124,9 @@ sde::ignore::main()
    [ "$#" -eq 0 ] && sde::ignore::usage "Missing argument"
    [ "$#" -ne 1 ] && sde::ignore::usage "superflous arguments \"$*\""
 
-   #
-   # we just happen to know that 00 is not used by any extensions
-   #
-   if [ ! -z "${filepath}" ]
-   then
-      merge_line_into_file "$1" "${filepath}"
-   else
-      echo "$1" | exekutor "${MULLE_MATCH:-mulle-match}" \
+   exekutor "${MULLE_MATCH:-mulle-match}" \
                                     ${MULLE_TECHNICAL_FLAGS} \
                                     ${MULLE_MATCH_FLAGS} \
-                                 patternfile -i add -p 00 'user' -
-   fi
-
+                                 patternfile \
+                                    ignore "$@"
 }

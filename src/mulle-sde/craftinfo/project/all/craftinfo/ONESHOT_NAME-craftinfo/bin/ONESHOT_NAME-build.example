@@ -1,61 +1,15 @@
-#! /bin/sh
+#! /usr/bin/env mulle-bash
+# shellcheck shell=bash
 
 [ "${TRACE}" = 'YES' -o "${MULLE_BUILD_SH_TRACE}" = 'YES' ] && set -x && : "$0" "$@"
 
 
 MULLE_EXECUTABLE_VERSION="0.0.1"
-##########################################################################
-###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
-###########################################################################
-# #
-# # PRELUDE - Standard startup code for loading mulle-bashfunctions
-# #
-###
-
-#
-# Figure out MULLE_BASHFUNCTIONS_LIBEXEC_DIR on this machine if needed.
-#
-if ! [ ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR+x} ]
-then
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
-   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
-fi
-
-#
-# The booter reruns the executable either with bash or zsh, whatever the
-# system provides. On the second run --no-auto-shell will be set first.
-#
-if [ "${1:-}" != --no-auto-shell ]
-then
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
-else
-   shift    # get rid of --no-auto-shell
-fi
-
-
-#
-# Include mulle-bashfunctions.sh         : default functions
-#         mulle-bashfunctions-none.sh    : almost no functions
-#         mulle-bashfunctions-minimal.sh : few functions for basic scripts
-#         mulle-bashfunctions-all.sh     : everything, even obscure functions
-#
-# Do this first to get aliases
-#
-MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
-. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
-
-###
-# # Now we are in bash or zsh with mulle-bashfunctions loaded
-# #
-###########################################################################
-###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
-###########################################################################
-
 
 
 #
 # This is an example build script. Build scripts can be useful, if the
-# project is based on make or some other non-mulle-make-supported build system.
+# project is based on a custom Makefile or some other unsupported build system.
 #
 # Rename it to `<|ONESHOT_NAME|>-build` or `<|ONESHOT_NAME|>-build.<|MULLE_UNAME|>`, 
 # if its just applicable to <|MULLE_UNAME|>. 
@@ -65,13 +19,12 @@ MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
 #                   set <dependency> BUILD_SCRIPT <|ONESHOT_NAME|>-build.<|MULLE_UNAME|>
 #
 # Enable scripts with:
-#    mulle-sde environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
+#    mulle-sde environment set --add MULLE_CRAFT_USE_SCRIPTS <|ONESHOT_NAME|>-build
 #
 # Hint: If this gets too complicated and you are tempted to massage the
 #       Makefile, maybe it's easier to use the dependency as an embedded 
-#       depednency and compile the sources yourself with cmake ?
+#       dependency and compile the sources yourself with cmake ?
 #
-
 
 usage()
 {
@@ -104,6 +57,9 @@ build_main()
 {
    log_entry "build_main" "$@"
 
+   # You are in the root of the project to compile, which is likely a diretory
+   # in "stash".
+   #
    # get make to use KITCHEN_DIR (optional), PREFIX (maybe), CONFIGURATION, SDK
    #
    # Tips:
@@ -179,6 +135,7 @@ main()
    local KITCHEN_DIR="kitchen"
    local LOGFILE
    local TEEFILE
+   local TARGET
 
    while [ "$#" -ne 0 ]
    do
@@ -242,6 +199,14 @@ main()
             PREFIX="$1"
          ;;
 
+
+         --target|--targets)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+
+            TARGET="$1"
+         ;;
+
          --*)
             log_warning "Ignoring unknown option $1 $2"
             shift
@@ -281,6 +246,7 @@ main()
    log_setting "CONFIGURATION = \"${CONFIGURATION}\""
    log_setting "KITCHEN_DIR   = \"${KITCHEN_DIR}\""
    log_setting "PLATFORM      = \"${PLATFORM}\""
+   log_setting "TARGET        = \"${TARGET}\""
    log_setting "PREFIX        = \"${PREFIX}\""
    log_setting "PWD           = \"${PWD}\""
    log_setting "SDK           = \"${SDK}\""

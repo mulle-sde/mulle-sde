@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -70,7 +70,7 @@ MULLE_SDE_CLEAN_SH="included"
 sde::clean::domains_usage()
 {
    cat <<EOF
-   all         : clean craftinfos, craftorder, project. Remove folder "`basename -- "${DEPENDENCY_DIR}"`"
+   all         : clean craftinfos, craftorder, project. Remove folder "`basename -- "${DEPENDENCY_DIR:-dependency}"`"
    archive     : clean the archive cache
    craftorder  : clean all dependencies
    craftinfos  : clean craftinfos
@@ -290,7 +290,7 @@ sde::clean::archive()
 
    if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
    then
-      log_verbose "Cleaning archive cache \"${MULLE_FETCH_ARCHIVE_DIR#${MULLE_USER_PWD}/}\""
+      log_verbose "Cleaning archive cache \"${MULLE_FETCH_ARCHIVE_DIR#"${MULLE_USER_PWD}/"}\""
 
       rmdir_safer "${MULLE_FETCH_ARCHIVE_DIR}"
    else
@@ -307,7 +307,7 @@ sde::clean::mirror()
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         log_verbose "Cleaning repository mirror \"${MULLE_FETCH_MIRROR_DIR#${MULLE_USER_PWD}/}\""
+         log_verbose "Cleaning repository mirror \"${MULLE_FETCH_MIRROR_DIR#"${MULLE_USER_PWD}/"}\""
 
          rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
       else
@@ -475,6 +475,12 @@ sde::clean::main()
 
          --no-test)
             OPTION_TEST="NO"
+         ;;
+
+         --clean-domain|--from)
+            # just fall through helps for my craft/clean mistypes
+            shift
+            break;
          ;;
 
          --no-default)
@@ -654,6 +660,11 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
 #               fi
 #            ;;
 #         esac
+
+         #
+         # TODO: mulle-craft needs to wipe dependency folder here, because
+         #       the installed craftinfo folders may be whacked
+         #
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      clean \

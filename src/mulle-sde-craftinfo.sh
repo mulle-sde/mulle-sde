@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -534,6 +534,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
 # local _name
 # local _subprojectdir
 # local _folder
+# local _config
 #
 sde::craftinfo::__vars_with_url_or_address()
 {
@@ -567,7 +568,8 @@ sde::craftinfo::__vars_with_url_or_address()
                               -s \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_SOURCETREE_FLAGS:-} \
-                           get "${_address}" marks`"
+                           get \
+                              "${_address}" marks`"
    case ",${marks}," in
       *,no-build,*|*,no-fs,*)
          log_warning "${_address} is not built directly"
@@ -578,7 +580,31 @@ sde::craftinfo::__vars_with_url_or_address()
    r_basename "${_address}"
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}-craftinfo"
-   _folder="${_subprojectdir}/definition"
+
+   local key
+   local config
+
+   r_uppercase "${_name}"
+   r_identifier "${RVAL}"
+
+   key="MULLE_SOURCETREE_CONFIG_NAME_${RVAL}"
+
+   r_shell_indirect_expand "${key}"
+   config="${RVAL:-${MULLE_SOURCETREE_CONFIG_NAME:-config}}"
+   _config=""
+
+   if [ ! -z "${config}" ]
+   then
+      _folder="${_subprojectdir}.${config}/definition"
+      if [ -d "${_folder}" ]
+      then
+         _config="${config}"
+      else
+         _folder=""
+      fi
+   fi
+
+   _folder="${_folder:-"${_subprojectdir}/definition"}"
 
    log_setting "_name:          ${_name}"
    log_setting "_address:       ${_address}"
@@ -699,6 +725,7 @@ sde::craftinfo::remove_main()
    local _name
    local _subprojectdir
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
    then
@@ -769,6 +796,7 @@ sde::craftinfo::exists_main()
    local _name
    local _subprojectdir
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "$1"
    then
@@ -1006,6 +1034,7 @@ sde::craftinfo::fetch_main()
    local _name
    local _subprojectdir
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "$1" "${OPTION_LENIENT}"
    then
@@ -1097,6 +1126,7 @@ sde::craftinfo::set_main()
    local _name
    local _subprojectdir
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
    then
@@ -1169,6 +1199,7 @@ sde::craftinfo::unset_main()
    local _name
    local _subprojectdir
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
    then
@@ -1221,6 +1252,7 @@ sde::craftinfo::get_main()
    local _name
    local _subprojectdir
    local _folder
+   local _config
    local rval
 
    if [ "${extension}" = "DEFAULT" ]
@@ -1264,18 +1296,29 @@ sde::craftinfo::_list_main()
 {
    log_entry "sde::craftinfo::_list_main" "$@"
 
-   local url="$1"; shift
-   local indent="$1"; shift
+   local extension="$1"
+   local url="$2"
+   local indent="$3"
+
+   shift 3
 
    local _address
    local _name
    local _subprojectdir
    local _folder
+   local _config
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      if  sde::craftinfo::__vars_with_url_or_address "${url}"
+      if sde::craftinfo::__vars_with_url_or_address "${url}"
       then
+         if [ ! -z "${_config}" ]
+         then
+            log_info "${url}.${_config}"
+         else
+            log_info "${url}"
+         fi
+
          log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
          exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
             definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"
@@ -1289,9 +1332,11 @@ sde::craftinfo::_list_main()
 
    if sde::craftinfo::__vars_with_url_or_address "${url}"
    then
-      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension:-global}"
+      log_info "${url}${extension}"
+
+      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension} ${C_RESET_BOLD}"
       exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
-         definition --definition-dir "${_folder}" list "$@"  | sed "s/^/   ${indent}/"
+         definition --definition-dir "${_folder}${extension}" list "$@"  | sed "s/^/   ${indent}/"
    fi
 }
 
@@ -1331,22 +1376,18 @@ sde::craftinfo::list_main()
 
    if [ -z "${url}" ]
    then
-      shell_disable_glob; IFS=$'\n'
-      for url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .foreachline url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
+      .do
          case "${url}" in
             craftinfo/*)
-               continue
+               .continue
             ;;
          esac
 
-         log_info "${url}"
-         sde::craftinfo::_list_main "${url}" "   "
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+         sde::craftinfo::_list_main "${extension}" "${url}" "   "
+      .done
    else
-      sde::craftinfo::_list_main "${url}" ""
+      sde::craftinfo::_list_main "${extension}" "${url}" ""
    fi
 }
 

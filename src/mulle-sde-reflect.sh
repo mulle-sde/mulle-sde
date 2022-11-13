@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -329,14 +329,10 @@ sde::reflect::worker()
       PROJECT_UPCASE_IDENTIFIER="${RVAL}"
    fi
 
-   var="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
-   if [ ! -z "${ZSH_VERSION}" ]
-   then
-      names="${(P)var}"
-   else
-      names="${!var}"
-   fi
+   var="MULLE_SOURCETREE_CONFIG_NAME_${PROJECT_UPCASE_IDENTIFIER}"
 
+   r_shell_indirect_expand "${var}"
+   names="${RVAL}"
    names="${names:-config}"
 
    if [ "${if_needed}" = 'YES' ]

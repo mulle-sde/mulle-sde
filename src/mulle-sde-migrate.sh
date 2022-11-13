@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2020 Nat! - Mulle kybernetiK
 #   All rights reserved.

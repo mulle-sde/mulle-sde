@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2017 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -56,6 +56,7 @@ Usage:
    --project-file CMakeLists.txt
 
 Options:
+   --clean               : clean tidy, mirrors, archives before upgrading
    --project-file <file> : update a single project file to newest verion
    --no-parallel         : do not upgrade projects in parallel
    --no-project          : do not upgrade the project
@@ -166,12 +167,17 @@ sde::upgrade::main()
    local OPTION_PROJECT='YES'
    local OPTION_SUBPROJECTS='YES'
    local OPTION_TEST='YES'
+   local OPTION_CLEAN='NO'
 
    while :
    do
       case "$1" in
          -h*|--help|help)
             sde::upgrade::usage
+         ;;
+
+         --clean)
+            OPTION_CLEAN='YES'
          ;;
 
          --serial|--no-parallel)
@@ -197,6 +203,15 @@ sde::upgrade::main()
 
       shift
    done
+
+   if [ "${OPTION_CLEAN}" = 'YES' ]
+   then
+      (
+         include "sde::clean"
+
+         sde::clean::main tidy mirror archive
+      ) || exit 1
+   fi
 
    if [ "${OPTION_PROJECT}" = 'YES' ]
    then

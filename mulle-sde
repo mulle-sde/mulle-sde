@@ -1,4 +1,5 @@
-#! /bin/sh
+#! /usr/bin/env mulle-bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -36,54 +37,6 @@
 MULLE_EXECUTABLE_VERSION=1.1.3
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
-##########################################################################
-###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
-###########################################################################
-# #
-# # PRELUDE - Standard startup code for loading mulle-bashfunctions
-# #
-###
-
-#
-# Figure out MULLE_BASHFUNCTIONS_LIBEXEC_DIR on this machine if needed.
-#
-if ! [ ${MULLE_BASHFUNCTIONS_LIBEXEC_DIR+x} ]
-then
-   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
-   export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
-fi
-
-#
-# The booter reruns the executable either with bash or zsh, whatever the
-# system provides. On the second run --no-auto-shell will be set first.
-#
-if [ "${1:-}" != --no-auto-shell ]
-then
-   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
-else
-   shift    # get rid of --no-auto-shell
-fi
-
-
-#
-# Include mulle-bashfunctions.sh         : default functions
-#         mulle-bashfunctions-none.sh    : almost no functions
-#         mulle-bashfunctions-minimal.sh : few functions for basic scripts
-#         mulle-bashfunctions-all.sh     : everything, even obscure functions
-#
-# Do this first to get aliases
-#
-MULLE_EXECUTABLE="${BASH_SOURCE[0]:-${(%):-%x}}"
-. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
-
-###
-# # Now we are in bash or zsh with mulle-bashfunctions loaded
-# #
-###########################################################################
-###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
-###########################################################################
-
-
 #
 # Determine location of own libexec directory. Which is `src` in development
 # and ../libexec when deployed. MULLE_EXECUTABLE needs to be defined for this.
@@ -94,7 +47,6 @@ then
    r_get_libexec_dir "${MULLE_EXECUTABLE}" "mulle-sde" "mulle-sde-clean.sh"
    MULLE_SDE_LIBEXEC_DIR="${RVAL}"
 fi
-
 
 
 #
@@ -370,7 +322,7 @@ sde::is_test_directory()
    r_filepath_concat "$1" ".mulle/share/test"
    directory="${RVAL}"
 
-   log_debug "directory: ${directory} (${PWD#${MULLE_USER_PWD}/})"
+   log_debug "directory: ${directory} (${PWD#"${MULLE_USER_PWD}/"})"
 
    rexekutor [ -d "${directory}" ]
 }
@@ -435,12 +387,12 @@ sde::exec_command_in_subshell()
    then
       if [ -d ".mulle-sde" ]
       then
-         fail "There is only an old mulle-sde project in (${current#${MULLE_USER_PWD}/}).
+         fail "There is only an old mulle-sde project in (${current#"${MULLE_USER_PWD}/"}).
 ${C_INFO}It should be upgradable with:
 ${C_RESET_BOLD}   mulle-sde upgrade
 ${C_RESET_BOLD}   mulle-sde clean tidy"
       fi
-      fail "There is no mulle-sde project in (${current#${MULLE_USER_PWD}/}).
+      fail "There is no mulle-sde project in (${current#"${MULLE_USER_PWD}/"}).
 ${C_INFO}Create an initial empty one with:
 ${C_RESET_BOLD}   mulle-sde init"
    fi
@@ -529,7 +481,7 @@ sde::cd_virtual_root()
       then
          if [ "${subenvwarn}" = 'YES' ]
          then
-            _log_warning "\"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are \
+            _log_warning "${MULLE_EXECUTABLE} ${HACKY_ARGS}: warning \"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are \
 in a subshell already ($physdir)"
          fi
       else
@@ -582,7 +534,7 @@ sde::try_to_enter_or_download()
             fi
 
             # just warn, but quit anyway
-            log_warning "\"${dst#${MULLE_USER_PWD}/}\" is not a mulle-sde project"
+            log_warning "\"${dst#"${MULLE_USER_PWD}/"}\" is not a mulle-sde project"
             exit 1
          ;;
 
@@ -1141,13 +1093,17 @@ version"
          then
             sde::cd_virtual_root "environment" 'NO'
          fi
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            sde::exec_mulle_env -N "environment" "$@"
+
+         # shellcheck source=src/mulle-sde-environment.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-environment.sh" || exit 1
+
+         sde::environment::main "$@"
       ;;
 
       env-identifier)
          include "case"
 
+         [ -z "$1" ] && fail "Specify desired project name for env-identifier"
          r_smart_upcase_identifier "$1"
 
          rexekutor printf "%s\n" "${RVAL}"
@@ -1281,7 +1237,33 @@ version"
                            "$@"
       ;;
 
-      match|patternfile|pat|patternfiles|filename)
+      match)
+         # shellcheck source=src/mulle-sde-match.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-match.sh" || exit 1
+
+         sde::match::main "$@"
+      ;;
+
+      patternmatch)
+         if ! sde::is_help_request_commandline "$@"
+         then
+            sde::cd_virtual_root "${cmd}" 'NO'
+
+            if [ "${PROJECT_TYPE}" = 'none' ]
+            then
+               fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
+            fi
+         fi
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MATCH:-mulle-match}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "match" \
+                           "$@"
+      ;;
+
+
+      patternfile|pat|patternfiles|filename)
          cmd="${cmd//patternfiles/patternfile}"
          if ! sde::is_help_request_commandline "$@"
          then
@@ -1576,5 +1558,5 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
    return $rval
 }
 
-
+HACKY_ARGS="$*"
 call_with_flags "sde::main" "${MULLE_SDE_FLAGS:-}" "$@"

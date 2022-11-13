@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -156,8 +156,8 @@ sde::init::_copy_extension_dir()
       ;;
    esac
 
-   _log_verbose "Installing files from \"${directory#${MULLE_USER_PWD}/}\" \
-into \"${destination#${MULLE_USER_PWD}/}\" ($PWD)"
+   _log_verbose "Installing files from \"${directory#"${MULLE_USER_PWD}/"}\" \
+into \"${destination#"${MULLE_USER_PWD}/"}\" ($PWD)"
 
    # need L flag since homebrew creates relative links
    exekutor cp -RLa ${flags} "${directory}" "${destination}/"
@@ -401,7 +401,7 @@ sde::init::environment_text_to_mset()
 
    while IFS=$'\n' read -r line
    do
-      line="`tr -d '\0015' <<< "${line}"`"
+      line="${line//$'\r'/}"
 
       log_debug "line: ${line}"
       case "${line}" in
@@ -511,18 +511,6 @@ sde::init::r_githubname()
 }
 
 
-sde::init::import_template_generate()
-{
-   if [ -z "${MULLE_TEMPLATE_GENERATE_SH}" ]
-   then
-      MULLE_TEMPLATE_LIBEXEC_DIR="`"${MULLE_TEMPLATE:-mulle-template}" libexec-dir`" \
-      || fail "mulle-template not in PATH ($PATH)"
-
-      . "${MULLE_TEMPLATE_LIBEXEC_DIR}/mulle-template-generate.sh" \
-      || _internal_fail "include fail"
-   fi
-}
-
 
 #
 # expensive
@@ -533,7 +521,7 @@ sde::init::read_template_expanded_file()
 
    local filename="$1"
 
-   sde::init::import_template_generate
+   include "template::generate"
 
    [ -z "${GITHUB_USER}" ] && _internal_fail "GITHUB_USER undefined"
 
@@ -547,20 +535,24 @@ sde::init::read_template_expanded_file()
    r_uppercase "${PREFERRED_STARTUP_LIBRARY}"
    PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${RVAL//-/_}"
 
-   PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY}" \
-   PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
-   GITHUB_USER="${GITHUB_USER}" \
-   PROJECT_NAME="${PROJECT_NAME}" \
-   PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}" \
-   PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}" \
-   PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}" \
-   PROJECT_PREFIXLESS_NAME="${PROJECT_PREFIXLESS_NAME}" \
-   PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}" \
-   PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
-   PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
-      template::generate::r_content_replacement_seds "<|" "|>" "template::generate::is_interesting_key"
+   local scriptfile
 
-   eval_rexekutor "'${SED:-sed}'" "${RVAL}" "${filename}" | egrep -v '^#'
+   scriptfile="`PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY}" \
+      PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
+      GITHUB_USER="${GITHUB_USER}" \
+      PROJECT_NAME="${PROJECT_NAME}" \
+      PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}" \
+      PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}" \
+      PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}" \
+      PROJECT_PREFIXLESS_NAME="${PROJECT_PREFIXLESS_NAME}" \
+      PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}" \
+      PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
+      PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
+         template::generate::main csed-script `" || exit 1
+
+   eval_rexekutor "'${SED:-sed}'" -f "${scriptfile}" "${filename}" | egrep -v '^#'
+
+   remove_file_if_present "${scriptfile}"
 }
 
 
@@ -585,7 +577,7 @@ sde::init::add_to_sourcetree()
    lines="`sde::init::read_template_expanded_file "${filename}" | egrep -v '^#' `"
    if [ -z "${lines}" ]
    then
-      log_warning "${filename} contains no dependency information"
+      log_warning "\"${filename}\" contains no dependency information"
       return
    fi
 
@@ -643,7 +635,7 @@ sde::init::add_to_environment()
    fi
 
    # remove lf for command line
-   environment="`tr '\n' ' ' <<< "${environment}"`"
+   environment="${environment//$'\n'/ }"
    (
       MULLE_VIRTUAL_ROOT="`pwd -P`" \
          eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
@@ -1696,7 +1688,7 @@ sde::init::install_extension()
    #
    # Now install collected templates
    #
-   sde::init::import_template_generate
+   include "template::generate"
 
    if [ ! -z "${_TEMPLATE_DIRECTORIES}" ]
    then
@@ -1726,22 +1718,32 @@ sde::init::install_extension()
          #
          local CONTENTS_SED
          local FILENAME_SED
+         local fsed_file
+         local csed_file
+
+         #
+         # we use files because command lines can be fairly large
+         #
+         csed_file="`template::generate::main csed-script`" || exit 1
+         fsed_file="`template::generate::main fsed-script`" || exit 1
+
+         CONTENTS_SED="-f '${csed_file}'"
+         FILENAME_SED="-f '${fsed_file}'"
 
          log_debug "_TEMPLATE_DIRECTORIES: ${_TEMPLATE_DIRECTORIES}"
 
-         shell_disable_glob; IFS=$'\n'
-         for arguments in ${_TEMPLATE_DIRECTORIES}
-         do
-            IFS="${DEFAULT_IFS}"; shell_enable_glob
-
+         .foreachline arguments in ${_TEMPLATE_DIRECTORIES}
+         .do
             if [ ! -z "${arguments}" ]
             then
                # memo: arguments are fully created including comments in
                # sde::init::_copy_extension_template_files
-               eval_exekutor template::generate::main \
-                                                    "${arguments}" || exit 1
+               eval_exekutor template::generate::main "${arguments}" || exit 1
             fi
-         done
+         .done
+
+         remove_file_if_present "${fsed_file}"
+         remove_file_if_present "${csed_file}"
       ) || exit 1
    fi
 
@@ -2205,7 +2207,7 @@ sde::init::install_project()
 
    if [ -z "${onlyfilename}" ]
    then
-      log_info "Installing extensions in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_INFO}"
+      log_info "Installing extensions in ${C_RESET_BOLD}${PWD#"${MULLE_USER_PWD}/"}${C_INFO}"
    fi
 
    #
@@ -2308,7 +2310,7 @@ sde::init::run_add()
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" ]
    then
       fail "You must init first, before you can add an 'extra' extension!
-${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#${MULLE_USER_PWD}/}\" not present)"
+${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#"${MULLE_USER_PWD}/"}\" not present)"
    fi
 
    if [ ! -z "${OPTION_RUNTIME}" -o \
@@ -2626,7 +2628,7 @@ sde::init::_run_upgrade()
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
                _log_verbose "Nothing to upgrade in \
-${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have \
+${C_RESET_BOLD}${PWD#"${MULLE_USER_PWD}/"}${C_VERBOSE}, as no extensions have \
 been installed."
             else
                log_verbose "Nothing to upgrade, as no extensions have been installed."
@@ -2708,7 +2710,7 @@ sde::init::_run_upgrade_projectfile()
             if [ "${PWD}" != "${MULLE_USER_PWD}" ]
             then
                _log_verbose "Nothing to upgrade in \
-${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_VERBOSE}, as no extensions have \
+${C_RESET_BOLD}${PWD#"${MULLE_USER_PWD}/"}${C_VERBOSE}, as no extensions have \
 been installed."
             else
                log_verbose "Nothing to upgrade, as no extensions have been installed."
@@ -2832,7 +2834,7 @@ sde::init::_post_initenv()
    if [ "${OPTION_BLURB}" = 'YES' ]
    then
       _log_info "Enter the environment:
-   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#${MULLE_USER_PWD}/}\"${C_INFO}"
+   ${C_RESET_BOLD}${MULLE_EXECUTABLE_NAME} \"${PWD#"${MULLE_USER_PWD}/"}\"${C_INFO}"
    fi
 }
 
@@ -3165,7 +3167,7 @@ sde::init::run_upgrade()
    # rmdir_safer ".mulle-env"
    if [ $rval -ne 0 ]
    then
-      log_info "The upgrade failed. Restoring old configuration for \"${PWD#${MULLE_USER_PWD}/}\""
+      log_info "The upgrade failed. Restoring old configuration for \"${PWD#"${MULLE_USER_PWD}/"}\""
 
       sde::init::restore_mulle_from_old
    else
@@ -3281,7 +3283,7 @@ ${C_INFO}You have mulle-sde version ${MULLE_EXECUTABLE_VERSION}"
 
       "")
          [ ! -d .mulle/share/sde ] \
-         && fail "There is no mulle-sde project in \"${PWD#${MULLE_USER_PWD}/}\""
+         && fail "There is no mulle-sde project in \"${PWD#"${MULLE_USER_PWD}/"}\""
 
          oldversion="0.0.0"
          _log_warning "Can not get previous installed version from \
@@ -3804,18 +3806,18 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
       log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
 
-      log_setting "MULLE_MATCH_ETC_DIR=\"${MULLE_MATCH_ETC_DIR}\""
-      log_setting "MULLE_MATCH_SHARE_DIR=\"${MULLE_MATCH_SHARE_DIR}\""
-      log_setting "MULLE_CRAFT_SHARE_DIR=\"${MULLE_CRAFT_SHARE_DIR}\""
-      log_setting "MULLE_SOURCETREE_SHARE_DIR=\"${MULLE_SOURCETREE_SHARE_DIR}\""
-      log_setting "MULLE_SDE_ETC_DIR=\"${MULLE_SDE_ETC_DIR}\""
-      log_setting "MULLE_SDE_PROTECT_PATH=\"${MULLE_SDE_PROTECT_PATH}\""
-      log_setting "MULLE_SDE_SHARE_DIR=\"${MULLE_SDE_SHARE_DIR}\""
-      log_setting "MULLE_SDE_VAR_DIR=\"${MULLE_SDE_VAR_DIR}\""
-      log_setting "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
-      log_setting "GITHUB_USER=\"${GITHUB_USER}\""
-      log_setting "PROJECT_NAME=\"${PROJECT_NAME}\""
-      log_setting "PWD=\"${PWD}\""
+      log_setting "MULLE_MATCH_ETC_DIR        : \"${MULLE_MATCH_ETC_DIR}\""
+      log_setting "MULLE_MATCH_SHARE_DIR      : \"${MULLE_MATCH_SHARE_DIR}\""
+      log_setting "MULLE_CRAFT_SHARE_DIR      : \"${MULLE_CRAFT_SHARE_DIR}\""
+      log_setting "MULLE_SOURCETREE_SHARE_DIR : \"${MULLE_SOURCETREE_SHARE_DIR}\""
+      log_setting "MULLE_SDE_ETC_DIR          : \"${MULLE_SDE_ETC_DIR}\""
+      log_setting "MULLE_SDE_PROTECT_PATH     : \"${MULLE_SDE_PROTECT_PATH}\""
+      log_setting "MULLE_SDE_SHARE_DIR        : \"${MULLE_SDE_SHARE_DIR}\""
+      log_setting "MULLE_SDE_VAR_DIR          : \"${MULLE_SDE_VAR_DIR}\""
+      log_setting "MULLE_VIRTUAL_ROOT         : \"${MULLE_VIRTUAL_ROOT}\""
+      log_setting "GITHUB_USER                : \"${GITHUB_USER}\""
+      log_setting "PROJECT_NAME               : \"${PROJECT_NAME}\""
+      log_setting "PWD                        : \"${PWD}\""
 
       (
          if [ "${OPTION_ADD}" = 'YES' ]

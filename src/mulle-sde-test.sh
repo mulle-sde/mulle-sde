@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -259,7 +259,7 @@ sde::test::_run()
    (
       r_concat "${cmd}" "$*"
       r_concat "Tests" "${RVAL}"
-      r_concat "${RVAL}" "(${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_INFO})"
+      r_concat "${RVAL}" "(${C_RESET_BOLD}${directory#"${MULLE_USER_PWD}/"}${C_INFO})"
 
       log_info "${RVAL}"
 

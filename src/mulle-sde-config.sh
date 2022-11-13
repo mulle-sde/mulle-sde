@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -38,24 +38,29 @@ sde::config::usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} sourcetree [options] [command]
+   ${MULLE_USAGE_NAME} config [options] [command]
 
-   This command manipulates mulle-sourcetree configs for a project. Usually
-   your project only has one sourcetree configuration named "config", but
-   sometimes it can be useful to have multiple sourcetree configurations.
+   This command manipulates the configuration of a project. Usually
+   your project only has one configuration named "config". But sometimes it can
+   be useful to have multiple configurations. A case for a separate config
+   is a differnent backend like X11 vs. Wayland. Do not use a separate config
+   for different platforms (linux, windows) or SDKs (glibc, musl). Use
+   sourcetree "marks" instead.
+
+   If the project is used as a dependency of another project, that project can
+   also choose between the sourcetree configurations.
 
 Commands:
-   copy   : copy a sourcetree configuration
-   list   : list current sourcetree configurations
-   name   : get name of current sourcetree configuration
-   switch : change to a different sourcetree configuration
-   remove : remove a sourcetree configuration
-   show   : show available configurations of the current sourcetree
+   copy   : copy a configuration
+   list   : list currently active configurations
+   name   : get name of current configuration
+   switch : change to a different configuration
+   remove : remove a configuration
+   show   : show available configurations
 
 EOF
    exit 1
 }
-
 
 
 sde::config::name_usage()
@@ -66,16 +71,15 @@ sde::config::name_usage()
 Usage:
    ${MULLE_USAGE_NAME} config name [options]
 
-   List the currently active sourcetree configuration name. You can also see
-   the available sourcetree configuration names.
+   List the currently active configuration name. You can also see
+   the available configuration names.
 
 Options:
-   -a                  : list all sourcetree config names
+   -a   : list all sourcetree config names
 
 EOF
    exit 1
 }
-
 
 
 sde::config::switch_usage()
@@ -86,16 +90,11 @@ sde::config::switch_usage()
 Usage:
    ${MULLE_USAGE_NAME} config switch [options] <name>
 
-   Changes the sourcetree configuration for the current project. Only the
-   current project is affected and not the dependencies. Also: the current
-   project will not be affected, if compiled by another project _as_ a
-   dependency.
-
-   To change the sourcetree configuration of a dependency use the -d option.
+   Changes the configuration for the current project or for a dependency
+   To change the configuration of a dependency use the -d option.
    The actual change is perfomed by setting a global environment variable
-   MULLE_SOURCETREE_CONFIG_NAMES_\${PROJECT_UPCASE_IDENTIFIER}. To figure
-   out the proper identifier for a given project, use the
-   "mulle-sde env-identifier" command.
+   MULLE_SOURCETREE_CONFIG_NAME_<identifier>. To figure out the proper
+   identifier for a given project, use the "mulle-sde env-identifier" command.
 
    It is necessary to "clean tidy" and "reflect" the project after the
    change.
@@ -109,6 +108,27 @@ EOF
 }
 
 
+sde::config::copy_usage()
+{
+   [ $# -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} config copy [options] [src] <destination>
+
+   Copy a configuration of the current project to a new configuration
+   <destination>. This will create a new sourcetree config file named
+   <destination> and a new definition.<destination> to store build
+   variables.
+   It is necessary to "clean tidy" and "reflect" the project after the
+   change.
+
+EOF
+   exit 1
+}
+
+
+
 sde::config::list_usage()
 {
    [ $# -ne 0 ] && log_error "$*"
@@ -117,15 +137,13 @@ sde::config::list_usage()
 Usage:
    ${MULLE_USAGE_NAME} config list
 
-   List the currently active sourcetree configuration overrides. There will
+   List the currently active configuration overrides. There will
    be always a line for the current project, though there may not be an
    actual environment entry.
 
 EOF
    exit 1
 }
-
-
 
 
 sde::config::show_usage()
@@ -136,7 +154,7 @@ sde::config::show_usage()
 Usage:
    ${MULLE_USAGE_NAME} config show
 
-   Show the currently available sourcetree configuration names.
+   Show the currently available configuration names.
 
 EOF
    exit 1
@@ -149,6 +167,8 @@ EOF
 #
 sde::config::walk_config_name_callback()
 {
+   log_entry "sde::config::walk_config_name_callback" "$@"
+
    local reflectfile
    local config
 
@@ -170,12 +190,14 @@ sde::config::walk_config_name_callback()
    r_basename "${NODE_ADDRESS}"
    address="${RVAL}"
 
-   printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAMES_${identifier}" "${config}"
+   printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAME_${identifier}" "${config}"
 }
 
 
 sde::config::walk_name_callback_no_default()
 {
+   log_entry "sde::config::walk_name_callback_no_default" "$@"
+
    local reflectfile
    local config
 
@@ -199,19 +221,16 @@ sde::config::walk_name_callback_no_default()
       r_basename "${NODE_ADDRESS}"
       address="${RVAL}"
 
-      printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAMES_${identifier}" "${config}"
+      printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAME_${identifier}" "${config}"
    fi
 }
 
 
 sde::config::walk_callback()
 {
-   if [ -z "${MULLE_SOURCETREE_CONFIG_SH}" ]
-   then
-      # shellcheck source=mulle-sourcetree-config.sh
-      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-config.sh" || exit 1
-   fi
+   log_entry "sde::config::walk_callback" "$@"
 
+   include "sourcetree::config"
 
    local names
 
@@ -233,17 +252,15 @@ sde::config::walk_callback()
    r_basename "${NODE_ADDRESS}"
    address="${RVAL}"
 
-   printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAMES_${identifier}" "${names}"
+   printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAME_${identifier}" "${names}"
 }
 
 
 sde::config::walk_callback_no_default()
 {
-   if [ -z "${MULLE_SOURCETREE_CONFIG_SH}" ]
-   then
-      # shellcheck source=mulle-sourcetree-config.sh
-      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-config.sh" || exit 1
-   fi
+   log_entry "sde::config::walk_callback_no_default" "$@"
+
+   include "sourcetree::config"
 
    local names
 
@@ -253,7 +270,6 @@ sde::config::walk_callback_no_default()
       log_setting "MULLE_SOURCETREE_SHARE_DIR : ${MULLE_SOURCETREE_SHARE_DIR}"
       sourcetree::config::list_main --no-warn --name-only --separator ','
       )`"
-
 
    if [ ! -z "${names}" -a "${names}" != "config" ]
    then
@@ -268,13 +284,15 @@ sde::config::walk_callback_no_default()
       r_basename "${NODE_ADDRESS}"
       address="${RVAL}"
 
-      printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAMES_${identifier}" "${names}"
+      printf "%s (%s): %s\n" "${address}" "MULLE_SOURCETREE_CONFIG_NAME_${identifier}" "${names}"
    fi
 }
 
 
 sde::config::dependency_walk()
 {
+   log_entry "sde::config::dependency_walk" "$@"
+
    local functionname="$1"
 
    # get "source" of function into callback
@@ -297,7 +315,6 @@ sde::config::show()
 
    local OPTION_IGNORE_DEFAULT='YES'
    local OPTION_LIST_NAMES='NO'
-   local OPTION_LIST_ALL='NO'
 
    while [ $# -ne 0 ]
    do
@@ -332,27 +349,32 @@ sde::config::show()
 
    [ "$#" -ne 0 ] && sde::config::show_usage "Superflous arguments $*"
 
-   local identifier
 
-   include "case"
+   [ -z "${MULLE_ENV_ETC_DIR}" ] && _internal_fail "MULLE_ENV_ETC_DIR is not set"
 
-   r_smart_upcase_identifier "${PROJECT_NAME:-local}"
-   identifier="${RVAL}"
-
+   #
+   # project configs
+   #
    local names
 
-   names="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -N \
-                           -s \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS:-} \
-                        config list --separator ',' --name-only `"
-
-   if [ ! -z "${names}" -a "${names}" != "config" ]
+   if [ -f "${MULLE_ENV_ETC_DIR}/environment-global.sh" ]
    then
-      printf "%s (%s): %s\n" "${PROJECT_NAME}" "MULLE_SOURCETREE_CONFIG_NAMES_${identifier}" "${names}"
+      names="default"
    fi
+
+   local filename
+
+   shell_enable_nullglob
+   for filename in ${MULLE_ENV_ETC_DIR}/*/environment-global.sh
+   do
+      r_dirname "${filename}"
+      r_basename "${RVAL}"
+      r_comma_concat "${names}" "${RVAL}"
+      names="${RVAL}"
+   done
+   shell_disable_nullglob
+
+   printf "%s (%s): %s\n" "${PROJECT_NAME}" "MULLE_SOURCETREE_CONFIG_NAME" "${names}"
 
    if [ "${OPTION_LIST_NAMES}" = 'YES' ]
    then
@@ -402,28 +424,262 @@ sde::config::list()
    sde::project::set_name_variables
 
    result="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-   rexekutor "${MULLE_ENV:-mulle-env}" \
+               rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            -s \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS:-} \
-                        environment list --output-eval  \
-   | egrep '^MULLE_SOURCETREE_CONFIG_NAMES_' \
+                        environment \
+                           list --output-eval  \
+   | egrep '^MULLE_SOURCETREE_CONFIG_NAME[^=]*=' \
    | sort `"
 
-   local key
-
-   key="MULLE_SOURCETREE_CONFIG_NAMES_${PROJECT_UPCASE_IDENTIFIER}"
-
-   if [ -z "`egrep "^${key}=" <<< "${result}"`" ]
+   if [ -z "${MULLE_SOURCETREE_CONFIG_NAME}" ]
    then
-      r_add_line "${key}=config" "${result}"
+      r_add_line "MULLE_SOURCETREE_CONFIG_NAME=config" "${result}"
+      result="${RVAL}"
+   else
+      r_add_line "MULLE_SOURCETREE_CONFIG_NAME=${MULLE_SOURCETREE_CONFIG_NAME}" "${result}"
       result="${RVAL}"
    fi
 
    printf "%s\n" "${result}"
 }
 
+
+sde::config::remove()
+{
+   log_entry "sde::config::remove" "$@"
+
+   MULLE_USAGE_NAME="mulle-sde" \
+   MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        -N \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS:-} \
+                        ${flags} \
+                     config remove "$@" || exit 1
+
+
+   local name
+
+   #
+   # memo: newer zsh support this bashism and we don't care about older zsh
+   #       we just care about older bash :)
+   #
+   name="${@: -1}" ; shift
+   case "${name}" in
+      [cC][oO][nN][fF][iI][gG]|[dD][eE][fF][aA][uU][lL][tT])
+         name=""
+      ;;
+   esac
+
+   [ -z "${MULLE_ENV_ETC_DIR}" ] && _internal_fail "MULLE_ENV_ETC_DIR is not set"
+
+   from="${MULLE_ENV_ETC_DIR}/${name}"
+
+   rmdir_safer "${from}"
+}
+
+
+sde::config::copy()
+{
+   log_entry "sde::config::copy" "$@"
+
+   # let sourcetree do error handling
+
+   MULLE_USAGE_NAME="mulle-sde" \
+   MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        -N \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS:-} \
+                        ${flags} \
+                     config copy "$@" || exit 1
+
+
+#   local name
+#
+#   #
+#   # memo: newer zsh support this bashism and we don't care about older zsh
+#   #       we just care about older bash :)
+#   #
+#   name="${@: -1}" ; shift
+#   case "${name}" in
+#      [cC][oO][nN][fF][iI][gG]|[dD][eE][fF][aA][uU][lL][tT])
+#         name=""
+#      ;;
+#   esac
+#
+#   local from
+#   local to
+#
+#   [ -z "${MULLE_ENV_ETC_DIR}" ] && _internal_fail "MULLE_ENV_ETC_DIR is not set"
+#
+#   from="${MULLE_ENV_ETC_DIR}/${PROJECT_CONFIG}"
+#   to="${MULLE_ENV_ETC_DIR}/${name}"
+#
+#   mkdir_if_missing "${to}"
+#
+#   ( exekutor cd "${from}" ; exekutor tar cf - environment-*.sh ) \
+#   | ( exekutor cd "${to}" ; exekutor tar xf - )
+}
+
+sde::config::switch_local()
+{
+   local name="$1"
+
+   #
+   # when we change the environment with mulle-env
+   # it doesn't affect our local environment so we need to
+   # also eval it
+   #
+   if [ "${name}" != "config" ]
+   then
+      log_info "${C_CYAN}*${C_INFO} Set ${C_RESET_BOLD}MULLE_SOURCETREE_CONFIG_NAME${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} to ${C_RESET_BOLD}${name}${C_INFO}"
+
+      MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           -N \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment --this-host set "MULLE_SOURCETREE_CONFIG_NAME" "${name}" || exit 1
+      eval "MULLE_SOURCETREE_CONFIG_NAME='${name}'"
+      export MULLE_SOURCETREE_CONFIG_NAME
+   else
+      log_info "${C_CYAN}*${C_INFO} Remove ${C_RESET_BOLD}MULLE_SOURCETREE_CONFIG_NAME${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
+
+      MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           -N \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment --this-host remove "MULLE_SOURCETREE_CONFIG_NAME"  || exit 1
+      unset MULLE_SOURCETREE_CONFIG_NAME
+   fi
+
+   log_setting "MULLE_SOURCETREE_CONFIG_NAME : ${MULLE_SOURCETREE_CONFIG_NAME}"
+}
+
+
+sde::config::r_switch_dependency()
+{
+   log_entry "sde::config::r_switch_dependency" "$@"
+
+   local dependency="$1"
+   local name="$2"
+
+   [ "${OPTION_DEPENDENCY}" = "${PROJECT_NAME}" ] && fail "Dependency is the actual project. Omit -d <dependency> from command"
+
+   local varname
+
+   r_smart_upcase_identifier "${dependency}"
+   r_concat "MULLE_SOURCETREE_CONFIG_NAME" "${RVAL}" "_"
+   varname="${RVAL}"
+
+   local dependency_dir
+
+   # get the destination folder for the dependency
+   # check if its a symlink, if yes warn/bail
+   include "sde::dependency"
+
+   dependency_dir="`sde::dependency::source_dir_main "${OPTION_DEPENDENCY}" `" || exit 1
+   if [ ! -e "${dependency_dir}" ]
+   then
+      fail "Dependency \"${name}\" hasn't been fetched yet"
+   fi
+
+   if [ -L "${dependency_dir}" ]
+   then
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         log_warning "${dependency_dir#"${MULLE_USER_PWD}/"} is a symlink. The change may affect other projects."
+      else
+         fail "${dependency_dir#"${MULLE_USER_PWD}/"} is a symlink. The change could affect other projects.
+${C_INFO}Use -f to force the switch"
+      fi
+   fi
+
+   #
+   # need to reflect before clean tidy for the dependency
+   #
+   if [ ! -z "${dependency_dir}" ]
+   then
+      # goto dependency_dir and switch there (which will reflect). Then the
+      # "config name" for the dependency project reflects the state properly
+      (
+         log_info "${C_CYAN}*${C_INFO} Switch dependency in ${C_MAGENTA}${C_BOLD}${OPTION_DEPENDENCY}${C_INFO} (${dependency_dir#"${MULLE_USER_PWD}/"})"
+
+         cd "${dependency_dir}" || exit 1
+         MULLE_VIRTUAL_ROOT=
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                             ${MULLE_SDE_FLAGS} \
+                             config switch "${name}"
+      ) || fail "failed because $?"
+   fi
+
+   #
+   # when we change the environment with mulle-env
+   # it doesn't affect our local environment so we need to
+   # also eval it
+   #
+   if [ "${name}" != "config" ]
+   then
+      log_info "${C_CYAN}*${C_INFO} Set ${C_RESET_BOLD}${varname}${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} to ${C_RESET_BOLD}${name}${C_INFO}"
+
+      MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           -N \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment --this-host set "${varname}" "${name}" || exit 1
+      eval "${varname}='${name}'"
+      eval "export ${varname}"
+   else
+      log_info "${C_CYAN}*${C_INFO} Remove ${C_RESET_BOLD}${varname}${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
+
+      MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+         rexekutor "${MULLE_ENV:-mulle-env}" \
+                           -N \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment --this-host remove "${varname}"  || exit 1
+      eval unset "${varname}"
+   fi
+
+   log_setting "${varname} : ${!varname}"
+
+}
+
+
+sde::config::print()
+{
+   log_entry "sde::config::print" "$@"
+
+   local dependency="$1"
+
+   local varname
+
+   r_smart_upcase_identifier "${dependency}"
+   r_concat "MULLE_SOURCETREE_CONFIG_NAME" "${RVAL}" "_"
+   varname="${RVAL}"
+
+   ##
+   ## GET
+   ##
+
+   local value
+
+   value="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                        -N \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_ENV_FLAGS:-} \
+                     environment get "${varname}" `"
+
+   printf "%s\n" "${value:-config}"
+   return 0
+}
 
 
 sde::config::switch()
@@ -472,138 +728,47 @@ sde::config::switch()
       shift
    done
 
-
-   local project_name
-
-   project_name="${OPTION_DEPENDENCY:-${PROJECT_NAME}}"
-
-   local identifier
-
    include "case"
-
-   r_smart_upcase_identifier "${project_name}"
-   identifier="${RVAL}"
-
-   local varname
-
-   varname="MULLE_SOURCETREE_CONFIG_NAMES_${identifier}"
 
    if [ "${OPTION_PRINT}" = 'YES' ]
    then
-      ##
-      ## GET
-      ##
       [ "$#" -ne 0 ] && sde::config::switch_usage "Superflous arguments $*"
 
-      local value
-
-      value="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-               rexekutor "${MULLE_ENV:-mulle-env}" \
-                           -N \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS:-} \
-                        environment get "${varname}" `"
-
-      printf "%s\n" "${value:-config}"
-      return 0
+      sde::config::print "${OPTION_DEPENDENCY}"
+      return $?
    fi
-
-   ##
-   ## SET
-   ##
-
-   [ "$#" -eq 0 ] && sde::config::switch_usage "Missing config name"
 
    local name
 
-   name="$1" ; shift
+   [ "$#" -eq 0 ] && sde::config::switch_usage "Missing config name"
+
+   name="$1"
+   shift
 
    [ "$#" -ne 0 ] && sde::config::switch_usage "Superflous arguments $*"
+
+   case "${name}" in
+      [dD][eE][fF][aA][uU][lL][tT])
+         name="config"
+      ;;
+   esac
 
    local dependency_dir
 
    if [ ! -z "${OPTION_DEPENDENCY}" ]
    then
-      [ "${OPTION_DEPENDENCY}" = "${PROJECT_NAME}" ] && fail "Dependency is the actual project. Omit -d <dependency> from command"
-
-      # get the destination folder for the dependency
-      # check if its a symlink, if yes warn/bail
-      include "sde::dependency"
-
-      dependency_dir="`sde::dependency::source_dir_main "${OPTION_DEPENDENCY}" `" || exit 1
-      if [ ! -e "${dependency_dir}" ]
-      then
-         fail "Dependency \"${name}\" hasn't been fetched yet"
-      fi
-
-      if [ -L "${dependency_dir}" ]
-      then
-         if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
-         then
-            log_warning "${dependency_dir#${MULLE_USER_PWD}/} is a symlink. The change may affect other projects."
-         else
-            fail "${dependency_dir#${MULLE_USER_PWD}/} is a symlink. The change could affect other projects.
-${C_INFO}Use -f to force the switch"
-         fi
-      fi
-   fi
-
-   #
-   # need to reflect before clean tidy for the dependency
-   #
-   if [ ! -z "${dependency_dir}" ]
-   then
-      # goto dependency_dir and switch there (which will reflect). Then the
-      # "config name" for the dependency project reflects the state properly
-      (
-         log_info "${C_CYAN}*${C_INFO} Switch dependency in ${C_MAGENTA}${C_BOLD}${OPTION_DEPENDENCY}${C_INFO} (${dependency_dir#${MULLE_USER_PWD}/})"
-
-         cd "${dependency_dir}" || exit 1
-         MULLE_VIRTUAL_ROOT=
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
-                             ${MULLE_SDE_FLAGS} \
-                             config switch "${name}"
-      ) || fail "failed because $?"
-   fi
-
-   #
-   # when we change the environment with mulle-env
-   # it doesn't affect our local environment so we need to
-   # also eval it
-   #
-   if [ "${name}" != "config" ]
-   then
-      log_info "${C_CYAN}*${C_INFO} Set ${C_RESET_BOLD}${varname}${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} to ${C_RESET_BOLD}${name}${C_INFO}"
-
-      MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                           -N \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
-                        environment set "${varname}" "${name}" || exit 1
-      eval "${varname}='${name}'"
-      eval "export ${varname}"
+      sde::config::r_switch_dependency "${OPTION_DEPENDENCY}" "${name}"
+      dependency_dir="${RVAL}"
    else
-      log_info "${C_CYAN}*${C_INFO} Remove ${C_RESET_BOLD}${varname}${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
-
-      MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                           -N \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
-                        environment remove "${varname}"  || exit 1
-      eval unset "${varname}"
+      sde::config::switch_local "${name}"
    fi
-
-   log_setting "${varname} : ${!varname}"
-
 
    #
    # need to get rid of old stuff in share
    #
    include "sde::clean"
 
-   log_info "${C_CYAN}*${C_INFO} Clean tidy ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#${MULLE_USER_PWD}/})"
+   log_info "${C_CYAN}*${C_INFO} Clean tidy ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#"${MULLE_USER_PWD}/"})"
 
    sde::clean::main "tidy"
 
@@ -613,7 +778,7 @@ ${C_INFO}Use -f to force the switch"
 
    include "sde::fetch"
 
-   log_info "${C_CYAN}*${C_INFO} Fetch ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#${MULLE_USER_PWD}/})"
+   log_info "${C_CYAN}*${C_INFO} Fetch ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#"${MULLE_USER_PWD}/"})"
 
    sde::fetch::main
 
@@ -624,12 +789,11 @@ ${C_INFO}Use -f to force the switch"
 
    include "sde::reflect"
 
-   log_info "${C_CYAN}*${C_INFO} Reflect ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#${MULLE_USER_PWD}/})"
+   log_info "${C_CYAN}*${C_INFO} Reflect ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#"${MULLE_USER_PWD}/"})"
    sde::reflect::main
 
    return 0
 }
-
 
 
 sde::config::main()
@@ -646,7 +810,7 @@ sde::config::main()
             sde::config::usage
          ;;
 
-         --config-names|--config-scope)
+         --config-name|--config-scope|--config-scopes)
             r_concat "${flags}" "$1"
             flags="${RVAL}"
 
@@ -669,6 +833,15 @@ sde::config::main()
       shift
    done
 
+   # sanity check
+   case "${MULLE_SOURCETREE_CONFIG_NAME}" in
+      [dD][eE][fF][aA][uU][lL][tT]|[cC][oO][nN][fF][iI][gG])
+         fail "MULLE_SOURCETREE_CONFIG_NAME should not be \"config\" or \"default\", just unset it"
+      ;;
+   esac
+
+   eval `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` || exit 1
+
    local cmd="$1"
 
    [ $# -ge 1 ] && shift
@@ -684,19 +857,8 @@ sde::config::main()
                         environment get "$@"  || exit 1
       ;;
 
-      copy|remove)
-         MULLE_USAGE_NAME="mulle-sde" \
-         MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-            rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                              -N \
-                              ${MULLE_TECHNICAL_FLAGS} \
-                              ${MULLE_SOURCETREE_FLAGS:-} \
-                              ${flags} \
-                           config "${cmd}" "$@" || exit 1
-      ;;
-
-      list)
-         sde::config::list "$@"
+      copy|remove|list|show|switch)
+         sde::config::${cmd} "$@"
       ;;
 
       name)
@@ -705,14 +867,6 @@ sde::config::main()
 
       set)
          sde::config::switch --env-name "$@"
-      ;;
-
-      show)
-         sde::config::show "$@"
-      ;;
-
-      switch)
-         sde::config::switch "$@"
       ;;
 
       '')

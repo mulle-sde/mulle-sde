@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -154,6 +154,7 @@ Options:
    --domain <name> : create an URL for a known domain, e.g. github
    --embedded      : the dependency becomes part of the local project
    --framework     : a MacOS framework (macOS only)
+   --git           : short cut for --scm git
    --github <name> : a shortcut for --domain github --user <name>
                      works also for other known domains (e.g. --gitlab)
    --headerless    : has no headerfile
@@ -438,7 +439,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
                    "${cmd}" "${address}" "cmakeloader" &&
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                       ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_TECHNICAL_FLAGS} \
                    "${cmd}" "${address}" "import"
       return $?
    fi
@@ -502,9 +503,9 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
 
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                    ${MULLE_TECHNICAL_FLAGS} \
-                    ${MULLE_SOURCETREE_FLAGS:-} \
-                set "${address}" "${field}" "${value}"
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_SOURCETREE_FLAGS:-} \
+                  set "${address}" "${field}" "${value}"
 }
 
 
@@ -772,9 +773,9 @@ sde::dependency::__enhance_url()
 
 
 # like mulle_sde_init sde::init::add_to_sourcetree but no templating
-sde::dependency::sde::init::add_to_sourcetree()
+sde::dependency::add_to_sourcetree()
 {
-   log_entry "sde::dependency::sde::init::add_to_sourcetree" "$@"
+   log_entry "sde::dependency::add_to_sourcetree" "$@"
 
    local filename="$1"
 
@@ -788,7 +789,7 @@ sde::dependency::sde::init::add_to_sourcetree()
    lines="`rexekutor egrep -v '^#' "${filename}"`"
    if [ -z "${lines}" ]
    then
-      log_warning "${filename} contains no dependency information"
+      log_warning "\"${filename}\" contains no dependency information"
       return
    fi
 
@@ -871,7 +872,7 @@ sde::dependency::add_craftinfo_url()
 So it can't be used with craftinfo: style add."
    fi
 
-   sde::dependency::sde::init::add_to_sourcetree "${sourcetree}"
+   sde::dependency::add_to_sourcetree "${sourcetree}"
 }
 
 
@@ -1040,6 +1041,10 @@ sde::dependency::add_main()
          --mulle-objc)
             OPTION_SINGLEPHASE='NO'
             OPTION_DIALECT='objc'
+         ;;
+
+         --git|--zip|--tar)
+            OPTION_NODETYPE="${1:2}"
          ;;
 
          --nodetype|--scm)
@@ -1447,13 +1452,13 @@ sde::dependency::add_main()
    then
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
-                     "${MULLE_TECHNICAL_FLAGS}"\
+                     "${MULLE_TECHNICAL_FLAGS}" \
                   clean --config
    fi
 
    if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                       --virtual-root \
-                      "${MULLE_TECHNICAL_FLAGS}"\
+                        --virtual-root \
+                    "${MULLE_TECHNICAL_FLAGS}" \
                         add "${options}" "'${url}'"
    then
       return 1

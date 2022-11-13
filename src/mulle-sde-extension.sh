@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+# shellcheck shell=bash
 #
 #   Copyright (c) 2018 Nat! - Mulle kybernetiK
 #   All rights reserved.
@@ -150,6 +150,10 @@ Usage:
    Add an "extra" extension to your project. A project can have as many extra
    extensions as you like. A typical extra extension is "sublime-text",
    which adds a Sublime Text project file to your project.
+
+   To clobber existing extension files use the -f flag:
+      ${MULLE_USAGE_NAME} -f extension add idea
+
 
 Note:
    To reconfigure your project with another runtime or buildtool, use
@@ -627,7 +631,7 @@ sde::extension::r_collect_vendorextensions()
 
    local vendorextensions
 
-   log_fluff "Looking in ${searchpath#${MULLE_USER_PWD}/} for ${vendor}/${searchname} ${searchtype}"
+   log_fluff "Looking in ${searchpath#"${MULLE_USER_PWD}/"} for ${vendor}/${searchname} ${searchtype}"
 
    IFS=$'\n' ; shell_disable_glob
    for extensiondir in `eval_rexekutor find -H "${searchpath}" \
