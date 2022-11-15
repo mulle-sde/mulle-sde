@@ -257,17 +257,13 @@ sde::definition::get()
 
          local i
 
-         shell_disable_glob; IFS=$'\n'
-         for i in ${scopes}
-         do
-            shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+         .foreachline i in ${scopes}
+         .do
             sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
             directory="${RVAL}"
 
             sde::definition::call "get" "${flags}" "${directory}" "$@"
-         done
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+         .done   
          return
          ;;
 
@@ -324,15 +320,11 @@ sde::definition::set()
 
          local i
 
-         shell_disable_glob; IFS=$'\n'
-         for i in ${scopes}
-         do
-            shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+         .foreachline i in ${scopes}
+         .do
             etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" "NO"
             sde::definition::call "set" "${flags}" "${etcdir}.${i}" "$@"
-         done
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+         .done   
          return
       ;;
 
@@ -426,17 +418,13 @@ sde::definition::unset()
 
          local i
 
-         shell_disable_glob; IFS=$'\n'
-         for i in ${scopes}
-         do
-            shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+         .foreachline i in ${scopes}
+         .do
             sde::definition::scoped_unset "${flags}" \
                                         "${etcdir}.${i}" \
                                         "${sharedir}.${i}" \
                                         "$@"
-         done
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+         .done         
          return
       ;;
 
@@ -599,13 +587,10 @@ sde::definition::_cmd()
 
          local i
 
-         shell_disable_glob; IFS=$'\n'
-         for i in ${scopes}
-         do
-            shell_enable_glob; IFS="${DEFAULT_IFS}"
+         .foreachline i in ${scopes}
+         .do
             sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${i}"
-         done
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+         .done
          return
          ;;
 

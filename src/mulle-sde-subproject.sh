@@ -512,14 +512,13 @@ sde::subproject::map()
 
       rval=0
 
+      local expanded_subproject
+      local sdefolder
+
       .foreachline subproject in ${subprojects}
       .do
-         local expanded_subproject
-
          r_filepath_concat "${MULLE_VIRTUAL_ROOT}" "${subproject}"
          expanded_subproject="${RVAL}"
-
-         local sdefolder
 
          sdefolder="${expanded_subproject}/.mulle/share/sde"
          if [ ! -d "${sdefolder}" ]

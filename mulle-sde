@@ -48,12 +48,11 @@ then
    MULLE_SDE_LIBEXEC_DIR="${RVAL}"
 fi
 
-
 #
 # This is the sde::main user interface to mulle-sde
 # sorta like git
 #
-sde::print_commands()
+function sde::print_commands()
 {
    local show_all="${1:-NO}"
 
@@ -151,7 +150,7 @@ sde::print_flags()
 }
 
 
-sde::_usage()
+sde::do_usage()
 {
    local verbose="${1:-NO}"
 
@@ -217,7 +216,7 @@ EOF
 
 sde::usage()
 {
-   sde::_usage "$@" >&2
+   sde::do_usage "$@" >&2
    exit 1
 }
 
@@ -400,7 +399,7 @@ ${C_RESET_BOLD}   mulle-sde init"
    if [ "${current}" != "${RVAL}" ]
    then
       [ -z "${MULLE_USER_PWD}" ] && _internal_fail "MULLE_USER_PWD not set"
-      exekutor cd "${RVAL}"
+      exekutor cd "${RVAL}" || exit 1
    fi
 
    # These flags are eventually passed to mulle-sde again, they aren't

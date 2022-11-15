@@ -221,7 +221,7 @@ _mulle_sde_dependency_complete()
                   ;;
                esac
 
-               if [ "${prev}" == "--platform" ]
+               if [ "${prev}" = "--platform" ]
                then
                   COMPREPLY=( $( compgen -W "freebsd darwin linux mingw" -- $cur ) )
                   return
@@ -383,7 +383,7 @@ _mulle_sde_subproject_complete()
                   ;;
                esac
 
-               if [ "${prev}" == "--platform" ]
+               if [ "${prev}" = "--platform" ]
                then
                   COMPREPLY=( $( compgen -W "freebsd darwin linux mingw" -- $cur ) )
                   return

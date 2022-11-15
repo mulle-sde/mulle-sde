@@ -105,8 +105,6 @@ sde::linkorder::_emit_file_output()
 
    local cmdline
    local filename
-
-   local marks
    local csv
 
    for csv in "$@"

@@ -144,12 +144,10 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
    local names
    local first_name
-   local var
 
    names="${MULLE_SOURCETREE_CONFIG_NAME:-config}"
    first_name="${names%%:*}"
 
-   local line
    local repository
    local filename
    local previous
@@ -157,11 +155,8 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
    changes=""
 
-   IFS=$'\n'
-   for repository in `sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `
-   do
-      IFS="${DEFAULT_IFS}"
-
+   .foreachline repository in `sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `
+   .do
       filename="${repository}/${MULLE_SDE_ETC_DIR#"${MULLE_VIRTUAL_ROOT}/"}/reflect"
 
       # if the file does not exist, this means
@@ -170,7 +165,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       if [ ! -f "${filename}" ]
       then
          log_fluff "${repository} has only a single sourcetree"
-         continue
+         .continue
       fi
 
       # if we are in sync, we don't need to reflect
@@ -178,13 +173,12 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       if [ "${previous}" = "${first_name}" ]
       then
          log_fluff "${repository} is already reflected for sourcetree \"${first_name}\""
-         continue
+         .continue
       fi
 
       log_fluff "${repository} may need reflection"
 
-      ! [ -x ${MULLE_SDE_REFLECT_SH} ] && \
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
+      include "sde::reflect"
 
       # can easily parallelize, we need to reflect with our settings though
       # but not too many settings.
@@ -209,8 +203,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
             changes="${RVAL}"
          ;;
       esac
-   done
-   IFS="${DEFAULT_IFS}"
+   .done
 
    RVAL="${changes}"
    return 0
@@ -328,6 +321,7 @@ sde::craft::create_craftorder_if_needed()
          case ${dbrval} in
             0)
                sde::craftorder::create_file_if_needed "${craftorderfile}" "${cachedir}"
+               return $?
             ;;
 
             1)
@@ -335,6 +329,7 @@ sde::craft::create_craftorder_if_needed()
 
             *)
                sde::craftorder::create_file "${craftorderfile}" "${cachedir}"
+               return $?
             ;;
          esac
       ;;
@@ -642,16 +637,23 @@ sde::craft::main()
       sde::craft::perform_mainproject_reflect_if_needed "${target}" "${dbrval}"
    fi
 
-   sde::craft::create_craftorder_if_needed "${target}" \
-                                   "${_craftorderfile}" \
-                                   "${_cachedir}" \
-                                   "${dbrval}"
+   if ! sde::craft::create_craftorder_if_needed "${target}" \
+                                                "${_craftorderfile}" \
+                                                "${_cachedir}" \
+                                                "${dbrval}"
+   then
+      fail "Could not create craftorder"
+   fi
 
    #
    # we have to check that our craftorder dependencies have reflected to the
    # same sourcetree name. Usually this should be quick, as this is very rare
    #
-   sde::craft::r_perform_craftorder_reflects_if_needed "${_craftorderfile}"
+   if ! sde::craft::r_perform_craftorder_reflects_if_needed "${_craftorderfile}"
+   then
+      fail "Could not perform reflects"
+   fi
+
    if [ ! -z "${RVAL}" ]
    then
       log_warning "There have been changes in the dependencies ${RVAL}.
@@ -763,7 +765,6 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 
    local runstyle
    local need_dashdash='YES'
-   local i
 
    while [ $# -ne 0  ]
    do
@@ -848,7 +849,7 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
    #
    # if plain C, don't emot language
    #if [ "${PROJECT_LANGUAGE}" != "${PROJECT_DIALECT}" ] && \
-   #   ! [ "${PROJECT_LANGUAGE}" == "c" -a -z "${PROJECT_DIALECT}" ]
+   #   ! [ "${PROJECT_LANGUAGE}" = "c" -a -z "${PROJECT_DIALECT}" ]
    #then
    # can only do this for the project, which makes it kinda pointless
    #

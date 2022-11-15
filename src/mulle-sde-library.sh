@@ -40,8 +40,8 @@ MULLE_SDE_LIBRARY_SH="included"
 #
 LIBRARY_INIT_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
-LIBRARY_FILTER_MARKS="no-dependency"
-LIBRARY_FILTER_NODETYPES="none"
+LIBRARY_LIST_MARKS="no-dependency"
+LIBRARY_LIST_NODETYPES="none"
 
 #
 # This puts some additional stuff into userinfo of the sourcetree
@@ -632,10 +632,11 @@ sde::library::list_main()
                 ${MULLE_SOURCETREE_FLAGS:-} \
                list \
                   --format "${formatstring}\\n" \
-                  --marks "${LIBRARY_FILTER_MARKS}" \
+                  --marks "${LIBRARY_LIST_MARKS}" \
                   --qualifier "${qualifier}" \
-                  --nodetypes "${LIBRARY_FILTER_NODETYPES}" \
+                  --nodetypes "${LIBRARY_LIST_NODETYPES}" \
                   --output-no-marks "${no_marks}" \
+                  --verbatim \
                   ${OPTIONS} \
                   "$@"
 }

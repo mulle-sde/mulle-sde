@@ -108,10 +108,8 @@ sde::craftorder::create_file()
    local craftorderfile="$1"; shift
    local cachedir="$1"; shift
 
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-   [ -z "${MULLE_FILE_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+   include "file"
+   include "path"
 
    log_info "Creating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} craftorder"
 
@@ -146,11 +144,8 @@ sde::craftorder::create_file_if_needed()
 {
    log_entry "sde::craftorder::create_file_if_needed" "$@"
 
-   local craftorderfile="$1"; shift
-   local cachedir="$1"; shift
-
-   local sourcetreefile
-   local craftorderfile
+   local craftorderfile="$1"
+   local cachedir="$2"
 
    #
    # our craftorder is specific to a host
@@ -167,6 +162,8 @@ sde::craftorder::create_file_if_needed()
    configname="${MULLE_SOURCETREE_CONFIG_NAME:-config}"
    configname="${configname%%:*}"
 
+   local sourcetreefile
+
    sourcetreefile="${MULLE_SOURCETREE_ETC_DIR}/${configname}"
    if [ ! -f "${sourcetreefile}" ]
    then
@@ -179,9 +176,10 @@ sde::craftorder::create_file_if_needed()
    if [ "${sourcetreefile}" -nt "${craftorderfile}" ]
    then
       sde::craftorder::create_file "${craftorderfile}" "${cachedir}"
-   else
-      log_fluff "Craftorder file \"${craftorderfile#"${MULLE_USER_PWD}/"}\" is up-to-date"
+      return $?
    fi
+
+   log_fluff "Craftorder file \"${craftorderfile#"${MULLE_USER_PWD}/"}\" is up-to-date"
 }
 
 

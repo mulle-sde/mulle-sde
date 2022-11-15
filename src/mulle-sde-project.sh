@@ -503,14 +503,10 @@ sde::project::_local_search_and_replace_filenames()
 
    local filename
 
-   IFS=$'\n' ; shell_disable_glob
-   for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -name "*${old}*" -print`
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+   .foreachfile filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -name "*${old}*" -print`
+   .do
       sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -533,14 +529,10 @@ sde::project::search_and_replace_filenames()
       local filename
       local renamed
 
-      IFS=$'\n' ; shell_disable_glob
-      for filename in  `eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print`
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+      .foreachline filename in  `eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print`
+      .do
          sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .done
    fi
 }
 
@@ -587,14 +579,10 @@ sde::project::_local_search_and_replace_contents()
 
    local filename
 
-   IFS=$'\n' ; shell_disable_glob
-   for filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -print`
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+   .foreachfile filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -print`
+   .do
       sde::project::edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -611,14 +599,10 @@ sde::project::search_and_replace_contents()
    then
       local filename
 
-      IFS=$'\n' ; shell_disable_glob
-      for filename in  `eval_rexekutor find "${dir}" -type f -print`
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+      .foreachfile filename in  `eval_rexekutor find "${dir}" -type f -print`
+      .do
          sde::project::edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .done
    fi
 }
 
@@ -631,10 +615,8 @@ sde::project::walk_over_mulle_match_path()
 
    local dir
 
-   shell_disable_glob; IFS=':'
-   for dir in ${MULLE_MATCH_PATH}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .foreachpath dir in ${MULLE_MATCH_PATH}
+   .do
       case "${dir}" in
          .*)
          ;;
@@ -643,36 +625,7 @@ sde::project::walk_over_mulle_match_path()
             "${callback}" "${dir}" "$@"
          ;;
       esac
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
-}
-
-
-sde::project::walk_over_test_paths()
-{
-   log_entry "sde::project::walk_over_test_paths" "$@"
-
-   local callback="$1" ; shift
-
-   local dir
-
-   shell_disable_glob; IFS=':'
-   for dir in *
-   do
-      if [ -d "${dir}" ]
-      then
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
-         case "${dir}" in
-            .*)
-            ;;
-
-            *)
-               "${callback}" "${dir}" "$@"
-            ;;
-         esac
-      fi
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -738,18 +691,22 @@ sde::project::r_rename_current_project()
       sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "f"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "d"
+      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "f"
 
       sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "f"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "d"
+      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "f"
 
       sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "f"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "d"
+      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "f"
 
       sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "d"
+      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
 
       changes="${changes}changes"
    fi
@@ -776,7 +733,7 @@ sde::project::r_rename_current_project()
       if [ "${PROJECT_NAME}" != "${OLD_PROJECT_UPCASE_IDENTIFIER}" -a \
            "${PROJECT_IDENTIFIER}" != "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
       then
-         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_UPCASE_IDENTIFIER}/${OLD_PROJECT_UPCASE_IDENTIFIER}/g'"
+         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_UPCASE_IDENTIFIER}/${PROJECT_UPCASE_IDENTIFIER}/g'"
       fi
 
       local grep_cmdline
@@ -789,6 +746,7 @@ sde::project::r_rename_current_project()
 
       sde::project::_local_search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
+      sde::project::search_and_replace_contents .idea "${grep_cmdline}" "${sed_cmdline}"
 
       changes="${changes}changes"
    fi

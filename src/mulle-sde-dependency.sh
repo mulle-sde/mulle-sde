@@ -635,6 +635,7 @@ sde::dependency::list_main()
                --output-no-header \
                --output-no-marks "${no_marks}" \
                --output-cmdline "${MULLE_USAGE_NAME} dependency add" \
+               --verbatim \
                ${OPTIONS} \
                "$@"
    else
@@ -648,6 +649,7 @@ sde::dependency::list_main()
                --qualifier "${qualifier}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --output-no-marks "${no_marks}" \
+               --verbatim \
                ${OPTIONS} \
                "$@"
    fi
@@ -827,7 +829,7 @@ sde::dependency::use_craftinfo_main()
 
    local args
 
-   if [ "${lenient}"  == 'YES' ]
+   if [ "${lenient}" = 'YES' ]
    then
       args="--lenient"
    fi
@@ -1549,6 +1551,7 @@ sde::dependency::source_dir_main()
                   walk \
                      --lenient \
                      --qualifier 'MATCHES dependency' \
+                     --verbatim \
                      '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && printf "%s\n" "${NODE_FILENAME}"'
 
 }

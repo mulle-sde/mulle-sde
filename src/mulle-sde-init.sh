@@ -1099,15 +1099,13 @@ sde::init::_delete_leaf_files_or_directories()
    local i
 
    # https://stackoverflow.com/questions/1574403/list-all-leaf-subdirectories-in-linux
-   IFS=$'\n'
-   for i in `rexekutor find "${directory}" -mindepth 1 \
+   local relpath
+
+
+   .foreachline i in `rexekutor find "${directory}" -mindepth 1 \
                                            -execdir sh \
                                            -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
-   do
-      IFS="${DEFAULT_IFS}"
-
-      local relpath
-
+   .do
       r_simplified_path "${i#${directory}/}"
       relpath="${RVAL}"
 
@@ -1117,7 +1115,7 @@ sde::init::_delete_leaf_files_or_directories()
          if [ "${RVAL}" != ".gitignore" ]
          then
             log_warning "Not deleting files at present (${relpath})"
-            continue
+            .continue
          fi
          r_dirname "${relpath}"
          relpath="${RVAL}"
@@ -1127,12 +1125,11 @@ sde::init::_delete_leaf_files_or_directories()
       if [ "${RVAL}" != "share" ]
       then
          log_warning "Only deleting folders called \"share\" at present (${relpath})"
-         continue
+         .continue
       fi
 
       rmdir_safer "${relpath}"
-   done
-   IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -3292,7 +3289,7 @@ MULLE_SDE_INSTALLED_VERSION, assuming 0.0.0"
 
       *)
          _internal_fail "Unparsable version info in \
-MULLE_SDE_INSTALLED_VERSION (${MULLE_SDE_INSTALLED_VERSION})"
+MULLE_SDE_INSTALLED_VERSION (${oldversion})"
       ;;
    esac
 
