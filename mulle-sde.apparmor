@@ -1,0 +1,30 @@
+# vim:syntax=apparmor
+# AppArmor policy for mulle-sde
+# ###AUTHOR###
+# ###COPYRIGHT###
+# ###COMMENT###
+
+#include <tunables/global>
+
+# No template variables specified
+
+/home/src/srcS/mulle-sde/mulle-sde flags=(complain) {
+  #include <abstractions/base>
+
+  / mrix,
+  /** mrix,
+
+  # needed for curl
+  network udp,
+  network tcp,
+
+  owner @{HOME}/.mulle/** mrlwix,
+  owner @{HOME}/.cache/** rw,
+  owner /home/src/** mrlwix,
+  owner /tmp/** mrlwix,
+
+  /proc/** rw,
+  /dev/** rw,
+  /var/log/** rw,
+}
+

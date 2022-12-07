@@ -4,10 +4,10 @@ digraph G {
     node[shape=record];
     edge[ arrowhead="none", color="gray"]
 
-    { rank = same;  "source-callback", "sourcetree-callback" };
+    { rank = same;  "filesystem-callback", "sourcetree-callback" };
     { rank = last;  "mulle-sde reflect" };
 
-    "source-callback"        [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"source\""];
+    "filesystem-callback"        [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"source\""];
     "sourcetree-callback"    [ shape="diamond", color="#fa8231", fontcolor="#fa8231" label="\"sourcetree\""];
 
 
@@ -15,6 +15,6 @@ digraph G {
 
     edge[ arrowhead="", style="dotted", color="black" ]
 
-    "mulle-sde reflect"  -> "source-callback"        [ label="callback" ]
+    "mulle-sde reflect"  -> "filesystem-callback"        [ label="callback" ]
     "mulle-sde reflect"  -> "sourcetree-callback"    [ label="callback" ]
 }

@@ -584,9 +584,9 @@ sde::craftinfo::__vars_with_url_or_address()
    local key
    local config
 
-   r_uppercase "${_name}"
-   r_identifier "${RVAL}"
-
+   include "case"
+   
+   r_smart_upcase_identifier "${_name}"
    key="MULLE_SOURCETREE_CONFIG_NAME_${RVAL}"
 
    r_shell_indirect_expand "${key}"

@@ -90,9 +90,9 @@ sde::config::switch_usage()
 Usage:
    ${MULLE_USAGE_NAME} config switch [options] <name>
 
-   Changes the configuration for the current project or for a dependency
-   To change the configuration of a dependency use the -d option.
-   The actual change is perfomed by setting a global environment variable
+   Changes the configuration for the current project or for a dependency. To
+   change the configuration of a dependency use the -d option. The actual
+   change is perfomed by setting a global environment variable
    MULLE_SOURCETREE_CONFIG_NAME_<identifier>. To figure out the proper
    identifier for a given project, use the "mulle-sde env-identifier" command.
 
@@ -118,10 +118,9 @@ Usage:
 
    Copy a configuration of the current project to a new configuration
    <destination>. This will create a new sourcetree config file named
-   <destination> and a new definition.<destination> to store build
-   variables.
-   It is necessary to "clean tidy" and "reflect" the project after the
-   change.
+   <destination> and a new definition.<destination> to store build variables.
+
+   It is necessary to "clean tidy" and "reflect" the project after the change.
 
 EOF
    exit 1
@@ -137,9 +136,9 @@ sde::config::list_usage()
 Usage:
    ${MULLE_USAGE_NAME} config list
 
-   List the currently active configuration overrides. There will
-   be always a line for the current project, though there may not be an
-   actual environment entry.
+   List the currently active configuration overrides. There will always be a
+   line for the current project, though there may not be an actual environment
+   entry.
 
 EOF
    exit 1
@@ -543,7 +542,7 @@ sde::config::switch_local()
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host set "MULLE_SOURCETREE_CONFIG_NAME" "${name}" || exit 1
+                        environment --this-host set "MULLE_SOURCETREE_CONFIG_NAME" "${name}"
       eval "MULLE_SOURCETREE_CONFIG_NAME='${name}'"
       export MULLE_SOURCETREE_CONFIG_NAME
    else
@@ -554,7 +553,7 @@ sde::config::switch_local()
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host remove "MULLE_SOURCETREE_CONFIG_NAME"  || exit 1
+                        environment --this-host remove "MULLE_SOURCETREE_CONFIG_NAME"
       unset MULLE_SOURCETREE_CONFIG_NAME
    fi
 
@@ -569,13 +568,7 @@ sde::config::r_switch_dependency()
    local dependency="$1"
    local name="$2"
 
-   [ "${OPTION_DEPENDENCY}" = "${PROJECT_NAME}" ] && fail "Dependency is the actual project. Omit -d <dependency> from command"
-
-   local varname
-
-   r_smart_upcase_identifier "${dependency}"
-   r_concat "MULLE_SOURCETREE_CONFIG_NAME" "${RVAL}" "_"
-   varname="${RVAL}"
+   [ "${dependency}" = "${PROJECT_NAME}" ] && fail "Dependency is the actual project. Omit -d <dependency> from command"
 
    local dependency_dir
 
@@ -583,10 +576,10 @@ sde::config::r_switch_dependency()
    # check if its a symlink, if yes warn/bail
    include "sde::dependency"
 
-   dependency_dir="`sde::dependency::source_dir_main "${OPTION_DEPENDENCY}" `" || exit 1
+   dependency_dir="`sde::dependency::source_dir_main "${dependency}" `" || return 1
    if [ ! -e "${dependency_dir}" ]
    then
-      fail "Dependency \"${name}\" hasn't been fetched yet"
+      fail "Dependency \"${dependency}\" hasn't been fetched yet"
    fi
 
    if [ -L "${dependency_dir}" ]
@@ -610,13 +603,19 @@ ${C_INFO}Use -f to force the switch"
       (
          log_info "${C_CYAN}*${C_INFO} Switch dependency in ${C_MAGENTA}${C_BOLD}${OPTION_DEPENDENCY}${C_INFO} (${dependency_dir#"${MULLE_USER_PWD}/"})"
 
-         cd "${dependency_dir}" || exit 1
+         exekutor cd "${dependency_dir}" || return 1
          MULLE_VIRTUAL_ROOT=
          rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
                              ${MULLE_SDE_FLAGS} \
                              config switch "${name}"
       ) || fail "failed because $?"
    fi
+
+   local varname
+
+   r_smart_upcase_identifier "${dependency}"
+   r_concat "MULLE_SOURCETREE_CONFIG_NAME" "${RVAL}" "_"
+   varname="${RVAL}"
 
    #
    # when we change the environment with mulle-env
@@ -632,7 +631,7 @@ ${C_INFO}Use -f to force the switch"
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host set "${varname}" "${name}" || exit 1
+                        environment --this-host set "${varname}" "${name}"
       eval "${varname}='${name}'"
       eval "export ${varname}"
    else
@@ -643,13 +642,13 @@ ${C_INFO}Use -f to force the switch"
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host remove "${varname}"  || exit 1
+                        environment --this-host remove "${varname}"
       eval unset "${varname}"
    fi
 
-   log_setting "${varname} : ${!varname}"
-
-}
+   r_shell_indirect_expand "${varname}"
+   log_setting "${varname} : ${RVAL}"
+   }
 
 
 sde::config::print()
@@ -780,7 +779,7 @@ sde::config::switch()
 
    log_info "${C_CYAN}*${C_INFO} Fetch ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#"${MULLE_USER_PWD}/"})"
 
-   sde::fetch::main
+   sde::fetch::main || return 1
 
    if [ ! -z "${dependency_dir}" ]
    then
@@ -791,6 +790,7 @@ sde::config::switch()
 
    log_info "${C_CYAN}*${C_INFO} Reflect ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} (${PWD#"${MULLE_USER_PWD}/"})"
    sde::reflect::main
+   [ $? -eq 1 ] && return 1
 
    return 0
 }

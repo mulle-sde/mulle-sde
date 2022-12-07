@@ -208,7 +208,6 @@ sde::clean::craftinfo()
    fi
 
    local craftinfos
-   local craftinfo
 
    craftinfos="`sde::craftinfo::get_addresses`"
    if [ -z "${craftinfos}" ]
@@ -217,16 +216,15 @@ sde::clean::craftinfo()
       return
    fi
 
-   shell_disable_glob; IFS=$'\n'
-   for craftinfo in ${craftinfos}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+   local craftinfo
+
+   .foreachline craftinfo in ${craftinfos}
+   .do
       rexekutor "${MULLE_CRAFT:-mulle-craft}" \
             ${MULLE_TECHNICAL_FLAGS} \
             clean \
                "${craftinfo}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -241,7 +239,6 @@ sde::clean::subproject()
    fi
 
    local subprojects
-   local subproject
 
    subprojects="`sde::subproject::get_addresses`"
    if [ -z "${subprojects}" ]
@@ -251,31 +248,29 @@ sde::clean::subproject()
    fi
 
    local name
+   local subproject
 
-   shell_disable_glob; IFS=$'\n'
-   for subproject in ${subprojects}
-   do
+   .foreachline subproject in ${subprojects}
+   .do
       r_basename "${subproject}"
       name="${RVAL}"
 
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
       rexekutor "${MULLE_CRAFT:-mulle-craft}" \
             ${MULLE_TECHNICAL_FLAGS} \
             clean \
                "${name}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
-sde::clean::craftordercache()
+sde::clean::varcaches()
 {
-   log_entry "sde::clean::craftordercache" "$@"
+   log_entry "sde::clean::varcaches" "$@"
 
    [ -z "${MULLE_SDE_VAR_DIR}" ] && _internal_fail "MULLE_SDE_VAR_DIR not defined"
 
-   log_verbose "Cleaning sde cache"
-   remove_file_if_present "${MULLE_SDE_VAR_DIR}/cache/craftorder"
+   log_verbose "Cleaning sde caches"
+   rmdir_safer "${MULLE_SDE_VAR_DIR}/cache"
 }
 
 
@@ -335,18 +330,15 @@ sde::clean::tmp()
 
    local dir
 
-   shell_enable_nullglob
-   for dir in .mulle/var/*/*/tmp  .mulle/var/*/tmp
-   do
-      shell_disable_nullglob
+   .foreachfile dir in .mulle/var/*/*/tmp  .mulle/var/*/tmp
+   .do
       if [ -d "${dir}" ]
       then
          log_verbose "Cleaning \"${dir}\" folder"
 
          rmdir_safer "${dir}"
       fi
-   done
-   shell_disable_nullglob
+   .done
 }
 
 
@@ -451,7 +443,6 @@ sde::clean::testall()
 }
 
 
-
 sde::clean::main()
 {
    log_entry "sde::clean::main" "$@"
@@ -505,14 +496,8 @@ sde::clean::main()
    KITCHEN_DIR="${KITCHEN_DIR:-${MULLE_CRAFT_KITCHEN_DIR}}"
    KITCHEN_DIR="${KITCHEN_DIR:-${MULLE_VIRTUAL_ROOT}/${MULLE_CRAFT_KITCHEN_DIRNAME:-kitchen}}"
 
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || return 1
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
-   fi
+   include "path"
+   include "file"
 
    local domain
    local domains
@@ -542,11 +527,11 @@ test"
       ;;
 
       all)
-         domains="kitchendir dependencydir craftordercache"
+         domains="kitchendir dependencydir varcaches"
       ;;
 
       alltestall)
-         domains="kitchendir dependencydir craftordercache testall"
+         domains="kitchendir dependencydir varcaches testall"
       ;;
 
       archive)
@@ -583,7 +568,7 @@ test"
       ;;
 
       fetch)
-         domains="sourcetree craftordercache output db monitor patternfile archive"
+         domains="sourcetree varcaches output db monitor patternfile archive"
       ;;
 
       graveyard)
@@ -591,7 +576,7 @@ test"
       ;;
 
       gravetidy|grave-tidy|gtidy)
-         domains="graveyard sourcetree_share craftordercache output var db monitor patternfile"
+         domains="graveyard sourcetree_share varcaches output var db monitor patternfile"
          MULLE_SOURCETREE_GRAVEYARD_ENABLED='NO'
          export MULLE_SOURCETREE_GRAVEYARD_ENABLED
       ;;
@@ -609,7 +594,7 @@ test"
       ;;
 
       tidy)
-         domains="sourcetree_share craftordercache output var db monitor patternfile"
+         domains="sourcetree_share varcaches output var db monitor patternfile"
       ;;
 
       tmp)
@@ -677,11 +662,8 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    local rval 
 
    rval=0
-   shell_disable_glob
-   for domain in ${domains}
-   do
-      shell_enable_glob
-
+   .for domain in ${domains}
+   .do
       functionname="sde::clean::${domain}"
       if shell_is_function "${functionname}"
       then
@@ -698,8 +680,7 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
                      clean \
                         "${domain}"
       fi
-   done
-   shell_enable_glob
+   .done
 
    return $rval
 }

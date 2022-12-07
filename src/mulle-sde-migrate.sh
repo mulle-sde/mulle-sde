@@ -123,6 +123,24 @@ sde::migrate::from_v0_46_to_v47()
 }
 
 
+sde::migrate::from_v0_47_to_v1_14()
+{
+   log_entry "sde::migrate::from_v0_47_to_v1_14" "$@"
+
+   local filename
+
+   .foreachline filename in `find . -name "auxscope" \( -type d -name stash -prune \) -type f`
+   .do
+      case "${filename}" in
+         */.mulle/etc/env/auxscope)
+            inplace_sed "${filename}" -e 's/^project;10$/project;20/'
+         ;;
+      esac
+   .done
+}
+
+
+
 sde::migrate::do()
 {
    log_entry "sde::migrate::do" "$@"
@@ -168,6 +186,15 @@ sde::migrate::do()
       ) || exit 1
       oldmajor=0
       oldminor=47
+   fi
+
+   if [ "${oldmajor}" -lt 1 ] || [ "${oldmajor}" -eq 1 -a "${oldminor}" -le 13 ]
+   then
+      (
+         sde::migrate::from_v0_47_to_v1_14
+      ) || exit 1
+      oldmajor=1
+      oldminor=14
    fi
 
    #

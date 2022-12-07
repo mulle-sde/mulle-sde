@@ -210,13 +210,10 @@ sde::linkorder::_emit_ld_output()
       local line
 
       RVAL=
-      shell_disable_glob; IFS=$'\n'
-      for line in ${result}
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .foreachline line in ${result}
+      .do
          r_concat "${RVAL}" "${line}" "${sep}"
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .done
 
       result="${RVAL}"
    fi
@@ -399,13 +396,17 @@ sde::linkorder::r_all_nodes()
       bequeath_flag="--bequeath"
    fi
 
+   local configuration
+
+   configuration="${OPTION_CONFIGURATION:-Debug}"
+
    RVAL="`rexekutor sourcetree::walk::main \
                                --lenient \
                                --no-eval \
                                --in-order \
                                --backwards \
                                ${bequeath_flag} \
-                               --configuration "Release" \
+                               --configuration "${configuration}" \
                                --dedupe "linkorder" \
                                --callback-qualifier "${craft_qualifier}" \
                                --descend-qualifier "${descend_qualifier}" \
@@ -429,18 +430,15 @@ sde::linkorder::r_search_os_library()
 
    local aliases="$1"
 
-   local cmd
+   local alias
 
-   IFS=","; shell_disable_glob
-   for alias in ${aliases}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .foreachitem alias in ${aliases}
+   .do
       if platform::search::r_platform_search "" library "" "" "${alias}"
       then
          return 0
       fi
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 
    return 1
 }
@@ -470,7 +468,6 @@ sde::linkorder::r_collect()
    local librarytype
    local requirement
    local alias
-   local aliases
 
    aliases="${aliases:-${name}}"
    librarytype="library"
@@ -521,7 +518,6 @@ sde::linkorder::r_collect()
                .break
             fi
          .done
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
          # otherwise prefer first alias
          if [ -z "${alias}" ]
@@ -622,7 +618,7 @@ sde::linkorder::r_library_searchpath()
    local searchpath
    local configuration
 
-   configuration="${OPTION_CONFIGURATION:-Release}"
+   configuration="${OPTION_CONFIGURATION:-Debug}"
    searchpath="`rexekutor mulle-craft \
                                  ${MULLE_TECHNICAL_FLAGS} \
                                  -s \
@@ -659,7 +655,7 @@ sde::linkorder::r_framework_searchpath()
       options="--if-exists"
    fi
 
-   configuration="${OPTION_CONFIGURATION:-Release}"
+   configuration="${OPTION_CONFIGURATION:-Debug}"
    searchpath="`rexekutor mulle-craft \
                                  ${MULLE_TECHNICAL_FLAGS} \
                                  -s \
@@ -691,9 +687,6 @@ sde::linkorder::r_get_emission_lib()
 
    local aliases
    local userinfo
-
-   aliases=
-   userinfo=
 
    if [ ! -z "${raw_userinfo}" ]
    then
@@ -727,13 +720,11 @@ sde::linkorder::r_remove_leading_duplicate_nodes()
 
    RVAL=
 
-   IFS=$'\n' ; shell_disable_glob
-   for node in ${nodes}
-   do
+   .foreachline node in ${nodes}
+   .do
       r_remove_line "${RVAL}" "${node}"
       r_add_line "${RVAL}" "${node}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -747,9 +738,9 @@ sde::linkorder::r_remove_line_by_first_field()
 
    delim=""
    RVAL=
-   shell_disable_glob; IFS=$'\n'
-   for line in ${lines}
-   do
+
+   .foreachline line in ${lines}
+   .do
       case "${line}" in
          ${search}|${search}\;*)
             # ignore this
@@ -760,8 +751,7 @@ sde::linkorder::r_remove_line_by_first_field()
             delim=$'\n'
          ;;
       esac
-   done
-   IFS="${DEFAULT_IFS}" ; shell_enable_glob
+   .done
 }
 
 
@@ -776,15 +766,11 @@ sde::linkorder::r_collect_emission_libs()
    local omit="$5"
 
    local dependency_libs
-
    local address
    local marks
    local raw_userinfo
-   local raw_userinfo
-
    local _startup_load
    local _standalone_load
-
    local node
    local rval
 
@@ -831,28 +817,6 @@ sde::linkorder::r_collect_emission_libs()
    RVAL=${dependency_libs}
 }
 
-
-
-sde::linkorder::include_mulle_platform()
-{
-   #
-   # load mulle-platform as library, since we would be calling the executable
-   # repeatedly
-   #
-   if [ -z "${MULLE_PLATFORM_LIBEXEC_DIR}" ]
-   then
-      MULLE_PLATFORM_LIBEXEC_DIR="`exekutor "${MULLE_PLATFORM:-mulle-platform}" libexec-dir`" || exit 1
-   fi
-
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-
-   [ -z "${MULLE_PLATFORM_TRANSLATE_SH}" ] && \
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-translate.sh"
-
-   [ -z "${MULLE_PLATFORM_SEARCH_SH}" ] && \
-      . "${MULLE_PLATFORM_LIBEXEC_DIR}/mulle-platform-search.sh"
-}
 
 #
 # linkorder is really complicated! First the dependencies have a specific
@@ -1059,7 +1023,14 @@ sde::linkorder::main()
       return 0
    fi
 
-   sde::linkorder::include_mulle_platform
+
+   include "path"
+   #
+   # load mulle-platform as library, since we dont want to call the executable
+   # repeatedly
+   #
+   include "platform::translate"
+   include "platform::search"
 
    local library_searchpath
    local framework_searchpath

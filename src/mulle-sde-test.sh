@@ -247,8 +247,10 @@ sde::test::_run()
 {
    log_entry "sde::test::_run" "$@"
 
-   local directory="$1"; shift
-   local cmd="$1"; shift
+   local directory="$1"
+   local cmd="$2"
+
+   shift 2
 
    r_physicalpath "${directory}"
    physdir="${RVAL}"
@@ -304,8 +306,16 @@ sde::test::run()
 {
    log_entry "sde::test::run" "$@"
 
-   local harmless="$1"; shift
-   local cmd="$1"; shift
+   local harmless="$1"
+   shift 1
+
+   local cmd
+
+   if [ $# -ne 0 ]
+   then
+      cmd="$1"
+      shift
+   fi
 
    local defaultpath
    local projectdir
@@ -316,10 +326,8 @@ sde::test::run()
       exekutor cd "${projectdir}"
    fi
 
-   [ -z "${MULLE_PATH_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-   [ -z "${MULLE_FILE_SH}" ] && \
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+   include "path"
+   include "file"
 
    (
       sde::test::hack_environment
@@ -330,18 +338,15 @@ sde::test::run()
          exit $?
       fi
 
-      IFS=":"
-      for directory in ${MULLE_SDE_TEST_PATH}
-      do
-         IFS="${DEFAULT_IFS}"
-
+      .foreachpath directory in ${MULLE_SDE_TEST_PATH}
+      .do
          if [ ! -d "${directory}" ]
          then
             if [ "${harmless}" = 'NO' ]
             then
                fail "Test directory \"${directory}\" is missing"
             fi
-            continue
+            .continue
          fi
 
          if ! sde::is_test_directory "${directory}"
@@ -350,14 +355,14 @@ sde::test::run()
             then
                fail "Directory \"${directory}\" is not a test directory"
             fi
-            continue
+            .continue
          fi
 
          if ! sde::test::_run "${directory}" "${cmd}" "$@"
          then
             exit 1
          fi
-      done
+      .done
    )
 }
 

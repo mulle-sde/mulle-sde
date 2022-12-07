@@ -374,11 +374,10 @@ sde::reflect::worker()
    # can't go crazy here! They will have to have the same configs.
    #
    local current_name
-   local names
 
    # get list of possible known names (but current name may not be in there
    # if there is no config for that name)
-   names="`rexekutor "${MULLE_SDE:-mulle-sourcetree}" config list -n`"
+   names="`rexekutor "${MULLE_SDE:-mulle-sourcetree}" config list --no-warn -n`"
    if [ -z "${names}" -o "${names}" = "config" ]
    then
       remove_file_if_present "${donefile}"

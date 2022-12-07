@@ -1435,41 +1435,33 @@ sde::extension::emit_usage()
       if [ -d "${extensiondir}/share/ignore.d" ]
       then
          echo "Ignore.d:"
-         (
-            cd "${extensiondir}/share/ignore.d"
-            ls -1 [0-9]*-*--* 2> /dev/null
-         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         dir_list_files "${extensiondir}/share/ignore.d" "[0-9]*-*--*" \
+         | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
 
       if [ -d "${extensiondir}/share/match.d" ]
       then
          echo "Match.d:"
-         (
-            cd "${extensiondir}/share/match.d"
-            ls -1 [0-9]*-*--*  2> /dev/null
-         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
-         echo
+         dir_list_files "${extensiondir}/share/match.d" "[0-9]*-*--*" \
+         | sed -e '/^[ ]*$/d' -e 's/^/   /'
       fi
 
       if [ -d "${extensiondir}/share/bin" ]
       then
          echo "Callbacks:"
-         (
-            cd "${extensiondir}/share/bin"
-            ls -1 *-callback 2> /dev/null | sed -e 's/-callback//'
-         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
+         dir_list_files "${extensiondir}/share/bin" "*-callback" \
+         | sed -e 's/-callback$//' \
+         | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
 
       if [ -d "${extensiondir}/share/libexec" ]
       then
          echo "Tasks:"
-         (
-            cd "${extensiondir}/share/libexec"
-            ls -1 *-task.sh 2> /dev/null | sed -e 's/-task\.sh//'
-         ) | sed -e '/^[ ]*$/d' -e 's/^/   /'
-         echo
+         dir_list_files "${extensiondir}/share/libexec" "*-task.sh" \
+         | sed -e 's/-task\.sh//' \
+         | sed -e '/^[ ]*$/d' -e 's/^/   /'
       fi
 
       if [ -f "${extensiondir}/dependency" ]

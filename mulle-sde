@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=1.1.3
+MULLE_EXECUTABLE_VERSION=2.0.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="1"
 
 #
@@ -55,7 +55,6 @@ fi
 function sde::print_commands()
 {
    local show_all="${1:-NO}"
-
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .mulle ]
    then
@@ -100,8 +99,9 @@ function sde::print_commands()
    env-identifier : get variable name "MULLE_UIOS" for a name like "MulleUIOS"
    extension      : show available language and buildtool extensions
    fetch          : fetch the sourcetree
+   headerorder    : show header includes for dependencies and libraries
    init           : create a new project
-   linkorder      : show linkorder of built dependencies
+   linkorder      : show linkorder of dependencies and libraries
    match          : experiment with patternfiles
    monitor        : monitor project files, run reflect and craft
    patternfile    : manage patternfiles
@@ -111,7 +111,8 @@ function sde::print_commands()
    subproject     : manage local subprojects
    task           : manage reflect tasks
    test           : run tests using mulle-test
-   treestatus     : show the sourcetree status"
+   treestatus     : show the sourcetree status
+   unveil         : produce sandbox CSV"
    fi
 
    printf "%s\n" "${SHOWN_COMMANDS}" | LC_ALL=C sort
@@ -258,50 +259,11 @@ sde::set_custom_environment()
 
    local i
 
-   shell_disable_glob; IFS=$'\n'
-   for i in ${defines}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+   .foreachline i in ${defines}
+   .do
       sde::set_custom_define "${i#-D}"
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
-
-
-#
-# execute a native mulle-env command, this is not expected to bounce back to
-# mulle-sde
-#
-sde::run_mulle_env()
-{
-   log_entry "sde::exec_mulle_env" "$@"
-
-   rexekutor "${MULLE_ENV:-mulle-env}" \
-                  ${MULLE_TECHNICAL_FLAGS:-} \
-                  ${MULLE_ENV_FLAGS:-} \
-                  ${MULLE_FWD_FLAGS:-} \
-                  --defines "${MULLE_DEFINE_FLAGS:-}" \
-                  "$@"
-}
-
-
-#
-# same as above, but exec
-#
-sde::exec_mulle_env()
-{
-   log_entry "sde::exec_mulle_env" "$@"
-
-   rexekutor exec "${MULLE_ENV:-mulle-env}" \
-                       ${MULLE_TECHNICAL_FLAGS:-} \
-                       ${MULLE_ENV_FLAGS:-} \
-                       ${MULLE_FWD_FLAGS:-} \
-                       --defines "${MULLE_DEFINE_FLAGS:-}" \
-                       "$@"
-}
-
-
 
 
 sde::r_determine_project_dir()
@@ -374,6 +336,69 @@ sde::assert_test_environment()
 }
 
 
+#
+# execute a native mulle-env command, this is not expected to bounce back to
+# mulle-sde
+#
+sde::run_mulle_env()
+{
+   log_entry "sde::exec_mulle_env" "$@"
+
+   #
+   # possibly wrap mulle-env call into a sandbox (like a lljail script)
+   #
+   if [ ! -z "${MULLE_SDE_SANDBOX}" ]
+   then
+      rexekutor "${MULLE_SDE_SANDBOX}" ${MULLE_SDE_SANDBOX_FLAGS} \
+                     "${MULLE_ENV:-mulle-env}" \
+                        ${MULLE_TECHNICAL_FLAGS:-} \
+                        ${MULLE_ENV_FLAGS:-} \
+                        ${MULLE_FWD_FLAGS:-} \
+                        --defines "${MULLE_DEFINE_FLAGS:-}" \
+                        "$@"
+      return $?
+   fi
+
+   rexekutor "${MULLE_ENV:-mulle-env}" \
+                  ${MULLE_TECHNICAL_FLAGS:-} \
+                  ${MULLE_ENV_FLAGS:-} \
+                  ${MULLE_FWD_FLAGS:-} \
+                  --defines "${MULLE_DEFINE_FLAGS:-}" \
+                  "$@"
+}
+
+
+#
+# same as above, but exec
+#
+sde::exec_mulle_env()
+{
+   log_entry "sde::exec_mulle_env" "$@"
+
+   #
+   # possibly wrap mulle-env call into a sandbox (like lljail)
+   #
+   if [ ! -z "${MULLE_SDE_SANDBOX}" ]
+   then
+      rexekutor exec "${MULLE_SDE_SANDBOX}" ${MULLE_SDE_SANDBOX_FLAGS} \
+                        "${MULLE_ENV:-mulle-env}" \
+                            ${MULLE_TECHNICAL_FLAGS:-} \
+                            ${MULLE_ENV_FLAGS:-} \
+                            ${MULLE_FWD_FLAGS:-} \
+                            --defines "${MULLE_DEFINE_FLAGS:-}" \
+                            "$@"
+      return $?
+   fi
+
+   rexekutor exec "${MULLE_ENV:-mulle-env}" \
+                       ${MULLE_TECHNICAL_FLAGS:-} \
+                       ${MULLE_ENV_FLAGS:-} \
+                       ${MULLE_FWD_FLAGS:-} \
+                       --defines "${MULLE_DEFINE_FLAGS:-}" \
+                       "$@"
+}
+
+
 sde::exec_command_in_subshell()
 {
    log_entry "sde::exec_command_in_subshell" "$@"
@@ -426,10 +451,22 @@ $1"
 
    #
    # here we are just bouncing through mulle-env, we don't want
-   # to pass -n, so mulle-env does nothing. So pushing MULLE_TECHNICAL_FLAGS
+   # to pass -n, so mulle-env does nothing. Pushing MULLE_TECHNICAL_FLAGS
    # unfiltered isn't good. The technical flags will be part of the incoming
    # command line in "$@"
    #
+   if [ ! -z "${MULLE_SDE_SANDBOX}" ]
+   then
+      MULLE_USAGE_NAME="mulle-sde" \
+      rexekutor exec "${MULLE_SDE_SANDBOX}" ${MULLE_SDE_SANDBOX_FLAGS} \
+                        "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_ENV_FLAGS:-} \
+                           ${MULLE_FWD_FLAGS:-} \
+                           --defines "${MULLE_DEFINE_FLAGS:-}" \
+                           -C "${cmdline}"
+      return $?
+   fi
+
    MULLE_USAGE_NAME="mulle-sde" \
       rexekutor exec "${MULLE_ENV:-mulle-env}" \
                         ${MULLE_ENV_FLAGS:-} \
@@ -729,7 +766,7 @@ sde::main()
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|extension|init|init-and-enter|install|\
 reinit|status|hostname|uname|show|version|libexec-dir|library-path|project-dir|\
-env-identifier|steal|test|upgrade)
+env-identifier|steal|test|upgrade|username)
             ;;
 
             # commands where we want to start a subshell and these don't have
@@ -744,10 +781,10 @@ env-identifier|steal|test|upgrade)
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
 craft-status|crun|doctor|donefile|dependency|definition|env|environment|fetch|\
-files|filename|find|ignore|library|linkorder|list|log|\
+files|filename|find|headerorder|ignore|library|linkorder|list|log|\
 mark|match|migrate|monitor|patternfile|patternfiles|project|protect|reflect|run|\
 sourcetree|subproject|style|task|tool|treestatus|unmark|unprotect|update|\
-dep|ext|lib|pat|sub)
+dep|ext|lib|pat|sub|unveil)
                if ! sde::is_help_request_commandline "${2:-}"
                then
                   sde::exec_command_in_subshell "$@"
@@ -881,7 +918,7 @@ dep|ext|lib|pat|sub)
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
-            if [ "${PROJECT_TYPE}" = 'none' ]
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
             then
                fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
             fi
@@ -931,6 +968,7 @@ fetch
 filename
 files
 find
+headerorder
 ignore
 init
 init-and-enter
@@ -963,6 +1001,7 @@ tool
 treestatus
 uname
 unprotect
+unveil
 update
 upgrade
 version"
@@ -1054,7 +1093,7 @@ version"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
-            if [ "${PROJECT_TYPE}" = 'none' ]
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
             then
                fail "PROJECT_TYPE is 'none', nothing to define"
             fi
@@ -1148,6 +1187,19 @@ version"
          sde::list::main "$@"
       ;;
 
+      headerorder)
+         if ! sde::is_help_request_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
+
+            sde::assert_test_environment "${cmd}"
+         fi
+         # shellcheck source=src/mulle-sde-headerorder.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-headerorder.sh" || exit 1
+
+         sde::headerorder::main "$@"
+      ;;
+
       hostname)
          rexekutor printf "%s\n" "${MULLE_HOSTNAME}"
       ;;
@@ -1214,12 +1266,11 @@ version"
 
             sde::assert_test_environment "${cmd}"
          fi
-         # shellcheck source=src/mulle-sde-dependency.sh
+         # shellcheck source=src/mulle-sde-linkorder.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-linkorder.sh" || exit 1
 
          sde::linkorder::main "$@"
       ;;
-
 
       log)
          if ! sde::is_help_request_commandline "$@"
@@ -1248,7 +1299,7 @@ version"
          then
             sde::cd_virtual_root "${cmd}" 'NO'
 
-            if [ "${PROJECT_TYPE}" = 'none' ]
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
             then
                fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
             fi
@@ -1268,7 +1319,7 @@ version"
          then
             sde::cd_virtual_root "${cmd}" 'NO'
 
-            if [ "${PROJECT_TYPE}" = 'none' ]
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
             then
                fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
             fi
@@ -1315,7 +1366,7 @@ version"
          then
             sde::cd_virtual_root "${cmd}"
 
-            if [ "${PROJECT_TYPE}" = 'none' ]
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
             then
                fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
             fi
@@ -1516,11 +1567,27 @@ version"
          sde::init::protect_unprotect "Unprotect" "ug+w"
       ;;
 
+      unveil)
+         if ! sde::is_help_request_commandline "$@"
+         then
+            sde::cd_virtual_root "environment" 'NO'
+         fi
+
+         # shellcheck source=src/mulle-sde-unveil.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-unveil.sh" || exit 1
+
+         sde::unveil::main "$@"
+      ;;
+
       upgrade)
          # shellcheck source=src/mulle-sde-upgrade.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh" || exit 1
 
          sde::upgrade::main "$@"
+      ;;
+
+      username)
+         rexekutor printf "%s\n" "${MULLE_USERNAME}"
       ;;
 
       version)

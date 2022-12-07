@@ -292,10 +292,13 @@ sde::subproject::update_ignore_patternfile()
 
    # TODO: would be better to massage a env variable, so we don't
    # disturb user space
-   exekutor "${MULLE_MATCH:-mulle-match}" patternfile add -i \
-                                                          -p 30 \
-                                                          -c none \
-                                                          subproject - <<< "${contents}"
+   exekutor "${MULLE_MATCH:-mulle-match}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_MATCH_FLAGS} \
+               patternfile add -i \
+                               -p 30 \
+                               -c none \
+                               subproject - <<< "${contents}"
 }
 
 

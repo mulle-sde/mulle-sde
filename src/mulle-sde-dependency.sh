@@ -1548,6 +1548,8 @@ sde::dependency::source_dir_main()
    escaped="${RVAL}"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS:-} \
                   walk \
                      --lenient \
                      --qualifier 'MATCHES dependency' \

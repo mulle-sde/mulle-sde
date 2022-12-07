@@ -142,16 +142,14 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       return 0
    fi
 
-   local names
-   local first_name
-
-   names="${MULLE_SOURCETREE_CONFIG_NAME:-config}"
-   first_name="${names%%:*}"
-
    local repository
    local filename
    local previous
    local changes
+   local actual
+   local configname
+   local key
+   local dependencyname
 
    changes=""
 
@@ -168,15 +166,47 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
          .continue
       fi
 
+      include "case"
+
+      r_basename "${repository}"
+      dependencyname="${RVAL}"
+
+      r_smart_upcase_identifier "${dependencyname}"
+      key="MULLE_SOURCETREE_CONFIG_NAME_${RVAL}"
+
+      r_shell_indirect_expand "${key}"
+      configname="${RVAL:-config}"
+
       # if we are in sync, we don't need to reflect
       previous="`egrep -v '^#' "${filename}" 2> /dev/null `"
-      if [ "${previous}" = "${first_name}" ]
+
+      if [ "${previous}" = "${configname}" ]
       then
-         log_fluff "${repository} is already reflected for sourcetree \"${first_name}\""
+         log_fluff "${repository#"${MULLE_USER_PWD}/"} is already reflected for sourcetree \"${configname}\""
          .continue
       fi
 
-      log_fluff "${repository} may need reflection"
+      # check if the config switch is still around
+      actual="`(
+         MULLE_VIRTUAL_ROOT=
+         rexekutor cd "${repository}" &&
+         rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} \
+                                             env get MULLE_SOURCETREE_CONFIG_NAME
+      )`"
+
+      if [ -z "${actual}" ]
+      then
+         actual="config"
+      fi
+
+      if [ "${actual}" != "${configname}" ]
+      then
+         fail "Need config switch for ${repository#"${MULLE_USER_PWD}/"} - currently set to \"${actual}\" - to reflect as \"${configname}\"
+${C_INFO}Suggested remedy:
+${C_RESET_BOLD}   mulle-sde config switch -d ${dependencyname} ${configname}"
+      fi
+
+      log_fluff "${repository#"${MULLE_USER_PWD}/"} may need reflection"
 
       include "sde::reflect"
 

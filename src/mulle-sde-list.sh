@@ -334,10 +334,16 @@ sde::list::main()
       OPTION_LIST_FILES="YES"
    fi
 
-   if [ "${OPTION_LIST_FILES}" = 'YES' -a "${PROJECT_TYPE}" != 'none' ]
+   if [ "${OPTION_LIST_FILES}" = 'YES' ]
    then
-      sde::list::files
-      spacer="echo"
+      if [ "${PROJECT_TYPE}" != 'none' -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         sde::list::files
+         spacer="echo"
+      else
+         log_warning "No files listed in \"none\" projects.
+${C_INFO}Use -f flag to force listing"
+      fi
    fi
 
    if [ "${OPTION_LIST_DEPENDENCIES}" = 'YES' ]

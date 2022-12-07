@@ -41,13 +41,13 @@ sde::init::usage()
    INIT_USAGE_NAME="${INIT_USAGE_NAME:-${MULLE_USAGE_NAME} init}"
 
    COMMON_OPTIONS="\
-   --existing         : skip demo file installation.
-   --style <tool/env> : specify environment style, see mulle-env init -h
-   -d <dir>           : directory to populate (working directory)
-   -D <key>=<val>     : specify an environment variable
-   -e <extra>         : specify extra extensions. Multiple uses are possible
-   -m <meta>          : specify meta extensions
-   -n <name>          : project name"
+   --existing             : skip demo file installation.
+   --style <tool/env>     : specify environment style, see mulle-env init -h
+   -d <dir>               : directory to populate (working directory)
+   -D <key>=<val>         : specify an environment variable
+   -e <extra>             : specify extra extensions. Multiple uses are possible
+   -m <meta>              : specify meta extensions
+   -n <name>              : project name"
 
    HIDDEN_OPTIONS="\
    --addiction-dir <dir>  : specify addiction directory (addiction)
@@ -607,6 +607,7 @@ sde::init::add_to_environment()
 
    local filename="$1"
    local projecttype="$2"
+   local scope="$3"
 
    local environment
    local text
@@ -644,7 +645,7 @@ sde::init::add_to_environment()
                               "${MULLE_TECHNICAL_FLAGS}" \
                               --no-protect \
                            environment \
-                              --scope extension \
+                              --scope "${scope:-extension}" \
                               mset "${environment}"
    ) || exit 1
 }
@@ -1450,6 +1451,17 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
             sde::init::add_to_environment "${extensiondir}/environment-init" "${projecttype}"
          fi
          sde::init::add_to_environment "${extensiondir}/environment" "${projecttype}"
+
+         #
+         # same for post-environment
+         #
+         if [ "${OPTION_UPGRADE}" = 'YES' ]
+         then
+            sde::init::add_to_environment "${extensiondir}/post-environment-upgrade" "${projecttype}" "post-extension"
+         else
+            sde::init::add_to_environment "${extensiondir}/post-environment-init" "${projecttype}" "post-extension"
+         fi
+         sde::init::add_to_environment "${extensiondir}/post-environment" "${projecttype}" "post-extension"
 
          sde::init::add_to_tools "${extensiondir}/tool"
 

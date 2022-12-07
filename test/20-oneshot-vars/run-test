@@ -20,7 +20,7 @@ run_mulle_sde()
       MULLE_EXECUTABLE="${MULLE_SDE}"
       MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
 
-      . "${MULLE_SDE}" --no-auto-shell ${MULLE_SDE_FLAGS} "$@"
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
    )
 }
 

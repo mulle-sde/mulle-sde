@@ -17,13 +17,13 @@ digraph G {
     "project"            -> ".mulle"        [ arrowhead="none", color="gray", fontcolor="gray"]
     ".mulle"             -> "etc"           [ arrowhead="none", color="gray", fontcolor="gray"]
     "etc"                -> "sourcetree f"  [ arrowhead="none", color="gray", fontcolor="gray"]
-    "sourcetree f"  -> "config"             [ arrowhead="none" ]
+    "sourcetree f"       -> "config"        [ arrowhead="none" ]
 
-    "source"               [ shape="diamond", color="#fa8231", fontcolor="#fa8231", label="\"source\"" ]
+    "filesystem"           [ shape="diamond", color="#fa8231", fontcolor="#fa8231", label="\"filesystem\"" ]
     "sourcetree"           [ shape="diamond", color="#fa8231", fontcolor="#fa8231", label="\"sourcetree\"" ]
     "mulle-sde monitor"    [ shape="none", fontname="monospace", fontcolor="blue"]
 
-    "mulle-sde monitor"  -> "source"      [ style="dotted", label="callback" ]
+    "mulle-sde monitor"  -> "filesystem"  [ style="dotted", label="callback" ]
     "mulle-sde monitor"  -> "sourcetree"  [ style="dotted", label="callback" ]
 
     "mulle-sde monitor"  -> "src"    [ style="dotted", label="observe" ]
