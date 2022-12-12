@@ -172,8 +172,9 @@ sde::craftorder::create_file_if_needed()
 
    #
    # produce a craftorderfile, if absent or old
+   # zsh has different thoughts what -nt means so make -f check
    #
-   if [ "${sourcetreefile}" -nt "${craftorderfile}" ]
+   if [ ! -e "${craftorderfile}" -o "${sourcetreefile}" -nt "${craftorderfile}" ]
    then
       sde::craftorder::create_file "${craftorderfile}" "${cachedir}"
       return $?

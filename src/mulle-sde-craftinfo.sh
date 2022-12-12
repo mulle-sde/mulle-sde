@@ -1396,6 +1396,8 @@ sde::craftinfo::show_main()
 {
    log_entry "sde::craftinfo::show_main" "$@"
 
+   local url
+
    while :
    do
       case "$1" in
@@ -1413,7 +1415,7 @@ sde::craftinfo::show_main()
          ;;
 
          *)
-            url="$1"
+            url="$1" # ???
             shift
             break
          ;;
@@ -1423,7 +1425,6 @@ sde::craftinfo::show_main()
    done
 
    local urls
-   local url
    local user
 
    (
