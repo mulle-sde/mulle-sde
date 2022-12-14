@@ -51,14 +51,11 @@ install_project()
 
    [ -z "${project}" ] && return
 
-   name="${project%%;*}"   # first part
+   name="`printf "%s\n" "${project}"    | sed -n -e 's/\([^;]*\);\(.*\)/\1/p'`"
+   version="`printf "%s\n" "${project}" | sed -n -e 's/\([^;]*\);\(.*\)/\2/p'`"
+   version="${version:-${MULLE_SDE_DEFAULT_VERSION}}"
+   version="${version:-latest}"
 
-   version="${project#*;}" # remaining part
-   if [ "${version}" = "${project}" ]
-   then
-      version=""
-   fi
-   version="${version:-${MULLE_SDE_DEFAULT_VERSION:-latest}}"
    url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
 
    echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2

@@ -2,8 +2,6 @@
 #
 # (c) 2015, coded by Nat!, Mulle KybernetiK
 #
-[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
-
 if [ "${MULLE_NO_COLOR}" != 'YES' ]
 then
    # Escape sequence and resets
@@ -47,15 +45,7 @@ _installer_prepend_path_if_relative()
       ;;
 
       *)
-         case "$1" in
-            */)
-               printf "%s%s\n" "$1" "$2"
-            ;;
-
-            *)
-               printf "%s/%s\n" "$1" "$2"
-            ;;
-         esac
+         printf "%s/%s\n" "$1" "$2"
       ;;
    esac
 }
@@ -63,11 +53,11 @@ _installer_prepend_path_if_relative()
 
 installer_resolve_symlinks()
 {
-   path="`readlink "$1"`"
+   filepath="`readlink "$1"`"
    if [ $? -eq 0 ]
    then
       dir_context=`dirname -- "$1"`
-      installer_resolve_symlinks "`_installer_prepend_path_if_relative "$dir_context" "$path"`"
+      installer_resolve_symlinks "`_installer_prepend_path_if_relative "$dir_context" "$filepath"`"
    else
       printf "%s\n" "$1"
    fi
@@ -82,7 +72,7 @@ installer_canonicalize_path()
       cd "$1" 2>/dev/null && pwd -P
    )
    else
-      dir="`dirname -- "$1"`"
+      dir="`dirname "$1"`"
       file="`basename -- "$1"`"
       (
          cd "${dir}" 2>/dev/null &&
@@ -127,7 +117,28 @@ installer_get_sh_windows_path()
 
 installer_sed_mangle_escape_slashes()
 {
-   LC_ALL=C sed -e 's|/|\\\\|g'
+   sed -e 's|/|\\\\|g'
+}
+
+
+r_installer_install_prefix()
+{
+   prefix="`installer_realpath "$1" 2> /dev/null`"
+   if [ ! -d "${prefix}" ]
+   then
+      installer_fail "\"${prefix}\" does not exist"
+   fi
+
+   directory="`dirname -- "$0"`"
+   cd "${directory}" || installer_fail "Could not cd to \"$directory\" ($PWD)"
+   cd .. || installer_fail "Could not cd to \"..\" ($PWD)"  # compensate for installer being in bin
+
+   bindir="${prefix}/bin"
+   if [ -d "${bindir}" ]
+   then
+      bindir="`installer_realpath "${bindir}"`"
+   fi
+   RVAL="`dirname -- "${bindir}"`"
 }
 
 
@@ -143,29 +154,16 @@ main()
       installer_fail "usage: install.sh [prefix] [mode]"
    fi
 
-   directory="`dirname -- "$0"`"
-   cd "${directory}" || installer_fail "Could not cd to \"$directory\" ($PWD)"
-   cd .. || installer_fail "Could not cd to \"..\" ($PWD)"  # compensate for installer being in bin
-
-   prefix="`installer_realpath "${prefix}"`"
-   if [ ! -d "${prefix}" ]
-   then
-      installer_fail "\"${prefix}\" does not exist"
-   fi
+   r_installer_install_prefix "${prefix}"
+   prefix="${RVAL}"
 
    bin="${prefix}/bin"
-   libexec="${prefix}/libexec/mulle-sde"
    share="${prefix}/share/mulle-sde"
+   libexec="${prefix}/libexec/mulle-sde"
 
-   if [ ! -d "${bin}" ]
-   then
-      mkdir -p "${bin}" || installer_fail "could not create ${bin}"
-   fi
-
-   if [ ! -d "${libexec}" ]
-   then
-      mkdir -p "${libexec}" || installer_fail "could not create ${libexec}"
-   fi
+   mkdir -p "${bin}" || installer_fail "could not create ${bin}"
+   mkdir -p "${share}" || installer_fail "could not create ${share}"
+   mkdir -p "${libexec}" || installer_fail "could not create ${libexec}"
 
    install -m "${mode}" "mulle-sde" "${bin}/mulle-sde" || exit 1
    printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde" >&2
