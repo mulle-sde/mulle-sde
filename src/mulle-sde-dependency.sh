@@ -327,7 +327,7 @@ sde::dependency::r_upcaseid()
 {
    include "case"
 
-   r_smart_upcase_identifier "$1"
+   r_smart_file_upcase_identifier "$1"
 }
 
 #

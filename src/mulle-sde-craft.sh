@@ -171,7 +171,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       r_basename "${repository}"
       dependencyname="${RVAL}"
 
-      r_smart_upcase_identifier "${dependencyname}"
+      r_smart_file_upcase_identifier "${dependencyname}"
       key="MULLE_SOURCETREE_CONFIG_NAME_${RVAL}"
 
       r_shell_indirect_expand "${key}"

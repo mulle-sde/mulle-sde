@@ -1142,7 +1142,7 @@ version"
          include "case"
 
          [ -z "$1" ] && fail "Specify desired project name for env-identifier"
-         r_smart_upcase_identifier "$1"
+         r_smart_file_upcase_identifier "$1"
 
          rexekutor printf "%s\n" "${RVAL}"
       ;;

@@ -181,7 +181,7 @@ sde::config::walk_config_name_callback()
    local identifier
 
    r_basename "${NODE_FILENAME}"
-   r_smart_upcase_identifier "${RVAL}"
+   r_smart_file_upcase_identifier "${RVAL}"
    identifier="${RVAL}"
 
    local address
@@ -212,7 +212,7 @@ sde::config::walk_name_callback_no_default()
       local identifier
 
       r_basename "${NODE_FILENAME}"
-      r_smart_upcase_identifier "${RVAL}"
+      r_smart_file_upcase_identifier "${RVAL}"
       identifier="${RVAL}"
 
       local address
@@ -243,7 +243,7 @@ sde::config::walk_callback()
    local identifier
 
    r_basename "${NODE_FILENAME}"
-   r_smart_upcase_identifier "${RVAL}"
+   r_smart_file_upcase_identifier "${RVAL}"
    identifier="${RVAL}"
 
    local address
@@ -275,7 +275,7 @@ sde::config::walk_callback_no_default()
       local identifier
 
       r_basename "${NODE_FILENAME}"
-      r_smart_upcase_identifier "${RVAL}"
+      r_smart_file_upcase_identifier "${RVAL}"
       identifier="${RVAL}"
 
       local address
@@ -613,7 +613,7 @@ ${C_INFO}Use -f to force the switch"
 
    local varname
 
-   r_smart_upcase_identifier "${dependency}"
+   r_smart_file_upcase_identifier "${dependency}"
    r_concat "MULLE_SOURCETREE_CONFIG_NAME" "${RVAL}" "_"
    varname="${RVAL}"
 
@@ -659,7 +659,7 @@ sde::config::print()
 
    local varname
 
-   r_smart_upcase_identifier "${dependency}"
+   r_smart_file_upcase_identifier "${dependency}"
    r_concat "MULLE_SOURCETREE_CONFIG_NAME" "${RVAL}" "_"
    varname="${RVAL}"
 
