@@ -96,8 +96,8 @@ main()
 
    for vendorproject in ${OTHER_PROJECTS}
    do
-      vendor="${vendorproject%%/*}"
-      project="${vendorproject#*/}"
+      vendor="`printf "%s\n" "${vendorproject}"  | sed -n -e 's/\([^/]*\)/\(.*\)/\1/p'`"
+      project="`printf "%s\n" "${vendorproject}" | sed -n -e 's/\([^/]*\)/\(.*\)/\2/p'`"
 
       install_project "${vendor}" "${project}"
    done
