@@ -52,6 +52,8 @@ install_project()
    [ -z "${project}" ] && return
 
    name="`printf "%s\n" "${project}"    | sed -n -e 's/\([^;]*\);\(.*\)/\1/p'`"
+   name="${name:-${project}}"
+
    version="`printf "%s\n" "${project}" | sed -n -e 's/\([^;]*\);\(.*\)/\2/p'`"
    version="${version:-${MULLE_SDE_DEFAULT_VERSION}}"
    version="${version:-latest}"
