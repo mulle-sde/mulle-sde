@@ -59,6 +59,7 @@ install_project()
    url="https://github.com/${vendor}/${name}/archive/${version}.tar.gz"
 
    echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
+
    if ! "${CURL}" ${CURLFLAGS} "${url}" | tar xfz -
    then
       echo "Download failed" >&2
@@ -96,8 +97,8 @@ main()
 
    for vendorproject in ${OTHER_PROJECTS}
    do
-      vendor="`printf "%s\n" "${vendorproject}"  | sed -n -e 's/\([^/]*\)/\(.*\)/\1/p'`"
-      project="`printf "%s\n" "${vendorproject}" | sed -n -e 's/\([^/]*\)/\(.*\)/\2/p'`"
+      vendor="`printf "%s\n" "${vendorproject}"  | sed -n -e 's/\([^/]*\)\/\(.*\)/\1/p'`"
+      project="`printf "%s\n" "${vendorproject}" | sed -n -e 's/\([^/]*\)\/\(.*\)/\2/p'`"
 
       install_project "${vendor}" "${project}"
    done
