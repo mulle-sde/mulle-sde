@@ -6,10 +6,10 @@
 
 
 PREFIX="${1:-/usr/local}"
-SUDO="${2:-sudo}"
+SUDO="${2:-`command -v sudo`}"
 
-
-if [ "${SUDO}" = "no" ]
+SUDO="${SUDO:-`command -v doas`}"
+if [ "${SUDO}" = "no" -o `id -u` -eq 0 ]
 then
    SUDO=""
 fi
@@ -62,7 +62,7 @@ install_project()
 
    echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
 
-   if ! "${CURL}" ${CURLFLAGS} "${url}" | tar xfz -
+   if ! "${CURL}" ${CURLFLAGS} "${url}" | "${TAR}" xfz -
    then
       echo "Download failed" >&2
       exit 1
@@ -110,13 +110,23 @@ main()
 #
 # wget is OK as well, but defaults to curl
 #
+CURL="`command -v curl`"
+TAR="`command -v gtar`"
+TAR="${TAR:-`command -v tar`}"
+
+# if this becomes a problem use unzip as an alternative
+if [ -z "${TAR}" ]
+then
+   echo "need tar or gtar to install" 2>&1
+   exit 1
+fi
+
 if [ -z "${CURL}" -a ! -z "`command -v wget`" ]
 then
    CURL="wget"
-   CURLFLAGS="${CURLFLAGS:--O -}"
+   CURLFLAGS="${CURLFLAGS} -O -"
 else
-   CURL="curl"
-   CURLFLAGS="${CURLFLAGS:--L -S}"
+   CURLFLAGS="${CURLFLAGS} -L -S"
 fi
 
 main "$@"
