@@ -312,7 +312,7 @@ sde::reflect::worker()
    # is, so don't place in var.
    #
    donefile="${MULLE_SDE_ETC_DIR}/reflect"
-   previous="`egrep -v '^#' "${donefile}" 2> /dev/null`"
+   previous="`grep -E -v '^#' "${donefile}" 2> /dev/null`"
 
    # remember what we reflected
    #

@@ -382,34 +382,31 @@ sde::extension::r_get_vendor_path()
    [ -z "${vendor}" ] && fail "Empty vendor name"
 
    local searchpath
-   local i
 
    sde::extension::r_get_searchpath
    searchpath="${RVAL}"
 
    RVAL=""
 
-   IFS=':'; shell_disable_glob
-   for i in ${searchpath}
-   do
+   local i
+
+   .foreachpath i in ${searchpath}
+   .do
       if [ -d "${i}/${vendor}" ]
       then
          log_debug "Vendor \"${vendor}\" found in \"${i}\""
 
          r_colon_concat "${RVAL}" "${i}"
       fi
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 }
 
 
-sde::extension::r_get_quoted_vendor_dirs()
+sde::extension::r_get_vendor_dirs()
 {
-   log_entry "sde::extension::r_get_quoted_vendor_dirs" "$@"
+   log_entry "sde::extension::r_get_vendor_dirs" "$@"
 
    local vendor="$1"
-   local s="$2"
-   local t="$3"
 
    local vendorpath
    local i
@@ -419,13 +416,68 @@ sde::extension::r_get_quoted_vendor_dirs()
 
    RVAL=""
 
-   IFS=':'; shell_disable_glob
-   for i in ${vendorpath}
-   do
-      r_concat "${RVAL}" "${s}${i}/${vendor}${t}"
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .foreachpath i in ${vendorpath}
+   .do
+      r_colon_concat "${RVAL}" "${i}/${vendor}"
+   .done
 }
+
+
+sde::extension::list_dirs_in_searchpath()
+(
+   log_entry "sde::extension::list_dirs_in_searchpath" "$@"
+
+   local searchpath="$1"
+   local pattern="$2"
+
+   if [ -z "${searchpath}" ]
+   then
+      return 1
+   fi
+
+   local dir
+   local escaped_dir
+
+   case "${MULLE_UNAME}" in
+      'sunos')
+         .foreachpath dir in ${searchpath}
+         .do
+            if [ -d "${dir}" ]
+            then
+               r_escaped_sed_replacement "${dir}/"
+               escaped_dir="${RVAL}"
+               ( rexekutor cd "${dir}" && rexekutor ls -1d * ) \
+               | rexekutor grep -E -v "\." \
+               | rexekutor grep -E "^${pattern:-.*}\$" \
+               | rexekutor sed "s/^/${escaped_dir}/"
+            fi
+         .done
+         return
+      ;;
+   esac
+
+   local cmdline
+
+   cmdline="find -H"
+
+   .foreachpath dir in ${searchpath}
+   .do
+      if [ -d "${dir}" ]
+      then
+         r_concat "${cmdline}" "'${dir}'"
+         cmdline="${RVAL}"
+      fi
+   .done
+
+   cmdline="${cmdline} -mindepth 1 -maxdepth 1"
+   if [ ! -z "${pattern}" ]
+   then
+      cmdline="${cmdline} -name '${pattern}'"
+   fi
+      cmdline="${cmdline} '(' -type d -o -type l ')' -print"
+
+   eval_rexekutor "${cmdline}"
+)
 
 
 sde::extension::_list_vendors()
@@ -438,19 +490,7 @@ sde::extension::_list_vendors()
    sde::extension::r_get_searchpath
    searchpath="${RVAL}"
 
-   IFS=':'; shell_enable_nullglob
-   for i in ${searchpath}
-   do
-      if [ -d "${i}" ]
-      then
-         rexekutor find -H "${i}" -mindepth 1 \
-                                  -maxdepth 1 \
-                                  \( -type d -o -type l \) \
-                                  \! -name mulle-env  \
-                                  -print
-      fi
-   done
-   IFS="${DEFAULT_IFS}"; shell_disable_nullglob
+   sde::extension::list_dirs_in_searchpath "${searchpath}"
 }
 
 
@@ -479,16 +519,12 @@ sde::extension::_list_vendor_extensions()
 
    local vendor="$1"
 
-   local searchpaths
+   local searchpath
 
-   sde::extension::r_get_quoted_vendor_dirs "${vendor}" "'" "'"
-   searchpaths="${RVAL}"
+   sde::extension::r_get_vendor_dirs "${vendor}"
+   searchpath="${RVAL}"
 
-   if [ -z "${searchpath}" ]
-   then
-      return 1
-   fi
-   eval_rexekutor find -H "${searchpaths}" -mindepth 1 -maxdepth 1 '\(' -type d -o -type l '\)' -print
+   sde::extension::list_dirs_in_searchpath "${searchpath}"
 }
 
 
@@ -519,11 +555,7 @@ Use / separator"
       ;;
    esac
 
-   RVAL="`eval_rexekutor find -H "${searchpath}" \
-                                    -mindepth 1 -maxdepth 1 \
-                                    '\(' -type d -o -type l '\)' \
-                                    -name "${name}" \
-                                    -print | head -1`"
+   RVAL="`sde::extension::list_dirs_in_searchpath "${searchpath}" "${name}" | head -1`"
 
    if [ -z "${RVAL}" ]
    then
@@ -535,15 +567,15 @@ Use / separator"
 }
 
 
-sde::extension::r_find_get_quoted_searchpath()
+sde::extension::r_find_get_vendor_searchpath()
 {
-   log_entry "sde::extension::r_find_get_quoted_searchpath" "$@"
+   log_entry "sde::extension::r_find_get_vendor_searchpath" "$@"
 
    local vendor="$1"
 
    local searchpath
 
-   sde::extension::r_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   sde::extension::r_get_vendor_dirs "${vendor}"
    searchpath="${RVAL}"
 
    if [ -z "${searchpath}" ]
@@ -566,7 +598,7 @@ sde::extension::r_find()
 
    local searchpath
 
-   if ! sde::extension::r_find_get_quoted_searchpath "${vendor}"
+   if ! sde::extension::r_find_get_vendor_searchpath "${vendor}"
    then
       return 1
    fi
@@ -590,9 +622,8 @@ sde::extension::r_extensionnames_from_vendorextensions()
    local foundtype
    local directory
 
-   IFS=$'\n' ; shell_disable_glob
-   for line in ${vendorextensions}
-   do
+   .foreachline line in ${vendorextensions}
+   .do
       foundtype="${line#*;}"
       if [ -z "${extensiontype}" -o "${foundtype}" = "${extensiontype}" ]
       then
@@ -601,8 +632,7 @@ sde::extension::r_extensionnames_from_vendorextensions()
          r_add_line "${result}" "${vendor}/${RVAL}"
          result="${RVAL}"
       fi
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 
    RVAL="${result}"
 }
@@ -621,7 +651,7 @@ sde::extension::r_collect_vendorextensions()
    local extensiondir
    local foundtype
 
-   sde::extension::r_get_quoted_vendor_dirs "${vendor}" "'" "'"
+   sde::extension::r_get_vendor_dirs "${vendor}"
    searchpath="${RVAL}"
    if [ -z "${searchpath}" ]
    then
@@ -629,30 +659,25 @@ sde::extension::r_collect_vendorextensions()
       return 1
    fi
 
+   log_fluff "Looking in \"${searchpath#"${MULLE_USER_PWD}/"}\" for \"${vendor}/${searchname}\" type \"${searchtype}\""
+
+   local extensiondirs
    local vendorextensions
 
-   log_fluff "Looking in ${searchpath#"${MULLE_USER_PWD}/"} for ${vendor}/${searchname} ${searchtype}"
-
-   IFS=$'\n' ; shell_disable_glob
-   for extensiondir in `eval_rexekutor find -H "${searchpath}" \
-                                            -mindepth 1 \
-                                            -maxdepth 1 \
-                                            '\(' -type d -o -type l '\)' \
-                                            -print`
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
-
-      foundtype="`LC_ALL=C egrep -v '^#' "${extensiondir}/type" 2> /dev/null `"
+   extensiondirs="`sde::extension::list_dirs_in_searchpath "${searchpath}" `"
+   .foreachline extensiondir in ${extensiondirs}
+   .do
+      foundtype="`LC_ALL=C grep -E -v '^#' "${extensiondir}/type" 2> /dev/null `"
       if [ -z "${foundtype}" ]
       then
          log_debug "\"${extensiondir}\" has no type information, skipped"
-         continue
+         .continue
       fi
 
       if [ ! -z "${searchtype}" -a "${searchtype}" != "${foundtype}" ]
       then
          log_debug "\"${extensiondir}\" type \"${foundtype}\" does not match \"${searchtype}\""
-         continue
+         .continue
       fi
 
       if [ ! -z "${searchname}" ]
@@ -662,15 +687,13 @@ sde::extension::r_collect_vendorextensions()
          if [ "${searchname}" != "${RVAL}" ]
          then
             log_debug "\"${extensiondir}\" name \"${RVAL}\" does not match \"${searchname}\""
-            continue
+            .continue
          fi
       fi
 
       r_add_line "${vendorextensions}" "${extensiondir};${foundtype}"
       vendorextensions="${RVAL}"
-   done
-
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 
    RVAL="${vendorextensions}"
 }
@@ -703,7 +726,12 @@ sde::extension::collect_inherits()
 
    local text
 
-   text="`LC_ALL=C egrep -s -v '^#' "${extensiondir}/inherit"`"
+   if [ ! -f "${extensiondir}/inherit" ]
+   then
+      return
+   fi
+
+   text="`LC_ALL=C grep -E -v '^#' "${extensiondir}/inherit"`"
 
    log_debug "inherit: ${text}"
 
@@ -842,16 +870,12 @@ sde::extension::find_main()
 
       all_vendors="`sde::extension::list_vendors`" || exit 1
 
-      shell_disable_glob; IFS=$'\n'
-      for vendor in ${all_vendors}
-      do
-         IFS="${DEFAULT_IFS}"; shell_enable_glob
-
+      .foreachline vendor in ${all_vendors}
+      .do
          sde::extension::r_collect_vendorextensions "${vendor}" "${name}" "${type}"
          r_add_line "${extensions}" "${RVAL}"
          extensions="${RVAL}"
-      done
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
+      .done
    fi
 
    if [ -z "${extensions}" ]
@@ -893,7 +917,7 @@ sde::extension::_get_usage()
       return 1
    fi
 
-   LC_ALL=C egrep -v '^#' < "${usagefile}"
+   LC_ALL=C grep -E -v '^#' < "${usagefile}"
 }
 
 
@@ -931,7 +955,7 @@ sde::extension::_get_version()
       return 1
    fi
 
-   LC_ALL=C egrep -v '^#' < "${versionfile}"
+   LC_ALL=C grep -E -v '^#' < "${versionfile}"
 }
 
 
@@ -967,11 +991,9 @@ sde::extension::emit()
    log_info "Available ${extensiontype} extensions ${comment}:"
 
    (
-      IFS=$'\n'
-      for extension in `remove_duplicate_lines "${result}"`
-      do
-         IFS="${DEFAULT_IFS}"
-
+      lines="`remove_duplicate_lines "${result}" `"
+      .foreachline extension in ${lines}
+      .do
          output="${extension}"
          if [ "${with_version}" = 'YES' ]
          then
@@ -988,11 +1010,9 @@ sde::extension::emit()
          fi
 
          printf "%s\n" "${output}"
-      done
-      IFS="${DEFAULT_IFS}"
+      .done
    ) | rexecute_column_table_or_cat ";"
 }
-
 
 
 sde::extension::show_main()
@@ -1182,7 +1202,7 @@ sde::extension::show_main()
    sde::extension::emit "${extra_extension}"     "extra" "[-e <extension>]*"    "${OPTION_VERSION}" "${OPTION_USAGE}"
    sde::extension::emit "${oneshot_extension}"   "oneshot" "[-o <extension>]*"  "${OPTION_VERSION}" "${OPTION_USAGE}"
 
-  :
+   :
 }
 
 
@@ -1245,11 +1265,9 @@ a mulle-sde project"
    log_info "Installed Extensions"
 
    (
-      IFS=$'\n'
-      for filename in `rexekutor find "${MULLE_SDE_SHARE_DIR}/version" -type f -print`
-      do
-         IFS="${DEFAULT_IFS}"
-
+      filenames="`rexekutor find "${MULLE_SDE_SHARE_DIR}/version" -type f -print`"
+      .foreachline filename in ${filenames}
+      .do
          log_verbose "Found ${C_RESET_BOLD}${filename}"
 
          r_basename "${filename}"
@@ -1261,13 +1279,12 @@ a mulle-sde project"
 
          if [ "${OPTION_VERSION}" = 'YES' ]
          then
-            version="`LC_ALL=C egrep -v '^#' < "${filename}"`"
+            version="`LC_ALL=C grep -E -v '^#' < "${filename}"`"
             printf "%s %s\n" "${vendor}/${extension}" "${version}"
          else
             printf "%s\n" "${vendor}/${extension}"
          fi
-      done
-      IFS="${DEFAULT_IFS}"
+      .done
    ) | LC_ALL=C sort
 }
 
@@ -1281,14 +1298,10 @@ sde::extension::collect_file_info()
 
    local directory
 
-   shell_disable_glob; IFS=$'\n'
-   for directory in ${extensiondirs}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+   .foreachline directory in ${extensiondirs}
+   .do
       cat "${directory}/${filename}" 2> /dev/null
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -1361,7 +1374,7 @@ sde::extension::emit_usage()
 
    local exttype
 
-   exttype="`LC_ALL=C egrep -v '^#' < "${extensiondir}/type"`"
+   exttype="`LC_ALL=C grep -E -v '^#' < "${extensiondir}/type"`"
 
    if [ "${OPTION_USAGE_ONLY}" != 'YES' ]
    then
@@ -1391,15 +1404,13 @@ sde::extension::emit_usage()
    then
       local dependency
 
-
-      IFS=$'\n'
-      for dependency in `sed 's/^\([^;]*\).*/\1/' <<< "${inherit_text}"`
-      do
+      dependencies="`sed 's/^\([^;]*\).*/\1/' <<< "${inherit_text}"`"
+      .foreachline dependency in ${dependencies}
+      .do
          mulle-sde extension usage --usage-only "${dependency}" | \
                sed -e 's/^   \[i\]//'g | \
                sed -e 's/^/   [i]/'
-      done
-      IFS="${DEFAULT_IFS}"
+      .done
 
       echo
    fi
@@ -1467,7 +1478,7 @@ sde::extension::emit_usage()
       if [ -f "${extensiondir}/dependency" ]
       then
          echo "Dependencies:"
-         egrep -v '^#' "${extensiondir}/dependency" \
+         grep -E -v '^#' "${extensiondir}/dependency" \
             | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
@@ -1475,7 +1486,7 @@ sde::extension::emit_usage()
       if [ -f "${extensiondir}/library" ]
       then
          echo "Libraries:"
-         egrep -v '^#' "${extensiondir}/library" \
+         grep -E -v '^#' "${extensiondir}/library" \
             | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
@@ -1483,7 +1494,7 @@ sde::extension::emit_usage()
       if [ -f "${extensiondir}/environment" ]
       then
          echo "Environment:"
-         egrep -v '^#' "${extensiondir}/environment" \
+         grep -E -v '^#' "${extensiondir}/environment" \
             | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
@@ -1491,7 +1502,7 @@ sde::extension::emit_usage()
       if [ -f "${extensiondir}/tool" ]
       then
          echo "Tools:"
-         egrep -v '^#' "${extensiondir}/tool" \
+         grep -E -v '^#' "${extensiondir}/tool" \
             | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
@@ -1499,7 +1510,7 @@ sde::extension::emit_usage()
       if [ -f "${extensiondir}/optionaltool" ]
       then
          echo "Optional Tools:"
-         egrep -v '^#' "${extensiondir}/optionaltool" \
+         grep -E -v '^#' "${extensiondir}/optionaltool" \
             | sed -e '/^[ ]*$/d' -e 's/^/   /'
          echo
       fi
@@ -1911,16 +1922,16 @@ sde::extension::remove_main()
          ;;
       esac
 
-      # paranoia of user input breaking  egrep
+      # paranoia of user input breaking  grep -E
       vendor="${vendor//[^a-zA-Z0-9-]/_}"
       name="${name//[^a-zA-Z0-9-]/_}"
 
-      matches="`rexekutor egrep -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
+      matches="`rexekutor grep -E -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
       r_add_line "${removed}" "${matches}"
       removed="${RVAL}"
       if [ ! -z "${matches}" ]
       then
-         changed="`rexekutor egrep -v -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
+         changed="`rexekutor grep -E -v -x "${vendor:-.*}/${name:-.*};extra" <<< "${changed}"`"
       else
          log_warning "Did not find extra extension ${extension}"
       fi
@@ -2060,7 +2071,7 @@ sde::extension::main()
 
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
          then
-            extension="`egrep -e ";${cmd}\$" "${MULLE_SDE_SHARE_DIR}/extension" | head -1 | cut -d';' -f 1`"
+            extension="`grep -E -e ";${cmd}\$" "${MULLE_SDE_SHARE_DIR}/extension" | head -1 | cut -d';' -f 1`"
          fi
 
          if [ -z "${extension}" ]
@@ -2084,7 +2095,7 @@ sde::extension::main()
 
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
          then
-            extensions="`rexekutor egrep -e ";${cmd%s}\$" "${MULLE_SDE_SHARE_DIR}/extension" | cut -d';' -f 1`"
+            extensions="`rexekutor grep -E -e ";${cmd%s}\$" "${MULLE_SDE_SHARE_DIR}/extension" | cut -d';' -f 1`"
          fi
 
          if [ -z "${extensions}" ]

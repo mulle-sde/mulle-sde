@@ -39,22 +39,25 @@
 && : "$0" "$@"
 
 
-sde::environment::main()
-{
-   log_entry "sde::environment::main"
+# currently unused (shortcut in mulle-sde goes to mulle-env)
 
-   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      sde::exec_mulle_env -N \
-                          "environment" \
-                          "$@"
+
+#sde::environment::main()
+#{
+#   log_entry "sde::environment::main"
 #
 #   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
 #      sde::exec_mulle_env -N \
-#                          --scope-subdir "global=${PROJECT_CONFIG}" \
-#                          --scope-subdir "host=${PROJECT_CONFIG}" \
-#                          --scope-subdir "os=${PROJECT_CONFIG}" \
-#                          --scope-subdir "user=${PROJECT_CONFIG}" \
 #                          "environment" \
 #                          "$@"
-}
+##
+##   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+##      sde::exec_mulle_env -N \
+##                          --scope-subdir "global=${PROJECT_CONFIG}" \
+##                          --scope-subdir "host=${PROJECT_CONFIG}" \
+##                          --scope-subdir "os=${PROJECT_CONFIG}" \
+##                          --scope-subdir "user=${PROJECT_CONFIG}" \
+##                          "environment" \
+##                          "$@"
+#}
 

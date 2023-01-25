@@ -152,10 +152,15 @@ main()
    mode=${1:-755}
    [ $# -eq 0 ] || shift
 
-   if [ -z "${prefix}" -o "${prefix}" = "--help" ] || [ -z "${mode}" ]
+   if [ $# -ne 0 ]
    then
-      installer_fail "usage: install.sh [prefix] [mode]"
+      installer_fail "usage: installer [prefix] [mode]"
    fi
+   case "${prefix}" in
+      -h|--help|help)
+         installer_fail "usage: installer [prefix] [mode]"
+      ;;
+   esac
 
    r_installer_install_prefix "${prefix}"
    prefix="${RVAL}"
@@ -178,7 +183,7 @@ main()
 
    EXTENSION_DIR="${share}/extensions"
    mkdir -p "${EXTENSION_DIR}" || exit 1
-   cp -Ra ${VERBOSE} "src/mulle-sde" "${EXTENSION_DIR}/" || exit 1
+   cp -Rp ${VERBOSE} "src/mulle-sde" "${EXTENSION_DIR}/" || exit 1
 
 
    #
@@ -189,7 +194,7 @@ main()
    mkdir -p "${PLUGIN_DIR}" || exit 1
    for i in src/mulle-env/plugins/*.sh
    do
-      cp -a ${VERBOSE} "${i}" "${PLUGIN_DIR}/" || exit 1
+      cp -p ${VERBOSE} "${i}" "${PLUGIN_DIR}/" || exit 1
    done
 }
 

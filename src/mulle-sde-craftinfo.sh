@@ -378,7 +378,7 @@ clobber possibly existing .mulle/etc/craft definitions"
          r_basename "${i}"
          dstname="${RVAL:1}"
 
-         exekutor cp -Ra "${i}" \
+         exekutor cp -Rp "${i}" \
                          "${subprojectdir}/${dstname}"
       else
          log_warning "${i} exists but is not a directory ?"

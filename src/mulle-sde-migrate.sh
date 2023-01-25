@@ -200,7 +200,7 @@ sde::migrate::do()
    #
    # if craft etc is same as share now, we can remove etc
    #
-   if diff -q .mulle/etc/craft .mulle/share/craft > /dev/null 2>&1
+   if diff .mulle/etc/craft .mulle/share/craft > /dev/null 2>&1
    then
       log_info "Removing .mulle/etc/craft as it's not different from .mulle/share/craft"
       rmdir_safer .mulle/etc/craft

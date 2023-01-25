@@ -788,7 +788,7 @@ sde::dependency::add_to_sourcetree()
    local arguments
    local arguments_list
 
-   lines="`rexekutor egrep -v '^#' "${filename}"`"
+   lines="`rexekutor grep -E -v '^#' "${filename}"`"
    if [ -z "${lines}" ]
    then
       log_warning "\"${filename}\" contains no dependency information"

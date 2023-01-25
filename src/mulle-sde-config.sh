@@ -174,7 +174,7 @@ sde::config::walk_config_name_callback()
    reflectfile=".mulle/etc/sde/reflect"
    if [ -f "${reflectfile}" ]
    then
-      config="`egrep -v '^#' "${reflectfile}" `"
+      config="`grep -E -v '^#' "${reflectfile}" `"
    fi
    config="${config:-config}"
 
@@ -203,7 +203,7 @@ sde::config::walk_name_callback_no_default()
    reflectfile=".mulle/etc/sde/reflect"
    if [ -f "${reflectfile}" ]
    then
-      config="`egrep -v '^#' "${reflectfile}" `"
+      config="`grep -E -v '^#' "${reflectfile}" `"
    fi
    config="${config:-config}"
 
@@ -430,7 +430,7 @@ sde::config::list()
                            ${MULLE_ENV_FLAGS:-} \
                         environment \
                            list --output-eval  \
-   | egrep '^MULLE_SOURCETREE_CONFIG_NAME[^=]*=' \
+   | grep -E '^MULLE_SOURCETREE_CONFIG_NAME[^=]*=' \
    | sort `"
 
    if [ -z "${MULLE_SOURCETREE_CONFIG_NAME}" ]

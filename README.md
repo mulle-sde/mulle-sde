@@ -4,7 +4,7 @@
 
 ![Last version](https://img.shields.io/github/tag/mulle-sde/mulle-sde.svg)
 
-... for Linux, OS X, FreeBSD, Windows
+... for Linux, macOS, BSDs, WSL, Android (Termux), Solaris, MinGW
 
 **mulle-sde** is a command-line based software development environment.
 Organize your project in the filesystem, and then let
@@ -31,54 +31,30 @@ to install mulle-sde.
 
 ## Quick Start
 
-If you want to compile some dependencies without setting up a mulle-sde project,
-you can do an *install* with an archive. Here is an example where the latest *mulle-allocator*
-and its dependencies is installed into `/tmp/foo`:
+In a very basic mulle-sde scenario you have an existing project and
+you only want to maintain its dependencies with mulle-sde, the rest is
+kept as is:
 
 ``` sh
-mulle-sde install --prefix /tmp/foo https://github.com/mulle-c/mulle-allocator/archive/latest.tar.gz
-tree /tmp/foo
-/tmp/foo
-├── include
-│   ├── mulle-allocator
-│   │   ├── cmake
-│   │   │   ├── DependenciesAndLibraries.cmake
-│   │   │   ├── _Dependencies.cmake
-│   │   │   └── _Libraries.cmake
-│   │   ├── include.h
-│   │   ├── mulle-allocator.h
-│   │   ├── _mulle-allocator-include.h
-│   │   ├── mulle-allocator-struct.h
-│   │   ├── _mulle-allocator-versioncheck.h
-│   │   └── version.h
-│   └── mulle-c11
-│       └── mulle-c11.h
-└── lib
-    └── libmulle-allocator.a
+mulle-sde init                                # project-type "none" is implicit
+mulle-sde dependency add --github madler zlib # add one or more dependencies
+mulle-sde craft                               # build dependencies
 ```
 
-If you don't want to use the mulle-sde project features to, but you only want
-to maintain dependencies of an existing project, you can use a `none`
-project type:
-
-``` sh
-mulle-sde init # none is implicit
-mulle-sde dependency add --github madler zlib
-mulle-sde craft
-```
-
-This will create four folders:
+This will create four folders inside your project:
 
 ```
 .
+├── .mulle       # internal mulle-sde maintenance
 ├── dependency   # the desired output will be found here
 ├── kitchen      # temporary build folder
-├── .mulle       # internal mulle-sde maintenance
 └── stash        # downloaded dependencies
 ```
 
 In `dependency` you will then find the familiar file structure with include and
-lib folders, ready for inclusion and linking in your project.
+lib folders, ready for inclusion and linking in your project. You can change
+the positions of the three visible folders to any place you like with
+environment variables.
 
 
 ## Documentation

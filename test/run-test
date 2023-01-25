@@ -61,11 +61,52 @@ main()
 
    MULLE_SDE="`which mulle-sde`" || exit 1
 
+   local OPTION_LENIENT='NO'
+   local OPTION_SHELL
+
+   while [ $# -ne 0 ]
+   do
+      case "${1:-}" in
+         -l|--lenient)
+            OPTION_LENIENT=YES
+         ;;
+
+         --zsh)
+            OPTION_SHELL=zsh
+         ;;
+
+         --bash)
+            OPTION_SHELL=bash
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
    local i
 
    log_verbose "mulle-sde: `mulle-sde version` (`mulle-sde libexec-dir`)"
 
-   for i in "${TEST_DIR}"/*
+   local pattern
+
+   if [ $# -ne 0 ]
+   then
+      if [ "$1" != '--' ]
+      then
+         pattern="$1"
+      fi
+      shift
+   fi
+   pattern=${pattern:-*}
+
+
+   local i
+
+   for i in "${TEST_DIR}"/${pattern}
    do
       if [ -x "$i/run-test" ]
       then
@@ -75,13 +116,20 @@ main()
 
          (
             cd "$i"
-            if ! run_shell bash ./run-test "$@"
+
+            if [ -z "${OPTION_SHELL}" -o "${OPTION_SHELL}" = "bash" ]
             then
-               [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+               if ! run_shell bash ./run-test "$@"
+               then
+                  [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+               fi
             fi
-            if ! run_shell zsh ./run-test "$@"
+            if [ -z "${OPTION_SHELL}" -o "${OPTION_SHELL}" = "zsh" ]
             then
-               [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+               if ! run_shell zsh ./run-test "$@"
+               then
+                  [ "${OPTION_LENIENT}" != 'YES' ] && exit 1
+               fi
             fi
 #
 # Dash chokes on <<< as redirection. But I don't want to live without it

@@ -104,11 +104,19 @@ sde::craft::perform_fetch_if_needed()
       else
          log_verbose "Run sourcetree sync"
 
+         local flags
+
+         if [ "${OPTION_SERIAL}" = 'YES' ]
+         then
+            flags="--serial"
+         fi
+
          eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                               "${MULLE_TECHNICAL_FLAGS:-}" \
                               "${MULLE_SOURCETREE_FLAGS:-}" \
                            "sync" \
-                               "${OPTION_SYNCFLAGS}" || fail "sync fail"
+                               "${OPTION_SYNCFLAGS}" \
+                               "${OPTION_SERIAL}" || fail "sync fail"
 
          #
          # run this quickly, because incomplete previous fetches trip me
@@ -124,6 +132,8 @@ sde::craft::perform_fetch_if_needed()
          then
             _internal_fail "Database not clean after sync"
          fi
+
+         log_verbose "Run sourcetree complete"
       fi
    fi
 }
@@ -178,7 +188,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       configname="${RVAL:-config}"
 
       # if we are in sync, we don't need to reflect
-      previous="`egrep -v '^#' "${filename}" 2> /dev/null `"
+      previous="`grep -E -v '^#' "${filename}" 2> /dev/null `"
 
       if [ "${previous}" = "${configname}" ]
       then
@@ -558,6 +568,10 @@ sde::craft::main()
             OPTION_ANALYZE=YES
          ;;
 
+         --serial)
+            OPTION_SERIAL='YES'
+         ;;
+
          --analyze-dir)
             [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
@@ -872,6 +886,12 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
          runstyle="" # erase unknown buildstyle
       ;;
    esac
+
+   if [ "${OPTION_SERIAL}" = 'YES' ]
+   then
+      r_concat '--serial' "${arguments}"
+      arguments="${RVAL}"
+   fi
 
    #
    # always specify is better, because then we don't get accidentally

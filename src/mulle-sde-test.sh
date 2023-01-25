@@ -120,7 +120,7 @@ sde::test::hack_environment()
       local problems
 
       problems="`env \
-                 | egrep -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' \
+                 | grep -E -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' \
                  | grep -e "${pattern}" `"
       if [ ! -z "${problems}" ]
       then

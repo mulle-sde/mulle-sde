@@ -434,7 +434,7 @@ sde::add::in_project()
    # this warning fails on projects with subprojects
    local found
 
-   found="`rexekutor mulle-match list | fgrep -x "${filename}"`"
+   found="`rexekutor mulle-match list | grep -F -x "${filename}"`"
    if [ -z "${found}" ]
    then
       r_filepath_concat "${PROJECT_SOURCE_DIR}" "${filename}"

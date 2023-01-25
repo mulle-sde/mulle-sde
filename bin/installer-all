@@ -80,6 +80,8 @@ install_project()
       echo "Installation failed" >&2
       exit 1
    fi
+
+   ( cd .. && rm -rf "${name}-${version}" ) || exit 1
 }
 
 
@@ -112,6 +114,18 @@ main()
 #
 CURL="`command -v curl`"
 TAR="`command -v gtar`"
+
+case "`uname`" in 
+   [Ss]un*)
+      if [ -z "${TAR}" ]
+      then
+         echo "need gtar to install (use pkgutil install gnutar)" 2>&1
+         exit 1
+      fi
+   ;;
+esac
+
+
 TAR="${TAR:-`command -v tar`}"
 
 # if this becomes a problem use unzip as an alternative

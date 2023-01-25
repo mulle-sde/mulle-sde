@@ -182,7 +182,7 @@ sde::library::warn_stupid_name()
    local libname="$1"
 
    case "${MULLE_UNAME}" in 
-      windows|mingw)
+      'windows'|'mingw'|'msys')
          case "${libname}" in
             *.lib|*.dll)
                log_warning "Library name  \"${libname}\" should not end with a library extension."
@@ -190,7 +190,7 @@ sde::library::warn_stupid_name()
          esac
       ;;
       
-      linux|*bsd|darwin) 
+      'linux'|*'bsd'|'dragonfly'|'darwin')
          case "${libname}" in 
             *.a|*.so|*.dylib)
                log_warning "Library name \"${libname}\" should not end with a library extension."

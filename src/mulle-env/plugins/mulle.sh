@@ -261,19 +261,20 @@ env::plugin::mulle::print_tools()
    # sysctl and uptime are used by mulle-bashfunctions/parallel
 
    MULLE_SDE_BINARIES="\
-mulle-column;optional
-column;optional
-curl;optional
-make;optional
-ninja;optional
-wget;optional
-sysctl;optional
-sw_vers;optional
-uptime;optional
-xcrun;optional
-xcodebuild;optional
-autoconf;optional
-autoreconf;optional"
+mulle-column
+column
+curl
+make
+ninja
+wget
+shasum
+sysctl
+sw_vers
+uptime
+xcrun
+xcodebuild
+autoconf
+autoreconf"
    printf "%s\n" "${MULLE_SDE_BINARIES}"
 
 }

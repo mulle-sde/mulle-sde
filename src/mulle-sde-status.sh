@@ -43,6 +43,7 @@ Usage:
    Get information about the current mulle-sde project status.
 
 Options:
+   --all         : add all information options
    --clear       : clear default information settings
    --config      : add sourcetree configuration information (default)
    --craftstatus : add craft information (default)
@@ -94,7 +95,7 @@ sde::status::project()
    projectdir="${RVAL}"
    if [ "${directory}" != "${projectdir}" ]
    then
-      log_verbose "${indent}The project directory is ${projectdir}"
+      log_verbose "${indent}The project directory is ${projectdir} (not ${directory})"
    else
       log_verbose "${indent}The project directory is ${projectdir}"
    fi
@@ -198,7 +199,7 @@ sde::status::config()
       fi
 
       # if we are in sync, we don't need to reflect
-      previous="`egrep -v '^#' "${filename}" 2> /dev/null `"
+      previous="`grep -E -v '^#' "${filename}" 2> /dev/null `"
       if [ "${previous}" = "${first_name}" ]
       then
          .continue
@@ -243,9 +244,9 @@ sde::status::sourcetree()
          if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -s dbstatus
          then
-            log_info "${indent}Nothing needs to be fetched"
+            log_info "${indent}Nothing needs to be fetched according to database"
          else
-            log_info "${indent}Dependencies will be fetched/refreshed"
+            log_info "${indent}Dependencies will be fetched/refreshed according to database"
             log_verbose "${indent}${C_RESET_BOLD}   mulle-sde fetch"
          fi
       ;;
@@ -421,6 +422,10 @@ sde::status::main()
          --sourcetree)
             r_comma_concat "${statustypes}" "database,quickstatus,treestatus"
             statustypes="${RVAL}"
+         ;;
+
+         --all)
+            statustypes="config,craftstatus,database,graveyard,project,quickstatus,stash,treestatus,tool"
          ;;
 
          -*)

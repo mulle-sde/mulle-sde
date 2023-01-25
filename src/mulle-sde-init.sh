@@ -72,12 +72,12 @@ Usage:
    ".mulle" folder if no 'type' is given and nothing else. Or choose a
    directory to create and install into with the '-d' option.
 
-   Choose a 'type' like "library" or "executable", when starting a new
-   project. You would typically then also specifiy a meta-extension in the
-   options, to set the desired project language and build system.
+   If you choose a 'type' like "library" or "executable", you would typically
+   also specifiy a meta-extension with the -m option to set the desired project
+   language and build system.
 
    Extensions are plugins that contain scripts and files to setup the project.
-   A meta-extension combinest multiple extensions conveniently.
+   A meta-extension combines multiple extensions.
 
    Example:
       mulle-sde init -d ./my-project -m mulle-sde/c-developer executable
@@ -127,7 +127,14 @@ sde::init::_copy_extension_dir()
 
    if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' -o "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES'  ]
    then
-      flags=-v
+      case "${MULLE_UNAME}" in
+         'sunos')
+         ;;
+
+         *)
+            flags=-v
+         ;;
+      esac
    fi
 
    #
@@ -160,7 +167,7 @@ sde::init::_copy_extension_dir()
 into \"${destination#"${MULLE_USER_PWD}/"}\" ($PWD)"
 
    # need L flag since homebrew creates relative links
-   exekutor cp -RLa ${flags} "${directory}" "${destination}/"
+   exekutor cp -RLp ${flags} "${directory}" "${destination}/"
 }
 
 
@@ -215,7 +222,14 @@ sde::init::_copy_env_extension_dir()
 
    if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' ]
    then
-      flags=-v
+      case "${MULLE_UNAME}" in
+         'sunos')
+         ;;
+
+         *)
+            flags=-v
+         ;;
+      esac
    fi
 
    #
@@ -240,7 +254,7 @@ sde::init::_append_to_motd()
 
    local text
 
-   text="`LC_ALL=C egrep -v '^#' "${extensiondir}/motd" `"
+   text="`LC_ALL=C grep -E -v '^#' "${extensiondir}/motd" `"
    if [ ! -z "${text}" -a "${text}" != "${_MOTD}" ]
    then
       log_fluff "Append \"${extensiondir}/motd\" to motd"
@@ -265,7 +279,7 @@ sde::init::install_inheritfile()
 
    local text
 
-   text="`LC_ALL=C egrep -v '^#' "${inheritfilename}"`"
+   text="`LC_ALL=C grep -E -v '^#' "${inheritfilename}"`"
 
    #
    # read needs IFS set for each iteration, whereas
@@ -550,7 +564,7 @@ sde::init::read_template_expanded_file()
       PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
          template::generate::main csed-script `" || exit 1
 
-   eval_rexekutor "'${SED:-sed}'" -f "${scriptfile}" "${filename}" | egrep -v '^#'
+   eval_rexekutor sed -f "${scriptfile}" "${filename}" | grep -E -v '^#'
 
    remove_file_if_present "${scriptfile}"
 }
@@ -574,7 +588,7 @@ sde::init::add_to_sourcetree()
 
    local lines
 
-   lines="`sde::init::read_template_expanded_file "${filename}" | egrep -v '^#' `"
+   lines="`sde::init::read_template_expanded_file "${filename}" | grep -E -v '^#' `"
    if [ -z "${lines}" ]
    then
       log_warning "\"${filename}\" contains no dependency information"
@@ -662,7 +676,7 @@ sde::init::_add_to_tools()
    local quoted_args
 
    IFS=$'\n'
-   for line in `egrep -v '^#' "${filename}"`
+   for line in `grep -E -v '^#' "${filename}"`
    do
       r_concat "${quoted_args}" "'${line}'"
       quoted_args="${RVAL}"
@@ -954,7 +968,14 @@ sde::init::install_version()
 
    if [ "${MULLE_FLAG_LOG_EXEKUTOR}" = 'YES' ]
    then
-      flags=-v
+      case "${MULLE_UNAME}" in
+         'sunos')
+         ;;
+
+         *)
+            flags=-v
+         ;;
+      esac
    fi
 
    exekutor cp ${flags} "${extensiondir}/version" \
@@ -1094,6 +1115,13 @@ sde::init::_delete_leaf_files_or_directories()
       return 0
    fi
 
+   case "${MULLE_UNAME}" in
+      'sunos')
+         log_warning "Won't delete empty folders on sunos, as the find is too gimped"
+         return
+      ;;
+   esac
+
    r_physicalpath "${directory}"
    directory="${RVAL}"
 
@@ -1101,11 +1129,12 @@ sde::init::_delete_leaf_files_or_directories()
 
    # https://stackoverflow.com/questions/1574403/list-all-leaf-subdirectories-in-linux
    local relpath
+   local lines
 
-
-   .foreachline i in `rexekutor find "${directory}" -mindepth 1 \
-                                           -execdir sh \
-                                           -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`
+   lines="`rexekutor find "${directory}" -mindepth 1 \
+                                         -execdir sh \
+                                         -c 'test -z "$(find "{}" -mindepth 1)" && echo ${PWD}/{}' \;`"
+   .foreachline i in ${lines}
    .do
       r_simplified_path "${i#${directory}/}"
       relpath="${RVAL}"
@@ -1169,11 +1198,18 @@ sde::init::set_projectlanguage()
 
 sde::init::extension_has_been_installed()
 {
+   log_entry "sde::init::extension_has_been_installed" "$@"
+
    local vendor="$1"
    local extname="$2"
 
+   if [ -z "${vendor}" -a -z "${extname}" ]
+   then
+      return 0
+   fi
+
    # duplicate check
-   if egrep -q -s "^${vendor}/${extname};" <<< "${_INSTALLED_EXTENSIONS}"
+   if grep -E -q -s "^${vendor}/${extname};" <<< "${_INSTALLED_EXTENSIONS}"
    then
       if ! [ "${OPTION_ADD}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
@@ -1183,6 +1219,7 @@ sde::init::extension_has_been_installed()
    fi
    return 1
 }
+
 
 sde::init::set_extension_has_been_installed()
 {
@@ -1243,6 +1280,7 @@ sde::init::_install_extension()
    if [ -z "${extname}" ]
    then
       log_debug "Empty extension name, so nothing to do"
+      RVAL=
       return
    fi
 
@@ -1260,6 +1298,7 @@ sde::init::_install_extension()
 
    if sde::init::extension_has_been_installed "${vendor}" "${extname}"
    then
+      RVAL=
       return 1
    fi
    sde::init::set_extension_has_been_installed "${exttype}" "${vendor}" "${extname}"
@@ -1267,7 +1306,7 @@ sde::init::_install_extension()
    local extensiondir
    local searchpath
 
-   if ! sde::extension::r_find_get_quoted_searchpath "${vendor}"
+   if ! sde::extension::r_find_get_vendor_searchpath "${vendor}"
    then
       sde::extension::r_get_searchpath
 
@@ -1299,7 +1338,7 @@ ${C_INFO}Possible ways to fix this:
 
    local actualexttype
 
-   actualexttype="`egrep -v '^#' "${extensiondir}/type" `"
+   actualexttype="`grep -E -v '^#' "${extensiondir}/type" `"
    if [ "${exttype}" != "${actualexttype}" ]
    then
       case "${actualexttype}" in
@@ -1325,7 +1364,7 @@ for \"${vendor}/${extname}\"."
          then
             if sde::init::_check_file "${extensiondir}/language"
             then
-               tmp="`egrep -v '^#' "${extensiondir}/language"`"
+               tmp="`grep -E -v '^#' "${extensiondir}/language"`"
                IFS=";" read -r PROJECT_LANGUAGE PROJECT_DIALECT PROJECT_EXTENSIONS <<< "${tmp}"
 
                [ -z "${PROJECT_LANGUAGE}" ] && fail "missing language in \"${extensiondir}/language\""
@@ -1388,7 +1427,7 @@ for \"${vendor}/${extname}\"."
             log_fluff "${verb} dependencies for ${exttype} extension \"${vendor}/${extname}\""
 
             IFS=$'\n'
-            for line in `egrep -v '^#' "${filename}"`
+            for line in `grep -E -v '^#' "${filename}"`
             do
                IFS="${DEFAULT_IFS}"
                if [ ! -z "${line}" ]
@@ -1670,8 +1709,6 @@ sde::init::install_extension()
 
    local _TEMPLATE_DIRECTORIES # will be set by sde::init::_install_extension
 
-   local extensiondir
-
    if sde::init::extension_has_been_installed "${vendor}" "${extname}"
    then
       return
@@ -1691,6 +1728,8 @@ sde::init::install_extension()
    log_verbose "${verb} extension dependencies of ${C_RESET_BOLD}${vendor}/${extname}"
 
    # this will memorize if extension has been installed
+   local extensiondir
+
    sde::init::_install_extension "$@"
    extensiondir="${RVAL}"
 
@@ -1922,18 +1961,11 @@ sde::init::recall_installed_extensions()
 
    local extensionfile="$1"
 
-   local EGREP
 
    # can sometimes happen, bail early then.
-   EGREP="`command -v egrep`"
-   if [ -z "${EGREP}" ]
-   then
-      fail "egrep not in PATH: ${PATH}"
-   fi
-
    if sde::init::_check_file "${extensionfile}"
    then
-      exekutor "${EGREP}" -v '^#' < "${extensionfile}"
+      exekutor grep -E -v '^#' < "${extensionfile}"
       # deal with empty file (maybe due to edits)
       case $? in
          0|1)
@@ -2998,10 +3030,10 @@ sde::init::save_mulle_in_old()
 
    # order is important on mingw, first share than etc
    # for symlinks
-   exekutor cp -Ra ".mulle.old/share" ".mulle" || exit 1
+   exekutor cp -Rp ".mulle.old/share" ".mulle" || exit 1
    if [ -d ".mulle.old/etc" ]
    then
-      exekutor cp -Ra ".mulle.old/etc" ".mulle" || exit 1
+      exekutor cp -Rp ".mulle.old/etc" ".mulle" || exit 1
    fi
 
    mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
@@ -3091,6 +3123,7 @@ sde::init::run()
 
       if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
       then
+         cd /
          rmdir_safer "${PWD}"
       fi
    fi
@@ -3311,25 +3344,10 @@ MULLE_SDE_INSTALLED_VERSION (${oldversion})"
 
 sde::init::include()
 {
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || _internal_fail "missing file"
-   fi
-
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || _internal_fail "missing file"
-   fi
-
-   if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || _internal_fail "missing file"
-   fi
-
-   if [ -z "${MULLE_SDE_PROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || _internal_fail "missing file"
-   fi
+   include "path"
+   include "file"
+   include "sde::extension"
+   include "sde::project"
 }
 
 

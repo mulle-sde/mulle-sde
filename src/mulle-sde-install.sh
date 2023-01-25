@@ -729,6 +729,7 @@ pass through)"
    then
       if [ ! -z "${delete_tmp}" ]
       then
+         cd /
          rmdir_safer "${delete_tmp}"
       fi
    fi

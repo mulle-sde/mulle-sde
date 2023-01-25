@@ -343,8 +343,6 @@ sde::linkorder::r_all_nodes()
 {
    log_entry "sde::linkorder::r_all_nodes" "$@"
 
-   include "sourcetree::walk"
-
    local INSIDE_STANDALONE
    local INSIDE_DYNAMIC
 
@@ -380,13 +378,9 @@ sde::linkorder::r_all_nodes()
    # local mode="$7"
    include "sourcetree::environment"
 
-   sourcetree::environment::default "" \
-                                    "${MULLE_SOURCETREE_STASH_DIRNAME}" \
-                                    "" \
-                                    "" \
-                                    "" \
-                                    "" \
-                                    "${mode}"
+   sourcetree::environment::setup "" \
+                                  "${MULLE_SOURCETREE_STASH_DIRNAME}" \
+                                  "${mode}"
 
    local bequeath_flag
 
@@ -399,6 +393,8 @@ sde::linkorder::r_all_nodes()
    local configuration
 
    configuration="${OPTION_CONFIGURATION:-Debug}"
+
+   include "sourcetree::walk"
 
    RVAL="`rexekutor sourcetree::walk::main \
                                --lenient \

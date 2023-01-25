@@ -91,7 +91,7 @@ main()
    log_verbose "----- #2 PASSED -----"
 
    log_info "----- ALL PASSED -----"
-
+   cd ..
    rmdir_safer "${directory}"
 }
 

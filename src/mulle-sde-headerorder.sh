@@ -237,13 +237,9 @@ sde::headerorder::r_all_nodes()
    # local mode="$7"
    include "sourcetree::environment"
 
-   sourcetree::environment::default "" \
-                                    "${MULLE_SOURCETREE_STASH_DIRNAME}" \
-                                    "" \
-                                    "" \
-                                    "" \
-                                    "" \
-                                    "${mode}"
+   sourcetree::environment::setup "${OPTION_SHAREDIR}" \
+                                  "${MULLE_SOURCETREE_STASH_DIRNAME}" \
+                                  "${mode}"
 
    local bequeath_flag
 
