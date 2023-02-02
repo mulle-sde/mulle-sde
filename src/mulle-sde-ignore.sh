@@ -31,7 +31,7 @@
 #
 # Rebuild if files of certain extensions are modified
 #
-MULLE_SDE_IGNORE_SH="included"
+MULLE_SDE_IGNORE_SH='included'
 
 
 sde::ignore::usage()

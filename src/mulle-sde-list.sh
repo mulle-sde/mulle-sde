@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_LIST_SH="included"
+MULLE_SDE_LIST_SH='included'
 
 
 sde::list::usage()
@@ -107,7 +107,7 @@ sde::list::files()
 
       for category in ${categories}
       do
-         if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+         if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
          then
             rexekutor sed -n "s|^${category}: ||p" <<< "${subtext}"
          else
@@ -150,7 +150,7 @@ sde::list::dependencies()
 
    if [ ! -z "${text}" ]
    then
-      if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+      if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
       then
          echo "${text}"
       else
@@ -180,7 +180,7 @@ sde::list::libraries()
    `"
    if [ ! -z "${text}" ]
    then
-      if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+      if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
       then
          echo "${text}"
       else
@@ -231,7 +231,7 @@ sde::list::environment()
    text="`mulle-env -s environment list --output-eval `"
    if [ ! -z "${text}" ]
    then
-      if [ "${MULLE_FLAG_LOG_TERSE}" = "YES" ]
+      if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
       then
          echo "${text}"
       else
@@ -331,7 +331,7 @@ sde::list::main()
         "${OPTION_LIST_LIBRARIES}" = 'DEFAULT' \
       ]
    then
-      OPTION_LIST_FILES="YES"
+      OPTION_LIST_FILES='YES'
    fi
 
    if [ "${OPTION_LIST_FILES}" = 'YES' ]

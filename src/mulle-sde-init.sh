@@ -31,7 +31,7 @@
 #
 # Rebuild if files of certain extensions are modified
 #
-MULLE_SDE_INIT_SH="included"
+MULLE_SDE_INIT_SH='included'
 
 
 sde::init::usage()
@@ -2635,7 +2635,7 @@ sde::init::validate_projecttype()
       ;;
 
       *)
-         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != "YES" ]
+         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
          then
             fail "\"${projecttype}\" is not a standard project type like \"library\" or \"executable\".
 ${C_INFO}Use -f to use \"${projecttype}\""
@@ -3386,6 +3386,7 @@ sde::init::_main()
    local OPTION_UPGRADE
    local OPTION_UPGRADE_SUBPROJECTS
    local OPTION_VENDOR="mulle-sde"
+   local OPTION_IF_MISSING
    local PURGE_PWD_ON_ERROR='NO'
    local OPTION_COMMENT_FILES="${MULLE_SDE_GENERATE_FILE_COMMENTS:-YES}" # on by default, else I forget this option exists :)
    local TEMPLATE_FOOTER_FILE
@@ -3494,6 +3495,10 @@ sde::init::_main()
             shift
 
             OPTION_INIT_FLAGS="$1"
+         ;;
+
+         --if-missing)
+            OPTION_IF_MISSING="$1"
          ;;
 
          -o|--oneshot)
@@ -3799,6 +3804,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    # remove temp file if done
 
    sde::init::protect_unprotect "Unprotect" "ug+w"
+
    ### BEGIN
       local tmp_file
 
@@ -3825,6 +3831,12 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       if [ "${tmp_file}" = 'YES' ]
       then
          remove_file_if_present ".mulle/share/env/environment.sh"
+      fi
+
+      if [ -d "${MULLE_SDE_SHARE_DIR}" -a "${OPTION_IF_MISSING}" = 'YES' ]
+      then
+         sde::init::protect_unprotect "Protect" "a-w"
+         return 0
       fi
 
       # figure out a GITHUB user name for later

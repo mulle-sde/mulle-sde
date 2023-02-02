@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_DEFINITION_SH="included"
+MULLE_SDE_DEFINITION_SH='included'
 
 
 sde::definition::usage()
@@ -312,7 +312,7 @@ sde::definition::set()
 
    case "${scope}" in
       ALL)
-         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
+         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
          sde::definition::call "set" "${flags}" "${etcdir}" "$@"
 
          sde::definition::r_scopes "no-global"
@@ -322,24 +322,24 @@ sde::definition::set()
 
          .foreachline i in ${scopes}
          .do
-            etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" "NO"
+            etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" 'NO'
             sde::definition::call "set" "${flags}" "${etcdir}.${i}" "$@"
          .done   
          return
       ;;
 
       DEFAULT)
-         etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" "NO"
+         etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" 'NO'
          sde::definition::call "set" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
       ;;
 
       global)
-         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
+         etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
          sde::definition::call "set" "${flags}" "${etcdir}" "$@"
       ;;
 
       *)
-         etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" "NO"
+         etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" 'NO'
          sde::definition::call "set" "${flags}" "${etcdir}.${scope}" "$@"
       ;;
    esac
@@ -378,7 +378,7 @@ sde::definition::scoped_unset()
       return 1
    fi        
 
-   etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" "NO"
+   etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
 
    mkdir "${OPTION_ETC_DEFINITION_DIR}/keep"
    cat <<EOF  > "${OPTION_ETC_DEFINITION_DIR}/keep/README"

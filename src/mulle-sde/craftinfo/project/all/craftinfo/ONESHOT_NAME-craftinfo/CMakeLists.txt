@@ -10,8 +10,10 @@ file( GLOB SCRIPTS
    bin/<|ONESHOT_NAME|>-build.*
 )
 
+list( FILTER SCRIPTS EXCLUDE REGEX ".*[.]example")
+
 if( SCRIPTS)
-	install( FILES "${SCRIPTS}" DESTINATION "bin"
+	install( FILES ${SCRIPTS} DESTINATION "bin"
 	         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 	                     GROUP_EXECUTE GROUP_READ
 	                     WORLD_EXECUTE WORLD_READ

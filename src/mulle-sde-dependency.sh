@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_DEPENDENCY_SH="included"
+MULLE_SDE_DEPENDENCY_SH='included'
 
 
 DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
@@ -911,10 +911,9 @@ sde::dependency::add_main()
 
    argc=$#
 
-   local domains
    local name
 
-   domains="`rexekutor ${MULLE_DOMAIN:-mulle-domain} -s list `"
+   local domains
 
    #
    # grab options for mulle-sourcetree
@@ -1092,6 +1091,8 @@ sde::dependency::add_main()
             [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
 
             name="${1#--}"
+            domains="${domains:-`rexekutor ${MULLE_DOMAIN:-mulle-domain} -s list `}"
+
             if find_line "${domains}" "${name}"
             then
                OPTION_DOMAIN="${name}"
@@ -1147,7 +1148,7 @@ sde::dependency::add_main()
          [ ! -z "${address}" ]  && log_warning "Address will be ignored with craftinfo: type URLs"
          [ ! -z "${options}" ]  && log_warning "Options will be ignored with craftinfo: type URLs"
 
-         sde::dependency::add_craftinfo_url "${originalurl#craftinfo:}" "YES"
+         sde::dependency::add_craftinfo_url "${originalurl#craftinfo:}" 'YES'
          return $?
       ;;
    esac
@@ -1452,13 +1453,13 @@ sde::dependency::add_main()
 
    if [ "${OPTION_CLEAN}" = 'YES' ]
    then
-      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
                      "${MULLE_TECHNICAL_FLAGS}" \
                   clean --config
    fi
 
-   if ! eval_exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+   if ! eval_rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         --virtual-root \
                     "${MULLE_TECHNICAL_FLAGS}" \
                         add "${options}" "'${url}'"
@@ -1472,7 +1473,7 @@ sde::dependency::add_main()
 
    if [ "${OPTION_FETCH}" != 'NO' ]
    then
-      sde::dependency::use_craftinfo_main "${dependency}" "NO"
+      sde::dependency::use_craftinfo_main "${dependency}" 'NO'
    fi
 
    if [ "${OPTION_EMBEDDED}" = 'YES' ]

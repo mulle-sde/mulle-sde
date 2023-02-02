@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_HEADERORDER_SH="included"
+MULLE_SDE_HEADERORDER_SH='included'
 
 
 sde::headerorder::usage()
@@ -667,7 +667,7 @@ sde::headerorder::main()
 
    local header_searchpath
 
-   sde::headerorder::r_header_searchpath "YES"
+   sde::headerorder::r_header_searchpath 'YES'
    header_searchpath="${RVAL}"
 
    local headers

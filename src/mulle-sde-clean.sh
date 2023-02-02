@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_CLEAN_SH="included"
+MULLE_SDE_CLEAN_SH='included'
 
 
 # Cleaning is a delightfully complex topic. You want to "clean all" because you
@@ -447,7 +447,7 @@ sde::clean::main()
 {
    log_entry "sde::clean::main" "$@"
 
-   local OPTION_TEST="YES"
+   local OPTION_TEST='YES'
 
    #
    # handle options
@@ -465,7 +465,7 @@ sde::clean::main()
          ;;
 
          --no-test)
-            OPTION_TEST="NO"
+            OPTION_TEST='NO'
          ;;
 
          --clean-domain|--from)
@@ -607,7 +607,7 @@ test"
       ;;
 
       *)
-         if [ "${OPTION_TEST}" = "YES" ]
+         if [ "${OPTION_TEST}" = 'YES' ]
          then
             local escaped_dependency
             local targets

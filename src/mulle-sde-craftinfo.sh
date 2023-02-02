@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_CRAFTINFO_SH="included"
+MULLE_SDE_CRAFTINFO_SH='included'
 
 
 CRAFTINFO_MARKS="dependency,no-subproject,no-update,no-delete,no-share,no-header,no-link"
@@ -119,9 +119,9 @@ Examples:
       ${MULLE_USAGE_NAME} dependency craftinfo --global \\
          set --append nng CPPFLAGS "-DX=0"
 
-   Use a build script "build.sh" to build dependency "xyz" on the current
-   OS only. The executable script should be placed by the user
-   into "craftinfo/xyz/bin":
+   Use a user script "build.sh" to build dependency "xyz" on the current
+   OS only. This script with executable bits set, should be placed by the user
+   into "craftinfo/xyz/bin": (see "craftinfo script" help for an alternative)
 
       ${MULLE_USAGE_NAME} dependency craftinfo set xyz BUILD_SCRIPT build.sh
       ${MULLE_USAGE_NAME} environment set MULLE_SDE_ALLOW_BUILD_SCRIPT 'YES'
@@ -136,11 +136,53 @@ Examples:
       mulle-sde dependency craftinfo --os linux set mujs XCFLAGS -fPIC
 
 Options:
-   --append : value will be appended to key instead (e.g. CPPFLAGS += )
+   --append  : value will be appended to key instead (e.g. CPPFLAGS += )
+   --script  : use an existing script of the package to build
 
 EOF
   exit 1
 }
+
+
+sde::craftinfo::script_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo script [option] <dep> [command]
+
+   Assuming the dependency is itself build by a script or a build system, which
+   escapes the mulle-make detection, you can use this shortcut command to
+   produce a  wrapper script file, that will craft the dependency.
+
+Examplex:
+   The dependency "xyz" is build with \`make\` but needs a special parameter.
+   The build script that will be generated will have three stages "build",
+   "install", "clean". As Makefiles usually supports these commands you can get
+   away with:
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --global \\
+         script xyz \\
+         'make --install-prefix "\${PREFIX}"'
+
+   The dependency "foo" is build with an installer script \`install.sh\` in its
+   "bin" directory, that can only do installation:
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --global \\
+         script --install-cmd './bin/install.sh "\${PREFIX}"' \\
+            foo
+
+Options:
+   --build-cmd <shell commands>   : command to run for build
+   --clean-cmd <shell commands>   : command to run for clean  (unused)
+   --install-cmd <shell commands> : command to run for install
+
+EOF
+  exit 1
+}
+
+
 
 
 sde::craftinfo::exists_usage()
@@ -484,7 +526,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
       then
          return 2
       fi
-      if [ "${clobber}" = "YES" ]
+      if [ "${clobber}" = 'YES' ]
       then
          sde::craftinfo::remove_dir_safer "${subprojectdir}"
       fi
@@ -508,9 +550,10 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
          # Tricky: we are in a subshell. We don't have the environment variables
          #         for setting stuff up.
          #         Grab them from the outside via mudo -e
-         #
-         MULLE_SDE_EXTENSION_BASE_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_BASE_PATH"'`"
-         MULLE_SDE_EXTENSION_PATH="`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_PATH"'`"
+         #         Except if we have them already anyway, because we are
+         #         "wild"
+         MULLE_SDE_EXTENSION_BASE_PATH="${MULLE_SDE_EXTENSION_BASE_PATH:-"`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_BASE_PATH"'`"}"
+         MULLE_SDE_EXTENSION_PATH="${MULLE_SDE_EXTENSION_PATH:-"`mudo -e sh -c 'echo "$MULLE_SDE_EXTENSION_PATH"'`"}"
 
          exekutor sde::extension::main pimp --project-type "unknown" \
                                             --oneshot-name "${name}" \
@@ -681,7 +724,8 @@ sde::craftinfo::create_main()
          return 0
       ;;
    esac
-   exit 1
+
+   return 1
 }
 
 
@@ -817,9 +861,9 @@ sde::craftinfo::exists_main()
       url="${repo}/${_name}-${OPTION_SUFFIX}.git"
       log_verbose "Checking if a craftinfo URL \"${url}\" exists"
       if rexekutor "${MULLE_FETCH:-mulle-fetch}" \
-                ${MULLE_TECHNICAL_FLAGS} \
-                ${MULLE_FETCH_FLAGS}  \
-            exists "${url}"
+                       ${MULLE_TECHNICAL_FLAGS} \
+                       ${MULLE_FETCH_FLAGS}  \
+                     exists "${url}"
       then
          log_fluff "Craftinfo \"${url}\" found"
          return 0
@@ -836,16 +880,8 @@ sde::craftinfo::remove_dir_safer()
 {
    log_entry "sde::craftinfo::remove_dir_safer" "$@"
 
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      # shellcheck source=mulle-path.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"      || return 1
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      # shellcheck source=mulle-file.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"      || return 1
-   fi
+   include "path"
+   include "file"
 
    rmdir_safer "$1"
 }
@@ -883,11 +919,8 @@ sde::craftinfo::fetch_display()
 
    local url
 
-   [ -z "${MULLE_PATH_SH}" ] \
-   && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-
-   [ -z "${MULLE_FILE_SH}" ] \
-   && . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
+   include "path"
+   include "file"
 
    if [ "${displayonly}" = 'YES' ]
    then
@@ -1152,7 +1185,159 @@ sde::craftinfo::set_main()
                      --definition-dir "${_folder}${extension}" \
                   set \
                      ${flags} "$@"
+}
 
+
+
+sde::craftinfo::script_main()
+{
+   log_entry "sde::craftinfo::script_main" "$@"
+
+   local extension="$1"; shift
+
+   local OPTION_BUILD_CMD
+   local OPTION_CLEAN_CMD
+   local OPTION_INSTALL_CMD
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::craftinfo::script_usage
+         ;;
+
+         --build-cmd)
+            [ "$#" -eq 1 ] && \
+               sde::craftinfo::script_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_BUILD_CMD="$1"
+         ;;
+
+         --clean-cmd)
+            [ "$#" -eq 1 ] &&
+               sde::craftinfo::script_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_CLEAN_CMD="$1"
+         ;;
+
+         --install-cmd)
+            [ "$#" -eq 1 ] && \
+               sde::craftinfo::script_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_INSTALL_CMD="$1"
+         ;;
+
+         -*)
+            sde::craftinfo::script_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ "$#" -gt 2 ] && shift && sde::craftinfo::script_usage "Superflous arguments \"$*\""
+
+   if [ "$#" -eq 2 ]
+   then
+      [ ! -z "${OPTION_BUILD_CMD}" ] && log_warning "Argument overrides the --build-cmd option"
+
+      OPTION_BUILD_CMD="$1"
+      shift
+
+      [ -z "${OPTION_BUILD_CMD}" ] && log_warning "Argument can't be empty"
+
+      OPTION_INSTALL_CMD="${OPTION_BUILD_CMD} install"
+      OPTION_CLEAN_CMD="${OPTION_BUILD_CMD} clean"
+   fi
+
+   local url
+
+   url="$1"
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+   local _config
+
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
+   then
+      return 1
+   fi
+
+   sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
+                                                      "${_name}" \
+                                                      "${OPTION_COPY}" \
+                                                      "DEFAULT"
+   case "$?" in
+      0|2)
+      ;;
+
+      *)
+         exit 1
+      ;;
+   esac
+
+   local template
+
+   template="${_subprojectdir}/bin/${_name}-build.example"
+   if [ ! -f  "${template}" ]
+   then
+      _internal_fail "Template \"${template#${MULLE_USER_PWD}/}\" is unexpectedly missing"
+   fi
+
+   local script
+   local scriptname
+
+   scriptname="${_name}-build"
+   script="${_subprojectdir}/bin/${scriptname}"
+
+   local escaped_build_cmd
+   local escaped_clean_command
+   local escaped_install_command
+
+   r_escaped_doublequotes "${build_cmd:-# do nothing}"
+   escaped_build_cmd="${OPTION_BUILD_CMD}"
+
+   r_escaped_doublequotes "${clean_command:-# do nothing}"
+   escaped_clean_cmd="${OPTION_CLEAN_CMD}"
+
+   r_escaped_doublequotes "${install_command:-# do nothing}"
+   escaped_install_cmd="${OPTION_INSTALL_CMD}"
+
+   rexekutor mulle-template \
+                   --clean-env \
+                   ${MULLE_TECHNICAL_FLAGS} \
+                   -DBUILD="${escaped_build_cmd}" \
+                   -DCLEAN="${escaped_clean_cmd}" \
+                   -DINSTALL="${escaped_install_cmd}" \
+                   -f \
+                generate -o '#<#' \
+                         -c '#>#' \
+                         --no-date-environment \
+                         "${template}" \
+                         "${script}" || exit 1
+
+   exekutor chmod 755 "${script}" || exit 1
+
+   if [ "${extension}" = "DEFAULT" ]
+   then
+      extension=""
+   fi
+
+   exekutor "${MULLE_MAKE}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               definition \
+                     --definition-dir "${_folder}${extension}" \
+                  set \
+                     BUILD_SCRIPT "${scriptname}"
 }
 
 
@@ -1253,11 +1438,12 @@ sde::craftinfo::get_main()
    local _subprojectdir
    local _folder
    local _config
-   local rval
 
    if [ "${extension}" = "DEFAULT" ]
    then
       sde::craftinfo::__vars_with_url_or_address "${url}"
+
+      local rval
 
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
@@ -1500,9 +1686,9 @@ sde::craftinfo::main()
    fi
 
    case "${subcmd:-list}" in
-      create|set|get|list|fetch|exists|readd|remove|show|unset)
+      create|set|get|list|fetch|exists|readd|remove|script|show|unset)
          sde::craftinfo::${subcmd}_main "${extension}" "$@" || return 1
-         if [ "${subcmd}" = "set" ]
+         if [ "${subcmd}" = "set" -o "${subcmd}" = "script" ]
          then
             log_info "Your edits will be used after:
 ${C_RESET_BOLD}   mulle-sde clean all"

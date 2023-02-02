@@ -57,8 +57,8 @@ build_main()
 {
    log_entry "build_main" "$@"
 
-   # You are in the root of the project to compile, which is likely a diretory
-   # in "stash".
+   # You are in the root of the project to compile, which is likely a directory
+   # in "stash". Where is it ? Use `mulle-sde stash-dir`.
    #
    # get make to use KITCHEN_DIR (optional), PREFIX (maybe), CONFIGURATION, SDK
    #
@@ -81,6 +81,8 @@ build_main()
    #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}"
    #    ;;
    # esac
+
+   #<#BUILD#>#
 }
 
 
@@ -92,6 +94,8 @@ clean_main()
    # Could run make clean here, there is no logging here
    #
    # exekutor make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}"
+
+   #<#CLEAN#>#
 }
 
 
@@ -124,6 +128,8 @@ install_main()
    # logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
    #    cp async/async*.h "${PREFIX}/include/async"
    #
+
+   #<#INSTALL#>#
 }
 
 
@@ -133,6 +139,8 @@ main()
    local SDK=""
    local PREFIX="/tmp"
    local KITCHEN_DIR="kitchen"
+   local PROJECT_DIR="$PWD"
+   local ROOT_DIR="${PROJECT_DIR}/../.."
    local LOGFILE
    local TEEFILE
    local TARGET
@@ -199,6 +207,12 @@ main()
             PREFIX="$1"
          ;;
 
+         --root-dir)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+
+            ROOT_DIR="$1"
+         ;;
 
          --target|--targets)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""

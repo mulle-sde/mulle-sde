@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_SUBPROJECT_SH="included"
+MULLE_SDE_SUBPROJECT_SH='included'
 
 
 SUBPROJECT_MARKS="dependency,no-mainproject,no-update,no-delete,no-share"
@@ -493,7 +493,7 @@ sde::subproject::map()
 
    if [ "${parallel}" = 'YES' ]
    then
-      if [ "${lenient}" = "YES" ]
+      if [ "${lenient}" = 'YES' ]
       then
          _internal_fail "Can't have parallel and lenient together"
       fi

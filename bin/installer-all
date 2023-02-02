@@ -75,7 +75,8 @@ install_project()
       exit 1
    fi
 
-   if ! ( ${SUDO} ./bin/installer "${PREFIX}" || ${SUDO} ./install.sh "${PREFIX}" )
+   if ! ( ${SUDO} ./bin/installer "${PREFIX}" "${MODE:-755}" "${LIBEXEC_DIRNAME}" \
+          || ${SUDO} ./install.sh "${PREFIX}" )
    then
       echo "Installation failed" >&2
       exit 1

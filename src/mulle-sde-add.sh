@@ -31,7 +31,7 @@
 #
 # Rebuild if files of certain files are modified
 #
-MULLE_SDE_ADD_SH="included"
+MULLE_SDE_ADD_SH='included'
 
 
 #
@@ -95,27 +95,11 @@ EOF
 
 sde::add::include()
 {
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || _internal_fail "include fail"
-   fi
-
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || _internal_fail "include fail"
-   fi
-
-   if [ -z "${MULLE_SDE_EXTENSION_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || _internal_fail "include fail"
-   fi
-
-   if [ -z "${MULLE_SDE_INIT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || _internal_fail "include fail"
-   fi
+   include "path"
+   include "file"
+   include "sde::extension"
+   include "sde::init"
 }
-
 
 
 sde::add::oneshot_extension()
@@ -494,7 +478,7 @@ sde::add::not_in_project()
       export PROJECT_NAME="${RVAL}"
       export PROJECT_LANGUAGE="c"
       export PROJECT_DIALECT="objc"
-      export TEMPLATE_NO_ENVIRONMENT="YES" # hacky
+      export TEMPLATE_NO_ENVIRONMENT='YES' # hacky
 
 
       sde::add::file_via_oneshot_extension "${filename}" \
@@ -545,6 +529,10 @@ sde::add::main()
    local OPTION_ALL_VENDORS='NO'
    local OPTION_FILE_EXTENSION
    local OPTION_TYPE
+   local OPTION_EMBEDDED
+   local OPTION_POST_INIT='YES'
+   local OPTION_IS_URL='DEFAULT'
+
    # need includes for usage
 
    sde::add::include
@@ -561,6 +549,10 @@ sde::add::main()
 
          -a|--all-vendors)
             OPTION_ALL_VENDORS='YES'
+         ;;
+
+         --embedded)
+            OPTION_EMBEDDED='YES'
          ;;
 
          -t|--type)
@@ -618,6 +610,18 @@ sde::add::main()
             PROJECT_DIALECT="$1"
          ;;
 
+         --is-url)
+            OPTION_IS_URL='YES'
+         ;;
+
+         --no-is-url|--no-url|--is-no-url)
+            OPTION_IS_URL='NO'
+         ;;
+
+         --no-post-init)
+            OPTION_POST_INIT='NO'
+         ;;
+
          -v|--vendor)
             [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
@@ -654,46 +658,103 @@ sde::add::main()
       type_default="file"
    fi
 
-   #
-   # check if destination is within our project, decide on where to go
-   #
-   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+   if [ "${OPTION_IS_URL}" = 'DEFAULT' ]
    then
-      filepath="${filename}"
-      if ! is_absolutepath "${filepath}"
-      then
-         r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
-         filepath="${RVAL}"
-      fi
-
-      # make comparable
-      r_resolve_all_path_symlinks "${filepath}"
-      filepath="${RVAL}"
-
-      r_relative_path_between "${filepath}" "${MULLE_VIRTUAL_ROOT}"
-      log_debug "${C_RED}${filepath} - ${MULLE_VIRTUAL_ROOT} = relative=${RVAL}"
-
-      case "${RVAL}" in
-         ../*)
+      case "${filename}" in
+         *://*)
+            OPTION_IS_URL='YES'
          ;;
 
-         *)
-            sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
-                                 "${OPTION_VENDOR}" \
-                                 "${OPTION_NAME}" \
-                                 "${OPTION_TYPE}" \
-                                 "${type_default}" \
-                                 "${OPTION_FILE_EXTENSION}" \
-                                 "${OPTION_ALL_VENDORS}"
-            return $?
+         *:*)
+            local scheme domain host scm user repo branch tag
+
+            eval `mulle-domain parse-url "${filename}" 2> /dev/null`
+            if [ ! -z "${host}" -a ! -z "${user}" -a ! -z "${repo}" ]
+            then
+               filename="`mulle-domain compose-url --domain "${domain}" \
+                                                   --scm "${git}"       \
+                                                   --host "${host}"     \
+                                                   --user "${user}"     \
+                                                   --repo "${repo}"  `"
+            fi
+            OPTION_IS_URL='YES'
+
          ;;
       esac
    fi
 
-   sde::add::not_in_project "${filename}" \
-                            "${OPTION_VENDOR}" \
-                            "${OPTION_NAME}" \
-                            "${OPTION_TYPE}" \
-                            "${OPTION_FILE_EXTENSION}"
+   #
+   # check if destination is within our project, decide on where to go
+   #
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      if [ "${OPTION_IS_URL}" != 'YES' ]
+      then
+         sde::add::not_in_project "${filename}" \
+                                  "${OPTION_VENDOR}" \
+                                  "${OPTION_NAME}" \
+                                  "${OPTION_TYPE}" \
+                                  "${OPTION_FILE_EXTENSION}"
+         return $?
+      fi
+
+      # don't use post-init here, or otherwise we need to be able to allow
+      # the user to turn it off, which complicates things and this is more
+      # of a noob interface anyway
+      local flags
+
+      if [ "${OPTION_POST_INIT}" = 'NO' ]
+      then
+         flags=--no-post-init
+      fi
+
+      rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} init ${flags} --if-missing || return 1
+   fi
+
+   if [ "${OPTION_IS_URL}" = 'YES' ]
+   then
+      if [ "${OPTION_EMBEDDED}" = 'YES' ]
+      then
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add --embedded "${filename}" &&
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
+      else
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add "${filename}" || return 1
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft craftorder
+      fi
+
+      return $?
+   fi
+
+   local filepath
+
+   filepath="${filename}"
+   if ! is_absolutepath "${filepath}"
+   then
+      r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
+      filepath="${RVAL}"
+   fi
+
+   # make comparable
+   r_resolve_all_path_symlinks "${filepath}"
+   filepath="${RVAL}"
+
+   r_relative_path_between "${filepath}" "${MULLE_VIRTUAL_ROOT}"
+   log_debug "${C_RED}${filepath} - ${MULLE_VIRTUAL_ROOT} = relative=${RVAL}"
+
+   case "${RVAL}" in
+      ../*)
+      ;;
+
+      *)
+         sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
+                              "${OPTION_VENDOR}" \
+                              "${OPTION_NAME}" \
+                              "${OPTION_TYPE}" \
+                              "${type_default}" \
+                              "${OPTION_FILE_EXTENSION}" \
+                              "${OPTION_ALL_VENDORS}"
+         return $?
+      ;;
+   esac
 }
 

@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_CRAFTORDER_SH="included"
+MULLE_SDE_CRAFTORDER_SH='included'
 
 
 sde::craftorder::usage()
@@ -289,6 +289,8 @@ sde::craftorder::main()
       shift
    done
 
+   [ $# -eq 0 ] || sde::craftorder::usage "Superflous arguments \"$*\""
+
    if [ "${OPTION_REMAINING}" = 'YES' -a "${OPTION_CACHED}" = 'YES' ]
    then
       fail "You can not specify --remaining and --cached at the same time"
@@ -299,7 +301,6 @@ sde::craftorder::main()
 
    sde::craftorder::__get_info
 
-
    if [ "${OPTION_PRINT_CACHEFILE_PATH}" = 'YES'  ]
    then
       printf "%s\n" "${_craftorderfile#"${MULLE_USER_PWD}/"}"
@@ -308,14 +309,8 @@ sde::craftorder::main()
 
    if [ "${OPTION_REMOVE_CACHED}" = 'YES'  ]
    then
-     if [ -z "${MULLE_PATH_SH}" ]
-     then
-        . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"
-     fi
-     if [ -z "${MULLE_FILE_SH}" ]
-     then
-        . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh"
-     fi
+      include "path"
+      include "file"
 
       remove_file_if_present "${_craftorderfile}"
       return 0

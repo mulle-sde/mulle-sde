@@ -31,7 +31,7 @@
 #
 # Rebuild if files of certain extensions are modified
 #
-MULLE_SDE_EXTENSION_SH="included"
+MULLE_SDE_EXTENSION_SH='included'
 
 
 sde::extension::usage()
@@ -346,7 +346,8 @@ sde::extension::r_get_searchpath()
 
    local s
 
-   r_colon_concat "${MULLE_SDE_EXTENSION_BASE_PATH}" "${homeprefdir}/mulle-sde/extensions"
+   r_colon_concat "${MULLE_SDE_EXTENSION_BASE_PATH}" \
+                  "${homeprefdir}/mulle-sde/extensions"
    s="${RVAL}"
 
    sde::extension::r_get_installdir
@@ -1783,7 +1784,7 @@ sde::extension::add_main()
 
    local expanded_extensions
 
-   sde::extension::r_vendor_expanded_extensions "NO" "$@"
+   sde::extension::r_vendor_expanded_extensions 'NO' "$@"
    expanded_extensions="${RVAL}"
 
    r_add_line "${args}" "${expanded_extensions}"
@@ -1835,7 +1836,7 @@ sde::extension::freshen_main()
 
    local expanded_extensions
 
-   sde::extension::r_vendor_expanded_extensions "YES" "$@"
+   sde::extension::r_vendor_expanded_extensions 'YES' "$@"
    expanded_extensions="${RVAL}"
 
    r_add_line "${args}" "${expanded_extensions}"

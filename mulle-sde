@@ -494,7 +494,7 @@ sde::cd_virtual_root()
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
-      fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the -e flag"
+      fail "To run ${MULLE_EXECUTABLE_NAME} outside of mulle-env, pass the outside of mulle-env flag"
    fi
 
    log_debug "MULLE_VIRTUAL_ROOT: ${MULLE_VIRTUAL_ROOT}"
@@ -519,8 +519,9 @@ sde::cd_virtual_root()
       then
          if [ "${subenvwarn}" = 'YES' ]
          then
-            _log_warning "${MULLE_EXECUTABLE} ${HACKY_ARGS}: warning \"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are \
-in a subshell already ($physdir)"
+            _log_warning "${MULLE_EXECUTABLE} ${HACKY_ARGS}: \
+warning \"${MULLE_VIRTUAL_ROOT}\" is virtual root, but we are in a subshell \
+already ($physdir)"
          fi
       else
          physdir="${MULLE_VIRTUAL_ROOT}"
@@ -591,13 +592,23 @@ sde::try_to_enter_or_download()
 }
 
 
-sde::is_help_request_commandline()
+sde::is_non_environment_commandline()
 {
-   case "${1:-}" in
-      -h|--help|help)
-         return 0
-      ;;
-   esac
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            return 0
+         ;;
+
+         --)
+            break
+         ;;
+
+      esac
+      shift
+   done
+
    return 1
 }
 
@@ -767,7 +778,7 @@ sde::main()
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|env|environment|extension|init|\
-init-and-enter|install|reinit|status|hostname|uname|show|version|\
+init-and-enter|install|reinit|status|hostname|remove|uname|show|version|\
 libexec-dir|library-path|project-dir|env-identifier|steal|test|upgrade|username)
             ;;
 
@@ -782,12 +793,12 @@ libexec-dir|library-path|project-dir|env-identifier|steal|test|upgrade|username)
             # if there is no environment around
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|crun|doctor|donefile|dependency|definition|fetch|\
+craft-status|crun|definition|dep|dependency|doctor|donefile|fetch|\
 files|filename|find|headerorder|ignore|library|linkorder|list|log|\
 mark|match|migrate|monitor|patternfile|patternfiles|project|protect|reflect|run|\
 sourcetree|subproject|style|task|tool|treestatus|unmark|unprotect|update|\
-dep|ext|lib|pat|sub|unveil)
-               if ! sde::is_help_request_commandline "${2:-}"
+ext|lib|pat|sub|unveil)
+               if ! sde::is_non_environment_commandline "$@"
                then
                   sde::exec_command_in_subshell "$@"
                fi
@@ -843,7 +854,7 @@ dep|ext|lib|pat|sub|unveil)
    log_setting "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
    log_setting "MULLE_TECHNICAL_FLAGS=\"${MULLE_TECHNICAL_FLAGS}\""
 
-   if ! sde::is_help_request_commandline "$@"
+   if ! sde::is_non_environment_commandline "$@"
    then
       if ! eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde`
       then
@@ -899,7 +910,7 @@ dep|ext|lib|pat|sub|unveil)
 
    case "${cmd}" in
       add)
-         # shellcheck source=src/mulle-sde-craft.sh
+         # shellcheck source=src/mulle-sde-add.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-add.sh" || exit 1
 
          sde::add::main "$@"
@@ -916,7 +927,7 @@ dep|ext|lib|pat|sub|unveil)
       ;;
 
       callback|task)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -934,7 +945,7 @@ dep|ext|lib|pat|sub|unveil)
       ;;
 
       clean)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
             sde::assert_test_environment "${cmd}"
@@ -974,7 +985,7 @@ headerorder
 ignore
 init
 init-and-enter
-sde::install::in_tmp
+install
 kitchen-dir
 libexec-dir
 library
@@ -990,6 +1001,7 @@ project-dir
 protect
 reinit
 reflect
+remove
 run
 show
 sourcetree
@@ -1011,7 +1023,7 @@ version"
       ;;
 
       config|sourcetree)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1023,7 +1035,7 @@ version"
       ;;
 
       craft)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1036,7 +1048,7 @@ version"
       ;;
 
       craftinfo|craftinfos)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1050,7 +1062,7 @@ version"
       ;;
 
       craftorder|craftorders)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1065,7 +1077,7 @@ version"
       ;;
 
       craftstatus|craft-status)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1078,7 +1090,7 @@ version"
       ;;
 
       crun)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1091,7 +1103,7 @@ version"
       ;;
 
       definition|definitions|def)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
@@ -1107,11 +1119,12 @@ version"
          sde::definition::main "$@"
       ;;
 
-      dependency|dependencies|dep)
-         if ! sde::is_help_request_commandline "$@"
+      dependency|dep)
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
+
          # shellcheck source=src/mulle-sde-dependency.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
 
@@ -1133,7 +1146,7 @@ version"
             sde::exec_mulle_env -N \
                                 "environment" \
                                 "$@"
-#         if ! sde::is_help_request_commandline "$@"
+#         if ! sde::is_non_environment_commandline "$@"
 #         then
 #            sde::cd_virtual_root "environment" 'NO'
 #         fi
@@ -1161,7 +1174,7 @@ version"
       ;;
 
       fetch)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
          fi
@@ -1172,29 +1185,18 @@ version"
       ;;
 
       files)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-list.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
 
-         sde::list::main --files
-      ;;
-
-      list)
-         if ! sde::is_help_request_commandline "$@"
-         then
-            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
-         fi
-         # shellcheck source=src/mulle-sde-list.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
-
-         sde::list::main "$@"
+         sde::list::main --files "$@"
       ;;
 
       headerorder)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
 
@@ -1251,7 +1253,7 @@ version"
       ;;
 
       library|libraries|lib)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
@@ -1266,7 +1268,7 @@ version"
       ;;
 
       linkorder)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
 
@@ -1278,8 +1280,19 @@ version"
          sde::linkorder::main "$@"
       ;;
 
+      list)
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+         # shellcheck source=src/mulle-sde-list.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
+
+         sde::list::main "$@"
+      ;;
+
       log)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
 
@@ -1301,7 +1314,7 @@ version"
       ;;
 
       patternmatch)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}" 'NO'
 
@@ -1318,10 +1331,9 @@ version"
                            "$@"
       ;;
 
-
       patternfile|pat|patternfiles|filename)
          cmd="${cmd//patternfiles/patternfile}"
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}" 'NO'
 
@@ -1339,7 +1351,7 @@ version"
 
       # convenient shortcuts
       mark|unmark)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
@@ -1357,7 +1369,7 @@ version"
       migrate)
          _log_warning "Command only to be used for development of mulle-sde"
 
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
@@ -1368,7 +1380,7 @@ version"
       ;;
 
       monitor)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}"
 
@@ -1382,6 +1394,13 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh" || exit 1
 
          sde::monitor::main "$@"
+      ;;
+
+      remove)
+         # shellcheck source=src/mulle-sde-remove.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-remove.sh" || exit 1
+
+         sde::remove::main "$@"
       ;;
 
       tool-env)
@@ -1417,7 +1436,7 @@ version"
       ;;
 
       reflect|update)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             # must allow NO for subenv updates
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1508,7 +1527,7 @@ version"
       ;;
 
       subproject|subprojects|sub)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
@@ -1525,7 +1544,7 @@ version"
       ;;
 
       test)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
             then
@@ -1541,7 +1560,7 @@ version"
       ;;
 
       treestatus)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
          fi
@@ -1554,7 +1573,7 @@ version"
       ;;
 
       tool)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}"
          fi
@@ -1574,7 +1593,7 @@ version"
       ;;
 
       unveil)
-         if ! sde::is_help_request_commandline "$@"
+         if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "environment" 'NO'
          fi

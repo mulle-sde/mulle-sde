@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_CONFIG_SH="included"
+MULLE_SDE_CONFIG_SH='included'
 
 
 sde::config::usage()
@@ -705,7 +705,7 @@ sde::config::switch()
          ;;
 
          -p|--print)
-            OPTION_PRINT="YES"
+            OPTION_PRINT='YES'
          ;;
 
          -d|--dependency)

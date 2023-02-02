@@ -36,9 +36,7 @@ you only want to maintain its dependencies with mulle-sde, the rest is
 kept as is:
 
 ``` sh
-mulle-sde init                                # project-type "none" is implicit
-mulle-sde dependency add --github madler zlib # add one or more dependencies
-mulle-sde craft                               # build dependencies
+mulle-sde add github:madler/zlib # add one or more dependencies
 ```
 
 This will create four folders inside your project:
@@ -55,6 +53,12 @@ In `dependency` you will then find the familiar file structure with include and
 lib folders, ready for inclusion and linking in your project. You can change
 the positions of the three visible folders to any place you like with
 environment variables.
+
+If you want to embed the project instead and compile it yourself use:
+
+``` sh
+mulle-sde dependency add --embedded github:madler/zlib # add one or more dependencies
+```
 
 
 ## Documentation

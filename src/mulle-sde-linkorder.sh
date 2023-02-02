@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_LINKORDER_SH="included"
+MULLE_SDE_LINKORDER_SH='included'
 
 
 sde::linkorder::usage()
@@ -1033,7 +1033,7 @@ sde::linkorder::main()
 
    if [ "${OPTION_OUTPUT_FORMAT}" != "node" ]
    then
-      sde::linkorder::r_library_searchpath "YES"
+      sde::linkorder::r_library_searchpath 'YES'
       library_searchpath="${RVAL}"
 
       case "${MULLE_UNAME}" in

@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_LIBRARY_SH="included"
+MULLE_SDE_LIBRARY_SH='included'
 
 #
 # no-fs,,no-dependency,no-build: not in the project tree and it's not built
@@ -336,7 +336,7 @@ sde::library::add_main()
 
             sde::library::add_framework "$1" "${RVAL}" "${options}" "${userinfo}"
 
-            added="YES"
+            added='YES'
          ;;
 
          # backwards compatibility
@@ -398,7 +398,7 @@ sde::library::add_main()
          -l*)
             sde::library::add_library "${1:2}" "${marks}" "${options}" "${userinfo}"
 
-            added="YES"
+            added='YES'
          ;;
 
          -*)
@@ -421,7 +421,7 @@ sde::library::add_main()
                sde::library::add_library "$1" "${marks}" "${options}" "${userinfo}"
             fi
 
-            added="YES"
+            added='YES'
          ;;
       esac
 

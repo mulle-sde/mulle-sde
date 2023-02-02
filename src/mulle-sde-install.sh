@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_INSTALL_SH="included"
+MULLE_SDE_INSTALL_SH='included'
 
 
 sde::install::usage()
@@ -504,7 +504,7 @@ sde::install::main()
          ;;
 
          --symlink)
-            OPTION_SYMLINK="YES"
+            OPTION_SYMLINK='YES'
          ;;
 
          --tag)
