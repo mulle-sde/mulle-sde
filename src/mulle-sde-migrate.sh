@@ -140,7 +140,6 @@ sde::migrate::from_v0_47_to_v1_14()
 }
 
 
-
 sde::migrate::do()
 {
    log_entry "sde::migrate::do" "$@"
@@ -196,6 +195,15 @@ sde::migrate::do()
       oldmajor=1
       oldminor=14
    fi
+
+#   if [ "${oldmajor}" -lt 2 ] || [ "${oldmajor}" -eq 2 -a "${oldminor}" -le 1 ]
+#   then
+#      (
+#         sde::migrate::from_v1_14_to_v2_1
+#      ) || exit 1
+#      oldmajor=1
+#      oldminor=14
+#   fi
 
    #
    # if craft etc is same as share now, we can remove etc

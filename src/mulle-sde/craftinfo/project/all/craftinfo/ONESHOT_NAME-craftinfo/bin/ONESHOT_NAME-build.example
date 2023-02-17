@@ -53,8 +53,14 @@ EOF
 }
 
 
+# MEMO: build, install, clean are run in subshells.
+#
+#       Advantage     : you can't mess up state like PWD
+#       Disadvantage  : can't communicate with environment state between
+#                       build and install
+
 build_main()
-{
+(
    log_entry "build_main" "$@"
 
    # You are in the root of the project to compile, which is likely a directory
@@ -83,11 +89,11 @@ build_main()
    # esac
 
    #<#BUILD#>#
-}
+)
 
 
 clean_main()
-{
+(
    log_entry "clean_main" "$@"
 
    #
@@ -96,12 +102,12 @@ clean_main()
    # exekutor make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}"
 
    #<#CLEAN#>#
-}
+)
 
 
 
 install_main()
-{
+(
    log_entry "install_main" "$@"
 
    if ! build_main "$@"
@@ -130,7 +136,7 @@ install_main()
    #
 
    #<#INSTALL#>#
-}
+)
 
 
 main()
@@ -257,15 +263,18 @@ main()
    fi
 
    # see with -ls
-   log_setting "CONFIGURATION = \"${CONFIGURATION}\""
-   log_setting "KITCHEN_DIR   = \"${KITCHEN_DIR}\""
-   log_setting "PLATFORM      = \"${PLATFORM}\""
-   log_setting "TARGET        = \"${TARGET}\""
-   log_setting "PREFIX        = \"${PREFIX}\""
-   log_setting "PWD           = \"${PWD}\""
-   log_setting "SDK           = \"${SDK}\""
-   log_setting "TEEFILE       = \"${TEEFILE}\""
-   log_setting "LOGFILE       = \"${LOGFILE}\""
+   log_setting "MULLE_VIRTUAL_ROOT = \"${MULLE_VIRTUAL_ROOT}\""
+   log_setting "CONFIGURATION      = \"${CONFIGURATION}\""
+   log_setting "KITCHEN_DIR        = \"${KITCHEN_DIR}\""
+   log_setting "LOGFILE            = \"${LOGFILE}\""
+   log_setting "PLATFORM           = \"${PLATFORM}\""
+   log_setting "PREFIX             = \"${PREFIX}\""
+   log_setting "PROJECT_DIR        = \"${PROJECT_DIR}\""
+   log_setting "PWD                = \"${PWD}\""
+   log_setting "ROOT_DIR           = \"${ROOT_DIR}\""
+   log_setting "SDK                = \"${SDK}\""
+   log_setting "TARGET             = \"${TARGET}\""
+   log_setting "TEEFILE            = \"${TEEFILE}\""
 
    local cmd
 

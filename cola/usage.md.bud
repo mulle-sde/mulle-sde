@@ -1,0 +1,32 @@
+## Quick Start
+
+In a very basic mulle-sde scenario you have an existing project and
+you only want to maintain its dependencies with mulle-sde, the rest is
+kept as is:
+
+``` sh
+mulle-sde add github:madler/zlib # add one or more dependencies
+```
+
+This will create four folders inside your project:
+
+```
+.
+├── .mulle       # internal mulle-sde maintenance
+├── dependency   # the desired output will be found here
+├── kitchen      # temporary build folder
+└── stash        # downloaded dependencies
+```
+
+In `dependency` you will then find the familiar file structure with include and
+lib folders, ready for inclusion and linking in your project. You can change
+the positions of the three visible folders to any place you like with
+environment variables.
+
+If you want to embed the project instead and compile it yourself use:
+
+``` sh
+mulle-sde dependency add --embedded github:madler/zlib # add one or more dependencies
+```
+
+

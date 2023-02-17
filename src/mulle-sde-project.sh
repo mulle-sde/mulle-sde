@@ -937,11 +937,11 @@ sde::project::remove_main()
    do
       case "$1" in
          -h|--help|help)
-            sde_remove_usage
+            sde::project::remove_usage
          ;;
 
          -*)
-            sde_remove_usage "Unknown option \"$1\""
+            sde::project::remove_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -952,7 +952,7 @@ sde::project::remove_main()
       shift
    done
 
-   [ $# -eq 0 ] || sde_remove_usage "Superflous arguments \$*\""
+   [ $# -eq 0 ] || sde::project::remove_usage "Superflous arguments \$*\""
 
    [ -z "${MULLE_VIRTUAL_ROOT}" ] && _internal_fail "MULLE_VIRTUAL_ROOT not set"
 
@@ -973,7 +973,7 @@ sde::project::main()
    do
       case "$1" in
          -h|--help|help)
-            sde::project::rename_usage
+            sde::project::usage
          ;;
 
          -*)
@@ -1036,19 +1036,9 @@ EOF
 
 sde::project::initialize()
 {
-   if [ -z "${MULLE_CASE_SH}" ]
-   then
-      # shellcheck source=mulle-case.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-case.sh"      || return 1
-   fi
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || _internal_fail "missing file"
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || _internal_fail "missing file"
-   fi
+   include "case"
+   include "path"
+   include "file"
 }
 
 sde::project::initialize

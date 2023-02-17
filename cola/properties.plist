@@ -1,0 +1,12 @@
+{
+   project =
+   {
+      description="💠 Cross-platform IDE for the command-line";
+      domain="github";
+      name="mulle-sde";
+      username="mulle-sde";
+      reponame="mulle-sde";
+      homepage="https://github.com/mulle-sde/mulle-sde";
+      license="BSD-3-Clause"
+   };
+}

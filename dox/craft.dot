@@ -9,7 +9,7 @@ digraph y {
    "mulle-fetch" -> "Internet"      [ label=" reads" ]
    "mulle-fetch" -> "stash/"        [ label=" writes" ]
 
-   "mulle-craft" -> ".mulle/var/<hostname>/sde/cache/craftorder" [ label=" reads" ]
+   "mulle-craft" -> ".mulle/var/<hostname>-<username>/sde/cache/craftorder" [ label=" reads" ]
 
    "mulle-craft"  -> "mulle-make"  [ label=" executes" ]
    "mulle-craft"  -> "mulle-make"

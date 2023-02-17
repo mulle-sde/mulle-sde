@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=2.0.0
+MULLE_EXECUTABLE_VERSION=2.1.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="5.1"
 
 #
@@ -84,6 +84,7 @@ function sde::print_commands()
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
    ignore         : remove files from getting crafted
+   json           : show dependencies and libraries as JSON
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (files matching patternfiles)
@@ -106,8 +107,10 @@ function sde::print_commands()
    match          : experiment with patternfiles
    monitor        : monitor project files, run reflect and craft
    patternfile    : manage patternfiles
+   product        : location of main executable or library, heuristic
    project-dir    : print project root directory
    project        : rename a project and its files
+   searchpath     : show search path for build products
    steal          : download and flatten source files from mulle-c projects
    subproject     : manage local subprojects
    task           : manage reflect tasks
@@ -171,8 +174,9 @@ EOF
    then
       cat <<EOF
    Start a project with \`mulle-sde init\` or enter an existing mulle-sde
-   project with \`mulle-sde <directory>\`. Get more help with
-   \`mulle-sde init help\`.
+   project with \`mulle-sde <directory>\`. Download and craft dependencies
+   or embed remote sources with \`mulle-sde add\`. Get more help with
+   \`mulle-sde init help\` or  \`mulle-sde add help\`.
 
 EOF
    else
@@ -246,7 +250,7 @@ sde::set_custom_define()
       fail "Invalid Environment key \"${key}\""
    fi
 
-   eval "export ${key}='${value}'"
+   eval "export ${key}=${value}"
 
    log_fluff "Set environment variable \"${key}\" to '${value}'"
 }
@@ -404,6 +408,8 @@ sde::exec_command_in_subshell()
 {
    log_entry "sde::exec_command_in_subshell" "$@"
 
+   local dir_action="$1" ; shift
+
    local current
 
    current="`pwd -P`"
@@ -422,7 +428,7 @@ ${C_INFO}Create an initial empty one with:
 ${C_RESET_BOLD}   mulle-sde init"
    fi
 
-   if [ "${current}" != "${RVAL}" ]
+   if [ "${dir_action}" = 'CD' -a "${current}" != "${RVAL}" ]
    then
       [ -z "${MULLE_USER_PWD}" ] && _internal_fail "MULLE_USER_PWD not set"
       exekutor cd "${RVAL}" || exit 1
@@ -777,15 +783,25 @@ sde::main()
       then
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
-            add|bash-completion|commands|env|environment|extension|init|\
-init-and-enter|install|reinit|status|hostname|remove|uname|show|version|\
-libexec-dir|library-path|project-dir|env-identifier|steal|test|upgrade|username)
+            add|bash-completion|commands|env|environment|env-identifier|\
+extension|get|init|init-and-enter|install|reinit|status|hostname|remove|uname|\
+show|version|libexec-dir|library-path|project-dir|set|steal|test|upgrade|username)
             ;;
 
             # commands where we want to start a subshell and these don't have
             # any help text
             addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir|tool-env|stash-dir)
-               sde::exec_command_in_subshell "$@"
+               sde::exec_command_in_subshell 'CD' "$@"
+            ;;
+
+            #
+            # commands that execute in the user PWD
+            #
+            run)
+               if ! sde::is_non_environment_commandline "$@"
+               then
+                  sde::exec_command_in_subshell 'STAY' "$@"
+               fi
             ;;
 
             #
@@ -793,14 +809,14 @@ libexec-dir|library-path|project-dir|env-identifier|steal|test|upgrade|username)
             # if there is no environment around
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|crun|definition|dep|dependency|doctor|donefile|fetch|\
-files|filename|find|headerorder|ignore|library|linkorder|list|log|\
-mark|match|migrate|monitor|patternfile|patternfiles|project|protect|reflect|run|\
-sourcetree|subproject|style|task|tool|treestatus|unmark|unprotect|update|\
-ext|lib|pat|sub|unveil)
+craft-status|definition|dep|dependency|doctor|donefile|fetch|\
+files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
+mark|match|migrate|monitor|patternfile|patternfiles|product|project|protect|reflect|\
+searchpath|sourcetree|subproject|style|task|tool|treestatus|unmark|\
+unprotect|update|ext|lib|pat|sub|unveil)
                if ! sde::is_non_environment_commandline "$@"
                then
-                  sde::exec_command_in_subshell "$@"
+                  sde::exec_command_in_subshell 'CD' "$@"
                fi
             ;;
 
@@ -923,7 +939,7 @@ ext|lib|pat|sub|unveil)
       ;;
 
       bash-completion)
-         printf "%s\n" "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-bash-completion.sh"
+         log_warning "bash completion no longer supported"
       ;;
 
       callback|task)
@@ -981,11 +997,13 @@ fetch
 filename
 files
 find
+get
 headerorder
 ignore
 init
 init-and-enter
 install
+json
 kitchen-dir
 libexec-dir
 library
@@ -996,6 +1014,7 @@ log
 match
 monitor
 patternfile
+product
 project
 project-dir
 protect
@@ -1003,6 +1022,8 @@ reinit
 reflect
 remove
 run
+searchpath
+set
 show
 sourcetree
 subproject
@@ -1157,6 +1178,7 @@ version"
 #         sde::environment::main "$@"
       ;;
 
+
       env-identifier)
          include "case"
 
@@ -1193,6 +1215,16 @@ version"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
 
          sde::list::main --files "$@"
+      ;;
+
+      'get'|'set')
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            sde::exec_mulle_env -N \
+                                "environment" \
+                                "${cmd}" "$@"
+         exekutor "${MULLE_ENV:-mulle-env}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                     "${cmd}" "$@"
       ;;
 
       headerorder)
@@ -1250,6 +1282,17 @@ version"
                            _install \
                                  "$@"
          return $?
+      ;;
+
+      json)
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                     "json" "$@"
       ;;
 
       library|libraries|lib)
@@ -1331,24 +1374,6 @@ version"
                            "$@"
       ;;
 
-      patternfile|pat|patternfiles|filename)
-         cmd="${cmd//patternfiles/patternfile}"
-         if ! sde::is_non_environment_commandline "$@"
-         then
-            sde::cd_virtual_root "${cmd}" 'NO'
-
-            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
-            then
-               fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
-            fi
-         fi
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "${cmd}" \
-                           "$@"
-      ;;
-
       # convenient shortcuts
       mark|unmark)
          if ! sde::is_non_environment_commandline "$@"
@@ -1396,22 +1421,30 @@ version"
          sde::monitor::main "$@"
       ;;
 
-      remove)
-         # shellcheck source=src/mulle-sde-remove.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-remove.sh" || exit 1
 
-         sde::remove::main "$@"
+      patternfile|pat|patternfiles|filename)
+         cmd="${cmd//patternfiles/patternfile}"
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root "${cmd}" 'NO'
+
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+            then
+               fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
+            fi
+         fi
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MATCH:-mulle-match}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "${cmd}" \
+                           "$@"
       ;;
 
-      tool-env)
-         (
-            exekutor "${MULLE_CRAFT:-mulle-craft}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "tool-env"
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "tool-env"
-         ) | sort
+      product)
+         # shellcheck source=src/mulle-sde-product.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-product.sh" || exit 1
+
+         sde::product::main "$@"
       ;;
 
       project)
@@ -1470,6 +1503,13 @@ version"
          sde::init::main --reinit "$@"
       ;;
 
+      remove)
+         # shellcheck source=src/mulle-sde-remove.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-remove.sh" || exit 1
+
+         sde::remove::main "$@"
+      ;;
+
       run)
          local quote
          local args
@@ -1488,6 +1528,14 @@ version"
 
          eval_exekutor "${args}"
       ;;
+
+
+      searchpath)
+         exekutor "${MULLE_CRAFT:-mulle-craft}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                     searchpath "$@"
+      ;;
+
 
       show)
          # shellcheck source=src/mulle-sde-extension.sh
@@ -1559,6 +1607,27 @@ version"
          sde::test::main "$@"
       ;;
 
+      tool)
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root "${cmd}"
+         fi
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+           sde::exec_mulle_env -N "${cmd}" "$@"
+      ;;
+
+
+      tool-env)
+         (
+            exekutor "${MULLE_CRAFT:-mulle-craft}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "tool-env"
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "tool-env"
+         ) | sort
+      ;;
+
       treestatus)
          if ! sde::is_non_environment_commandline "$@"
          then
@@ -1570,15 +1639,6 @@ version"
                            ${MULLE_TECHNICAL_FLAGS} \
                         status \
                            "$@"
-      ;;
-
-      tool)
-         if ! sde::is_non_environment_commandline "$@"
-         then
-            sde::cd_virtual_root "${cmd}"
-         fi
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-           sde::exec_mulle_env -N "${cmd}" "$@"
       ;;
 
       uname)

@@ -1327,6 +1327,8 @@ sde::craftinfo::script_main()
 
    exekutor chmod 755 "${script}" || exit 1
 
+   log_info "Generated ${C_RESET_BOLD}${script#${MULLE_USER_PWD}/}${C_INFO} script"
+
    if [ "${extension}" = "DEFAULT" ]
    then
       extension=""

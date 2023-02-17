@@ -1140,7 +1140,7 @@ sde::extension::show_main()
 
       if [ -z "${vendorextensions}" ]
       then
-         log_warning "Vendor ${vendor} provides no extensions"
+         log_fluff "Vendor ${vendor} provides no extensions"
          continue
       fi
 
@@ -1794,7 +1794,7 @@ sde::extension::add_main()
 
    # --add must be very first option
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
-      eval sde::init::main --add --no-blurb --no-env "${args}"
+      eval sde::init::main --add --no-clean --no-blurb --no-env "${args}"
 }
 
 

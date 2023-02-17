@@ -12,3 +12,6 @@ dox/*Wishlist.txt
 research/
 .gitignore
 .mulle-make-build-dir
+cola/wilted/
+mulle-markdown-preview-*.html
+build-*/

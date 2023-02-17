@@ -1,28 +1,28 @@
 
 PIX=\
-mulle-sde-add.png \
-mulle-sde-cmakelists.png \
-mulle-sde-craft.png \
-mulle-sde-dependency.png \
-mulle-sde-environment.png \
-mulle-sde-extension.png \
-mulle-sde-extension-fs.png \
-mulle-sde-library.png \
-mulle-sde-list.png \
-mulle-sde-linkorder.png \
-mulle-sde-log.png \
-mulle-sde-patternfile.png \
-mulle-sde-monitor.png \
-mulle-sde-overview.png \
-mulle-sde-reflect.png \
-mulle-sde-subproject.png \
-mulle-sde-status.png \
-mulle-sde-tool.png \
-reflect.png \
-craft.png
+mulle-sde-add.svg \
+mulle-sde-cmakelists.svg \
+mulle-sde-craft.svg \
+mulle-sde-dependency.svg \
+mulle-sde-environment.svg \
+mulle-sde-extension.svg \
+mulle-sde-extension-fs.svg \
+mulle-sde-library.svg \
+mulle-sde-list.svg \
+mulle-sde-linkorder.svg \
+mulle-sde-log.svg \
+mulle-sde-patternfile.svg \
+mulle-sde-monitor.svg \
+mulle-sde-overview.svg \
+mulle-sde-reflect.svg \
+mulle-sde-subproject.svg \
+mulle-sde-status.svg \
+mulle-sde-tool.svg \
+reflect.svg \
+craft.svg
 
-%.png: %.dot
-	dot -Tpng -o $*.png $<
+%.svg: %.dot
+	dot -Tsvg -o $*.svg $<
 
 
 all: $(PIX)

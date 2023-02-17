@@ -529,6 +529,11 @@ sde::craft::main()
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
 
    target="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET}}"
+   if [ "${target}" = "NONE" ]
+   then
+      log_fluff "MULLE_SDE_TARGET/MULLE_SDE_CRAFT_TARGET is \"NONE\", so nothing will be built"
+      return 0
+   fi
 
    if [ "${PROJECT_TYPE}" = "none" ]
    then
@@ -594,6 +599,11 @@ sde::craft::main()
             include "sde::clean"
 
             sde::clean::main "$1"
+         ;;
+
+         --debug|--release)
+            r_capitalize "${1:2}"
+            buildstyle="${RVAL}"
          ;;
 
          --build-type|--build-style)

@@ -51,30 +51,36 @@ sde::add::usage()
    FILE_USAGE_NAME="${FILE_USAGE_NAME:-${MULLE_USAGE_NAME} add}"
 
    COMMON_OPTIONS="\
-   -o <extension>          : oneshot extension to use in vendor/extension form
-   -t <type>               : type of file to create (file)
-   --file-extension <name> : force file extension"
+   -e <extension>          : force file extension
+   -o <vendor/extension>   : oneshot extension to use in vendor/extension form
+   -t <type>               : type of file to create (file)"
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} add [options] <filepath>
+   ${MULLE_USAGE_NAME} add [options] <file|url>
 
-   Add an existing file or create a file from a template. The add command
-   can be executed without a virtual environment in place. Inside a mulle-sde
-   project this command checks if your file can be reflected and will
-   \`reflect\`.
+   Add an existing file or create a file from a template. If an URL is given,
+   it is used to create a dependency instead. This is a convenience command
+   that will \`reflect\` or \`craft\`, when it seems appropriate. For a
+   dependency, this command will create a new project with \`init\`, if none
+   exists so far.
 
-   The default type is "file" for C and "class" for Objective-C. Filenames
-   that contain a '+' look for a template of type "category" first, before
-   falling back on type "file".
+   For file creation a type can specified. The default type is "file" for C
+   and "class" for Objective-C. Filenames that contain a '+' look for a
+   template of type "category" first, before falling back on type "file".
 
    Create a "${MULLE_SDE_ETC_DIR#"${MULLE_USER_PWD}/"}/header.default" or
    "~/.mulle/etc/sde/header.default" file to prepend copyright information
    to your file. Change "default" to the desired file extension if you want
    to have different contents for different languages.
 
-   Example:
-         ${MULLE_USAGE_NAME} add -t protocolclass src/MyProtocolClass.m
+   The add command can be executed without a virtual environment in place.
+
+Examples:
+      ${MULLE_USAGE_NAME} add src/foo.c
+      ${MULLE_USAGE_NAME} add -t protocolclass src/MyProtocolClass.m
+      ${MULLE_USAGE_NAME} add github:madler/zlib
+      ${MULLE_USAGE_NAME} add clib:clibs/ms
 
 Options:
 EOF
@@ -152,11 +158,9 @@ sde::add::_file_via_oneshot_extension()
    #
 
    log_debug "Looking for direct name hit"
-   shell_disable_glob; IFS=$'\n'
-   for vendor in ${vendors}
-   do
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
 
+   .foreachline vendor in ${vendors}
+   .do
       if sde::extension::find_main -q "${vendor}/${name}" "oneshot"
       then
          sde::add::oneshot_extension "${filepath}" \
@@ -165,8 +169,7 @@ sde::add::_file_via_oneshot_extension()
                                     "${category}"
          return $?
       fi
-   done
-   shell_enable_glob; IFS="${DEFAULT_IFS}"
+   .done
 
    if [ ! -z "${genericname}" -a "${genericname}" != "${name}" ]
    then
@@ -175,11 +178,8 @@ sde::add::_file_via_oneshot_extension()
       #
       # fall back to non-specialized files
       #
-      shell_disable_glob; IFS=$'\n'
-      for vendor in ${vendors}
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
-
+      .foreachline vendor in ${vendors}
+      .do
          if sde::extension::find_main -q "${vendor}/${genericname}" "oneshot"
          then
             sde::add::oneshot_extension "${filepath}" \
@@ -188,8 +188,7 @@ sde::add::_file_via_oneshot_extension()
                                        "${category}"
             return $?
          fi
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .done
    fi
 
    return 4  # not found
@@ -530,6 +529,7 @@ sde::add::main()
    local OPTION_FILE_EXTENSION
    local OPTION_TYPE
    local OPTION_EMBEDDED
+   local OPTION_BUILD_TYPE
    local OPTION_POST_INIT='YES'
    local OPTION_IS_URL='DEFAULT'
 
@@ -551,6 +551,10 @@ sde::add::main()
             OPTION_ALL_VENDORS='YES'
          ;;
 
+         --debug|--release)
+            OPTION_BUILD_TYPE="${1:2}"
+         ;;
+
          --embedded)
             OPTION_EMBEDDED='YES'
          ;;
@@ -562,14 +566,14 @@ sde::add::main()
             OPTION_TYPE="$1"
          ;;
 
-         -fe|--file-extension)
+         -e|-fe|--file-extension)
             [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
             OPTION_FILE_EXTENSION="$1"
          ;;
 
-         -o|--oneshot-extension|-e|--extension)
+         -o|--oneshot-extension|--extension)
             [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
 
@@ -644,19 +648,13 @@ sde::add::main()
 
    [ $# -ne 1  ] && sde::add::usage
 
-
    local filename
+   local scheme domain host user repo branch tag scm
 
    filename="$1"
-
-   local type_default
-
-   if [ "${PROJECT_DIALECT}" = 'objc' ]
-   then
-      type_default="class"
-   else
-      type_default="file"
-   fi
+   scm="git"
+   r_basename "$1"
+   repo="${RVAL}"
 
    if [ "${OPTION_IS_URL}" = 'DEFAULT' ]
    then
@@ -666,16 +664,28 @@ sde::add::main()
          ;;
 
          *:*)
-            local scheme domain host scm user repo branch tag
-
             eval `mulle-domain parse-url "${filename}" 2> /dev/null`
+
             if [ ! -z "${host}" -a ! -z "${user}" -a ! -z "${repo}" ]
             then
-               filename="`mulle-domain compose-url --domain "${domain}" \
-                                                   --scm "${git}"       \
-                                                   --host "${host}"     \
-                                                   --user "${user}"     \
-                                                   --repo "${repo}"  `"
+               case "${domain}" in
+                  clib)
+                     r_filepath_concat "${user}" "${repo}"
+                     filename="${RVAL}"
+                     scm="${domain}"
+                     OPTION_EMBEDDED='YES'
+                  ;;
+
+                  *)
+                     filename="`mulle-domain compose-url --domain "${domain}" \
+                                                         --scm "${scm}"       \
+                                                         --host "${host}"     \
+                                                         --user "${user}"     \
+                                                         --repo "${repo}"  `"
+                     # if somehow unprintable use original again
+                     filename="${filename:-$1}"
+                  ;;
+               esac
             fi
             OPTION_IS_URL='YES'
 
@@ -708,18 +718,24 @@ sde::add::main()
          flags=--no-post-init
       fi
 
-      rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} init ${flags} --if-missing || return 1
+      rexekutor "${MULLE_SDE:-mulle-sde}" \
+                     ${MULLE_TECHNICAL_FLAGS} init ${flags} \
+                                                   -e sde \
+                                                   --no-demo \
+                                                   --if-missing || return 1
    fi
 
    if [ "${OPTION_IS_URL}" = 'YES' ]
    then
       if [ "${OPTION_EMBEDDED}" = 'YES' ]
       then
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add --embedded "${filename}" &&
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add --scm "${scm}" \
+                                                                     --address "src/${repo}" \
+                                                                     --embedded "${filename}" &&
          rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
       else
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add "${filename}" || return 1
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft craftorder
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add --scm "${scm}" "${filename}" || return 1
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder
       fi
 
       return $?
@@ -743,18 +759,27 @@ sde::add::main()
 
    case "${RVAL}" in
       ../*)
-      ;;
-
-      *)
-         sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
-                              "${OPTION_VENDOR}" \
-                              "${OPTION_NAME}" \
-                              "${OPTION_TYPE}" \
-                              "${type_default}" \
-                              "${OPTION_FILE_EXTENSION}" \
-                              "${OPTION_ALL_VENDORS}"
-         return $?
+         fail "File path \"${RVAL}\" escapes the project"
+         return
       ;;
    esac
+
+   local type_default
+
+   if [ "${PROJECT_DIALECT}" = 'objc' ]
+   then
+      type_default="class"
+   else
+      type_default="file"
+   fi
+
+   sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
+                        "${OPTION_VENDOR}" \
+                        "${OPTION_NAME}" \
+                        "${OPTION_TYPE}" \
+                        "${type_default}" \
+                        "${OPTION_FILE_EXTENSION}" \
+                        "${OPTION_ALL_VENDORS}"
+   return $?
 }
 

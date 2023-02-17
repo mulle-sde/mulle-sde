@@ -406,12 +406,15 @@ sde::init::environment_text_to_mset()
 
    local text="$1"
 
+   local output
+
    # add lf for read
    text="${text}
 "
 
    local line
    local comment
+   local sep
 
    while IFS=$'\n' read -r line
    do
@@ -457,13 +460,16 @@ sde::init::environment_text_to_mset()
       #
       if [ -z "${comment}" ]
       then
-         echo "'${line}'"
+         output="${output}${sep}'${line}'"
       else
          r_escaped_singlequotes "${comment}"
-         echo "'${line}##${RVAL}'"
+         output="${output}${sep}'${line}##${RVAL}'"
          comment=
       fi
+      sep=$'\n'
    done <<< "${text}"
+
+   RVAL="${output}"
 }
 
 
@@ -638,7 +644,9 @@ sde::init::add_to_environment()
    log_debug "Environment: ${text}"
 
    # add an empty linefeed for read
-   environment="`sde::init::environment_text_to_mset "${text}"`" || exit 1
+   sde::init::environment_text_to_mset "${text}"
+   environment="${RVAL}"
+
    if [ -z "${environment}" ]
    then
       return
@@ -993,22 +1001,14 @@ sde::init::_copy_extension_template_files()
 {
    log_entry "sde::init::_copy_extension_template_files" "$@"
 
-   local extensiondir="$1"
+   local sourcedir="$1"
    local subdirectory="$2"
-   local extension="$3"
-   local projecttype="$4"
+   local projecttype="$3"
+   local extension="$4"
    local force="$5"
    local onlyfilename="$6"
 
    shift 6
-
-   local sourcedir
-
-   sourcedir="${extensiondir}/${subdirectory}/${projecttype}"
-   if ! sde::init::_check_dir "${sourcedir}"
-   then
-      return
-   fi
 
    #
    # copy and expand stuff from project folder. Be extra careful not to
@@ -1077,23 +1077,51 @@ sde::init::_copy_extension_template_directory()
 
    shift 4
 
-   local first
    local second
+   local seconddir
+   local inherit
 
-   first="all"
+   if [ "${projecttype}" != 'all' ]
+   then
+      inherit='all'
+   fi
+
    second="${projecttype:-none}"
+   seconddir="${extensiondir}/${subdirectory}/${second}"
+   if sde::init::_check_dir "${seconddir}"
+   then
+      local inheritfile
 
-   sde::init::_copy_extension_template_files "${extensiondir}" \
-                                             "${subdirectory}" \
-                                             "${extension}" \
-                                             "${first}" \
-                                             "$@"
+      inheritfile="${seconddir}/.inherit"
+      if [ -f "${inheritfile}" ]
+      then
+         log_fluff "Inherit file \"${inheritfile}\" found"
+         inherit="`rexekutor grep -E '^#' "${inheritfile}" `"
+      fi
+   else
+      seconddir=
+   fi
 
-   sde::init::_copy_extension_template_files "${extensiondir}" \
-                                             "${subdirectory}" \
-                                             "${extension}" \
-                                             "${second}" \
-                                             "$@"
+   local first
+
+   .for first in ${inherit}
+   .do
+      log_fluff "Projecttype \"${second}\" inherits templates from \"${first}\""
+      sde::init::_copy_extension_template_directory "${extensiondir}" \
+                                                    "${subdirectory}" \
+                                                    "${first}" \
+                                                    "${extension}" \
+                                                    "$@"
+   .done
+
+   if [ ! -z "${seconddir}" ]
+   then
+      sde::init::_copy_extension_template_files "${seconddir}" \
+                                                "${subdirectory}" \
+                                                "${second}" \
+                                                "${extension}" \
+                                                "$@"
+   fi
 }
 
 
@@ -1171,8 +1199,12 @@ sde::init::_delete_extension_template_directory()
    local subdirectory="$2"
    local projecttype="$3"
 
-   sde::init::_delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" "${projecttype}"
-   sde::init::_delete_leaf_files_or_directories "${extensiondir}" "${subdirectory}" all
+   sde::init::_delete_leaf_files_or_directories "${extensiondir}" \
+                                                "${subdirectory}" \
+                                                "${projecttype}"
+   sde::init::_delete_leaf_files_or_directories "${extensiondir}" \
+                                                "${subdirectory}" \
+                                                'all'
 }
 
 
@@ -1485,22 +1517,31 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
       then
          if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
-            sde::init::add_to_environment "${extensiondir}/environment-upgrade" "${projecttype}"
+            sde::init::add_to_environment "${extensiondir}/environment-upgrade" \
+                                          "${projecttype}"
          else
-            sde::init::add_to_environment "${extensiondir}/environment-init" "${projecttype}"
+            sde::init::add_to_environment "${extensiondir}/environment-init" \
+                                          "${projecttype}"
          fi
-         sde::init::add_to_environment "${extensiondir}/environment" "${projecttype}"
+         sde::init::add_to_environment "${extensiondir}/environment" \
+                                       "${projecttype}"
 
          #
          # same for post-environment
          #
          if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
-            sde::init::add_to_environment "${extensiondir}/post-environment-upgrade" "${projecttype}" "post-extension"
+            sde::init::add_to_environment "${extensiondir}/post-environment-upgrade" \
+                                          "${projecttype}" \
+                                          "post-extension"
          else
-            sde::init::add_to_environment "${extensiondir}/post-environment-init" "${projecttype}" "post-extension"
+            sde::init::add_to_environment "${extensiondir}/post-environment-init" \
+                                          "${projecttype}" \
+                                          "post-extension"
          fi
-         sde::init::add_to_environment "${extensiondir}/post-environment" "${projecttype}" "post-extension"
+         sde::init::add_to_environment "${extensiondir}/post-environment" \
+                                       "${projecttype}" \
+                                       "post-extension"
 
          sde::init::add_to_tools "${extensiondir}/tool"
 
@@ -2343,7 +2384,7 @@ sde::init::run_add()
 {
    log_entry "sde::init::run_add" "$@"
 
-   [ "$#" -eq 0 ] || sde::init::usage "extranous arguments \"$*\""
+   [ $# -ne 0 ] && sde::init::usage "Superflous arguments \"$*\""
 
    [ "${OPTION_REINIT}" = 'YES' -o "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--add and --reinit/--upgrade exclude each other"
@@ -2425,14 +2466,6 @@ sde::init::get_installed_extensions()
 
    local extensions
 
-   if [ -d "${MULLE_SDE_SHARE_DIR}.old" ]
-   then
-      log_warning "Last upgrade failed. Restoring the last configuration."
-      rmdir_safer "${MULLE_SDE_SHARE_DIR}" &&
-      exekutor mv "${MULLE_SDE_SHARE_DIR}.old" "${MULLE_SDE_SHARE_DIR}" &&
-      rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
-   fi
-
    extensions="`sde::init::recall_installed_extensions "${extensionfile}"`" || exit 1
    if [ -z "${extensions}" ]
    then
@@ -2444,11 +2477,8 @@ sde::init::get_installed_extensions()
 
    local extension
 
-   IFS=$'\n'; shell_disable_glob
-   for extension in ${extensions}
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
-
+   .foreachline extension in ${extensions}
+   .do
       case "${extension}" in
          *\;meta)
             if [ -z "${OPTION_META}" ]
@@ -2486,8 +2516,7 @@ sde::init::get_installed_extensions()
             log_warning "Garbled memorized extension \"${extension}\""
          ;;
       esac
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 }
 
 
@@ -2501,18 +2530,14 @@ sde::init::remove_from_marks()
    local i
    local newmarks=""
 
-   IFS=","; shell_disable_glob
-   for i in ${marks}
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
-
+   .foreachitem i in ${marks}
+   .do
       if [ "${mark}" != "${i}" ]
       then
          r_comma_concat "${newmarks}" "${i}"
          newmarks="${RVAL}"
       fi
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 
    printf "%s\n" "${newmarks}"
 }
@@ -2649,6 +2674,8 @@ sde::init::_run_upgrade()
 {
    log_entry "sde::init::_run_upgrade" "$@"
 
+   [ $# -ne 0 ] && sde::init::usage "Superflous arguments \"$*\""
+
    rexekutor "${MULLE_ENV:-mulle-env}" \
                      ${MULLE_TECHNICAL_FLAGS} \
                      --no-protect \
@@ -2691,23 +2718,29 @@ This may hurt, but you have to init again."
 
       local file
 
-      shell_enable_nullglob
-      for file in ".mulle/share/env/tool-extension" ".mulle/share/env/tool-extension".*
-      do
-         shell_disable_nullglob
+      .for file in ".mulle/share/env/tool-extension" ".mulle/share/env/tool-extension".*
+      .do
          remove_file_if_present "${file}"
-      done
-      shell_disable_nullglob
+      .done
+
+      # some old cruft that we need to clean, before things get reinstalled
+      rmdir_safer ".mulle/share/env/libexec"
    fi
 
+   # clean .mulle/share/sde
+
+   #
+   # TODO: should probably also move everything else except mulle-env, which
+   #       we still need
+   #
    sde::project::assert_name "${PROJECT_NAME}"
    sde::project::set_name_variables "${PROJECT_NAME}"
    sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    # rmdir_safer ".mulle-env"
    if ! sde::init::install_extensions "${OPTION_MARKS}" \
-                           "${OPTION_PROJECT_FILE}" \
-                           "${MULLE_FLAG_MAGNUM_FORCE}"
+                                      "${OPTION_PROJECT_FILE}" \
+                                      "${MULLE_FLAG_MAGNUM_FORCE}"
    then
       return 1
    fi
@@ -2886,7 +2919,7 @@ sde::init::_run_common()
 
    local projecttype="${1:-none}"
 
-   [ $# -lt 1 ] && shift && sde::init::usage "Superflous arguments \"$*\""
+   [ $# -ne 1 ] && shift && sde::init::usage "Superflous arguments \"$*\""
 
    sde::init::validate_projecttype "${projecttype}" "${MULLE_FLAG_MAGNUM_FORCE}"
 
@@ -2976,7 +3009,6 @@ sde::init::_run_reinit()
       fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
    fi
 
-
    sde::init::read_project_environment
 
    sde::init::_run_common "$@"
@@ -3063,10 +3095,6 @@ sde::init::start()
 {
    log_entry "sde::init::start" "$@"
 
-   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
-   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" \
-      echo "${1:-Init} start `date` in $PWD on ${MULLE_HOSTNAME}"
-
    # we clobber these just to be safe
 
    rmdir_safer "${MULLE_CRAFT_VAR_DIR}"
@@ -3082,7 +3110,21 @@ sde::init::start()
    rmdir_safer "${MULLE_SOURCETREE_SHARE_DIR}"
 
    # we like to keep the extension file around so don't clobber completely
-   rmdir_safer "${MULLE_SDE_SHARE_DIR}/version"
+   # if there is none, don't clobber .old
+   if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
+   then
+      rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
+      exekutor mv "${MULLE_SDE_SHARE_DIR}" "${MULLE_SDE_SHARE_DIR}.old"
+   fi
+
+   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
+   if [ -d "${MULLE_SDE_SHARE_DIR}.old" ]
+   then
+      exekutor cp "${MULLE_SDE_SHARE_DIR}.old/extension" "${MULLE_SDE_SHARE_DIR}/extension"
+   fi
+
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/.init" \
+      echo "${1:-Init} start `date` in $PWD on ${MULLE_HOSTNAME}"
 }
 
 
@@ -3096,6 +3138,7 @@ sde::init::end()
 #   exekutor rmdir "${MULLE_SOURCETREE_SHARE_DIR}" 2>  /dev/null
 #   exekutor rmdir "${MULLE_MONITOR_SHARE_DIR}" 2>  /dev/null
 
+   rmdir_safer "${MULLE_SDE_SHARE_DIR}.old"
    remove_file_if_present "${MULLE_SDE_SHARE_DIR}/.init"
 }
 
@@ -3123,8 +3166,11 @@ sde::init::run()
 
       if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
       then
+         local dir
+
+         dir="${PWD}"
          cd /
-         rmdir_safer "${PWD}"
+         rmdir_safer "${dir}"
       fi
    fi
 
@@ -3380,6 +3426,7 @@ sde::init::_main()
    local OPTION_PROJECT_FILE
    local OPTION_PROJECT_SOURCE_DIR='DEFAULT'
    local OPTION_REFLECT='YES'
+   local OPTION_CLEAN='DEFAULT'
    local OPTION_REINIT
    local OPTION_RUNTIME=""
    local OPTION_TEMPLATE_FILES='YES'
@@ -3449,6 +3496,14 @@ sde::init::_main()
 
          -c)
             OPTION_META="c-developer"
+         ;;
+
+         --clean)
+            OPTION_CLEAN='YES'
+         ;;
+
+         --no-clean)
+            OPTION_CLEAN='NO'
          ;;
 
          -objc)
@@ -3915,6 +3970,16 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
             _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
             sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
+         fi
+
+         # need -f option to clean "test" without warning
+         if [ "${OPTION_CLEAN}" != 'NO' ]
+         then
+            exekutor "${MULLE_SDE:-mulle-sde}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        -N \
+                        -f \
+                     clean tidy || exit 1
          fi
 
          if [ "${OPTION_REFLECT}" = 'YES' ]

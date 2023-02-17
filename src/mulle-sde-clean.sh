@@ -57,9 +57,12 @@ MULLE_SDE_CLEAN_SH='included'
 # -----------|---------------|---------------|---------------|---------------|
 # sourcetree |               |               |  cln/rst      |               |
 # -----------|---------------|---------------|---------------|---------------|
+# tool       |   -f  link    |               |               |               |
+# -----------|---------------|---------------|---------------|---------------|
 #
 #
 # craft:       project, craftorder, built, individual build, build, dependency
+# env:         -f tool link
 # fetch:       archive cache, mirror cache
 # make:        nothing
 # match:       patternfiles in var
@@ -190,10 +193,19 @@ sde::clean::project()
 {
    log_entry "sde::clean::project" "$@"
 
+   #
+   # force relink of tools to get newer versions of binaries installed
+   # in different location
+   #
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
-                  project
+                  project &&
+   rexekutor "${MULLE_CRAFT:-mulle-env}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  -f \
+               tool \
+                  link
 }
 
 
@@ -448,6 +460,7 @@ sde::clean::main()
    log_entry "sde::clean::main" "$@"
 
    local OPTION_TEST='YES'
+   local OPTION_LENIENT
 
    #
    # handle options
@@ -457,6 +470,10 @@ sde::clean::main()
       case "$1" in
          -h*|--help|help)
             sde::clean::usage
+         ;;
+
+         --lenient)
+            OPTION_LENIENT='YES'
          ;;
 
          --no-graveyard)
@@ -625,6 +642,11 @@ test"
 
             if [ -z "${found}" ]
             then
+               if [ "${OPTION_LENIENT}" = 'YES' ]
+               then
+                  return
+               fi
+
                fail "Unknown clean target \"$1\".
 ${C_VERBOSE}Known dependencies:
 ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`

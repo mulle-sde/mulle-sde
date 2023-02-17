@@ -348,7 +348,21 @@ env::plugin::mulle::r_add_runpath()
    [ -z "${MULLE_ENV_VAR_DIR}" ] && _internal_fail "MULLE_ENV_VAR_DIR not set"
 
    # reverse order of precedence
-   r_colon_concat "${MULLE_ENV_VAR_DIR}/bin" "${runpath}"
+   local newpath
+
+   newpath="${MULLE_ENV_VAR_DIR}/bin"
+
+   local item
+
+   .foreachpath item in ${runpath}
+   .do
+      if [ "${item}" != "${MULLE_ENV_VAR_DIR}/bin" ]
+      then
+         r_colon_concat "${newpath}" "${item}"
+         newpath="${RVAL}"
+      fi
+   .done
+   RVAL="${newpath}"
 }
 
 
