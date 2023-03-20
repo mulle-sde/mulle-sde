@@ -2606,7 +2606,8 @@ sde::init::run_user_post_init_script()
    log_warning "Running post-init script \"${scriptfile}\""
    log_info "You can suppress this behavior with --no-post-init"
 
-   exekutor "${scriptfile}" "$@" || exit 1
+   MULLE_TECHNICAL_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
+      exekutor "${scriptfile}" "$@" || exit 1
 }
 
 
@@ -4011,7 +4012,7 @@ sde::init::main()
 
    if [ "${RERUN}" = 'YES' ]
    then
-      sde::exec_command_in_subshell init "$@"
+      sde::exec_command_in_subshell "CD" init "$@"
    fi
 
    return $rval

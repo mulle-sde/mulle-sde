@@ -42,24 +42,21 @@ sde::common::commalist_contains()
    local i
 
    # is this faster than case ?
-   shell_disable_glob ; IFS=","
-   for i in ${list}
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .foreachitem i in ${list}
+   .do
       if [ "${i}" = "${key}" ]
       then
          return 0
       fi
-   done
+   .done
 
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
    return 1
 }
 
 
 sde::common::r_commalist_add()
 {
-   log_entry "commalist_add" "$@"
+   log_entry "sde::common::r_commalist_add" "$@"
 
    local list="$1"
    local value="$2"
@@ -73,6 +70,29 @@ sde::common::r_commalist_add()
 }
 
 
+sde::common::r_commalist_remove()
+{
+   log_entry "sde::common::r_commalist_remove" "$@"
+
+   local list="$1"
+   local value="$2"
+
+   if ! sde::common::commalist_contains "${list}" "${value}"
+   then
+      log_verbose "\"${value}\" already empty"
+      return 0
+   fi
+
+   r_escaped_sed_replacement "${value}"
+   value="${RVAL}"
+
+   RVAL=",${list},"
+   RVAL="${RVAL/,${value},/,}"
+   r_remove_ugly "${RVAL}" ","
+}
+
+
+
 sde::common::commalist_print()
 {
    log_entry "sde::common::commalist_print" "$@"
@@ -81,14 +101,10 @@ sde::common::commalist_print()
 
    local i
 
-   # is this faster than case ?
-   shell_disable_glob; IFS=","
-   for i in ${list}
-   do
+   .foreachitem i in ${list}
+   .do
       printf "%s\n" "$i"
-   done
-
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 }
 
 
@@ -114,20 +130,18 @@ sde::common::rexekutor_sourcetree_nofail()
 
 sde::common::print_platform_excludes()
 {
-   log_entry "sde::common::_append_platform_excludes" "$@"
+   log_entry "sde::common::print_platform_excludes" "$@"
 
    local list="$1"
 
-   shell_disable_glob ; IFS=","
-   for i in ${list}
-   do
+   .foreachitem i in ${list}
+   .do
       case "$i" in
          no-platform-*)
             LC_ALL=C sed -e "s/^no-platform-//" <<< "${i}"
          ;;
       esac
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 }
 
 
@@ -147,9 +161,9 @@ sde::common::validate_platform_excludes()
 }
 
 
-sde::common::_append_platform_excludes()
+sde::common::r_append_platform_excludes()
 {
-   log_entry "sde::common::_append_platform_excludes" "$@"
+   log_entry "sde::common::r_append_platform_excludes" "$@"
 
    local list="$1"
    local add="$2"
@@ -157,26 +171,38 @@ sde::common::_append_platform_excludes()
    local i
 
    # is this faster than case ?
-   shell_disable_glob ; IFS=","
-   for i in ${add}
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
-
-      sde::common::validate_platform_excludes "$1"
+   .foreachitem i in ${add}
+   .do
+      sde::common::validate_platform_excludes "$i"
       i="no-platform-$i"
 
-      if sde::common::commalist_contains "${list}" "$i"
-      then
-         continue
-      fi
-
-      r_comma_concat "${list}" "$i"
+      sde::common::r_commalist_add "${list}" "$i"
       list="${RVAL}"
-   done
+   .done
 
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   RVAL="${list}"
+}
 
-   printf "%s\n" "${list}"
+sde::common::r_remove_platform_excludes()
+{
+   log_entry "sde::common::r_remove_platform_excludes" "$@"
+
+   local list="$1"
+   local remove="$2"
+
+   local i
+
+   # is this faster than case ?
+   .foreachitem i in ${remove}
+   .do
+      sde::common::validate_platform_excludes "$i"
+      i="no-platform-$i"
+
+      sde::common::r_commalist_remove "${list}" "$i"
+      list="${RVAL}"
+   .done
+
+   RVAL="${list}"
 }
 
 
@@ -187,12 +213,19 @@ sde::common::_set_platform_excludes()
    local address="$1"
    local value="$2"
    local stdmarks="$3"
-   local append="${4:-NO}"
+   local operation="${4:-}"
+
+   case "${value}" in
+      *$'\n'*)
+         fail "Value can't contain newlines"
+      ;;
+   esac
+
 
    local marks
 
    marks="${stdmarks}"
-   if [ "${append}" = 'YES' ]
+   if [ ! -z "${operation}" ]
    then
       marks="`exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
@@ -201,7 +234,14 @@ sde::common::_set_platform_excludes()
                 get "${address}" "marks" `"
    fi
 
-   marks="`sde::common::_append_platform_excludes "${marks}" "${value}" `"
+   if [ ${operation} = 'REMOVE' ]
+   then
+      sde::common::r_remove_platform_excludes "${marks}" "${value}"
+   else
+      sde::common::r_append_platform_excludes "${marks}" "${value}"
+   fi
+   marks="${RVAL}"
+
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
@@ -210,12 +250,20 @@ sde::common::_set_platform_excludes()
 }
 
 
+sde::common::remove_platform_excludes()
+{
+   log_entry "sde::common::remove_platform_excludes" "$@"
+
+   sde::common::_set_platform_excludes "$1" "$2" "$3" "REMOVE"
+}
+
+
 sde::common::append_platform_excludes()
 {
    log_entry "sde::common::append_platform_excludes" "$@"
 
-   sde::common::_set_platform_excludes "$1" "$2" "$3"
- }
+   sde::common::_set_platform_excludes "$1" "$2" "$3" "APPEND"
+}
 
 
 sde::common::set_platform_excludes()
@@ -246,7 +294,6 @@ sde::common::get_platform_excludes()
 }
 
 
-
 sde::common::_set_userinfo_field()
 {
    log_entry "sde::common::_set_userinfo_field" "$@"
@@ -254,7 +301,7 @@ sde::common::_set_userinfo_field()
    local address="$1"
    local field="$2"
    local value="$3"
-   local append="${4:-NO}"
+   local operation="${4:-}"
 
    case "${value}" in
       *$'\n'*)
@@ -270,17 +317,21 @@ sde::common::_set_userinfo_field()
                      ${MULLE_SOURCETREE_FLAGS:-}  \
                  get "${address}" "userinfo" `" || return 1
 
-   if [ -z "${MULLE_ARRAY_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || return 1
-   fi
+   include "array"
 
-   if [ "${append}" = 'YES' ]
-   then
-      r_assoc_array_get "${userinfo}" "${field}"
-      sde::common::r_commalist_add "${RVAL}" "${value}"
-      value="${RVAL}"
-   fi
+   case "${operation}" in
+      'APPEND')
+         r_assoc_array_get "${userinfo}" "${field}"
+         sde::common::r_commalist_add "${RVAL}" "${value}"
+         value="${RVAL}"
+      ;;
+
+      'REMOVE')
+         r_assoc_array_get "${userinfo}" "${field}"
+         sde::common::r_commalist_remove "${RVAL}" "${value}"
+         value="${RVAL}"
+      ;;
+   esac
 
    r_assoc_array_set "${userinfo}" "${field}" "${value}"
    userinfo="${RVAL}"
@@ -297,7 +348,7 @@ sde::common::set_sourcetree_userinfo_field()
 {
    log_entry "sde::common::set_sourcetree_userinfo_field" "$@"
 
-   sde::common::_set_userinfo_field "$1" "$2" "$3" 'YES' "$4"
+   sde::common::_set_userinfo_field "$1" "$2" "$3" ''
 }
 
 
@@ -305,7 +356,14 @@ sde::common::append_sourcetree_userinfo_field()
 {
    log_entry "sde::common::append_sourcetree_userinfo_field" "$@"
 
-   sde::common::_set_userinfo_field "$1" "$2" "$3" 'NO' "$4"
+   sde::common::_set_userinfo_field "$1" "$2" "$3" 'APPEND'
+}
+
+sde::common::remove_sourcetree_userinfo_field()
+{
+   log_entry "sde::common::remove_sourcetree_userinfo_field" "$@"
+
+   sde::common::_set_userinfo_field "$1" "$2" "$3" 'REMOVE'
 }
 
 
@@ -328,32 +386,17 @@ sde::common::get_sourcetree_userinfo_field()
       return 1
    fi
 
-   if [ -z "${MULLE_ARRAY_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-array.sh" || exit 1
-   fi
+   include "array"
 
    r_assoc_array_get "${userinfo}" "${field}"
    sde::common::commalist_print "${RVAL}"
 }
 
 
-sde::common::include_nodemarks_if_needed()
-{
-   if [ -z "${MULLE_SOURCETREE_NODEMARKS_SH}" ]
-   then
-      if [ -z "${MULLE_SOURCETREE_LIBEXEC_DIR}" ]
-      then
-         MULLE_SOURCETREE_LIBEXEC_DIR="`"${MULLE_SOURCETREE:-mulle-sourcetree}" libexec-dir`"
-      fi
-      . "${MULLE_SOURCETREE_LIBEXEC_DIR}/mulle-sourcetree-nodemarks.sh" || exit 1
-   fi
-}
-
 
 sde::common::marks_compatible_with_marks()
 {
-   sde::common::include_nodemarks_if_needed
+   include "sourcetree::marks"
 
-   sourcetree::nodemarks::compatible_with_nodemarks "$1" "$2"
+   sourcetree::marks::compatible_with_marks "$1" "$2"
 }

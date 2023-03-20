@@ -2056,7 +2056,7 @@ sde::extension::main()
       list)
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            sde::exec_command_in_subshell extension ${cmd} "$@"
+            sde::exec_command_in_subshell "CD" extension ${cmd} "$@"
          fi
 
          sde::extension::${cmd}_main "$@"

@@ -40,9 +40,9 @@ sde::remove::usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} remove [options] <filepath|url>
+   ${MULLE_USAGE_NAME} remove [options] <filepath|url|env>
 
-   Remove an existing file or a dependency.
+   Remove an existing file or a dependency or environment variable.
 
    Example:
          ${MULLE_USAGE_NAME} remove src/MyProtocolClass.m
@@ -50,17 +50,11 @@ Usage:
 
 Options:
    -h   : this help
-
+   -q   : do not reflect and rebuild, if a dependency is removed
 EOF
    exit 1
 }
 
-
-sde::remove::include()
-{
-   include "path"
-   include "file"
-}
 
 
 sde::remove::in_project()
@@ -83,7 +77,6 @@ sde::remove::not_in_project()
 {
    log_entry "sde::remove::not_in_project" "$@"
 
-
    local filename="$1"
 
    remove_file_if_present "${filename}"
@@ -102,7 +95,7 @@ sde::remove::main()
    then
       if rexekutor mulle-sde -s status --clear --project
       then
-         sde::exec_command_in_subshell remove "$@"
+         sde::exec_command_in_subshell "CD" remove "$@"
       fi
    fi
 
@@ -111,12 +104,15 @@ sde::remove::main()
    local OPTION_ALL_VENDORS='NO'
    local OPTION_FILE_EXTENSION
    local OPTION_TYPE
+   local OPTION_QUICK
    local OPTION_EMBEDDED
    local OPTION_IS_URL='DEFAULT'
+   local OPTION_IS_ENV='DEFAULT'
 
    # need includes for usage
 
-   sde::remove::include
+   include "path"
+   include "file"
 
    #
    # handle options
@@ -136,6 +132,18 @@ sde::remove::main()
             OPTION_IS_URL='NO'
          ;;
 
+         --is-env)
+            OPTION_IS_ENV='YES'
+         ;;
+
+         --no-is-env|--no-env|--is-no-env)
+            OPTION_IS_ENV='NO'
+         ;;
+
+         -q|--quick)
+            OPTION_QUICK='YES'
+         ;;
+
          -*)
             sde::remove::usage "Unknown option \"$1\""
          ;;
@@ -150,11 +158,28 @@ sde::remove::main()
 
    [ $# -ne 1  ] && sde::remove::usage
 
-
    local filename
 
    filename="$1"
+   [  -z "${filename}" ] && sde::remove::usage "filename is empty"
 
+   if [ "${OPTION_IS_ENV}" = 'DEFAULT' ]
+   then
+      r_identifier "${filename}"
+      r_uppercase "${filename}"
+      if [ "${RVAL}" = "${filename}" ]
+      then
+         OPTION_IS_ENV='YES'
+      fi
+   fi
+
+   if [ "${OPTION_IS_ENV}" = 'YES' ]
+   then
+      if rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} environment remove "${filename}"
+      then
+         return 0
+      fi
+   fi
 
    if [ "${OPTION_IS_URL}" = 'DEFAULT' ]
    then
@@ -165,18 +190,19 @@ sde::remove::main()
 
          *:*)
             local scheme domain host scm user repo branch tag
+            local composed
 
             eval `mulle-domain parse-url "${filename}" 2> /dev/null`
             if [ ! -z "${host}" -a ! -z "${user}" -a ! -z "${repo}" ]
             then
-               filename="`mulle-domain compose-url --domain "${domain}" \
+               composed="`mulle-domain compose-url --domain "${domain}" \
                                                    --scm "${git}"       \
                                                    --host "${host}"     \
                                                    --user "${user}"     \
                                                    --repo "${repo}"  `"
+               filename="${composed:-${filename}}"
             fi
             OPTION_IS_URL='YES'
-
          ;;
       esac
    fi
@@ -195,14 +221,24 @@ sde::remove::main()
       fail "Unknown URL ${filename}"
    fi
 
+   if rexekutor mulle-sourcetree ${MULLE_TECHNICAL_FLAGS} -s get "${filename}" > /dev/null
+   then
+      OPTION_IS_URL='YES'
+   fi
+
    if [ "${OPTION_IS_URL}" = 'YES' ]
    then
       mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency remove "${filename}" || return 1
-      if [ "${OPTION_EMBEDDED}" = 'YES' ]
+      if [ "${OPTION_QUICK}" != 'YES' ]
       then
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
-      else
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft craftorder
+         if [ "${OPTION_EMBEDDED}" = 'YES' ]
+         then
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
+         else
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft craftorder
+         fi
       fi
       return $?
    fi

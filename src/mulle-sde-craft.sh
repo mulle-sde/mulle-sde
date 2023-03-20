@@ -57,6 +57,8 @@ Tip:
 Options:
    -h                      : show this usage
    -v                      : show tool output inline
+   -C                      : clean all before crafting
+   -g                      : clean gravetidy before crafting
    -q                      : skip uptodate checks
    --clean                 : clean before crafting (see: mulle-sde clean)
    --from <domain>         : clean specific depenency before crafting (s.a)
@@ -96,45 +98,9 @@ sde::craft::perform_fetch_if_needed()
    #
    if [ ${dbrval} -ge 2 ]
    then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh"
+      include "sde::fetch"
 
-      if [ "${MULLE_SDE_FETCH:-}" = 'NO' ]
-      then
-         log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
-      else
-         log_verbose "Run sourcetree sync"
-
-         local flags
-
-         if [ "${OPTION_SERIAL}" = 'YES' ]
-         then
-            flags="--serial"
-         fi
-
-         eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                              "${MULLE_TECHNICAL_FLAGS:-}" \
-                              "${MULLE_SOURCETREE_FLAGS:-}" \
-                           "sync" \
-                               "${OPTION_SYNCFLAGS}" \
-                               "${OPTION_SERIAL}" || fail "sync fail"
-
-         #
-         # run this quickly, because incomplete previous fetches trip me
-         # up too often (not doing this since mulle-sde doctor is OK now)
-         # exekutor mulle-sde status --stash-only
-         #
-         if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                        --virtual-root \
-                         ${MULLE_TECHNICAL_FLAGS:-} \
-                         ${MULLE_SOURCETREE_FLAGS:-} \
-                       -s \
-                     dbstatus
-         then
-            _internal_fail "Database not clean after sync"
-         fi
-
-         log_verbose "Run sourcetree complete"
-      fi
+      sde::fetch::do_sync_sourcetree "${OPTION_SERIAL}"
    fi
 }
 
@@ -163,7 +129,12 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
    changes=""
 
-   .foreachline repository in `sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `
+   include "case"
+
+   local lines
+
+   lines="`sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `"
+   .foreachline repository in ${lines}
    .do
       filename="${repository}/${MULLE_SDE_ETC_DIR#"${MULLE_VIRTUAL_ROOT}/"}/reflect"
 
@@ -175,8 +146,6 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
          log_fluff "${repository} has only a single sourcetree"
          .continue
       fi
-
-      include "case"
 
       r_basename "${repository}"
       dependencyname="${RVAL}"
@@ -322,25 +291,41 @@ sde::craft::perform_clean_if_needed()
    log_entry "sde::craft::perform_clean_if_needed" "$@"
 
    local dbrval="$1"
-   local mode="$2"
+   local mode="${2:-DEFAULT}"
 
-   local clean
+   local cleandomain
 
    #
    # at this point, it's better to clean, because cmake caches might
    # get outdated (sourcetree syncs don't run this often)
    #
-   if [ "${mode}" = 'DEFAULT' -a ${dbrval} -ge 2  ]
-   then
-      clean='YES'
-   fi
+   case "${mode}" in
+      'DEFAULT')
+         if [ "${dbrval}" -lt 2  ]
+         then
+            return $dbrval
+         fi
+      ;;
 
-   if [ "${clean:-${mode}}" = 'YES' ]
-   then
-      include "sde::clean"
+      'NO')
+         return $dbrval
+      ;;
 
-      sde::clean::main --no-test
-   fi
+      'ALL')
+         cleandomain='all'
+      ;;
+
+      'GRAVETIDY')
+         cleandomain='gravetidy'
+         dbrval=2
+      ;;
+   esac
+
+   include "sde::clean"
+
+   log_info "Clean ${C_RESET_BOLD}${cleandomain}"
+   sde::clean::main --no-test ${cleandomain}
+   return $dbrval
 }
 
 
@@ -561,20 +546,35 @@ sde::craft::main()
             sde::craft::usage
          ;;
 
-         -q|--quick|no-update|no-reflect)
-            OPTION_REFLECT='NO'
+         # clean options
+         -c|--clean)
+            OPTION_CLEAN='YES'
          ;;
 
-         --sync-flags)
-            OPTION_SYNCFLAGS="$1"
+         -a|-C|--all)
+            OPTION_CLEAN='ALL'
          ;;
 
+         --clean-domain|--from)
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
+            shift
+
+            include "sde::clean"
+
+            sde::clean::main "$1"
+         ;;
+
+         -g|--clean-gravetidy|--gravetidy)
+            OPTION_CLEAN='GRAVETIDY'
+         ;;
+
+         --no-clean)
+            OPTION_CLEAN='NO'
+         ;;
+
+         # other options
          --analyze)
             OPTION_ANALYZE=YES
-         ;;
-
-         --serial)
-            OPTION_SERIAL='YES'
          ;;
 
          --analyze-dir)
@@ -584,27 +584,6 @@ sde::craft::main()
             MULLE_SCAN_BUILD_DIR="$1"
          ;;
 
-         --clean)
-            OPTION_CLEAN='YES'
-         ;;
-
-         --no-clean)
-            OPTION_CLEAN='NO'
-         ;;
-
-         --from|--clean-domain)
-            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
-            shift
-
-            include "sde::clean"
-
-            sde::clean::main "$1"
-         ;;
-
-         --debug|--release)
-            r_capitalize "${1:2}"
-            buildstyle="${RVAL}"
-         ;;
 
          --build-type|--build-style)
             [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
@@ -613,8 +592,9 @@ sde::craft::main()
             buildstyle="$1"
          ;;
 
-         --no-motd)
-            OPTION_MOTD='NO'
+         --debug|--release)
+            r_capitalize "${1:2}"
+            buildstyle="${RVAL}"
          ;;
 
          --dump-env)
@@ -624,8 +604,24 @@ sde::craft::main()
             exit 1
          ;;
 
+         --no-motd)
+            OPTION_MOTD='NO'
+         ;;
+
+         -q|--quick|no-update|no-reflect)
+            OPTION_REFLECT='NO'
+         ;;
+
          --run)
             OPTION_RUN='YES'
+         ;;
+
+         --sync-flags)
+            OPTION_SYNCFLAGS="$1"
+         ;;
+
+         --serial)
+            OPTION_SERIAL='YES'
          ;;
 
          ''|-*)
@@ -683,9 +679,11 @@ sde::craft::main()
 
    # do the clean first as it wipes the database
    sde::craft::perform_clean_if_needed "${dbrval}" "${OPTION_CLEAN}"
+   dbrval=$?
 
    sde::craft::perform_fetch_if_needed "${dbrval}"
 
+   # reflect after fetch, as we might have gotten (or lost) embedded deps
    if [ "${OPTION_REFLECT}" != 'NO' ]
    then
       sde::craft::perform_mainproject_reflect_if_needed "${target}" "${dbrval}"

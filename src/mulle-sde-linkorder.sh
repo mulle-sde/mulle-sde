@@ -285,12 +285,12 @@ sde::linkorder::will_recurse()
 {
    log_entry "sde::linkorder::will_recurse" "$@"
 
-   if sourcetree::nodemarks::disable "${_marks}" "static-link"
+   if sourcetree::marks::disable "${_marks}" "static-link"
    then
        INSIDE_DYNAMIC="${INSIDE_DYNAMIC}x"
    fi
 
-   if sourcetree::nodemarks::contain "${_marks}" "only-standalone"
+   if sourcetree::marks::contain "${_marks}" "only-standalone"
    then
        INSIDE_STANDALONE="${INSIDE_STANDALONE}x"
    fi
@@ -303,12 +303,12 @@ sde::linkorder::did_recurse()
 {
    log_entry "sde::linkorder::did_recurse" "$@"
 
-   if sourcetree::nodemarks::disable "${_marks}" "static-link"
+   if sourcetree::marks::disable "${_marks}" "static-link"
    then
        INSIDE_DYNAMIC="${INSIDE_DYNAMIC%x}"
    fi
 
-   if sourcetree::nodemarks::enable "${_marks}" "standalone"
+   if sourcetree::marks::enable "${_marks}" "standalone"
    then
       INSIDE_STANDALONE="${INSIDE_STANDALONE%x}"
    fi
@@ -325,7 +325,7 @@ sde::linkorder::callback()
    # collect libraries not marked as dependencies
    #
    if [ ! -z "${INSIDE_STANDALONE}" -o ! -z "${INSIDE_DYNAMIC}" ] && \
-      sourcetree::nodemarks::enable "${_marks}" "dependency"
+      sourcetree::marks::enable "${_marks}" "dependency"
    then
       # but hit me again later
       sourcetree::walk::remove_from_visited "${WALK_MODE}"

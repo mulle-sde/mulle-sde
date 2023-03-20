@@ -58,7 +58,9 @@ DEPENDENCY_OBJC_MARKS="no-singlephase"
 DEPENDENCY_FRAMEWORKS_MARKS="singlephase,no-cmake-add,no-cmake-all-load,no-cmake-inherit,only-framework"
 
 DEPENDENCY_EXECUTABLE_MARKS="no-link,no-header,no-bequeath"
-DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite"
+# enable some cmake flags, to "remove" them
+DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite,cmake-inherit,cmake-searchpath,cmake-all-load,cmake-loader"
+DEPENDENCY_AMALGAMATED_MARKS="no-share-shirk"
 DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-searchpath,no-cmake-loader"
 
 
@@ -93,6 +95,7 @@ Commands:
    list       : list dependencies in the sourcetree (default)
    mark       : add marks to a dependency in the sourcetree
    move       : reorder dependencies in the sourcetree
+   rcopy      : copy a dependency from another project with a sourcetree
    remove     : remove a dependency from the sourcetree
    set        : change a dependency settings in the sourcetree
    source-dir : find the source location of a dependency
@@ -209,7 +212,8 @@ Examples:
       https://github.com/mulle-sde/mulle-sde/wiki
 
 Options:
-   --append          : append value instead of set
+   --append          : append the value
+   --remove          : remove the value
 
 Keys:
    aliases           : names of library to search for, separated by comma
@@ -337,7 +341,7 @@ sde::dependency::set_main()
 {
    log_entry "sde::dependency::set_main" "$@"
 
-   local OPTION_APPEND='NO'
+   local OPTION_OPERATION
    local OPTION_DIALECT=''
    local OPTION_ENHANCE='YES'
 
@@ -345,7 +349,7 @@ sde::dependency::set_main()
    do
       case "$1" in
          -a|--append)
-            OPTION_APPEND='YES'
+            OPTION_OPERATION='APPEND'
          ;;
 
          -c|--c)
@@ -354,6 +358,10 @@ sde::dependency::set_main()
 
          -m|--objc)
             OPTION_DIALECT='objc'
+         ;;
+
+         -r|--remove)
+            OPTION_OPERATION='REMOVE'
          ;;
 
          --enhance)
@@ -450,7 +458,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
          sde::common::_set_platform_excludes "${address}" \
                                              "${value}" \
                                              "${DEPENDENCY_MARKS}" \
-                                             "${OPTION_APPEND}"
+                                             "${OPTION_OPERATION}"
          return $?
       ;;
 
@@ -458,7 +466,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
          sde::common::_set_userinfo_field "${address}" \
                                           "${field}" \
                                           "${value}" \
-                                          "${OPTION_APPEND}"
+                                          "${OPTION_OPERATION}"
          return $?
       ;;
 
@@ -550,8 +558,9 @@ sde::dependency::list_main()
    local qualifier
    local formatstring
 
-   formatstring="%a;%i={aliases,,-------};%i={include,,-------}"
-   no_marks="${DEPENDENCY_MARKS}"
+   formatstring="%v={NODE_INDEX,#,-};%a;%s;%i={aliases,,-------};%i={include,,-------}"
+   # with supermarks we don't filter stuff out anymore a priori
+   no_marks=
 
    local OPTION_OUTPUT_COMMAND='NO'
    local OPTIONS
@@ -572,7 +581,7 @@ sde::dependency::list_main()
          ;;
 
          -m|--more)
-            formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
+            formatstring="%v={NODE_INDEX,#,-};%a;%m;%i={aliases,,-------};%i={include,,-------}"
          ;;
 
          --no-mark|--no-marks)
@@ -812,10 +821,7 @@ sde::dependency::use_craftinfo_main()
    local lenient="$2"
 
    # shellcheck source=src/mulle-sde-craftinfo.sh
-   if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
-   fi
+   include "sde::craftinfo"
 
    if sde::craftinfo::exists_main "DEFAULT" --crafthelp "${dependency}"
    then
@@ -886,6 +892,7 @@ sde::dependency::add_main()
    local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_DIALECT=
    local OPTION_PRIVATE='NO'
+   local OPTION_AMALGAMATED='NO'
    local OPTION_EMBEDDED='NO'
    local OPTION_EXECUTABLE='NO'
    local OPTION_FETCH='YES'
@@ -947,6 +954,12 @@ sde::dependency::add_main()
 
          -c|--c)
             OPTION_DIALECT='c'
+         ;;
+
+         --amalgamated)
+            OPTION_AMALGAMATED='YES'
+            OPTION_EMBEDDED='YES'
+            OPTION_FETCH='NO'
          ;;
 
          --embedded)
@@ -1299,12 +1312,17 @@ sde::dependency::add_main()
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
       case "${nodetype}" in
-         local|symlink|file)
+         local|symlink|file|clib)
             # no embellishment here
          ;;
 
          *)
-            sde::dependency::__enhance_url "${url}" "${tag}" "${branch}" "${nodetype}" "${address}" "${marks}"
+            sde::dependency::__enhance_url "${url}" \
+                                           "${tag}" \
+                                           "${branch}" \
+                                           "${nodetype}" \
+                                           "${address}" \
+                                           "${marks}"
 
             url="${_url}"
             if [ "${OPTION_BRANCH_SET}" != 'YES' ]
@@ -1337,17 +1355,17 @@ sde::dependency::add_main()
       # order is important here!
       case "${address##*/}" in
          *_*)
-            log_info "C dependency assumed (if wrong use --objc )"
+            log_info "C dependency assumed from name (if wrong use --objc )"
             OPTION_DIALECT='c'
          ;;
 
          [A-Z]*)
-            log_info "Objective-C dependency assumed (if wrong use --c)"
+            log_info "Objective-C dependency assumed from name (if wrong use --c)"
             OPTION_DIALECT='objc'
          ;;
 
          *)
-            log_info "C dependency assumed (if wrong use --objc )"
+            log_info "C dependency assumed from name (if wrong use --objc )"
             OPTION_DIALECT='c'
          ;;
       esac
@@ -1376,6 +1394,12 @@ sde::dependency::add_main()
          marks="${RVAL}"
       ;;
    esac
+
+   if [ "${nodetype}" = "clib" -a "${OPTION_EMBEDDED}" != 'YES' ]
+   then
+      log_warning "clib nodes are always embedded"
+      OPTION_EMBEDDED='YES'
+   fi
 
    #
    # force user selection
@@ -1407,6 +1431,12 @@ sde::dependency::add_main()
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
       r_comma_concat "${marks}" "${DEPENDENCY_EMBEDDED_MARKS}"
+      marks="${RVAL}"
+   fi
+
+   if [ "${OPTION_ALMAGAMATED}" = 'YES' ]
+   then
+      r_comma_concat "${marks}" "${DEPENDENCY_AMALGAMATED_MARKS}"
       marks="${RVAL}"
    fi
 
@@ -1626,6 +1656,7 @@ info
 map
 mark
 move
+rcopy
 remove
 set
 source-dir
@@ -1642,7 +1673,7 @@ unmark"
          return $?
       ;;
 
-      duplicate|mark|move|unmark)
+      duplicate|mark|move|unmark|rcopy)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \

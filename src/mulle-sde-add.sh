@@ -51,6 +51,7 @@ sde::add::usage()
    FILE_USAGE_NAME="${FILE_USAGE_NAME:-${MULLE_USAGE_NAME} add}"
 
    COMMON_OPTIONS="\
+   -q                      : do not reflect and rebuild
    -e <extension>          : force file extension
    -o <vendor/extension>   : oneshot extension to use in vendor/extension form
    -t <type>               : type of file to create (file)"
@@ -80,7 +81,7 @@ Examples:
       ${MULLE_USAGE_NAME} add src/foo.c
       ${MULLE_USAGE_NAME} add -t protocolclass src/MyProtocolClass.m
       ${MULLE_USAGE_NAME} add github:madler/zlib
-      ${MULLE_USAGE_NAME} add clib:clibs/ms
+      ${MULLE_USAGE_NAME} add -a src clib:clibs/ms
 
 Options:
 EOF
@@ -342,7 +343,6 @@ sde::add::in_project()
    local type="$4"
    local type_default="$5"
    local ext="$6"
-   local all="$7"
 
    if is_absolutepath "${filename}"
    then
@@ -358,43 +358,65 @@ sde::add::in_project()
    then
       log_verbose "File already exists"
    else
+      local query_vendors
       #
       # get currently installed runtime vendors, theses are the ones we
       # query for the file to produce, if none are given
       #
-      if [ -z "${vendors}" -a "${all}" = 'NO' ]
-      then
-         # it's not terrible if this fails though
-         vendors="`sde::extension::main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
-      fi
-
-      # otherwise fallback to
+      query_vendors="${vendors}"
       if [ -z "${vendors}" ]
       then
-         vendors="`sde::extension::main vendors`"
+         # it's not terrible if this fails though
+         query_vendors="`sde::extension::main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
       fi
 
       local rval
 
-      sde::add::file_via_oneshot_extension "${filename}" \
-                                         "${vendors}" \
-                                         "${name}" \
-                                         "${type}" \
-                                         "${type_default}" \
-                                         "${ext}"
-      rval=$?
-      case $rval in
-         4)
-            fail "No matching template \"${type:-${type_default}}\" found to create file \"${filename}\""
-         ;;
+      rval=4
+      if [ ! -z "${query_vendors}" ]
+      then
+         sde::add::file_via_oneshot_extension "${filename}" \
+                                              "${query_vendors}" \
+                                              "${name}" \
+                                              "${type}" \
+                                              "${type_default}" \
+                                              "${ext}"
+         rval=$?
+         case $rval in
+            4|0)
+            ;;
 
-         0)
-         ;;
+            *)
+               exit $rval
+            ;;
+         esac
+      fi
 
-         *)
-            exit $rval
-         ;;
-      esac
+      if [ $rval -eq 4 ]
+      then
+         # fallback to all
+         query_vendors="`sde::extension::main vendors`"
+
+         sde::add::file_via_oneshot_extension "${filename}" \
+                                              "${query_vendors}" \
+                                              "${name}" \
+                                              "${type}" \
+                                              "${type_default}" \
+                                              "${ext}"
+         rval=$?
+         case $rval in
+            4)
+               fail "No matching template \"${type:-${type_default}}\" found to create file \"${filename}\""
+            ;;
+
+            0)
+            ;;
+
+            *)
+               exit $rval
+            ;;
+         esac
+      fi
 
       #
       # we don't check for actual file if its like NONE.m or something,
@@ -519,16 +541,16 @@ sde::add::main()
    then
       if rexekutor mulle-sde -s status --clear --project
       then
-         sde::exec_command_in_subshell add "$@"
+         sde::exec_command_in_subshell "CD" add "$@"
       fi
    fi
 
    local OPTION_NAME
    local OPTION_VENDOR
-   local OPTION_ALL_VENDORS='NO'
    local OPTION_FILE_EXTENSION
    local OPTION_TYPE
    local OPTION_EMBEDDED
+   local OPTION_ALMAGAMATED
    local OPTION_BUILD_TYPE
    local OPTION_POST_INIT='YES'
    local OPTION_IS_URL='DEFAULT'
@@ -547,12 +569,13 @@ sde::add::main()
             sde::add::usage
          ;;
 
-         -a|--all-vendors)
-            OPTION_ALL_VENDORS='YES'
-         ;;
-
          --debug|--release)
             OPTION_BUILD_TYPE="${1:2}"
+         ;;
+
+         --amalgamated)
+            OPTION_EMBEDDED='YES'
+            OPTION_ALMAGAMATED='YES'
          ;;
 
          --embedded)
@@ -614,6 +637,10 @@ sde::add::main()
             PROJECT_DIALECT="$1"
          ;;
 
+         -q|--quick)
+            OPTION_QUICK='YES'
+         ;;
+
          --is-url)
             OPTION_IS_URL='YES'
          ;;
@@ -663,35 +690,45 @@ sde::add::main()
             OPTION_IS_URL='YES'
          ;;
 
-         *:*)
-            eval `mulle-domain parse-url "${filename}" 2> /dev/null`
+         comment:*)
+            scm="comment"
+            filename="${filename#*:}"
+            OPTION_IS_URL='YES'
+         ;;
 
-            if [ ! -z "${host}" -a ! -z "${user}" -a ! -z "${repo}" ]
+         *:*)
+            eval `rexekutor mulle-domain parse-url "${filename}" 2> /dev/null`
+
+            if [ ! -z "${user}" -a ! -z "${repo}" ]
             then
                case "${domain}" in
                   clib)
                      r_filepath_concat "${user}" "${repo}"
-                     filename="${RVAL}"
+                     filename="clib:${RVAL}"
                      scm="${domain}"
                      OPTION_EMBEDDED='YES'
                   ;;
 
                   *)
-                     filename="`mulle-domain compose-url --domain "${domain}" \
-                                                         --scm "${scm}"       \
-                                                         --host "${host}"     \
-                                                         --user "${user}"     \
-                                                         --repo "${repo}"  `"
-                     # if somehow unprintable use original again
-                     filename="${filename:-$1}"
+                     if [ ! -z "${host}" ]
+                     then
+                        filename="`mulle-domain compose-url --domain "${domain}" \
+                                                            --scm "${scm}"       \
+                                                            --host "${host}"     \
+                                                            --user "${user}"     \
+                                                            --repo "${repo}"  `"
+                        # if somehow unprintable use original again
+                        filename="${filename:-$1}"
+                     fi
                   ;;
                esac
             fi
             OPTION_IS_URL='YES'
-
          ;;
       esac
    fi
+
+   local has_run_init
 
    #
    # check if destination is within our project, decide on where to go
@@ -723,22 +760,45 @@ sde::add::main()
                                                    -e sde \
                                                    --no-demo \
                                                    --if-missing || return 1
+      has_run_init='YES'
    fi
 
    if [ "${OPTION_IS_URL}" = 'YES' ]
    then
       if [ "${OPTION_EMBEDDED}" = 'YES' ]
       then
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add --scm "${scm}" \
-                                                                     --address "src/${repo}" \
-                                                                     --embedded "${filename}" &&
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
-      else
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency add --scm "${scm}" "${filename}" || return 1
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder
-      fi
+         local flag
 
-      return $?
+          [ "${OPTION_ALMAGAMATED}" = 'YES' ] \
+             && flag="--almagamted" \
+             || flag="--embedded"
+          rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                     dependency add --scm "${scm}" \
+                                    --address "src/${repo}" \
+                                    ${flag} \
+                                    "${filename}" &&
+         if [ "${OPTION_QUICK}" != 'YES' ]
+         then
+            if ! rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
+            then
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} -s \
+                            dependency remove "src/${repo}"
+               return 1
+            fi
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect
+            return $?
+         fi
+      else
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                      dependency add --scm "${scm}" "${filename}" &&
+         if [ "${OPTION_QUICK}" != 'YES' ]
+         then
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect && \
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder
+            return $?
+         fi
+      fi
+      return 0
    fi
 
    local filepath
@@ -778,8 +838,7 @@ sde::add::main()
                         "${OPTION_NAME}" \
                         "${OPTION_TYPE}" \
                         "${type_default}" \
-                        "${OPTION_FILE_EXTENSION}" \
-                        "${OPTION_ALL_VENDORS}"
+                        "${OPTION_FILE_EXTENSION}"
    return $?
 }
 

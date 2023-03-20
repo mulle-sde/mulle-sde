@@ -183,8 +183,6 @@ EOF
 }
 
 
-
-
 sde::craftinfo::exists_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -357,9 +355,10 @@ sde::craftinfo::remove_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo remove <dep> <key>
+   ${MULLE_USAGE_NAME} dependency craftinfo remove <dep>
 
-   Remove a craftinfo
+   Remove a craftinfo with all its settings. If you want to remove a single
+   setting use "unset".
 
    Example:
       mulle-sde dependency craftinfo remove nng
@@ -394,7 +393,7 @@ sde::craftinfo::copy_mulle_make_definitions()
 
    local srcdir
 
-   srcdir="`sde::dependency::source_dir_main "${name}"`"
+   srcdir="`sde::dependency::source_dir_main "${name}" `"
    if [ -z "${srcdir}" ]
    then
       log_warning "No source directory for \"${name}\" found."
@@ -615,7 +614,7 @@ sde::craftinfo::__vars_with_url_or_address()
                               "${_address}" marks`"
    case ",${marks}," in
       *,no-build,*|*,no-fs,*)
-         log_warning "${_address} is not built directly"
+         log_verbose "${_address} is not build directly, so no craftinfo"
          return 1
       ;;
    esac
@@ -781,7 +780,7 @@ sde::craftinfo::remove_main()
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS:-} \
                remove \
-                  "${_name}-craftinfo"  || return 1
+                  "craftinfo/${_name}-craftinfo"  || return 1
    rmdir_safer "${_subprojectdir}"
 }
 
@@ -859,7 +858,7 @@ sde::craftinfo::exists_main()
       IFS="${DEFAULT_IFS}"
 
       url="${repo}/${_name}-${OPTION_SUFFIX}.git"
-      log_verbose "Checking if a craftinfo URL \"${url}\" exists"
+      log_info "Checking if craftinfo URL ${C_RESET_BOLD}${url}${C_INFO} exists at ${C_RESET_BOLD}${repo}"
       if rexekutor "${MULLE_FETCH:-mulle-fetch}" \
                        ${MULLE_TECHNICAL_FLAGS} \
                        ${MULLE_FETCH_FLAGS}  \
@@ -1692,7 +1691,7 @@ sde::craftinfo::main()
          sde::craftinfo::${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" -o "${subcmd}" = "script" ]
          then
-            log_info "Your edits will be used after:
+            _log_info "Your edits will be used after:
 ${C_RESET_BOLD}   mulle-sde clean all"
          fi
       ;;

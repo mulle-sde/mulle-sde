@@ -524,7 +524,7 @@ recrun|rerun|run)
          shift
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            sde::exec_command_in_subshell test generate "$@"
+            sde::exec_command_in_subshell "CD" test generate "$@"
          else
             sde::test::generate "$@"
          fi

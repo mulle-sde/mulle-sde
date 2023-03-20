@@ -98,6 +98,7 @@ Examples:
 
 Options:
    -l<name>    : add a system library, multiple use possible
+   -f<name>    : add a system framework, multiple use possible
    --framework : library is a MacOS framework (does NOT imply --objc)
    --objc      : used for static Objective-C libraries
    --optional  : library is not required to exist
@@ -298,12 +299,13 @@ sde::library::add_main()
    local marks
    local defaultmarks
    local OPTION_FRAMEWORK='NO'
+   local s
 
    # default is
    defaultmarks="${LIBRARY_INIT_MARKS},no-import,no-import,no-cmake-inherit"
    marks="${defaultmarks}"
 
-   include "mulle-sourcetree::nodemarks"
+   include "mulle-sourcetree::marks"
 
    while [ $# -ne 0 ]
    do
@@ -313,58 +315,63 @@ sde::library::add_main()
          ;;
 
          -c|--c)
-            sourcetree::nodemarks::r_add "${marks}" "no-import"
-            sourcetree::nodemarks::r_add "${RVAL}"  "no-all-load"
-            sourcetree::nodemarks::r_add "${RVAL}"  "no-cmake-inherit"
+            sourcetree::marks::r_add "${marks}" "no-import"
+            sourcetree::marks::r_add "${RVAL}"  "no-all-load"
+            sourcetree::marks::r_add "${RVAL}"  "no-cmake-inherit"
             marks="${RVAL}"
          ;;
 
          -m|--objc)
-            sourcetree::nodemarks::r_remove "${marks}" "no-import"
-            sourcetree::nodemarks::r_remove "${RVAL}"  "no-all-load"
-            sourcetree::nodemarks::r_remove "${RVAL}"  "no-cmake-inherit"
+            sourcetree::marks::r_remove "${marks}" "no-import"
+            sourcetree::marks::r_remove "${RVAL}"  "no-all-load"
+            sourcetree::marks::r_remove "${RVAL}"  "no-cmake-inherit"
             marks="${RVAL}"
          ;;
 
-         -framework)
-            [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
-            shift
+         -f*)
+            if [ "${#1}" -eq 2 ]
+            then
+               [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+               shift
+               s="$1"
+            else
+               s="${1:2}"
+            fi
 
-            sourcetree::nodemarks::r_add "${marks}" "only-framework"
-            sourcetree::nodemarks::r_add "${RVAL}"  "only-platform-darwin"
-            sourcetree::nodemarks::r_add "${RVAL}"  "no-cmake-inherit"
-
-            sde::library::add_framework "$1" "${RVAL}" "${options}" "${userinfo}"
+            sde::library::add_framework "$s" \
+                                        "${marks},only-framework,only-platform-darwin,no-cmake-inherit" \
+                                        "${options}" \
+                                        "${userinfo}"
 
             added='YES'
          ;;
 
-         # backwards compatibility
          --framework)
             OPTION_FRAMEWORK='YES'
          ;;
 
+         # backwards compatibility
          --library|--no-framework)
             OPTION_FRAMEWORK='NO'
          ;;
 
          --private)
-            sourcetree::nodemarks::r_add "${marks}" "no-public"
+            sourcetree::marks::r_add "${marks}" "no-public"
             marks="${RVAL}"
          ;;
 
          --public)
-            sourcetree::nodemarks::r_add "${marks}" "public"
+            sourcetree::marks::r_add "${marks}" "public"
             marks="${RVAL}"
          ;;
 
          --optional)
-            sourcetree::nodemarks::r_add "${marks}" "no-require"
+            sourcetree::marks::r_add "${marks}" "no-require"
             marks="${RVAL}"
          ;;
 
          --required|--require)
-            sourcetree::nodemarks::r_add "${marks}" "require"
+            sourcetree::marks::r_add "${marks}" "require"
             marks="${RVAL}"
          ;;
 
@@ -376,7 +383,7 @@ sde::library::add_main()
             [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
             shift
 
-            sourcetree::nodemarks::r_add "${marks}" "$1"
+            sourcetree::marks::r_add "${marks}" "$1"
             marks="${RVAL}"
          ;;
 
@@ -396,8 +403,19 @@ sde::library::add_main()
          ;;
 
          -l*)
-            sde::library::add_library "${1:2}" "${marks}" "${options}" "${userinfo}"
+            if [ "${#1}" -eq 2 ]
+            then
+               [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+               shift
+               s="$1"
+            else
+               s="${1:2}"
+            fi
 
+            sde::library::add_library "$s" \
+                                      "${marks}" \
+                                      "${options}" \
+                                      "${userinfo}"
             added='YES'
          ;;
 
@@ -412,9 +430,9 @@ sde::library::add_main()
          *)
             if [ "${OPTION_FRAMEWORK}" = 'YES' ]
             then
-               sourcetree::nodemarks::r_add "${marks}" "only-framework"
-               sourcetree::nodemarks::r_add "${RVAL}"  "only-platform-darwin"
-               sourcetree::nodemarks::r_add "${RVAL}"  "no-cmake-inherit"
+               sourcetree::marks::r_add "${marks}" "only-framework"
+               sourcetree::marks::r_add "${RVAL}"  "only-platform-darwin"
+               sourcetree::marks::r_add "${RVAL}"  "no-cmake-inherit"
 
                sde::library::add_framework "$1" "${RVAL}" "${options}" "${userinfo}"
             else
@@ -571,9 +589,9 @@ sde::library::list_main()
    local OPTIONS
    local formatstring
 
-   formatstring="%a;%i={aliases,,-------};%i={include,,-------}"
-
-   no_marks="${LIBRARY_MARKS}"
+   formatstring="%v={NODE_INDEX,#,-};%a;%s;%i={aliases,,-------};%i={include,,-------}"
+   # with supermarks we don't filter stuff out anymore a priori
+   no_marks=
 
    while :
    do
@@ -583,7 +601,7 @@ sde::library::list_main()
          ;;
 
          -m)
-            formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
+            formatstring="%v={NODE_INDEX,#,-};%a;%m;%i={aliases,,-------};%i={include,,-------}"
          ;;
 
          --no-marks|--no-mark)
@@ -688,7 +706,7 @@ sde::library::main()
       ;;
 
 
-      mark|move|remove|unmark)
+      mark|move|remove|unmark|rcopy)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \

@@ -461,7 +461,7 @@ sde::clean::main()
 
    local OPTION_TEST='YES'
    local OPTION_LENIENT
-
+   local OPTION_DOMAIN_DEFAULT='default'
    #
    # handle options
    #
@@ -470,6 +470,23 @@ sde::clean::main()
       case "$1" in
          -h*|--help|help)
             sde::clean::usage
+         ;;
+
+         -a|-C|--all)
+            OPTION_DOMAIN_DEFAULT="all"
+         ;;
+
+         -c)
+         ;;
+
+         --clean-domain|--from)
+            # just fall through helps for my craft/clean mistypes
+            shift
+            break;
+         ;;
+
+         -g|--gravetidy)
+            OPTION_DOMAIN_DEFAULT="gravetidy"
          ;;
 
          --lenient)
@@ -483,12 +500,6 @@ sde::clean::main()
 
          --no-test)
             OPTION_TEST='NO'
-         ;;
-
-         --clean-domain|--from)
-            # just fall through helps for my craft/clean mistypes
-            shift
-            break;
          ;;
 
          --no-default)
@@ -521,7 +532,7 @@ sde::clean::main()
 
    [ $# -gt 1 ] && shift && sde::clean::usage "superflous arguments \"$*\""
 
-   case "${1:-default}" in
+   case "${1:-${OPTION_DOMAIN_DEFAULT}}" in
       'domains')
          echo "\
 all
@@ -672,11 +683,14 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
          # TODO: mulle-craft needs to wipe dependency folder here, because
          #       the installed craftinfo folders may be whacked
          #
-         rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
+         if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                         ${MULLE_TECHNICAL_FLAGS} \
                      clean \
                         "${target}"
-         return $?
+         then
+            return $?
+         fi
+         domains="project"
       ;;
    esac
 
@@ -697,10 +711,13 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
          fi
       else
          # log_verbose "Clean ${domain}"
-         rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                     clean \
-                        "${domain}"
+         if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        clean \
+                           "${domain}"
+         then
+            rval=1
+         fi
       fi
    .done
 

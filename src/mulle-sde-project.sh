@@ -501,9 +501,13 @@ sde::project::_local_search_and_replace_filenames()
    local old="$1"
    local name="$2"
 
+   local files
+
+   files="`dir_list_files "." "*${old}*" "f" `"
+
    local filename
 
-   .foreachfile filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -name "*${old}*" -print`
+   .foreachline filename in ${files}
    .do
       sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
    .done
@@ -524,16 +528,21 @@ sde::project::search_and_replace_filenames()
    [ -z "${name}" ] && _internal_fail "name is empty"
    [ -z "${type}" ] && _internal_fail "type is empty"
 
-   if [ -e "${dir}" ]
+   if [ ! -e "${dir}" ]
    then
-      local filename
-      local renamed
-
-      .foreachline filename in  `eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print`
-      .do
-         sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
-      .done
+      return
    fi
+
+   local files
+
+   files="`eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print `"
+
+   local filename
+
+   .foreachline filename in ${files}
+   .do
+      sde::project::rename_old_to_new_filename "${filename}" "${old}" "${name}"
+   .done
 }
 
 
@@ -577,11 +586,17 @@ sde::project::_local_search_and_replace_contents()
    local grep_statement="$1"
    local sed_statement="$2"
 
+   local files
+
+   files="`dir_list_files "." "*" "f" `"
+
    local filename
 
-   .foreachfile filename in `eval_rexekutor find . -mindepth 1 -maxdepth 1 -type f -print`
+   .foreachline filename in ${files}
    .do
-      sde::project::edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
+      sde::project::edit_old_to_new_content "${filename}" \
+                                            "${grep_statement}" \
+                                            "${sed_statement}"
    .done
 }
 
@@ -595,15 +610,23 @@ sde::project::search_and_replace_contents()
    local grep_statement="$1"
    local sed_statement="$2"
 
-   if [ -e "${dir}" ]
+   if [ ! -e "${dir}" ]
    then
-      local filename
-
-      .foreachfile filename in  `eval_rexekutor find "${dir}" -type f -print`
-      .do
-         sde::project::edit_old_to_new_content "${filename}" "${grep_statement}" "${sed_statement}"
-      .done
+      return
    fi
+
+   local files
+
+   files="`eval_rexekutor find "${dir}" -type f -print`"
+
+   local filename
+
+   .foreachfile filename in ${files}
+   .do
+      sde::project::edit_old_to_new_content "${filename}" \
+                                            "${grep_statement}" \
+                                            "${sed_statement}"
+   .done
 }
 
 
@@ -904,10 +927,8 @@ sde::project::rename_main()
          ;;
       esac
 
-      shell_disable_glob; IFS=$'\n'
-      for testdir in ${test_path}
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .foreachline testdir in ${test_path}
+      .do
          (
             MULLE_VIRTUAL_ROOT=
             PROJECT_NAME=
@@ -915,11 +936,12 @@ sde::project::rename_main()
             log_verbose "$testdir"
 
             rexekutor cd "${testdir}" && \
-            exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} project rename \
-                                                         ${cmdline} "${newname}"
+            exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                           project \
+                              rename \
+                                 ${cmdline} "${newname}"
          )
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .done
    fi
 
    log_verbose "Done"

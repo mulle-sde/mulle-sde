@@ -65,17 +65,47 @@ sde::fetch::do_sync_sourcetree()
 {
    log_entry "sde::fetch::do_sync_sourcetree" "$@"
 
-   if [ "${MULLE_SDE_FETCH}" = 'NO' ]
+   local serial="${1:-}"
+
+   [ $# -ne 0 ] && shift
+
+   if [ "${MULLE_SDE_FETCH:-}" = 'NO' ]
    then
       log_info "Fetching is disabled by environment MULLE_SDE_FETCH"
       return 0
    fi
 
+   log_verbose "Run sourcetree sync"
+
+   local flags
+
+   if [ "${serial}" = 'YES' ]
+   then
+      flags="--serial"
+   fi
+
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
-                        "${MULLE_TECHNICAL_FLAGS}" \
-                        "${OPTION_MODE}" \
+                        "${MULLE_TECHNICAL_FLAGS:-}" \
+                        "${MULLE_SOURCETREE_FLAGS:-}" \
                      "sync" \
-                        "$@"
+                         ${flags} "$@" || fail "sync fail"
+
+   #
+   # run this quickly, because incomplete previous fetches trip me
+   # up too often
+   # exekutor mulle-sde status --stash-only
+   #
+   if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                   ${MULLE_TECHNICAL_FLAGS:-} \
+                   ${MULLE_SOURCETREE_FLAGS:-} \
+                 -s \
+               dbstatus
+   then
+      _internal_fail "Database not clean after sync"
+   fi
+
+   log_verbose "Run sourcetree complete"
 }
 
 
@@ -83,7 +113,7 @@ sde::fetch::main()
 {
    log_entry "sde::fetch::main" "$@"
 
-   local OPTION_MODE
+   local OPTION_SERIAL='NO'
 
    while [ $# -ne 0 ]
    do
@@ -92,8 +122,8 @@ sde::fetch::main()
             sde::fetch::usage
          ;;
 
-         -r|--recurse|--flat|--share)
-            OPTION_MODE="$1"
+         --serial)
+            OPTION_SERIAL='YES'
          ;;
 
          --)
@@ -111,12 +141,14 @@ sde::fetch::main()
 
    local do_update
    local rval
+   local dbstatus
 
    do_update="${MULLE_FLAG_MAGNUM_FORCE}"
    if [ "${do_update}" != 'YES' ]
    then
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
+                     -s \
                      ${MULLE_TECHNICAL_FLAGS} \
                     status \
                      --is-uptodate
@@ -126,12 +158,24 @@ sde::fetch::main()
       if [ ${rval} -ne 0 ]
       then
          do_update='YES'
+      else
+         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        --virtual-root \
+                        -s \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                       dbstatus
+         rval=$?
+         log_fluff "Sourcetree dbstatus returned with $rval"
+         if [ $rval -ne 0 ]
+         then
+            do_update='YES'
+         fi
       fi
    fi
 
    if [ "${do_update}" = 'YES' ]
    then
-      sde::fetch::do_sync_sourcetree "$@"
+      sde::fetch::do_sync_sourcetree "${OPTION_SERIAL}" "$@"
       return $?
    else
       log_verbose "Nothing to do"

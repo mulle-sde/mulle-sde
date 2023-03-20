@@ -1,0 +1,108 @@
+# https://stackoverflow.com/questions/2683279/how-to-detect-if-a-script-is-being-sourced
+if [ -n "$ZSH_VERSION" ]
+then
+   case $ZSH_EVAL_CONTEXT in
+      *:file:*)
+      ;;
+
+      *)
+         echo "mulle-sde-cd must be sourced by the shell. Use:
+. \`which mulle-sde-cd\`" >&2
+         exit 1
+      ;;
+   esac
+else
+   case ${0##*/} in
+      mulle-bash|dash|-dash|bash|-bash|ksh|-ksh|sh|-sh)
+      ;;
+
+      *)
+         echo "mulle-sde-cd must be sourced by the shell. Use:
+. \`which mulle-sde-cd\`" >&2
+         exit 1
+      ;;
+   esac
+fi
+
+
+#
+# This function simplifies the cd `mulle-sde dependency-dir` one uses often
+# Put it in the .bashrc.
+#
+# You can move from kitchen to dependency to project to stash to libexec
+# and though they maybe outside of the project a mulle-sde-cd without
+# arguments will take you back.
+#
+function mulle_sde_cd()
+{
+   local dir
+   local project_dir
+   local pwd
+   local rc
+
+   if [ $# -eq 0 ]
+   then
+      cd "${MULLE_SDE_LAST_PROJECT_DIR:-~}"
+      unset MULLE_SDE_LAST_PROJECT_DIR
+      return $?
+   fi
+
+   # https://stackoverflow.com/questions/20398499/remove-last-argument-from-argument-list-of-shell-script-bash
+   dir="${*: -1}"
+   set -- "${@:1:$(($# - 1))}"
+
+   if [ ! -d "${dir}" ]
+   then
+      case ${dir} in
+         addiction|craftorder-kitchen|kitchen|dependency|libexec|project|stash)
+            dir="${dir}-dir"
+         ;;
+
+         addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir|libexec-dir|project-dir|stash-dir)
+         ;;
+
+         # just get default error message
+         ''|*)
+            cd "$@" "${dir}"
+            return $?
+         ;;
+      esac
+
+      #
+      # figure out project we are in now, which we need to remember
+      # in MULLE_SDE_LAST_PROJECT_DIR so that we can get back
+      #
+      rc=0
+      if ! project_dir="`mulle-sde "project-dir"`"
+      then
+         if [ -z "${MULLE_SDE_LAST_PROJECT_DIR}" ]
+         then
+            echo "No mulle-sde project here" >&2
+            return 1
+         fi
+
+         old="$PWD"
+            cd "${MULLE_SDE_LAST_PROJECT_DIR}" || return $?
+            if ! project_dir="`mulle-sde "project-dir"`"
+            then
+               rc=1
+               echo "No mulle-sde project here" >&2
+            else
+               dir="`mulle-sde "${dir}" `"
+               rc=$?
+            fi
+         cd "$old"
+      else
+         dir="`mulle-sde "${dir}" `"
+         rc=$?
+      fi
+
+      [ $rc -ne 0 ] && return $rc
+
+      MULLE_SDE_LAST_PROJECT_DIR="${project_dir}"
+      export MULLE_SDE_LAST_PROJECT_DIR
+   fi
+   cd "$@" "${dir}"
+}
+
+alias mulle-sde-cd=mulle_sde_cd

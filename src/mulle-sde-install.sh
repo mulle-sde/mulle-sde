@@ -45,8 +45,8 @@ Usage:
    local project. The install destination is set by the --prefix option. It 
    defaults to TMPDIR (${TMPDIR:-/tmp}).
 
-   ${MULLE_USAGE_NAME} install uses a custom environment to shield the build 
-   process from inadvertant environment settings.
+   \`${MULLE_USAGE_NAME} install\` uses a custom environment to shield the build
+   process from inadvertent environment settings.
 
    The command can output the suggested linker flags for the current platform
    after the install has finished (--linkorder).
@@ -55,13 +55,14 @@ Example:
    Build the mulle-fprintf library from the github repository.
    Then install it and all intermediate libraries into \`/tmp/yyy\`:
 
-   mulle-sde install --linkorder --prefix /tmp/yyyy \
-https://github.com/mulle-core/mulle-sprintf/archive/latest.zip
+   mulle-sde install --linkorder --prefix /tmp/yyyy \\
+      https://github.com/mulle-core/mulle-sprintf/archive/latest.zip
 
    To build a local project, set MULLE_FETCH_SEARCH_PATH so that all local
-   dependencies can be found.
+   dependencies can be found and you may want to use symlinks as well:
 
-   mulle-sde -DMULLE_FETCH_SEARCH_PATH=~/src install --prefix /tmp/xxx .
+   mulle-sde -DMULLE_FETCH_SEARCH_PATH="\`mulle-sde get MULLE_FETCH_SEARCH_PATH\`" \\
+      install --symlink --prefix /tmp/xxx .
 
 Options:
    --branch <name>   : branch to checkout
@@ -75,6 +76,7 @@ Options:
    --prefix <prefix> : installation prefix (\$PWD)
    --standalone      : create a whole-archive shared library if supported
    --static          : produce shared libraries
+   --symlink         : allow symlinks for dependency fetches
    --tag <name>      : tag to checkout
    -d <dir>          : directory to fetch into (/tmp/...)
    -k <dir>          : kitchen directory (\$PWD/kitchen)

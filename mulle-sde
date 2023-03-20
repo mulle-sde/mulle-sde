@@ -92,6 +92,7 @@ function sde::print_commands()
    status         : show information about the current project"
 
       HIDDEN_COMMANDS="\
+   cd             : change directory to dependency,kitchen et al.
    craftstatus    : show the craft status of the dependencies
    config         : show multiple sourcetree configurations
    definition     : change projects craft options like CFLAGS (experimental)
@@ -811,8 +812,8 @@ show|version|libexec-dir|library-path|project-dir|set|steal|test|upgrade|usernam
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
 craft-status|definition|dep|dependency|doctor|donefile|fetch|\
 files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
-mark|match|migrate|monitor|patternfile|patternfiles|product|project|protect|reflect|\
-searchpath|sourcetree|subproject|style|task|tool|treestatus|unmark|\
+mark|match|migrate|monitor|move|patternfile|patternfiles|product|project|protect|\
+reflect|searchpath|sourcetree|subproject|style|task|tool|treestatus|unmark|\
 unprotect|update|ext|lib|pat|sub|unveil)
                if ! sde::is_non_environment_commandline "$@"
                then
@@ -1013,6 +1014,7 @@ list
 log
 match
 monitor
+move
 patternfile
 product
 project
@@ -1356,22 +1358,16 @@ version"
          sde::match::main "$@"
       ;;
 
-      patternmatch)
+      move)
          if ! sde::is_non_environment_commandline "$@"
          then
-            sde::cd_virtual_root "${cmd}" 'NO'
-
-            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
-            then
-               fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
-            fi
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "match" \
-                           "$@"
+         # shellcheck source=src/mulle-sde-dependency.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
+
+         sde::dependency::main "${cmd}" "$@"
       ;;
 
       # convenient shortcuts
@@ -1440,6 +1436,24 @@ version"
                            "$@"
       ;;
 
+      patternmatch)
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root "${cmd}" 'NO'
+
+            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+            then
+               fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
+            fi
+         fi
+
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_MATCH:-mulle-match}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "match" \
+                           "$@"
+      ;;
+
       product)
          # shellcheck source=src/mulle-sde-product.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-product.sh" || exit 1
@@ -1455,10 +1469,11 @@ version"
       ;;
 
       project-dir)
-         if sde::r_determine_project_dir "${PWD}"
+         if ! sde::r_determine_project_dir "${PWD}"
          then
-            printf "%s\n" "${RVAL}"
+            return 1
          fi
+         printf "%s\n" "${RVAL}"
       ;;
 
       protect)
