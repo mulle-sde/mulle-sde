@@ -910,12 +910,8 @@ unprotect|update|ext|lib|pat|sub|unveil)
             hook="MULLE_SDE_${cmdidentifier}_PRELUDE"
 
             # run hook if environment variable is set
-            if [ ${ZSH_VERSION+x} ]
-            then
-               value="${(P)hook}"
-            else
-               value="${!hook}"
-            fi
+            r_shell_indirect_expand "${hook}"
+            value="${RVAL}"
 
             if [ ! -z "${value}" ]
             then

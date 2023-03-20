@@ -369,7 +369,17 @@ env::plugin::mulle::r_add_runpath()
 env::plugin::mulle::initialize()
 {
    env::plugin::load "developer"
+
+   MULLE_ENVIRONMENT_RELAX_KEYS="${MULLE_ENVIRONMENT_RELAX_KEYS}
+MULLE_ENV_PLUGIN_PATH \
+MULLE_NO_COLOR \
+MULLE_SDE_EXTENSION_PATH \
+MULLE_SDE_SANDBOX_RUNNING \
+MULLE_SOURCETREE_PLUGIN_PATH \
+MULLE_USER_PWD"
 }
 
 
 env::plugin::mulle::initialize
+
+:
