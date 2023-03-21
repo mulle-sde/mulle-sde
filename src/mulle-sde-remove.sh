@@ -233,11 +233,16 @@ sde::remove::main()
       then
          if [ "${OPTION_EMBEDDED}" = 'YES' ]
          then
-            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect &&
             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
          else
-            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect
-            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft craftorder
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect || return $?
+            if sde::is_test_directory "$PWD"
+            then
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test craft
+            else
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder
+            fi
          fi
       fi
       return $?

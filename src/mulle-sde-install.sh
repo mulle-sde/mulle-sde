@@ -169,11 +169,17 @@ sde::install::in_tmp()
 
    add='YES'
 
-   if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+   local dbstatus
+
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      ${MULLE_TECHNICAL_FLAGS}  \
                      ${MULLE_SOURCETREE_FLAGS:-}  \
                      -s --no-defer \
-                     dbstatus && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+                     dbstatus
+   dbstatus="$?"
+
+   if [ $dbstatus -eq 0 ] && [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       _log_verbose "Reusing previous sourcetree folder unchanged. \
 Use -f flag to clobber."

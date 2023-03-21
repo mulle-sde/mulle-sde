@@ -4,32 +4,33 @@ These are some of the environment variables available in templates during
 init.
 
 
-Key                            | Value
--------------------------------|-------------------
-`GITHUB_USER`                  | `<|GITHUB_USER|>`
-`VENDOR_NAME`                  | `<|VENDOR_NAME|>`
+| Key                              | Value
+|----------------------------------|-------------------
+| `GITHUB_USER`                    | `<|GITHUB_USER|>`
+| `VENDOR_NAME`                    | `<|VENDOR_NAME|>`
 
-Key                            | Value
------------------------------- |-------------------
-`PROJECT_NAME`                 | `<|PROJECT_NAME|>`
-`PROJECT_IDENTIFIER`           | `<|PROJECT_IDENTIFIER|>`
-`PROJECT_DOWNCASE_IDENTIFIER`  | `<|PROJECT_DOWNCASE_IDENTIFIER|>`
-`PROJECT_UPCASE_IDENTIFIER`    | `<|PROJECT_UPCASE_IDENTIFIER|>`
-`PROJECT_LANGUAGE`             | `<|PROJECT_LANGUAGE|>`
+| Key                              | Value
+|----------------------------------|-------------------
+| `PROJECT_NAME`                   | `<|PROJECT_NAME|>`
+| `PROJECT_IDENTIFIER`             | `<|PROJECT_IDENTIFIER|>`
+| `PROJECT_DOWNCASE_IDENTIFIER`    | `<|PROJECT_DOWNCASE_IDENTIFIER|>`
+| `PROJECT_UPCASE_IDENTIFIER`      | `<|PROJECT_UPCASE_IDENTIFIER|>`
+| `PROJECT_LANGUAGE`               | `<|PROJECT_LANGUAGE|>`
 
-Key                            | Value
--------------------------------|-------------------
-`ONESHOT_FILENAME`             | `<|ONESHOT_FILENAME|>`
-`ONESHOT_BASENAME`             | `<|ONESHOT_BASENAME|>`
-`ONESHOT_NAME`                 | `<|ONESHOT_NAME|>`
-`ONESHOT_IDENTIFIER`           | `<|ONESHOT_IDENTIFIER|>`
-`ONESHOT_DOWNCASE_IDENTIFIER`  | `<|ONESHOT_DOWNCASE_IDENTIFIER|>`
-`ONESHOT_UPCASE_IDENTIFIER`    | `<|ONESHOT_UPCASE_IDENTIFIER|>`
 
-`ONESHOT_FILENAME_NO_EXT`      | `<|ONESHOT_FILENAME_NO_EXT|>`
-`ONESHOT_UPCASE_C_IDENTIFIER`  | `<|ONESHOT_UPCASE_C_IDENTIFIER|>`
-`ONESHOT_DOWNCASE_C_IDENTIFIER`| `<|ONESHOT_DOWNCASE_C_IDENTIFIER|>`
-`ONESHOT_CLASS`                | `<|ONESHOT_CLASS|>`
-`ONESHOT_CATEGORY`             | `<|ONESHOT_CATEGORY|>`
-`ONESHOT_PREFIXLESS_NAME`      | `<|ONESHOT_PREFIXLESS_NAME|>`
-`ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER` | `<|ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER|>`
+| Key                                      | Value
+|------------------------------------------|-------------------
+| `ONESHOT_FILENAME`                       | `<|ONESHOT_FILENAME|>`
+| `ONESHOT_BASENAME`                       | `<|ONESHOT_BASENAME|>`
+| `ONESHOT_NAME`                           | `<|ONESHOT_NAME|>`
+| `ONESHOT_IDENTIFIER`                     | `<|ONESHOT_IDENTIFIER|>`
+| `ONESHOT_DOWNCASE_IDENTIFIER`            | `<|ONESHOT_DOWNCASE_IDENTIFIER|>`
+| `ONESHOT_UPCASE_IDENTIFIER`              | `<|ONESHOT_UPCASE_IDENTIFIER|>`
+| &nbsp;                                   |
+| `ONESHOT_FILENAME_NO_EXT`                | `<|ONESHOT_FILENAME_NO_EXT|>`
+| `ONESHOT_UPCASE_C_IDENTIFIER`            | `<|ONESHOT_UPCASE_C_IDENTIFIER|>`
+| `ONESHOT_DOWNCASE_C_IDENTIFIER`          | `<|ONESHOT_DOWNCASE_C_IDENTIFIER|>`
+| `ONESHOT_CLASS`                          | `<|ONESHOT_CLASS|>`
+| `ONESHOT_CATEGORY`                       | `<|ONESHOT_CATEGORY|>`
+| `ONESHOT_PREFIXLESS_NAME`                | `<|ONESHOT_PREFIXLESS_NAME|>`
+| `ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER` | `<|ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER|>`

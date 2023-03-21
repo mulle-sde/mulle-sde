@@ -128,12 +128,35 @@ sde::migrate::from_v0_47_to_v1_14()
    log_entry "sde::migrate::from_v0_47_to_v1_14" "$@"
 
    local filename
+   local files
 
-   .foreachline filename in `find . -name "auxscope" \( -type d -name stash -prune \) -type f`
+   files="`find . -name "auxscope" \( -type d -name stash -prune \) -type f -print`"
+   .foreachline filename in ${files}
    .do
       case "${filename}" in
          */.mulle/etc/env/auxscope)
             inplace_sed "${filename}" -e 's/^project;10$/project;20/'
+         ;;
+      esac
+   .done
+}
+
+
+sde::migrate::from_v1_14_to_v2_2()
+{
+   log_entry "sde::migrate::from_v1_14_to_v2_2" "$@"
+
+   local filename
+   local files
+
+   files="`find CMakeLists.txt cmake -type f -print 2> /dev/null`"
+   .foreachline filename in ${files}
+   .do
+      case "${filename}" in
+         CMakeLists.txt|cmake/*.cmake)
+            inplace_sed "${filename}" -e 's/\${CMAKE_INCLUDES}/\${INSTALL_CMAKE_INCLUDES}/' \
+                                      -e 's/DESTINATION\ *"include\/\([^/]*\)\/private/DESTINATION\ "include\/\1/'
+
          ;;
       esac
    .done
@@ -196,14 +219,14 @@ sde::migrate::do()
       oldminor=14
    fi
 
-#   if [ "${oldmajor}" -lt 2 ] || [ "${oldmajor}" -eq 2 -a "${oldminor}" -le 1 ]
-#   then
-#      (
-#         sde::migrate::from_v1_14_to_v2_1
-#      ) || exit 1
-#      oldmajor=1
-#      oldminor=14
-#   fi
+   if [ "${oldmajor}" -lt 2 ] || [ "${oldmajor}" -eq 2 -a "${oldminor}" -le 2 ]
+   then
+      (
+         sde::migrate::from_v1_14_to_v2_2
+      ) || exit 1
+      oldmajor=2
+      oldminor=2
+   fi
 
    #
    # if craft etc is same as share now, we can remove etc

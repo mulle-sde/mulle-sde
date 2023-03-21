@@ -237,16 +237,19 @@ sde::status::sourcetree()
 
    local state
    local expect_dependencydir
+   local dbstatus
 
    case ",${statustypes}," in
       *,database,*)
          log_verbose "Database status:"
-         if rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           -s dbstatus
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" -s dbstatus
+         dbstatus="$?"
+
+         if [ $dbstatus -ne 2 ]
          then
-            log_info "${indent}Nothing needs to be fetched according to database"
+            log_info "${indent}Nothing needs to be fetched according to database status"
          else
-            log_info "${indent}Dependencies will be fetched/refreshed according to database"
+            log_info "${indent}Dependencies will be fetched/refreshed according to database status"
             log_verbose "${indent}${C_RESET_BOLD}   mulle-sde fetch"
          fi
       ;;

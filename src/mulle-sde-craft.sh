@@ -319,6 +319,10 @@ sde::craft::perform_clean_if_needed()
          cleandomain='gravetidy'
          dbrval=2
       ;;
+
+      *)
+         cleandomain="${mode}"
+      ;;
    esac
 
    include "sde::clean"
@@ -559,9 +563,7 @@ sde::craft::main()
             [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
 
-            include "sde::clean"
-
-            sde::clean::main "$1"
+            OPTION_CLEAN="$1"
          ;;
 
          -g|--clean-gravetidy|--gravetidy)

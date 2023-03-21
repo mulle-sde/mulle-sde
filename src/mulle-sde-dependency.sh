@@ -596,7 +596,7 @@ sde::dependency::list_main()
             [ "$#" -eq 1 ] && sde::dependency::list_usage "Missing argument to \"$1\""
             shift
 
-            qualifier="${RVAL}"
+            qualifier="$1"
          ;;
 
          --output-format)
@@ -1312,7 +1312,7 @@ sde::dependency::add_main()
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
       case "${nodetype}" in
-         local|symlink|file|clib)
+         'comment'|'error'|'local'|'symlink'|'file'|'clib')
             # no embellishment here
          ;;
 
@@ -1376,7 +1376,7 @@ sde::dependency::add_main()
    # a problem
    #
    case "${OPTION_DIALECT}" in
-      c)
+      'c')
          # prepend is better in this case
          r_comma_concat "${DEPENDENCY_C_MARKS}" "${marks}"
          marks="${RVAL}"
@@ -1388,7 +1388,7 @@ sde::dependency::add_main()
          esac
       ;;
 
-      objc)
+      'objc')
          # prepend is better in this case
          r_comma_concat "${DEPENDENCY_OBJC_MARKS}" "${marks}"
          marks="${RVAL}"
@@ -1460,26 +1460,35 @@ sde::dependency::add_main()
       r_concat "${options}" "--nodetype '${nodetype}'"
       options="${RVAL}"
    fi
+
    if [ ! -z "${address}" ]
    then
       r_concat "${options}" "--address '${address}'"
       options="${RVAL}"
    fi
-   if [ ! -z "${branch}" ]
-   then
-      r_concat "${options}" "--branch '${branch}'"
-      options="${RVAL}"
-   fi
-   if [ ! -z "${tag}" ]
-   then
-      r_concat "${options}" "--tag '${tag}'"
-      options="${RVAL}"
-   fi
-      if [ ! -z "${marks}" ]
-   then
-      r_concat "${options}" "--marks '${marks}'"
-      options="${RVAL}"
-   fi
+
+   case "${nodetype}" in
+      'comment'|'error')
+      ;;
+
+      *)
+         if [ ! -z "${branch}" ]
+         then
+            r_concat "${options}" "--branch '${branch}'"
+            options="${RVAL}"
+         fi
+         if [ ! -z "${tag}" ]
+         then
+            r_concat "${options}" "--tag '${tag}'"
+            options="${RVAL}"
+         fi
+            if [ ! -z "${marks}" ]
+         then
+            r_concat "${options}" "--marks '${marks}'"
+            options="${RVAL}"
+         fi
+      ;;
+   esac
 
    if [ "${OPTION_CLEAN}" = 'YES' ]
    then

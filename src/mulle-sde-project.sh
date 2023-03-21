@@ -116,7 +116,7 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
 
    include "case"
 
-   r_smart_upcase_identifier "${PROJECT_NAME}"
+   r_smart_file_upcase_identifier "${PROJECT_NAME}"
    PROJECT_UPCASE_IDENTIFIER="${RVAL}"
 
    r_lowercase "${RVAL}"

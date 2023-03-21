@@ -84,11 +84,13 @@ sde::fetch::do_sync_sourcetree()
       flags="--serial"
    fi
 
+   # we want to push --share and --recurse through, so "$@" is before sync
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                         "${MULLE_TECHNICAL_FLAGS:-}" \
                         "${MULLE_SOURCETREE_FLAGS:-}" \
+                        "$@" \
                      "sync" \
-                         ${flags} "$@" || fail "sync fail"
+                         ${flags}  || fail "sync fail"
 
    #
    # run this quickly, because incomplete previous fetches trip me
@@ -166,7 +168,7 @@ sde::fetch::main()
                        dbstatus
          rval=$?
          log_fluff "Sourcetree dbstatus returned with $rval"
-         if [ $rval -ne 0 ]
+         if [ $rval -eq 2 ]
          then
             do_update='YES'
          fi

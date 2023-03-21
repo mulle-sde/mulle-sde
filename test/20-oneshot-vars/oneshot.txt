@@ -4,32 +4,33 @@ These are some of the environment variables available in templates during
 init.
 
 
-Key                            | Value
--------------------------------|-------------------
-`GITHUB_USER`                  | `<|GITHUB_USER|>`
-`VENDOR_NAME`                  | `test-vendor`
+| Key                              | Value
+| ---------------------------------|-------------------
+| `GITHUB_USER`                    | `<|GITHUB_USER|>`
+| `VENDOR_NAME`                    | `test-vendor`
 
-Key                            | Value
------------------------------- |-------------------
-`PROJECT_NAME`                 | `FooBar`
-`PROJECT_IDENTIFIER`           | `FooBar`
-`PROJECT_DOWNCASE_IDENTIFIER`  | `foo_bar`
-`PROJECT_UPCASE_IDENTIFIER`    | `FOO_BAR`
-`PROJECT_LANGUAGE`             | `<|PROJECT_LANGUAGE|>`
+| Key                              | Value
+| ---------------------------------|-------------------
+| `PROJECT_NAME`                   | `FooBar`
+| `PROJECT_IDENTIFIER`             | `FooBar`
+| `PROJECT_DOWNCASE_IDENTIFIER`    | `foo_bar`
+| `PROJECT_UPCASE_IDENTIFIER`      | `FOO_BAR`
+| `PROJECT_UPCASE_IDENTIFIER` | `FOO_BAR`
+| `PROJECT_LANGUAGE`               | `<|PROJECT_LANGUAGE|>`
 
-Key                            | Value
--------------------------------|-------------------
-`ONESHOT_FILENAME`             | `another-file.txt`
-`ONESHOT_BASENAME`             | `another-file.txt`
-`ONESHOT_NAME`                 | `another-file`
-`ONESHOT_IDENTIFIER`           | `another_file`
-`ONESHOT_DOWNCASE_IDENTIFIER`  | `another_file`
-`ONESHOT_UPCASE_IDENTIFIER`    | `ANOTHER_FILE`
-
-`ONESHOT_FILENAME_NO_EXT`      | `another-file`
-`ONESHOT_UPCASE_C_IDENTIFIER`  | `ANOTHER_FILE`
-`ONESHOT_DOWNCASE_C_IDENTIFIER`| `another_file`
-`ONESHOT_CLASS`                | `<|ONESHOT_CLASS|>`
-`ONESHOT_CATEGORY`             | `<|ONESHOT_CATEGORY|>`
-`ONESHOT_PREFIXLESS_NAME`      | `file`
-`ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER` | `file`
+| Key                                      | Value
+|------------------------------------------|-------------------
+| `ONESHOT_FILENAME`                       | `another-file.txt`
+| `ONESHOT_BASENAME`                       | `another-file.txt`
+| `ONESHOT_NAME`                           | `another-file`
+| `ONESHOT_IDENTIFIER`                     | `another_file`
+| `ONESHOT_DOWNCASE_IDENTIFIER`            | `another_file`
+| `ONESHOT_UPCASE_IDENTIFIER`              | `ANOTHER_FILE`
+| &nbsp;                                   | &nbsp;
+| `ONESHOT_FILENAME_NO_EXT`                | `another-file`
+| `ONESHOT_UPCASE_C_IDENTIFIER`            | `ANOTHER_FILE`
+| `ONESHOT_DOWNCASE_C_IDENTIFIER`          | `another_file`
+| `ONESHOT_CLASS`                          | `<|ONESHOT_CLASS|>`
+| `ONESHOT_CATEGORY`                       | `<|ONESHOT_CATEGORY|>`
+| `ONESHOT_PREFIXLESS_NAME`                | `file`
+| `ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER` | `file`

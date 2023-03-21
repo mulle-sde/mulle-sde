@@ -87,7 +87,6 @@ main()
       shift
    done
 
-   local i
 
    log_verbose "mulle-sde: `mulle-sde version` (`mulle-sde libexec-dir`)"
 
