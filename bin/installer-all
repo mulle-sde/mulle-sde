@@ -12,10 +12,10 @@ SUDO="${SUDO:-`command -v doas`}"
 if [ "${SUDO}" = "no" -o `id -u` -eq 0 ]
 then
    SUDO=""
-   echo "Installing under user id `id -u`" >&2
+   echo "Installing under user id `id -u` (PATH=$PATH)" >&2
 else
    SUDO="`basename -- "${SUDO}" `"
-   echo "Installing with ${SUDO} under user id `id -u`" >&2
+   echo "Installing with ${SUDO} under user id `id -u` (PATH=$PATH)" >&2
 fi
 
 
@@ -50,11 +50,11 @@ fi
 
 
 install_project()
-{
+(
    vendor="$1"
    project="$2"
 
-   [ -z "${project}" ] && return
+   [ -z "${project}" ] && return 0
 
    name="`printf "%s\n" "${project}"    | sed -n -e 's/\([^;]*\);\(.*\)/\1/p'`"
    name="${name:-${project}}"
@@ -67,9 +67,9 @@ install_project()
 
    echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
 
-   if ! "${CURL}" ${CURLFLAGS} "${url}" | ${SUDO} "${TAR}" xfz -
+   if ! "${CURL}" ${CURLFLAGS} "${url}" | ${SUDO} "${TAR}" xvfz -
    then
-      echo "Download failed" >&2
+      echo "Download/unpack failed in \"$PWD\"" >&2
       exit 1
    fi
 
@@ -87,8 +87,8 @@ install_project()
       exit 1
    fi
 
-   ( cd .. && rm -rf "${name}-${version}" ) || exit 1
-}
+   cd .. && rm -rf "${name}-${version}" || exit 1
+)
 
 
 main()
