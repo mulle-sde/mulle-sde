@@ -12,7 +12,12 @@ SUDO="${SUDO:-`command -v doas`}"
 if [ "${SUDO}" = "no" -o `id -u` -eq 0 ]
 then
    SUDO=""
+   echo "Installing under user id `id -u`" >&2
+else
+   SUDO="`basename -- "${SUDO}" `"
+   echo "Installing with ${SUDO} under user id `id -u`" >&2
 fi
+
 
 
 if [ "${MULLE_NAT_PROJECTS}" != "NONE" ]
@@ -62,7 +67,7 @@ install_project()
 
    echo "Download ${version} version of \"${name}\" from \"${url}\"" >&2
 
-   if ! "${CURL}" ${CURLFLAGS} "${url}" | "${TAR}" xfz -
+   if ! "${CURL}" ${CURLFLAGS} "${url}" | ${SUDO} "${TAR}" xfz -
    then
       echo "Download failed" >&2
       exit 1
@@ -132,7 +137,7 @@ TAR="${TAR:-`command -v tar`}"
 # if this becomes a problem use unzip as an alternative
 if [ -z "${TAR}" ]
 then
-   echo "need tar or gtar to install" 2>&1
+   echo "Need tar or gtar to install" 2>&1
    exit 1
 fi
 
@@ -141,6 +146,7 @@ then
    CURL="wget"
    CURLFLAGS="${CURLFLAGS} -O -"
 else
+   CURL="curl"
    CURLFLAGS="${CURLFLAGS} -L -S"
 fi
 
