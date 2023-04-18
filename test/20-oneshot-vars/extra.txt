@@ -4,22 +4,23 @@ These are some of the environment variables available in templates during
 init.
 
 
-| Key                              | Value
-|----------------------------------|-------------------
-| `GITHUB_USER`                    | `<|GITHUB_USER|>`
-| `VENDOR_NAME`                    | `<|VENDOR_NAME|>`
+| Key                           | Value
+|-------------------------------|-------------------
+| `GITHUB_USER`                 | `<|GITHUB_USER|>`
+| `VENDOR_NAME`                 | `<|VENDOR_NAME|>`
 
-| Key                              | Value
-|----------------------------------|-------------------
-| `PROJECT_NAME`                   | `FooBar`
-| `PROJECT_IDENTIFIER`             | `FooBar`
-| `PROJECT_DOWNCASE_IDENTIFIER`    | `foo_bar`
-| `PROJECT_UPCASE_IDENTIFIER`      | `FOO_BAR`
-| `PROJECT_UPCASE_IDENTIFIER` | `FOO_BAR`
-| `PROJECT_LANGUAGE`               | `<|PROJECT_LANGUAGE|>`
+
+| Key                           | Value
+|-------------------------------|-------------------
+| `PROJECT_NAME`                | `FooBar`
+| `PROJECT_IDENTIFIER`          | `FooBar`
+| `PROJECT_DOWNCASE_IDENTIFIER` | `foo_bar`
+| `PROJECT_UPCASE_IDENTIFIER`   | `FOO_BAR`
+| `PROJECT_LANGUAGE`            | `<|PROJECT_LANGUAGE|>`
+
 
 | Key                                      | Value
-| -----------------------------------------|-------------------
+|------------------------------------------|-------------------
 | `ONESHOT_FILENAME`                       | `<|ONESHOT_FILENAME|>`
 | `ONESHOT_BASENAME`                       | `<|ONESHOT_BASENAME|>`
 | `ONESHOT_NAME`                           | `<|ONESHOT_NAME|>`

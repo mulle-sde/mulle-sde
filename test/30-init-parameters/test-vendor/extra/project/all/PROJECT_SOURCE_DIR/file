@@ -4,18 +4,18 @@ These are some of the environment variables available in templates during
 init.
 
 
-| Key                              | Value
-|----------------------------------|-------------------
-| `GITHUB_USER`                    | `<|GITHUB_USER|>`
-| `LOCAL_KEY`                      | `<|LOCAL_KEY|>`
-| `VENDOR_DEFINED`                 | `<|VENDOR_DEFINED|>`
+| Key                           | Value
+|-------------------------------|-------------------
+| `GITHUB_USER`                 | `<|GITHUB_USER|>`
+| `LOCAL_KEY`                   | `<|LOCAL_KEY|>`
+| `VENDOR_DEFINED`              | `<|VENDOR_DEFINED|>`
 
-| Key                              | Value
-|----------------------------------|-------------------
-| `PROJECT_NAME`                   | `<|PROJECT_NAME|>`
-| `PROJECT_IDENTIFIER`             | `<|PROJECT_IDENTIFIER|>`
-| `PROJECT_DOWNCASE_IDENTIFIER`    | `<|PROJECT_DOWNCASE_IDENTIFIER|>`
-| `PROJECT_UPCASE_IDENTIFIER`      | `<|PROJECT_UPCASE_IDENTIFIER|>`
-| `PROJECT_LANGUAGE`               | `<|PROJECT_LANGUAGE|>`
-| `PROJECT_DIALECT`                | `<|PROJECT_DIALECT|>`
+| Key                           | Value
+|-------------------------------|-------------------
+| `PROJECT_NAME`                | `<|PROJECT_NAME|>`
+| `PROJECT_IDENTIFIER`          | `<|PROJECT_IDENTIFIER|>`
+| `PROJECT_DOWNCASE_IDENTIFIER` | `<|PROJECT_DOWNCASE_IDENTIFIER|>`
+| `PROJECT_UPCASE_IDENTIFIER`   | `<|PROJECT_UPCASE_IDENTIFIER|>`
+| `PROJECT_LANGUAGE`            | `<|PROJECT_LANGUAGE|>`
+| `PROJECT_DIALECT`             | `<|PROJECT_DIALECT|>`
 
