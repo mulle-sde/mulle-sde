@@ -1,3 +1,23 @@
+## 2.2.0
+
+* new mulle-sde-cd tool for convenient access to kitchen, stash, dependency, even if they are outside the project (and back)
+* support for --amalgamated project in the add commands
+* mirror -c -g -a clean options of the *craft* command in *clean* for better muscle memory support
+* allow --symlink in the *install* command, which can be handy for debugging
+* added a new **json** command to list dependencies and libraries in a nice and familiar way
+* added new commands **get** and **set** as shortcuts for environment get/set
+* added new command **product** to locate the build product
+* fix ugliness in PATH creation of the mulle-sde mulle-env plugin
+* force relink tools whenever `mulle-sde clean` is done for an easy to remember way to get the newest version of an installed executable at a possibly different location
+* change -e flag of **add** to a synonym for --file-extension
+* you can now conveniently add dependencies as well with the **add command
+* "clib" is now a way to incorporate third party (and soon mulle-c) sources into your project, and mulle-sde supports it as a "scm"
+* You can add dependencies now with the "add" command and also "remove" them. It creates an empty mulle project, if there was none before and initiates a fetch or a craft. Ultimate convenience.
+* The add command can parse URLs like github:user/repo for more convenience
+* You can write simple installers with the "craftinfo script" command now. This creates a script for you and creates the necessary definition. Ultimate convenience!
+* init is now a little bit smarter and preempts empty extensions
+
+
 # 2.0.0
 
 * new command headerorder
