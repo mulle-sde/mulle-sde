@@ -1,3 +1,7 @@
+### 2.2.1
+
+* when run with -n reflect would produce an error and bail
+
 ## 2.2.0
 
 * new mulle-sde-cd tool for convenient access to kitchen, stash, dependency, even if they are outside the project (and back)

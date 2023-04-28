@@ -15,3 +15,5 @@ research/
 cola/wilted/
 mulle-markdown-preview-*.html
 build-*/
+.idea/
+mulle-csv-to-sandbox

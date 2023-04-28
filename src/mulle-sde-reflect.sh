@@ -207,7 +207,7 @@ sde::reflect::_main()
    (
       if [ "${parallel}" = 'YES' ]
       then
-         _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "up-main"
+         _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "reflect"
          statusfile="${RVAL}"
       fi
 
@@ -230,7 +230,7 @@ sde::reflect::_main()
 
          local errors
 
-         errors="`cat "${statusfile}"`" || exit 1
+         errors="`exekutor cat "${statusfile}"`" || exit 1
          # remove_file_if_present "${statusfile}"
 
          if [ ! -z "${errors}" ]
