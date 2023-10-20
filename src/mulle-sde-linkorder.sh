@@ -219,7 +219,7 @@ sde::linkorder::_emit_ld_output()
    fi
 
    # omit trailing linefeed for cmake
-   rexekutor printf "%s" "${result}"
+   printf "%s" "${result}"
 
    if [ "${OPTION_OUTPUT_FINAL_LF}" = 'YES' ]
    then

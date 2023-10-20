@@ -129,7 +129,7 @@ sde::headerorder::do_emit_c_output()
    .foreachline line in ${incdirs}
    .do
       r_escaped_singlequotes "${line}"
-      rexekutor printf "%s %s\n" "-isystem" "'${RVAL}'"
+      printf "%s %s\n" "-isystem" "'${RVAL}'"
    .done
 
    local line

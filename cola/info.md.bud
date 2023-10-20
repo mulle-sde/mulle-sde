@@ -317,6 +317,21 @@ mulle-sde tool add nroff
 ```
 
 
+## mulle-sde view
+
+![](dox/mulle-sde-view.svg)
+
+View combines the commands `craftinfo`, `dependency`, `library`,
+`definition` to give an overview over craft relevant settings and linkage,
+that are defined by mulle-sde. Build settings defined in **cmake** files are
+not shown though.
+
+``` sh
+mulle-sde view
+```
+
+
+
 ## Afterword
 
 There are many more commands in mulle-sde. These are the most commonly

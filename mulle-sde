@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=2.2.1
+MULLE_EXECUTABLE_VERSION=2.3.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="5.1"
 
 #
@@ -78,24 +78,25 @@ function sde::print_commands()
    else
       SHOWN_COMMANDS="\
    add            : create a source file from templates
-   craftorder     : show craftorder of dependencies
    clean          : clean various parts of the project
    craft          : craft the project using mulle-craft
+   craftinfo      : show build flags of dependencies
+   definition     : change projects craft options like CFLAGS
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
-   ignore         : remove files from getting crafted
-   json           : show dependencies and libraries as JSON
+   ignore         : remove files from being crafted
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (files matching patternfiles)
    reflect        : update project makefiles and sources
-   status         : show information about the current project"
+   status         : show information about the current project state
+   view           : give an overview over the project settings"
 
       HIDDEN_COMMANDS="\
    cd             : change directory to dependency,kitchen et al.
+   craftorder     : show craftorder of dependencies
    craftstatus    : show the craft status of the dependencies
    config         : show multiple sourcetree configurations
-   definition     : change projects craft options like CFLAGS (experimental)
    donefile       : show contents of donefiles
    crun           : craft and run if project is an executable
    callback       : manage reflect callbacks
@@ -104,6 +105,7 @@ function sde::print_commands()
    fetch          : fetch the sourcetree
    headerorder    : show header includes for dependencies and libraries
    init           : create a new project
+   json           : show dependencies and libraries as JSON
    linkorder      : show linkorder of dependencies and libraries
    match          : experiment with patternfiles
    monitor        : monitor project files, run reflect and craft
@@ -622,21 +624,6 @@ sde::is_non_environment_commandline()
 
 sde::main()
 {
-   local MULLE_FLAG_MAGNUM_FORCE='NO'
-
-   # technical flags
-   local MULLE_TRACE
-   local MULLE_FLAG_EXEKUTOR_DRY_RUN='NO'
-   local MULLE_FLAG_LOG_LOCAL='NO'
-   local MULLE_FLAG_LOG_DEBUG='NO'
-   local MULLE_FLAG_LOG_EXEKUTOR='NO'
-   local MULLE_FLAG_LOG_FLUFF='NO'
-   local MULLE_FLAG_LOG_TERSE='NO'
-   local MULLE_FLAG_LOG_SCRIPTS='NO'
-   local MULLE_FLAG_LOG_SETTINGS='NO'
-   local MULLE_FLAG_LOG_VERBOSE='NO'
-   local MULLE_FLAG_LOG_MERGE='NO'
-   local MULLE_TRACE_POSTPONE='NO'
    local FLAG_TEST_CHECK="${MULLE_SDE_TEST_CHECK:-YES}"
    local FLAG_OUTSIDE_ENV='NO'
 
@@ -812,9 +799,11 @@ show|version|libexec-dir|library-path|project-dir|set|steal|test|upgrade|usernam
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
 craft-status|definition|dep|dependency|doctor|donefile|fetch|\
 files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
-mark|match|migrate|monitor|move|patternfile|patternfiles|product|project|protect|\
-reflect|searchpath|sourcetree|subproject|style|task|tool|treestatus|unmark|\
-unprotect|update|ext|lib|pat|sub|unveil)
+mark|match|migrate|monitor|move|\
+patterncheck|patternenv|patternfile|patternfiles|\
+product|project|protect|reflect|searchpath|sourcetree|subproject|style|\
+task|tool|treestatus|unmark|unprotect|update|\
+ext|lib|pat|sub|unveil|view)
                if ! sde::is_non_environment_commandline "$@"
                then
                   sde::exec_command_in_subshell 'CD' "$@"
@@ -1011,7 +1000,9 @@ log
 match
 monitor
 move
+patterncheck
 patternfile
+patternenv
 product
 project
 project-dir
@@ -1037,7 +1028,8 @@ unprotect
 unveil
 update
 upgrade
-version"
+versions
+view"
          exit 0
       ;;
 
@@ -1413,26 +1405,9 @@ version"
          sde::monitor::main "$@"
       ;;
 
-
-      patternfile|pat|patternfiles|filename)
+      patterncheck|patternenv|patternfile|pat|patternfiles|filename|patternmatch)
          cmd="${cmd//patternfiles/patternfile}"
-         if ! sde::is_non_environment_commandline "$@"
-         then
-            sde::cd_virtual_root "${cmd}" 'NO'
 
-            if [ "${PROJECT_TYPE}" = 'none' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
-            then
-               fail "PROJECT_TYPE is 'none', nothing to ${cmd}"
-            fi
-         fi
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "${cmd}" \
-                           "$@"
-      ;;
-
-      patternmatch)
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}" 'NO'
@@ -1443,11 +1418,11 @@ version"
             fi
          fi
 
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_MATCH:-mulle-match}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "match" \
-                           "$@"
+         # shellcheck source=src/mulle-sde-patternfile.sh
+         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-patternfile.sh" || exit 1
+
+
+         sde::patternfile::main "${cmd}" "$@"
       ;;
 
       product)
@@ -1691,6 +1666,34 @@ version"
          return 0
       ;;
 
+
+      view)
+         log_info "${C_BR_BLUE}${C_BOLD}Environment"
+         mulle-sde -s env list --output-eval \
+         | GREP_COLOR=none grep -E '^MULLE_SOURCETREE_CONFIG|^MULLE_CRAFT_|FLAGS=' \
+         | sed -e 's/^/   /'
+         echo
+         echo
+         log_info "${C_BR_BLUE}${C_BOLD}Definition"
+         mulle-sde definition
+         echo
+         echo
+         log_info "${C_BR_BLUE}${C_BOLD}Dependency"
+         mulle-sde dependency list -- -f "%a\n" --no-output-header \
+         | sort \
+         | sed -e 's/^/   /'
+         echo
+         echo
+         log_info "${C_BR_BLUE}${C_BOLD}Library"
+         mulle-sde library list -- -f "%a\n" --no-output-header \
+         | sort \
+         | sed -e 's/^/   /'
+         echo
+         echo
+         log_info "${C_BR_BLUE}${C_BOLD}Craftinfo"
+         mulle-sde craftinfo
+         echo
+      ;;
 
       *)
          if [ -d "${cmd}" ]

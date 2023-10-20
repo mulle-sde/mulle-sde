@@ -237,7 +237,7 @@ sde::library::add_framework()
                      "${options}" \
                      "'${libname}'" || return 1
 
-   log_info "${C_VERBOSE}You can change the library search names with:
+   _log_info "${C_VERBOSE}You can change the library search names with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} aliases ${libname},${libname#lib}2
 ${C_VERBOSE}You can change the header include with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libname#lib}.h"
@@ -262,8 +262,7 @@ sde::library::add_library()
    then
       case "${libname}" in
          ""|-*|*.*|lib*)
-            fail "Invalid library name \"${libname}\" (use name w/o extension \
- and prefix)"
+            fail "Invalid library name \"${libname}\" (use name w/o extension and prefix)"
          ;;
       esac
    fi
@@ -280,7 +279,7 @@ sde::library::add_library()
                      "${options}" \
                      "'${libname}'" || return 1
 
-   log_info "${C_VERBOSE}You can change the library search names with:
+   _log_info "${C_VERBOSE}You can change the library search names with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} aliases ${libname},${libname#lib}2
 ${C_VERBOSE}You can change the header include with:
 ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libname#lib}.h"
@@ -645,8 +644,9 @@ sde::library::list_main()
    log_fluff "Just pass through to mulle-sourcetree"
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                --virtual-root -s \
+                --virtual-root \
                 ${MULLE_TECHNICAL_FLAGS} \
+                --silent-but-warn \
                 ${MULLE_SOURCETREE_FLAGS:-} \
                list \
                   --format "${formatstring}\\n" \
@@ -710,8 +710,8 @@ sde::library::main()
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \
-                           -s  \
                            ${MULLE_TECHNICAL_FLAGS} \
+                           --silent-but-warn \
                         ${cmd} \
                            "$@"
       ;;

@@ -1079,7 +1079,7 @@ sde::extension::show_main()
    cmd="$1"
    if [ -z "${cmd}" ]
    then
-      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      if [ -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .mulle ]
       then
          cmd="meta"
       else
@@ -1123,14 +1123,11 @@ sde::extension::show_main()
    log_verbose "Vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${vendors}" | sed 's/^/  /' `"
 
-   shell_disable_glob; IFS=$'\n'
-   for vendor in ${vendors}
-   do
-      IFS="${DEFAULT_IFS}"; shell_enable_glob
-
+   .foreachline vendor in ${vendors}
+   .do
       if [ -z "${vendor}" ]
       then
-         continue
+         .continue
       fi
 
       local vendorextensions
@@ -1141,7 +1138,7 @@ sde::extension::show_main()
       if [ -z "${vendorextensions}" ]
       then
          log_fluff "Vendor ${vendor} provides no extensions"
-         continue
+         .continue
       fi
 
       if [ "${OPTION_OUTPUT_RAW}" = 'YES' ]
@@ -1150,7 +1147,7 @@ sde::extension::show_main()
          then
             printf "%s\n" "${vendorextensions}"
          fi
-         continue
+         .continue
       fi
 
       log_debug "Vendor ${C_RESET}${vendor}${C_DEBUG} extensions: ${vendorextensions}"
@@ -1194,8 +1191,7 @@ sde::extension::show_main()
             buildtool_extension="${RVAL}"
          ;;
       esac
-   done
-   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   .done
 
    sde::extension::emit "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
    sde::extension::emit "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
@@ -1548,19 +1544,16 @@ sde::extension::do_usage()
       local dependencies
 
       dependencies="`sde::extension::collect_inherits "${extensiondir}"`"
-      shell_disable_glob; IFS=$'\n'
-      for dependency in ${dependencies}
-      do
-         shell_enable_glob; IFS="${DEFAULT_IFS}"
 
+      .foreachline dependency in ${dependencies}
+      .do
          sde::extension::usage "${dependency}"
          if [ "${OPTION_LIST_TYPES}" = 'NO' ]
          then
             echo "------------------------------------------------------------"
             echo
          fi
-      done
-      shell_enable_glob; IFS="${DEFAULT_IFS}"
+      .done
    fi
    sde::extension::emit_usage "${extension}"
 }
@@ -1700,10 +1693,8 @@ sde::extension::r_vendor_expanded_extensions()
 
             # vendors aren't installed "hierarchically" though
             # so mulle-sde can be found before mulle-foundation (in theory)
-            shell_disable_glob; IFS=$'\n'
-            for installed in ${installed_vendors}
-            do
-               IFS="${DEFAULT_IFS}"; shell_enable_glob
+            .foreachline installed in ${installed_vendors}
+            .do
                if sde::extension::r_find "${installed}" "${extension}"
                then
                   if [ "${if_installed}" = 'YES' ]
@@ -1711,7 +1702,7 @@ sde::extension::r_vendor_expanded_extensions()
                      if ! sde::extension::get_installed_version "${installed}/${extension}" > /dev/null
                      then
                         log_fluff "\"${installed}/${extension}\" not installed"
-                        continue
+                        .continue
                      fi
                   fi
 
@@ -1721,8 +1712,7 @@ sde::extension::r_vendor_expanded_extensions()
                else
                   log_fluff "\"${installed}/${extension}\" not found"
                fi
-            done
-            IFS="${DEFAULT_IFS}"; shell_enable_glob
+            .done
 
             if [ "${found}" = 'NO' ]
             then
@@ -1828,11 +1818,7 @@ sde::extension::freshen_main()
       shift
    done
 
-   if [ -z "${MULLE_SDE_INIT_SH}" ]
-   then
-      # shellcheck source=src/mulle-sde-init.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
-   fi
+   include "sde::init"
 
    local expanded_extensions
 
@@ -1886,10 +1872,7 @@ sde::extension::remove_main()
       shift
    done
 
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || return 1
-   fi
+   include "file"
 
    local extension
    local installed
@@ -2082,7 +2065,6 @@ sde::extension::main()
          fi
          printf "%s\n" "${extension}"
       ;;
-
 
       metas|runtimes|buildtools)
          local extensions

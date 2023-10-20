@@ -631,8 +631,9 @@ sde::dependency::list_main()
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               --virtual-root -s \
+               --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
+                --silent-but-warn \
             list \
                --marks "${DEPENDENCY_LIST_MARKS}" \
                --qualifier "${qualifier}" \
@@ -650,7 +651,7 @@ sde::dependency::list_main()
    else
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
          rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-               --virtual-root -s \
+               --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
             list \
                --format "${formatstring}\\n" \
@@ -1687,6 +1688,7 @@ unmark"
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
+                           --silent-but-warn \
                         "${cmd}" \
                            "$@"
       ;;

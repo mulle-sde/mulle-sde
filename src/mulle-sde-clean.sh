@@ -135,77 +135,25 @@ EOF
 # use rexekutor to show call, put pass -n flag via technical flags so
 # nothing gets actually deleted with -n
 #
-sde::clean::kitchendir()
+
+
+#
+# this will destroy the craftorder
+# also wipe archive cache. Does not wipe git mirror cache unless -f is given
+# because thats supposed to be harmless
+#
+sde::clean::archive()
 {
-   log_entry "sde::clean::kitchendir" "$@"
+   log_entry "sde::clean::archive" "$@"
 
-   KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
-
-   if [ ! -z "${KITCHEN_DIR}" ]
+   if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
    then
-      log_verbose "Cleaning \"kitchen\" directory"
-      rmdir_safer "${KITCHEN_DIR}"
+      log_verbose "Cleaning archive cache \"${MULLE_FETCH_ARCHIVE_DIR#"${MULLE_USER_PWD}/"}\""
+
+      rmdir_safer "${MULLE_FETCH_ARCHIVE_DIR}"
    else
-      log_fluff "KITCHEN_DIR unknown, so don't clean"
+      log_warning "MULLE_FETCH_ARCHIVE_DIR is not defined"
    fi
-}
-
-
-sde::clean::dependencydir()
-{
-   log_entry "sde::clean::dependencydir" "$@"
-
-   if [ ! -z "${DEPENDENCY_DIR}" ]
-   then
-      log_verbose "Cleaning \"dependency\" directory"
-      rmdir_safer "${DEPENDENCY_DIR}"
-   else
-      log_fluff "DEPENDENCY_DIR unknown, so don't clean"
-   fi
-}
-
-
-sde::clean::output()
-{
-   log_entry "sde::clean::output" "$@"
-
-   log_verbose "Cleaning \"addiction\" directory"
-   [ ! -z "${ADDICTION_DIR}" ] && rmdir_safer "${ADDICTION_DIR}"
-
-   sde::clean::kitchendir "$@"
-   sde::clean::dependencydir "$@"
-}
-
-
-sde::clean::dependency()
-{
-   log_entry "sde::clean::dependency" "$@"
-
-   log_verbose "Cleaning \"dependency\" directory"
-   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean \
-                  dependency
-}
-
-
-sde::clean::project()
-{
-   log_entry "sde::clean::project" "$@"
-
-   #
-   # force relink of tools to get newer versions of binaries installed
-   # in different location
-   #
-   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean \
-                  project &&
-   rexekutor "${MULLE_CRAFT:-mulle-env}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  -f \
-               tool \
-                  link
 }
 
 
@@ -237,6 +185,174 @@ sde::clean::craftinfo()
             clean \
                "${craftinfo}"
    .done
+}
+
+
+sde::clean::db()
+{
+   log_entry "sde::clean::db" "$@"
+
+   log_verbose "Cleaning sourcetree database"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               reset
+}
+
+
+sde::clean::dependency()
+{
+   log_entry "sde::clean::dependency" "$@"
+
+   log_verbose "Cleaning \"dependency\" directory"
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean \
+                  dependency
+}
+
+
+sde::clean::dependencydir()
+{
+   log_entry "sde::clean::dependencydir" "$@"
+
+   if [ ! -z "${DEPENDENCY_DIR}" ]
+   then
+      log_verbose "Cleaning \"dependency\" directory"
+      rmdir_safer "${DEPENDENCY_DIR}"
+   else
+      log_fluff "DEPENDENCY_DIR unknown, so don't clean"
+   fi
+}
+
+
+sde::clean::graveyard()
+{
+   log_entry "sde::clean::graveyard" "$@"
+
+   log_verbose "Cleaning graveyard"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               desecrate
+}
+
+
+sde::clean::kitchendir()
+{
+   log_entry "sde::clean::kitchendir" "$@"
+
+   KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
+
+   if [ ! -z "${KITCHEN_DIR}" ]
+   then
+      log_verbose "Cleaning \"kitchen\" directory"
+      rmdir_safer "${KITCHEN_DIR}"
+   else
+      log_fluff "KITCHEN_DIR unknown, so don't clean"
+   fi
+}
+
+
+sde::clean::mirror()
+{
+   log_entry "sde::clean::mirror" "$@"
+
+   if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
+   then
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         log_verbose "Cleaning repository mirror \"${MULLE_FETCH_MIRROR_DIR#"${MULLE_USER_PWD}/"}\""
+
+         rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
+      else
+         log_warning "Need -f flag for mirror cleaning"
+      fi
+   else
+      log_warning "MULLE_FETCH_MIRROR_DIR is not defined"
+   fi
+}
+
+
+sde::clean::monitor()
+{
+   log_entry "sde::clean::monitor" "$@"
+
+   log_verbose "Cleaning monitor files"
+
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      rexekutor "${MULLE_MONITOR:-mulle-monitor}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                  clean
+}
+
+
+sde::clean::output()
+{
+   log_entry "sde::clean::output" "$@"
+
+   sde::clean::kitchendir "$@"
+   sde::clean::dependencydir "$@"
+}
+
+
+sde::clean::patternfile()
+{
+   log_entry "sde::clean::patternfile" "$@"
+
+   log_verbose "Cleaning patternfiles"
+
+   rexekutor "${MULLE_MATCH:-mulle-match}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean
+}
+
+
+sde::clean::project()
+{
+   log_entry "sde::clean::project" "$@"
+
+   #
+   # force relink of tools to get newer versions of binaries installed
+   # in different location
+   #
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean \
+                  project &&
+   rexekutor "${MULLE_CRAFT:-mulle-env}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  -f \
+               tool \
+                  link
+}
+
+
+sde::clean::sourcetree()
+{
+   log_entry "sde::clean::sourcetree" "$@"
+
+   log_verbose "Cleaning sourcetree"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean
+}
+
+
+sde::clean::sourcetree_share()
+{
+   log_entry "sde::clean::sourcetree_share" "$@"
+
+   log_verbose "Cleaning sourcetree and stash"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean --share
 }
 
 
@@ -275,162 +391,6 @@ sde::clean::subproject()
 }
 
 
-sde::clean::varcaches()
-{
-   log_entry "sde::clean::varcaches" "$@"
-
-   [ -z "${MULLE_SDE_VAR_DIR}" ] && _internal_fail "MULLE_SDE_VAR_DIR not defined"
-
-   log_verbose "Cleaning sde caches"
-   rmdir_safer "${MULLE_SDE_VAR_DIR}/cache"
-}
-
-
-#
-# this will destroy the craftorder
-# also wipe archive cache. Does not wipe git mirror cache unless -f is given
-# because thats supposed to be harmless
-#
-sde::clean::archive()
-{
-   log_entry "sde::clean::archive" "$@"
-
-   if [ ! -z "${MULLE_FETCH_ARCHIVE_DIR}" ]
-   then
-      log_verbose "Cleaning archive cache \"${MULLE_FETCH_ARCHIVE_DIR#"${MULLE_USER_PWD}/"}\""
-
-      rmdir_safer "${MULLE_FETCH_ARCHIVE_DIR}"
-   else
-      log_warning "MULLE_FETCH_ARCHIVE_DIR is not defined"
-   fi
-}
-
-
-sde::clean::mirror()
-{
-   log_entry "sde::clean::mirror" "$@"
-
-   if [ ! -z "${MULLE_FETCH_MIRROR_DIR}" ]
-   then
-      if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
-      then
-         log_verbose "Cleaning repository mirror \"${MULLE_FETCH_MIRROR_DIR#"${MULLE_USER_PWD}/"}\""
-
-         rmdir_safer "${MULLE_FETCH_MIRROR_DIR}"
-      else
-         log_warning "Need -f flag for mirror cleaning"
-      fi
-   else
-      log_warning "MULLE_FETCH_MIRROR_DIR is not defined"
-   fi
-}
-
-
-sde::clean::var()
-{
-   log_entry "sde::clean::var" "$@"
-
-   log_verbose "Cleaning \"${MULLE_SDE_VAR_DIR}\" folder"
-
-   rmdir_safer "${MULLE_SDE_VAR_DIR}"
-}
-
-
-sde::clean::tmp()
-{
-   log_entry "sde::clean::tmp" "$@"
-
-   local dir
-
-   .foreachfile dir in .mulle/var/*/*/tmp  .mulle/var/*/tmp
-   .do
-      if [ -d "${dir}" ]
-      then
-         log_verbose "Cleaning \"${dir}\" folder"
-
-         rmdir_safer "${dir}"
-      fi
-   .done
-}
-
-
-sde::clean::db()
-{
-   log_entry "sde::clean::db" "$@"
-
-   log_verbose "Cleaning sourcetree database"
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               reset
-}
-
-
-sde::clean::sourcetree()
-{
-   log_entry "sde::clean::sourcetree" "$@"
-
-   log_verbose "Cleaning sourcetree"
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean
-}
-
-
-sde::clean::sourcetree_share()
-{
-   log_entry "sde::clean::sourcetree_share" "$@"
-
-   log_verbose "Cleaning sourcetree and stash"
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean --share
-}
-
-
-sde::clean::patternfile()
-{
-   log_entry "sde::clean::patternfile" "$@"
-
-   log_verbose "Cleaning patternfiles"
-
-   rexekutor "${MULLE_MATCH:-mulle-match}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean
-}
-
-
-sde::clean::monitor()
-{
-   log_entry "sde::clean::monitor" "$@"
-
-   log_verbose "Cleaning monitor files"
-
-   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-      rexekutor "${MULLE_MONITOR:-mulle-monitor}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                  clean
-}
-
-
-sde::clean::graveyard()
-{
-   log_entry "sde::clean::graveyard" "$@"
-
-   log_verbose "Cleaning graveyard"
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               desecrate
-}
-
-
 sde::clean::test()
 {
    log_entry "sde::clean::test" "$@"
@@ -454,6 +414,57 @@ sde::clean::testall()
                clean all
 }
 
+sde::clean::tmp()
+{
+   log_entry "sde::clean::tmp" "$@"
+
+   local dir
+
+   .foreachfile dir in .mulle/var/*/*/tmp  .mulle/var/*/tmp
+   .do
+      if [ -d "${dir}" ]
+      then
+         log_verbose "Cleaning \"${dir}\" folder"
+
+         rmdir_safer "${dir}"
+      fi
+   .done
+}
+
+
+#
+# this doesn't wipe var/etc or var/test (just var/sde)
+sde::clean::var()
+{
+   log_entry "sde::clean::var" "$@"
+
+   log_verbose "Cleaning \"${MULLE_SDE_VAR_DIR}\" folder"
+
+   rmdir_safer "${MULLE_SDE_VAR_DIR}"
+}
+
+
+#
+# this clean all caches .mulle/var/<hostname>/<username>/*/cache
+#
+sde::clean::varcaches()
+{
+   log_entry "sde::clean::varcaches" "$@"
+
+   [ -z "${MULLE_SDE_VAR_DIR}" ] && _internal_fail "MULLE_SDE_VAR_DIR not defined"
+
+   # check siblings of .mulle/var/<hostname>/<username>/sde/cache
+   local dir
+
+   shell_enable_nullglob
+   for dir in "${MULLE_SDE_VAR_DIR}"/../*/cache
+   do
+      log_verbose "Cleaning cache \"${dir}\""
+      rmdir_safer "${dir}"
+   done
+   shell_disable_nullglob
+}
+
 
 sde::clean::main()
 {
@@ -462,6 +473,9 @@ sde::clean::main()
    local OPTION_TEST='YES'
    local OPTION_LENIENT
    local OPTION_DOMAIN_DEFAULT='default'
+
+   local OPTION_DOMAINS
+
    #
    # handle options
    #
@@ -477,6 +491,15 @@ sde::clean::main()
          ;;
 
          -c)
+         ;;
+
+         --domain)
+            [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
+            shift
+
+            r_concat "${OPTION_DOMAINS}" "$1"
+            OPTION_DOMAINS="${RVAL}"
+            OPTION_DOMAIN_DEFAULT="custom"
          ;;
 
          --clean-domain|--from)
@@ -562,7 +585,7 @@ test"
          domains="kitchendir dependencydir varcaches testall"
       ;;
 
-      archive)
+      archive|archives)
          domains="archive"
       ;;
 
@@ -577,8 +600,12 @@ test"
                         craftorder
       ;;
 
-      cache)
+      cache|upgrade)
          domains="archive mirror"
+      ;;
+
+      custom)
+         domains="${OPTION_DOMAINS:-project subproject}"
       ;;
 
       default)

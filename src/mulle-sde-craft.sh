@@ -273,8 +273,7 @@ sde::craft::perform_mainproject_reflect_if_needed()
 
    if [ "${target}" = 'all' -o "${target}" = 'project' ]
    then
-      ! [ ${MULLE_SDE_REFLECT_SH+x} ] && \
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh"
+      include "sde::reflect"
 
       sde::reflect::main ${reflectflags} ${tasks} || fail "reflect fail" 1
    fi
@@ -318,6 +317,10 @@ sde::craft::perform_clean_if_needed()
       'GRAVETIDY')
          cleandomain='gravetidy'
          dbrval=2
+      ;;
+
+      'YES')
+         cleandomain=
       ;;
 
       *)

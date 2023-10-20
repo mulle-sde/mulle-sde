@@ -147,50 +147,53 @@ sde::add::_file_via_oneshot_extension()
 
    local filepath="$1"
    local vendors="$2"
-   local name="$3"
+   local names="$3"
    local class="$4"
    local category="$5"
    local genericname="$6"
 
    local vendor
-
+   local name
    #
    # now try to find a oneshot extension in our vendors list that fits
    #
 
    log_debug "Looking for direct name hit"
 
-   .foreachline vendor in ${vendors}
+   .foreachpath name in ${names}
    .do
-      if sde::extension::find_main -q "${vendor}/${name}" "oneshot"
-      then
-         sde::add::oneshot_extension "${filepath}" \
-                                    "${vendor}/${name}" \
-                                    "${class}" \
-                                    "${category}"
-         return $?
-      fi
-   .done
-
-   if [ ! -z "${genericname}" -a "${genericname}" != "${name}" ]
-   then
-
-      log_debug "Looking for non-specialized files"
-      #
-      # fall back to non-specialized files
-      #
       .foreachline vendor in ${vendors}
       .do
-         if sde::extension::find_main -q "${vendor}/${genericname}" "oneshot"
+         if sde::extension::find_main -q "${vendor}/${name}" "oneshot"
          then
             sde::add::oneshot_extension "${filepath}" \
-                                       "${vendor}/${genericname}" \
+                                       "${vendor}/${name}" \
                                        "${class}" \
                                        "${category}"
             return $?
          fi
       .done
-   fi
+
+      if [ ! -z "${genericname}" -a "${genericname}" != "${name}" ]
+      then
+
+         log_debug "Looking for non-specialized files"
+         #
+         # fall back to non-specialized files
+         #
+         .foreachline vendor in ${vendors}
+         .do
+            if sde::extension::find_main -q "${vendor}/${genericname}" "oneshot"
+            then
+               sde::add::oneshot_extension "${filepath}" \
+                                           "${vendor}/${genericname}" \
+                                           "${class}" \
+                                           "${category}"
+               return $?
+            fi
+         .done
+      fi
+   .done
 
    return 4  # not found
 }
@@ -198,7 +201,7 @@ sde::add::_file_via_oneshot_extension()
 
 #
 # Output produced:
-#   name as RVAL
+#   name as RVAL (can be multiple separated by ':')
 #   local _genericname
 #   local _category
 #   local _class
@@ -210,7 +213,7 @@ sde::add::r_get_class_category_genericname()
    local filepath="$1"
    local name="$2"
    local type="$3"
-   local type_default="$4"
+   local type_defaults="$4"
    local extension="$5"
 
    _genericname="${name}"
@@ -278,7 +281,13 @@ sde::add::r_get_class_category_genericname()
          ;;
 
          *)
-            name="${type_default}.${extension}"
+            name=
+            local type_default
+            .foreachpath type_default in ${type_defaults}
+            .do
+               r_colon_concat "${name}" "${type_default}.${extension}"
+               name="${RVAL}"
+            .done
 
             r_identifier "${filename}"
             _class="${RVAL}"
@@ -298,32 +307,35 @@ sde::add::file_via_oneshot_extension()
    local vendors="$2"
    local name="$3"
    local type="$4"
-   local type_default="$5"
+   local type_defaults="$5"
    local ext="$6"
 
    local _genericname
    local _category
    local _class
 
+   local names
+
+   names="${name}"
    sde::add::r_get_class_category_genericname "${filename}" \
                                               "${name}" \
                                               "${type}" \
-                                              "${type_default}" \
+                                              "${type_defaults}" \
                                               "${ext}"
-   if [ -z "${name}" ]
+   if [ -z "${names}" ]
    then
-      name="${RVAL}"
+      names="${RVAL}"
    fi
 
    log_setting "filename:     ${filename}"
-   log_setting "name:         ${name}"
+   log_setting "names:        ${names}"
    log_setting "class:        ${_class}"
    log_setting "category:     ${_category}"
    log_setting "genericname:  ${_genericname}"
 
    sde::add::_file_via_oneshot_extension "${filename}" \
                                          "${vendors}" \
-                                         "${name}" \
+                                         "${names}" \
                                          "${_class}" \
                                          "${_category}" \
                                          "${_genericname}"
@@ -341,7 +353,7 @@ sde::add::in_project()
    local vendors="$2"
    local name="$3"
    local type="$4"
-   local type_default="$5"
+   local type_defaults="$5"
    local ext="$6"
 
    if is_absolutepath "${filename}"
@@ -379,7 +391,7 @@ sde::add::in_project()
                                               "${query_vendors}" \
                                               "${name}" \
                                               "${type}" \
-                                              "${type_default}" \
+                                              "${type_defaults}" \
                                               "${ext}"
          rval=$?
          case $rval in
@@ -399,14 +411,14 @@ sde::add::in_project()
 
          sde::add::file_via_oneshot_extension "${filename}" \
                                               "${query_vendors}" \
-                                              "${name}" \
+                                              "${done_names}" \
                                               "${type}" \
-                                              "${type_default}" \
+                                              "${type_defaults}" \
                                               "${ext}"
          rval=$?
          case $rval in
             4)
-               fail "No matching template \"${type:-${type_default}}\" found to create file \"${filename}\""
+               fail "No matching template \"${type:-${type_defaults}}\" found to create file \"${filename}\" with extension \"${ext}\""
             ;;
 
             0)
@@ -465,7 +477,7 @@ sde::add::not_in_project()
 
    local filepath="$1"
    local vendors="$2"
-   local name="$3"
+   local names="$3"
    local type="$4"
    local ext="$5"
 
@@ -504,15 +516,15 @@ sde::add::not_in_project()
 
       sde::add::file_via_oneshot_extension "${filename}" \
                                            "${vendors}" \
-                                           "${name}" \
+                                           "${names}" \
                                            "${type}" \
-                                           "${type_default}" \
+                                           "" \
                                            "${ext}"
 
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create file \"${filepath#"${MULLE_USER_PWD}/"}\""
+            fail "No matching template found to create file \"${filepath#"${MULLE_USER_PWD}/"}\" with extension \"${ext}\""
          ;;
 
          0)
@@ -829,20 +841,20 @@ sde::add::main()
       ;;
    esac
 
-   local type_default
+   local type_defaults
 
    if [ "${PROJECT_DIALECT}" = 'objc' ]
    then
-      type_default="class"
+      type_defaults="class:file"
    else
-      type_default="file"
+      type_defaults="file"
    fi
 
    sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
                         "${OPTION_VENDOR}" \
                         "${OPTION_NAME}" \
                         "${OPTION_TYPE}" \
-                        "${type_default}" \
+                        "${type_defaults}" \
                         "${OPTION_FILE_EXTENSION}"
    return $?
 }

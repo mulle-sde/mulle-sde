@@ -1494,25 +1494,40 @@ sde::craftinfo::_list_main()
    local _subprojectdir
    local _folder
    local _config
+   local text1
+   local text2
 
    if [ "${extension}" = "DEFAULT" ]
    then
       if sde::craftinfo::__vars_with_url_or_address "${url}"
       then
-         if [ ! -z "${_config}" ]
-         then
-            log_info "${url}.${_config}"
-         else
-            log_info "${url}"
-         fi
+         text1="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
+            definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"`"
+         text2="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
+            definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@" | \
+               sed "s/^/   ${indent}/"`"
 
-         log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
-         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
-            definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"
-         log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
-         exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
-            definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@"  | \
-               sed "s/^/   ${indent}/"
+         if [ ! -z "${text1}" -o ! -z "${text2}" ]
+         then
+            if [ ! -z "${_config}" ]
+            then
+               log_info "${url}.${_config}"
+            else
+               log_info "${url}"
+            fi
+
+            if [ ! -z "${text1}" ]
+            then
+               log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
+               printf "%s\n" "${text1}"
+            fi
+
+            if [ ! -z "${text2}" ]
+            then
+               log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
+               printf "%s\n" "${text2}"
+            fi
+         fi
       fi
       return
    fi
@@ -1674,19 +1689,21 @@ sde::craftinfo::main()
       shift
    done
 
-   [ $# -eq 0 ] && \
-      sde::craftinfo::usage "Missing dependency craftinfo command"
-
-   local subcmd="$1"
-   shift
-
    if [ -z "${MULLE_MAKE}" ]
    then
       MULLE_MAKE="${MULLE_MAKE:-`command -v mulle-make`}"
       [ -z "${MULLE_MAKE}" ] && fail "mulle-make not in PATH"
    fi
 
-   case "${subcmd:-list}" in
+   local subcmd="list"
+
+   if [ $# -ne 0 ]
+   then
+      subcmd="$1"
+      shift
+   fi
+
+   case "${subcmd}" in
       create|set|get|list|fetch|exists|readd|remove|script|show|unset)
          sde::craftinfo::${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" -o "${subcmd}" = "script" ]

@@ -42,9 +42,13 @@ function mulle_sde_cd()
 
    if [ $# -eq 0 ]
    then
-      cd "${MULLE_SDE_LAST_PROJECT_DIR:-~}"
-      unset MULLE_SDE_LAST_PROJECT_DIR
-      return $?
+      if [ ! -z "${MULLE_SDE_LAST_PROJECT_DIR}" ]
+      then
+         cd "${MULLE_SDE_LAST_PROJECT_DIR}"
+         unset MULLE_SDE_LAST_PROJECT_DIR
+         return $?
+      fi
+      return 1
    fi
 
    # https://stackoverflow.com/questions/20398499/remove-last-argument-from-argument-list-of-shell-script-bash
@@ -54,7 +58,22 @@ function mulle_sde_cd()
    if [ ! -d "${dir}" ]
    then
       case ${dir} in
-         addiction|craftorder-kitchen|kitchen|dependency|libexec|project|stash)
+         -h|--help|help)
+            cat <<EOF >&2
+Usage:
+   mulle-sde-cd [dir]
+
+   Known directory names are:
+      addiction, craftorder-kitchen, dependency, kitchen, libexec, project
+      stash
+
+   Without a "dir" argument mulle-sde-cd returns to the last project directory,
+   if there was any.
+EOF
+            return 1
+         ;;
+
+         addiction|craftorder-kitchen|dependency|kitchen|libexec|project|stash)
             dir="${dir}-dir"
          ;;
 

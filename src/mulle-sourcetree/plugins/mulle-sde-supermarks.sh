@@ -210,7 +210,7 @@ sde::supermarks::r_decompose_supermark()
    RVAL=
    case "${supermark}" in
       'C')
-         RVAL='no-import'
+         RVAL='no-all-load,no-import'
          return 0
       ;;
 
@@ -274,7 +274,9 @@ sde::supermarks::r_decompose_supermark()
 }
 
 
-
+#
+# this file is loaded into mulle-sourcetree as a plugin
+#
 sde::supermarks::initialize()
 {
    include "sourcetree::supermarks"

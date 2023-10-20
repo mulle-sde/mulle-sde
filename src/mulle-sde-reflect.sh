@@ -196,6 +196,11 @@ sde::reflect::_main()
    local task
    local name
 
+   #
+   # A problem I have is that re-amalgamation triggers a reflect in the
+   # inferior projects, which might just be reflecting as we speak due to
+   # a staged mpa mulle-sde craft
+   #
    if [ $# -eq 1 ]
    then
       sde::reflect::task "${runner}" "$1"
@@ -230,8 +235,13 @@ sde::reflect::_main()
 
          local errors
 
-         errors="`exekutor cat "${statusfile}"`" || exit 1
-         # remove_file_if_present "${statusfile}"
+         if ! errors="`exekutor cat "${statusfile}" 2> /dev/null`"
+         then
+            log_error "A parallel reflect process interfered with \"${statusfile}\". Status of reflection is unknown".
+            exit 1
+         fi
+
+         remove_file_if_present "${statusfile}"
 
          if [ ! -z "${errors}" ]
          then

@@ -201,10 +201,7 @@ sde::config::walk_name_callback_no_default()
    local config
 
    reflectfile=".mulle/etc/sde/reflect"
-   if [ -f "${reflectfile}" ]
-   then
-      config="`grep -E -v '^#' "${reflectfile}" `"
-   fi
+   config="`grep -E -v '^#' "${reflectfile}" 2>/dev/null`"
    config="${config:-config}"
 
    if [ "${config}" != "config" ]
