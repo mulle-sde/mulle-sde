@@ -133,6 +133,7 @@ sde::product::r_product_path()
 
       none)
          log_info "Project type \"none\" builds no product"
+         return
       ;;
 
       *)

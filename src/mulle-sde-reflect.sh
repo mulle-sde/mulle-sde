@@ -42,14 +42,17 @@ Usage:
 
    Reflect runs the default list of MULLE_SDE_REFLECT_CALLBACKS defined by the
    environment, unless task names have been given. See
-   \`mulle-monitor callback\` and \`mulle-monitor task\` for more information.
+   \`mulle-monitor task create\` for information how to create a custom task
+   and callback.
 
    Typical callbacks for mulle-sde are:
 
-      source     : reflect changes in \"${PROJECT_SOURCE_DIR}\" into makefiles
+      source     : reflect changes in \"${PROJECT_SOURCE_DIR:-src}\" into makefiles
       sourcetree : reflect library and dependency changes into makefiles and
                    header file
 
+   You can force serial execution of a callback by appending a '@' to its name.
+   
 Options:
    --craft       : craft after reflect
    --if-needed   : reflect if there was a change in the sourcetree name
@@ -63,7 +66,7 @@ Return value:
    2 : OK, but sourcetree has changed
 
 Environment:
-   MULLE_SDE_REFLECT_CALLBACKS   : default callbacks used for reflect
+   MULLE_SDE_REFLECT_CALLBACKS   : callbacks used for reflect
 EOF
    exit 1
 }
@@ -195,6 +198,7 @@ sde::reflect::_main()
 
    local task
    local name
+   local forkit
 
    #
    # A problem I have is that re-amalgamation triggers a reflect in the
@@ -208,7 +212,7 @@ sde::reflect::_main()
    fi
 
    local statusfile
-
+   local parallel
    (
       if [ "${parallel}" = 'YES' ]
       then
@@ -220,9 +224,25 @@ sde::reflect::_main()
       do
          if [ ! -z "${name}" ]
          then
+            background='YES'
+
+            # some want to run ahead or after these got to serialize
+            case "${name}" in 
+               *@)
+                  name="${name%@}"
+                  background='NO'
+               ;;
+            esac
+
             if [ "${parallel}" = 'YES' ]
             then
-               sde::reflect::task "${runner}" "${name}" "${statusfile}" &
+               if [ "${background}" = 'YES' ]
+               then
+                  sde::reflect::task "${runner}" "${name}" "${statusfile}" &
+               else 
+                  wait
+                  sde::reflect::task "${runner}" "${name}" "${statusfile}"
+               fi
             else
                sde::reflect::task "${runner}" "${name}" || exit $?
             fi

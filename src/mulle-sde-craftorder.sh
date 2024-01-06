@@ -44,8 +44,9 @@ Usage:
 
 Options:
    -h                      : show this usage
-   --print-craftorder-file : print file path of cached craftorder file
    --cached                : show the cached craftorder contents
+   --names                 : print only names of craftorder dependencies
+   --print-craftorder-file : print file path of cached craftorder file
    --remaining             : show what remains uncrafted of a craftorder
    --remove-cached         : remove cached craftorder contents
 EOF
@@ -222,6 +223,48 @@ sde::craftorder::show_uncached()
 }
 
 
+sde::craftorder::list()
+{
+   log_entry "sde::craftorder::main" "$@"
+
+   local craftorderfile="$1"
+
+   if [ "${OPTION_CACHED}" = 'YES' ]
+   then
+      if sde::craftorder::show_cached "${craftorderfile}"
+      then
+         if [ "${OPTION_UNCACHED}" = 'DEFAULT' ]
+         then
+            OPTION_UNCACHED='NO'
+         fi
+      fi
+   fi
+
+   if [ "${OPTION_UNCACHED}" != 'NO' ]
+   then
+      sde::craftorder::show_uncached
+   fi
+
+   if [ "${OPTION_REMAINING}" != 'YES' ]
+   then
+      return 0
+   fi
+
+   log_info "Remaining"
+   if [ -f "${craftorderfile}" ]
+   then
+      sde::craftorder::show_cached "${craftorderfile}"
+      return 0
+   fi
+
+   MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+      exekutor "${MULLE_CRAFT:-mulle-craft}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     --craftorder-file "${craftorderfile}" \
+                  list
+}
+
+
 sde::craftorder::main()
 {
    log_entry "sde::craftorder::main" "$@"
@@ -229,8 +272,10 @@ sde::craftorder::main()
    local OPTION_CACHED='YES'
    local OPTION_REMOVE_CACHED='NO'
    local OPTION_CREATE='NO'
+   local OPTION_NAMES='NO'
    local OPTION_UNCACHED='DEFAULT'
    local OPTION_PRINT_CACHEFILE_PATH='NO'
+
    #
    # handle options
    #
@@ -247,6 +292,10 @@ sde::craftorder::main()
 
          --cached)
             OPTION_CACHED='YES'
+         ;;
+
+         --names)
+            OPTION_NAMES='YES'
          ;;
 
          --no-cached)
@@ -323,36 +372,10 @@ sde::craftorder::main()
       || fail "Failed to create craftorderfile"
    fi
 
-   if [ "${OPTION_CACHED}" = 'YES' ]
+   if [ "${OPTION_NAMES}" = 'YES'  ]
    then
-      if sde::craftorder::show_cached "${_craftorderfile}"
-      then
-         if [ "${OPTION_UNCACHED}" = 'DEFAULT' ]
-         then
-            OPTION_UNCACHED='NO'
-         fi
-      fi
-   fi
-
-   if [ "${OPTION_UNCACHED}" != 'NO' ]
-   then
-      sde::craftorder::show_uncached
-   fi
-
-   if [ "${OPTION_REMAINING}" = 'YES' ]
-   then
-      log_info "Remaining"
-      if [ -f "${_craftorderfile}" ]
-      then
-         sde::craftorder::show_cached "${_craftorderfile}"
-         return 0
-      else
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_CRAFT:-mulle-craft}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           --craftorder-file "${_craftorderfile}" \
-                        list
-         return $?
-      fi
+      sde::craftorder::list | sed 's/.*\/\([^;]*\);.*/\1/'
+   else
+      sde::craftorder::list
    fi
 }

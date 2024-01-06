@@ -350,6 +350,7 @@ sde::linkorder::r_all_nodes()
 
    local qualifier
 
+   # TODO: why is this not ENABLES ? instead of MATCHES
    qualifier='MATCHES link'
    if [ "${OPTION_STARTUP}" = 'NO' ]
    then

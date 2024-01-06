@@ -244,6 +244,10 @@ sde::add::r_get_class_category_genericname()
       return
    fi
 
+   log_setting "extension: ${extension}"
+   log_setting "filename : ${filename}"
+   log_setting "type     : ${type}"
+
    #
    # If user specified the type, lets use this
    #
@@ -253,36 +257,34 @@ sde::add::r_get_class_category_genericname()
        _class="${RVAL}"
 
       name="${type}.${extension}"
-      log_debug "Look for extensions named \"${name}\""
    else
       #
       # if file name is like +Foo or -private deal with it in a special way
       #
+      _genericname="file.${extension}"
+
       case "${filename}" in
          *-*)
             r_lowercase "${filename}"
             name="file-${RVAL##*-}.${extension}"
-            _genericname="file.${extension}"
 
             r_identifier "${filename%-*}"
             _class="${RVAL}"
-            log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
          ;;
 
          *+*)
             name="category.${extension}"
-            _genericname="file.${extension}"
 
             r_identifier "${filename%%+*}"
             _class="${RVAL}"
             r_identifier "${filename#*+}"
             _category="${RVAL}"
-            log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
          ;;
 
          *)
             name=
             local type_default
+
             .foreachpath type_default in ${type_defaults}
             .do
                r_colon_concat "${name}" "${type_default}.${extension}"
@@ -291,11 +293,17 @@ sde::add::r_get_class_category_genericname()
 
             r_identifier "${filename}"
             _class="${RVAL}"
-            log_debug "Look for extensions named \"${name}\""
          ;;
       esac
    fi
-   RVAL="${name:-${filename}}"
+   name="${name:-${filename}}"
+   if [ -z "${_genericname}" ]
+   then
+      log_debug "Look for extensions named \"${name}\""
+   else
+      log_debug "Look for extensions named \"${name}\" in addition to \"${_genericname}\""
+   fi
+   RVAL="${name}"
 }
 
 
@@ -513,7 +521,6 @@ sde::add::not_in_project()
       export PROJECT_DIALECT="objc"
       export TEMPLATE_NO_ENVIRONMENT='YES' # hacky
 
-
       sde::add::file_via_oneshot_extension "${filename}" \
                                            "${vendors}" \
                                            "${names}" \
@@ -524,7 +531,12 @@ sde::add::not_in_project()
       rval=$?
       case $rval in
          4)
-            fail "No matching template found to create file \"${filepath#"${MULLE_USER_PWD}/"}\" with extension \"${ext}\""
+            if [ -z "${ext}" ]
+            then
+               fail "No matching template found to create file \"${filepath#"${MULLE_USER_PWD}/"}\" (no extension)"
+            else
+              fail "No matching template found to create file \"${filepath#"${MULLE_USER_PWD}/"}\" with extension \"${ext}\""
+           fi
          ;;
 
          0)

@@ -38,7 +38,7 @@ sde::craft::usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} craft [options] [target] ...
+   ${MULLE_USAGE_NAME} craft [options] [target] [-- ...]
 
    Build the dependency folder and/or the project according to target. The
    remaining arguments after target are passed to mulle-craft. See
@@ -60,10 +60,12 @@ Options:
    -C                      : clean all before crafting
    -g                      : clean gravetidy before crafting
    -q                      : skip uptodate checks
+   --                      : pass remaining flags to mulle-craft
    --clean                 : clean before crafting (see: mulle-sde clean)
    --from <domain>         : clean specific depenency before crafting (s.a)
    --run                   : attempt to run produced executable
    --analyze               : run clang analyzer when crafting the project
+   --cppcheck              : run cppcheck after crafting the project
    --serial                : compile one file at a time
    --build-style <style>   : known styles are Debug/Release/Test/RelDebug
 
@@ -74,6 +76,8 @@ Targets:
    project                 : build the project
 
 Environment:
+   CPPCHECKAUXFLAGS               : pass additional flags to cppcheck
+   CPPCHECKPLATFORMS              : use "all" for multiple platforms (native)
    MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
    MULLE_SCAN_BUILD_DIR           : output directory (${KITCHEN_DIR:-kitchen}/analyzer)
    MULLE_SDE_MAKE_FLAGS           : flags to pass to mulle-make via mulle-craft
@@ -143,7 +147,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       # if the file exists, we implicitly know its a mulle-sde project
       if [ ! -f "${filename}" ]
       then
-         log_fluff "${repository} has only a single sourcetree"
+         log_debug "${repository} has only a single sourcetree"
          .continue
       fi
 
@@ -449,36 +453,47 @@ sde::craft::r_scan_build_executable()
 {
    log_entry "sde::craft::r_scan_build_executable" "$@"
 
-   RVAL="${MULLE_SCAN_BUILD:-}"
-   if [ -z "${RVAL}" ]
+   local tool
+
+   tool="${MULLE_SCAN_BUILD:-}"
+   if [ -z "${tool}" ]
    then
       case "${PROJECT_DIALECT}" in
          objc)
             case "${MULLE_UNAME}" in
                windows)
-                  RVAL="scan-build.exe" # sic
+                  tool="scan-build.exe" # sic
                ;;
 
                *)
-                  RVAL="mulle-scan-build"
+                  tool="mulle-scan-build"
                ;;
             esac
          ;;
       esac
    fi
 
-   if [ -z "${RVAL}" ]
+   if [ -z "${tool}" ]
    then
       case "${MULLE_UNAME}" in
          windows)
-            RVAL="scan-build.exe"
+            tool="scan-build.exe"
          ;;
 
          *)
-            RVAL="scan-build"
+            tool="scan-build"
          ;;
       esac
    fi
+
+   local toolpath
+
+   if ! toolpath="`command -v "${tool}" `"
+   then
+      fail "Analyzer tool ${C_RESET_BOLD}${tool}${C_ERROR} is not available in PATH"
+   fi
+
+   RVAL="${toolpath}"
 }
 
 
@@ -501,6 +516,95 @@ sde::craft::r_scan_build_anaylzer()
 }
 
 
+sde::craft::run_cppcheck()
+{
+   log_entry "sde::craft::run_cppcheck" "$@"
+
+   local buildstyle="$1"
+
+   CPPCHECK="${CPPCHECK:-`command -v cppcheck`}"
+   if [ -z "${CPPCHECK}" ]
+   then
+      fail "You need to have cppcheck (https://cppcheck.net) installed"
+   fi
+
+   # -j <n> is not that much faster but breaks the progress meter
+   CPPCHECKFLAGS="${CPPCHECKFLAGS:---inconclusive \
+             --enable=warning,performance,portability \
+             --max-ctu-depth=8}"
+
+   local platforms64="unix64,win64"
+   local platforms32="unix32,win32A,win32W,mips32"
+   local platforms16="pic16"
+   local platforms8="avr8,elbrus-e1cp,pic8,pic8-enhanced"
+
+   local key
+   local platforms
+
+   key="${CPPCHECKPLATFORMS}"
+   key="${key%bit}"
+   key="${key%\ }"
+   case "${key}" in
+      64|64+)
+         platforms="${platforms64}"
+      ;;
+
+      32)
+         platforms="${platforms32}"
+      ;;
+
+      16)
+         platforms="${platforms16}"
+      ;;
+
+      8)
+         platforms="${platforms8}"
+      ;;
+
+      32+)
+         platforms="${platforms64},${platforms32}"
+      ;;
+
+      16+|objc)  # can't do objc with less than 16 bit
+         platforms="${platforms64},${platforms32},${platforms16}"
+      ;;
+
+      all|c)
+         platforms="${platforms64},${platforms32},${platforms16},${platforms8}"
+      ;;
+
+      8-64)
+         platforms="avr8,pic16,win32A,unix64"
+      ;;
+
+      "")
+         platforms="native"
+      ;;
+
+      *)
+         platforms="${CPPCHECKPLATFORMS}"
+      ;;
+   esac
+
+   local platform
+
+   #
+   # TODO, if we produce no compile_commands.json could fallback to
+   # PROJECT_SOURCE_DIR here for non-cmake projects
+   #
+   .foreachitem platform in ${platforms}
+   .do
+      log_info "Platform ${C_MAGENTA}${C_BOLD}${platform}"
+
+      eval_exekutor "'${CPPCHECK}'" \
+                    "${CPPCHECKFLAGS}" \
+                    "${CPPCHECKAUXFLAGS}" \
+                    --platform="'${platform}'" \
+                    --project="'`mulle-sde kitchen-dir`/${buildstyle:-Debug}/compile_commands.json'"
+      echo
+   .done
+}
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
@@ -509,7 +613,6 @@ sde::craft::main()
 {
    log_entry "sde::craft::main" "$@"
 
-   local target=""
    local buildstyle=""
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
@@ -517,30 +620,15 @@ sde::craft::main()
    local OPTION_CLEAN='DEFAULT'
    local OPTION_SYNCFLAGS=""
    local OPTION_ANALYZE=""
+   local OPTION_CPPCHECK='NO'
 
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
 
-   target="${MULLE_SDE_TARGET:-${MULLE_SDE_CRAFT_TARGET}}"
-   if [ "${target}" = "NONE" ]
-   then
-      log_fluff "MULLE_SDE_TARGET/MULLE_SDE_CRAFT_TARGET is \"NONE\", so nothing will be built"
-      return 0
-   fi
-
-   if [ "${PROJECT_TYPE}" = "none" ]
-   then
-      log_fluff "PROJECT_TYPE is \"none\", so only craftorder will be built"
-      target="craftorder"
-      OPTION_REFLECT='NO'
-   fi
-
-   target="${target:-all}"
-
    while [ $# -ne 0 ]
    do
-      #
+      # (???)
       # reparse technical flags here, because we want to have -v and friends
-      # even if we use the "craft" alias inside the subshell
+      # even if we use the "craft" alias inside the subshell (???)
       #
       if options_technical_flags "$1"
       then
@@ -577,6 +665,7 @@ sde::craft::main()
             OPTION_CLEAN='NO'
          ;;
 
+
          # other options
          --analyze)
             OPTION_ANALYZE=YES
@@ -589,7 +678,6 @@ sde::craft::main()
             MULLE_SCAN_BUILD_DIR="$1"
          ;;
 
-
          --build-type|--build-style)
             [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
             shift
@@ -600,6 +688,10 @@ sde::craft::main()
          --debug|--release)
             r_capitalize "${1:2}"
             buildstyle="${RVAL}"
+         ;;
+
+         --cppcheck)
+            OPTION_CPPCHECK='YES'
          ;;
 
          --dump-env)
@@ -625,29 +717,74 @@ sde::craft::main()
             OPTION_SYNCFLAGS="$1"
          ;;
 
-         --serial)
+         --parallel)
+            OPTION_SERIAL='NO'
+         ;;
+
+         --serial|--no-parallel)
             OPTION_SERIAL='YES'
          ;;
 
-         ''|-*)
+         --)
+            break
+         ;;
+
+         -*)
+            sde::craft::usage "Unknown option \"$1\", use -- to pass arguments to mulle-craft"
             break
          ;;
 
          *)
-            target="$1"
-            OPTION_REFLECT='NO'
-            shift
             break
          ;;
       esac
       shift
    done
 
+   local target
+
+   if [ $# -ne 0 ]
+   then
+      if [ "$1" != '--' ]
+      then
+         target="$1"
+         OPTION_REFLECT='NO'
+         shift
+      fi
+
+      if [ $# -ne 0 ]
+      then
+         if [ "$1" != '--' ]
+         then
+            sde::craft::usage "Superflous arguments \"$*\", use -- to pass arguments to mulle-craft"
+         fi
+         shift
+      fi
+   fi
+
+   target="${target:-${MULLE_SDE_TARGET}}"
+   target="${target:-${MULLE_SDE_CRAFT_TARGET}}"
+   target="${target:-all}"
+
+   if [ "${target}" = "NONE" ]
+   then
+      log_fluff "MULLE_SDE_TARGET/MULLE_SDE_CRAFT_TARGET is \"NONE\", so nothing will be built"
+      return 0
+   fi
+
+   if [ "${PROJECT_TYPE}" = "none" ]
+   then
+      log_fluff "PROJECT_TYPE is \"none\", so only craftorder will be built"
+      target="craftorder"
+      OPTION_REFLECT='NO'
+   fi
+
    #
    # our craftorder is specific to a host
    #
    [ -z "${PROJECT_TYPE}" ] && _internal_fail "PROJECT_TYPE is undefined"
    [ -z "${MULLE_HOSTNAME}" ] &&  _internal_fail "old mulle-bashfunctions installed"
+
    ! [ ${MULLE_SDE_CRAFTORDER_SH+x} ] && \
       . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
 
@@ -679,7 +816,11 @@ sde::craft::main()
                     -s \
                      dbstatus
       dbrval="$?"
-      log_verbose "Sourcetree status is $dbrval (0: ok, 1: missing, 2:dirty)"
+
+      local statuses
+
+      statuses=("\"ok\"" "\"missing\"" "\"dirty\"")
+      log_verbose "Sourcetree status is ${statuses[rc]:-$rc}"
    fi
 
    # do the clean first as it wipes the database
@@ -910,7 +1051,7 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
    # always specify is better, because then we don't get accidentally
    # mulle-clang as the C compiler.
    #
-   # if plain C, don't emot language
+   # if plain C, don't emit language
    #if [ "${PROJECT_LANGUAGE}" != "${PROJECT_DIALECT}" ] && \
    #   ! [ "${PROJECT_LANGUAGE}" = "c" -a -z "${PROJECT_DIALECT}" ]
    #then
@@ -930,6 +1071,11 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
                       "${arguments}" || return 1
 
    log_verbose "Craft was successful"
+
+   if [ "${OPTION_CPPCHECK}" = 'YES' ]
+   then
+      sde::craft::run_cppcheck "${buildstyle}"
+   fi
 
    if [ "${OPTION_RUN}" = 'YES' ]
    then

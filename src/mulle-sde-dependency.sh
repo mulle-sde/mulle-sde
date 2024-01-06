@@ -32,9 +32,9 @@
 MULLE_SDE_DEPENDENCY_SH='included'
 
 
-DEPENDENCY_MARKS="dependency,delete"  # with delete we filter out subprojects
-DEPENDENCY_LIST_MARKS="dependency"
-DEPENDENCY_LIST_NODETYPES="ALL"
+DEPENDENCY_MARKS='dependency,delete'  # with delete we filter out subprojects
+DEPENDENCY_LIST_MARKS='dependency'
+DEPENDENCY_LIST_NODETYPES='ALL'
 
 #
 # no-cmake-loader     : C code needs no ObjCLoader (if all-load is set)
@@ -43,25 +43,25 @@ DEPENDENCY_LIST_NODETYPES="ALL"
 # no-import           : use #include instead of #import
 # singlephase         : assume most C stuff is old fashioned
 #
-DEPENDENCY_C_MARKS="no-import,no-all-load,no-cmake-loader,no-cmake-searchpath"
+DEPENDENCY_C_MARKS='no-import,no-all-load,no-cmake-loader,no-cmake-searchpath'
 
 #
 # no-singlephase      : assume most ObjC stuff is mulle-objc
 #
-DEPENDENCY_OBJC_MARKS="no-singlephase"
+DEPENDENCY_OBJC_MARKS='no-singlephase'
 
 # no-cmake-all-load   : need not and can't force load frameworks
 # singlephase         : frameworks can't do multiphase
 # no-cmake-add        : we don't need info from frameworks
 # no-cmake-inherit    : we don't link against what a framework links (neccesarily)
 # only-framework      : yes it's aframework
-DEPENDENCY_FRAMEWORKS_MARKS="singlephase,no-cmake-add,no-cmake-all-load,no-cmake-inherit,only-framework"
+DEPENDENCY_FRAMEWORKS_MARKS='singlephase,no-cmake-add,no-cmake-all-load,no-cmake-inherit,only-framework'
 
-DEPENDENCY_EXECUTABLE_MARKS="no-link,no-header,no-bequeath"
+DEPENDENCY_EXECUTABLE_MARKS='no-link,no-header,no-bequeath'
 # enable some cmake flags, to "remove" them
-DEPENDENCY_EMBEDDED_MARKS="no-build,no-header,no-link,no-share,no-readwrite,cmake-inherit,cmake-searchpath,cmake-all-load,cmake-loader"
-DEPENDENCY_AMALGAMATED_MARKS="no-share-shirk"
-DEPENDENCY_STARTUP_MARKS="all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-searchpath,no-cmake-loader"
+DEPENDENCY_EMBEDDED_MARKS='no-build,no-header,no-link,no-share,no-readwrite,cmake-inherit,cmake-searchpath,cmake-all-load,cmake-loader'
+DEPENDENCY_AMALGAMATED_MARKS='no-build,no-clobber,no-header,no-link,no-readwrite,no-share,no-share-shirk'
+DEPENDENCY_STARTUP_MARKS='all-load,singlephase,no-intermediate-link,no-dynamic-link,no-header,no-cmake-inherit'
 
 
 sde::dependency::usage()
@@ -156,25 +156,26 @@ Options:
    --clean         : delete all previous dependencies and libraries
    --domain <name> : create an URL for a known domain, e.g. github
    --embedded      : the dependency becomes part of the local project
+   --fetchoptions  : options for mulle-fetch --options
    --framework     : a MacOS framework (macOS only)
    --git           : short cut for --scm git
    --github <name> : a shortcut for --domain github --user <name>
                      works also for other known domains (e.g. --gitlab)
    --headerless    : has no headerfile
    --headeronly    : has no library
-   --no-fetch      : do not attempt to find a matching craftinfo on github
    --if-missing    : if a node with the same address is present, do nothing
    --multiphase    : the dependency can be crafted in three phases (default)
+   --no-fetch      : do not attempt to find a matching craftinfo on github
    --objc          : used for Objective-C dependencies
    --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
    --repo <name>   : used in conjunction with --domain to specify an url
+   --scm <name>    : specify remote format [git, svn, tar, zip, file]
    --singlephase   : the dependency must be crafted in one phase
    --startup       : dependency is a ObjC startup library
-   --scm <name>    : specify remote format [git, svn, tar, zip, file]
-   --user <name>   : used in conjunction with --domain to specify an url
    --tag <name>    : used in conjunction with --domain to specify an url
+   --user <name>   : used in conjunction with --domain to specify an url
 
 EOF
   exit 1
@@ -291,8 +292,13 @@ Usage:
 
    List dependencies of this project.
 
-   Use \`mulle-sde dependency list -- --output-format cmd\` for copying
+   Use \`${MULLE_USAGE_NAME} dependency list --json\` for full detail.
+
+   Use \`${MULLE_USAGE_NAME} dependency list -- --output-format cmd\` for copying
    single entries between projects.
+
+   See the subcommand help \`mulle-sourcetree -v list -h\` for even more
+   options, that are available.
 
 Options:
    -l               : output long information
@@ -301,8 +307,9 @@ Options:
    -r               : recursive list
    -g               : output branch/tag information (use -G for raw output)
    -u               : output URL information  (use -U for raw output)
-   --url            : show URL
+   --json           : output in json format, precludes other flags
    --no-mark <mark> : remove mark from output
+   --url            : show URL
    --               : pass remaining arguments to mulle-sourcetree list
 
 
@@ -564,6 +571,7 @@ sde::dependency::list_main()
 
    local OPTION_OUTPUT_COMMAND='NO'
    local OPTIONS
+   local OPTION_JSON
 
    while :
    do
@@ -574,6 +582,10 @@ sde::dependency::list_main()
 
          --name-only)
             formatstring="%a"
+         ;;
+
+         --json)
+            OPTION_JSON='YES'
          ;;
 
          --url)
@@ -627,6 +639,20 @@ sde::dependency::list_main()
       shift
    done
 
+   if [ "${OPTION_JSON}" = 'YES' ]
+   then
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root \
+               ${MULLE_TECHNICAL_FLAGS} \
+                --silent-but-warn \
+            json \
+               --marks "${DEPENDENCY_LIST_MARKS}" \
+               --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
+               --qualifier "${qualifier}" \
+               "$@"
+      return $?
+   fi
+
    if [ "${OPTION_OUTPUT_COMMAND}" = 'YES' ]
    then
       MULLE_USAGE_NAME="${MULLE_USAGE_NAME} dependency" \
@@ -636,8 +662,8 @@ sde::dependency::list_main()
                 --silent-but-warn \
             list \
                --marks "${DEPENDENCY_LIST_MARKS}" \
-               --qualifier "${qualifier}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
+               --qualifier "${qualifier}" \
                --output-eval \
                --output-format cmd2 \
                --output-no-url \
@@ -889,29 +915,31 @@ sde::dependency::add_main()
 {
    log_entry "sde::dependency::add_main" "$@"
 
-   local OPTION_CLEAN='NO'
-   local OPTION_ENHANCE='YES'     # enrich URL
-   local OPTION_DIALECT=
-   local OPTION_PRIVATE='NO'
    local OPTION_AMALGAMATED='NO'
+   local OPTION_CLEAN='NO'
+   local OPTION_DIALECT=
    local OPTION_EMBEDDED='NO'
+   local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_EXECUTABLE='NO'
    local OPTION_FETCH='YES'
    local OPTION_MARKS
    local OPTION_OPTIONAL='NO'
-   local OPTION_SINGLEPHASE=
+   local OPTION_PRIVATE='NO'
    local OPTION_SHARE='YES'
+   local OPTION_SINGLEPHASE=
    local OPTION_STARTUP='NO'
 
    local OPTION_ADDRESS
-   local OPTION_DOMAIN
-   local OPTION_USER
-   local OPTION_REPO
-   local OPTION_FILTER
-   local OPTION_TAG
-   local OPTION_TAG_SET
    local OPTION_BRANCH
    local OPTION_BRANCH_SET
+   local OPTION_DOMAIN
+   local OPTION_FILTER
+   local OPTION_NODETYPE
+   local OPTION_FETCHOPTIONS
+   local OPTION_REPO
+   local OPTION_TAG
+   local OPTION_TAG_SET
+   local OPTION_USER
 
    local OPTION_OPTIONS
 
@@ -992,6 +1020,14 @@ sde::dependency::add_main()
 
             OPTION_FILTER="$1"
          ;;
+
+         --fetchoptions)
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_FETCHOPTIONS="$1"
+         ;;
+
 
          --tag)
             [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
@@ -1141,6 +1177,7 @@ sde::dependency::add_main()
    local originalurl
    local domain
    local repo
+   local fetchoptions
 
    originalurl="${url}"
 
@@ -1152,18 +1189,37 @@ sde::dependency::add_main()
    options="${OPTION_OPTIONS}"
    domain="${OPTION_DOMAIN}"
    repo="${OPTION_REPO}"
+   fetchoptions="${OPTION_FETCHOPTIONS}"
 
    case "${originalurl}" in
       craftinfo:*)
-         [ ! -z "${nodetype}" ] && log_warning "Nodetype will be ignored with craftinfo: type URLs"
-         [ ! -z "${user}" ]     && log_warning "User will be ignored with craftinfo: type URLs"
-         [ ! -z "${tag}" ]      && log_warning "Tag will be ignored with craftinfo: type URLs"
-         [ ! -z "${branch}" ]   && log_warning "Branch will be ignored with craftinfo: type URLs"
-         [ ! -z "${address}" ]  && log_warning "Address will be ignored with craftinfo: type URLs"
-         [ ! -z "${options}" ]  && log_warning "Options will be ignored with craftinfo: type URLs"
+         [ ! -z "${nodetype}" ]      && log_warning "Nodetype will be ignored with craftinfo: type URLs"
+         [ ! -z "${user}" ]          && log_warning "User will be ignored with craftinfo: type URLs"
+         [ ! -z "${tag}" ]           && log_warning "Tag will be ignored with craftinfo: type URLs"
+         [ ! -z "${branch}" ]        && log_warning "Branch will be ignored with craftinfo: type URLs"
+         [ ! -z "${address}" ]       && log_warning "Address will be ignored with craftinfo: type URLs"
+         [ ! -z "${options}" ]       && log_warning "Options will be ignored with craftinfo: type URLs"
+         [ ! -z "${fetchoptions}" ]  && log_warning "Fetchoptions will be ignored with craftinfo: type URLs"
 
          sde::dependency::add_craftinfo_url "${originalurl#craftinfo:}" 'YES'
          return $?
+      ;;
+
+      github:*)
+         domain="${originalurl%%:*}"
+         user="${originalurl#*:}"
+         user="${user%%/*}"
+
+         if [ -z "${nodetype}" ]
+         then
+            nodetype="git"
+            case "${user}" in
+               [Mm]ulle*)
+                  nodetype="tar"
+               ;;
+            esac
+         fi
+         repo="${originalurl##*/}"
       ;;
    esac
 
@@ -1313,7 +1369,7 @@ sde::dependency::add_main()
    if [ "${OPTION_ENHANCE}" = 'YES' ]
    then
       case "${nodetype}" in
-         'comment'|'error'|'local'|'symlink'|'file'|'clib')
+         'comment'|'error'|'local'|'symlink'|'file')
             # no embellishment here
          ;;
 
@@ -1435,7 +1491,7 @@ sde::dependency::add_main()
       marks="${RVAL}"
    fi
 
-   if [ "${OPTION_ALMAGAMATED}" = 'YES' ]
+   if [ "${OPTION_AMALGAMATED}" = 'YES' ]
    then
       r_comma_concat "${marks}" "${DEPENDENCY_AMALGAMATED_MARKS}"
       marks="${RVAL}"
@@ -1491,6 +1547,13 @@ sde::dependency::add_main()
       ;;
    esac
 
+   if [ ! -z "${fetchoptions}" ]
+   then
+      r_concat "${options}" "--fetchoptions '${fetchoptions}'"
+      options="${RVAL}"
+   fi
+
+
    if [ "${OPTION_CLEAN}" = 'YES' ]
    then
       rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -1518,7 +1581,7 @@ sde::dependency::add_main()
 
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
-      _log_info "${C_VERBOSE}Ignore embedded files with:
+      _log_info "${C_VERBOSE}After \`mulle-sde fetch\` check for boring embedded files with \`mulle-sde fetch\` and ignore them with:
 ${C_RESET_BOLD}   mulle-sde ignore <gitignore-like-pattern>"
    else
       _log_info "${C_VERBOSE}You can change the library search names with:

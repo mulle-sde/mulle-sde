@@ -858,7 +858,7 @@ sde::craftinfo::exists_main()
       IFS="${DEFAULT_IFS}"
 
       url="${repo}/${_name}-${OPTION_SUFFIX}.git"
-      log_info "Checking if craftinfo URL ${C_RESET_BOLD}${url}${C_INFO} exists at ${C_RESET_BOLD}${repo}"
+      log_info "Checking if craftinfo URL ${C_RESET_BOLD}${url}${C_INFO} exists at ${C_RESET_BOLD}${repo}${C_INFO} ..."
       if rexekutor "${MULLE_FETCH:-mulle-fetch}" \
                        ${MULLE_TECHNICAL_FLAGS} \
                        ${MULLE_FETCH_FLAGS}  \
@@ -870,7 +870,7 @@ sde::craftinfo::exists_main()
    done
    IFS="${DEFAULT_IFS}"
 
-   log_verbose "No craftinfo found online"
+   log_info "No craftinfos found online"
    return 1
 }
 

@@ -787,30 +787,34 @@ sde::init::run_init()
    # TODO: small database with sha256 sums, that the user has "allowed"
    #       if not in database query Y/n like mulle-bootstrap used to
    #
-   (
-      r_simplified_path "${executable}"
-      log_info "Running init script \"${RVAL}\""
+   r_simplified_path "${executable}"
+   log_debug "Adding init script \"${RVAL}\" to delayed init calls"
 
-      eval_exekutor OPTION_UPGRADE="${OPTION_UPGRADE}" \
-                    OPTION_REINIT="${OPTION_REINIT}" \
-                    OPTION_INIT_TYPE="${OPTION_INIT_TYPE}" \
-                    GITHUB_USER="${GITHUB_USER}" \
-                    PROJECT_DIALECT="${PROJECT_DIALECT}" \
-                    PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS}" \
-                    PROJECT_LANGUAGE="${PROJECT_LANGUAGE}" \
-                    PROJECT_NAME="${PROJECT_NAME}" \
-                    PROJECT_TYPE="${PROJECT_TYPE}" \
-                    ONESHOT_FILENAME="${ONESHOT_FILENAME}" \
-                    ONESHOT_IDENTIFIER="${ONESHOT_IDENTIFIER}" \
-                    MULLE_VIRTUAL_ROOT="`pwd -P`" \
-                        "${executable}" \
-                              "${INIT_FLAGS}" \
-                              "${MULLE_TECHNICAL_FLAGS}" \
-                              "${flags}" \
-                              "${auxflags}" \
-                           --marks "'${marks}'" \
-                                   "${projecttype}"
-   ) || fail "init script \"${executable}\" failed"
+   local eval_cmdline
+
+   eval_cmdline="\
+OPTION_UPGRADE='${OPTION_UPGRADE}' \
+OPTION_REINIT='${OPTION_REINIT}' \
+OPTION_INIT_TYPE='${OPTION_INIT_TYPE}' \
+GITHUB_USER='${GITHUB_USER}' \
+PROJECT_DIALECT='${PROJECT_DIALECT}' \
+PROJECT_EXTENSIONS='${PROJECT_EXTENSIONS}' \
+PROJECT_LANGUAGE='${PROJECT_LANGUAGE}' \
+PROJECT_NAME='${PROJECT_NAME}' \
+PROJECT_TYPE='${PROJECT_TYPE}' \
+ONESHOT_FILENAME='${ONESHOT_FILENAME}' \
+ONESHOT_IDENTIFIER='${ONESHOT_IDENTIFIER}' \
+MULLE_VIRTUAL_ROOT='$(pwd -P)' \
+ '${executable}' \
+       ${INIT_FLAGS} \
+       ${MULLE_TECHNICAL_FLAGS} \
+       ${flags} \
+       ${auxflags} \
+    --marks '${marks}' \
+            '${projecttype}'"
+
+   r_add_line "${_EXTENSION_INITS}" "${eval_cmdline}"
+   _EXTENSION_INITS="${RVAL}"
 }
 
 
@@ -1549,6 +1553,41 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
             fail "Could not copy \"${extensiondir}/env\""
 
          sde::init::_append_to_motd "${extensiondir}"
+
+
+         local executable
+
+         executable="${extensiondir}/init"
+         if ! sde::init::is_file_disabled_by_marks "${marks}" \
+                                                   "${executable}" \
+                                                   "no-init" \
+                                                   "no-init/${vendor}/${extname}"
+         then
+            sde::init::run_init "${executable}" "${projecttype}" \
+                                                "${exttype}" \
+                                                "${vendor}" \
+                                                "${extname}" \
+                                                "${marks}" \
+                                                "${force}"
+         fi
+
+         # happens for oneshot extensions
+         if [ ! -z "${OPTION_INIT_TYPE}" ]
+         then
+            executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
+            if ! sde::init::is_file_disabled_by_marks "${marks}" \
+                                                      "${executable}" \
+                                                      "no-init" \
+                                                      "no-init/${vendor}/${extname}"
+            then
+               sde::init::run_init "${executable}" "${projecttype}" \
+                                                   "${exttype}" \
+                                                   "${vendor}" \
+                                                   "${extname}" \
+                                                   "${marks}" \
+                                                   "${force}"
+            fi
+         fi
       fi
    fi
 
@@ -1749,6 +1788,7 @@ sde::init::install_extension()
    local force="$7"
 
    local _TEMPLATE_DIRECTORIES # will be set by sde::init::_install_extension
+   local _EXTENSION_INITS
 
    if sde::init::extension_has_been_installed "${vendor}" "${extname}"
    then
@@ -1821,6 +1861,8 @@ sde::init::install_extension()
 
          log_debug "_TEMPLATE_DIRECTORIES: ${_TEMPLATE_DIRECTORIES}"
 
+         local arguments
+
          .foreachline arguments in ${_TEMPLATE_DIRECTORIES}
          .do
             if [ ! -z "${arguments}" ]
@@ -1837,43 +1879,24 @@ sde::init::install_extension()
    fi
 
    #
-   # Init is always run last
+   # Inits are always run last
    #
+
    if [ -z "${onlyfilename}" ]
    then
-      local executable
+      (
+         local cmdline
 
-      executable="${extensiondir}/init"
-      if ! sde::init::is_file_disabled_by_marks "${marks}" \
-                                                "${executable}" \
-                                                "no-init" \
-                                                "no-init/${vendor}/${extname}"
-      then
-         sde::init::run_init "${executable}" "${projecttype}" \
-                                             "${exttype}" \
-                                             "${vendor}" \
-                                             "${extname}" \
-                                             "${marks}" \
-                                             "${force}"
-      fi
-
-      # happens for oneshot extensions
-      if [ ! -z "${OPTION_INIT_TYPE}" ]
-      then
-         executable="${extensiondir}/init-${OPTION_INIT_TYPE}"
-         if ! sde::init::is_file_disabled_by_marks "${marks}" \
-                                                   "${executable}" \
-                                                   "no-init" \
-                                                   "no-init/${vendor}/${extname}"
-         then
-            sde::init::run_init "${executable}" "${projecttype}" \
-                                                "${exttype}" \
-                                                "${vendor}" \
-                                                "${extname}" \
-                                                "${marks}" \
-                                                "${force}"
-         fi
-      fi
+         .foreachline cmdline in ${_EXTENSION_INITS}
+         .do
+            if [ ! -z "${cmdline}" ]
+            then
+               # memo: arguments are fully created including comments in
+               # sde::init::_copy_extension_template_files
+               eval_exekutor "${cmdline}" || exit 1
+            fi
+         .done
+      ) || exit
    fi
 
    log_verbose "${verb_past} ${exttype} extension ${C_RESET_BOLD}${vendor}/${extname}"
@@ -2592,15 +2615,20 @@ sde::init::run_user_post_init_script()
    local scriptfile
 
    scriptfile="${HOME}/bin/post-mulle-sde-init"
-   if [ ! -e "${scriptfile}" ]
+   if [ -e "${scriptfile}" ]
    then
+      if [ ! -x "${scriptfile}" ]
+      then
+         fail "\"${scriptfile}\" exists but is not executable"
+      fi
+   else
       log_fluff "\"${scriptfile}\" does not exist"
-      return
-   fi
 
-   if [ ! -x "${scriptfile}" ]
-   then
-      fail "\"${scriptfile}\" exists but is not executable"
+      if ! scriptfile="`command -v post-mulle-sde-init`"
+      then
+         log_fluff "\"post-mulle-sde-init\" not found in PATH"
+         return
+      fi
    fi
 
    log_warning "Running post-init script \"${scriptfile}\""

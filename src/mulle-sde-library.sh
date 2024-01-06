@@ -587,6 +587,7 @@ sde::library::list_main()
    local qualifier
    local OPTIONS
    local formatstring
+   local OPTION_JSON
 
    formatstring="%v={NODE_INDEX,#,-};%a;%s;%i={aliases,,-------};%i={include,,-------}"
    # with supermarks we don't filter stuff out anymore a priori
@@ -623,6 +624,10 @@ sde::library::list_main()
             OPTIONS="${RVAL}"
          ;;
 
+         --json)
+            OPTION_JSON='YES'
+         ;;
+
          --)
             # pass rest to mulle-sourcetree
             shift
@@ -642,6 +647,20 @@ sde::library::list_main()
    done
 
    log_fluff "Just pass through to mulle-sourcetree"
+
+   if [ "${OPTION_JSON}" = 'YES' ]
+   then
+      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                   --silent-but-warn \
+               json \
+                  --marks "${LIBRARY_LIST_MARKS}" \
+                  --nodetypes "${LIBRARY_LIST_NODETYPES}" \
+                  --qualifier "${qualifier}" \
+               "$@"
+      return $?
+   fi
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                 --virtual-root \

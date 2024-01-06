@@ -90,6 +90,43 @@ EOF
 }
 
 
+sde::clean::r_craft_targets()
+{
+   log_entry "sde::clean::r_craft_targets" "$@"
+
+   RVAL="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                              --virtual-root \
+                              -s \
+                           craftorder \
+                              --no-output-marks | sed 's|^.*/||'`"
+}
+
+
+sde::clean::r_find_craft_target()
+{
+   log_entry "sde::clean::r_find_craft_target" "$@"
+
+   local targets
+
+   local targets="$1"
+   local pattern="$2"
+
+   local escaped_pattern
+
+   r_escaped_grep_pattern "${pattern}"
+   escaped_pattern="${RVAL}"
+
+   local found
+
+   RVAL="`grep -x "${escaped_pattern}" <<< "${targets}" `"
+   if [ ! -z "${RVAL}" ]
+   then
+      return 0
+   fi
+   return 1
+}
+
+
 sde::clean::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -119,7 +156,7 @@ Options:
    --no-test      : do not check, if a dependecy exists
 
 Environment:
-   MULLE_SDE_CLEAN_DEFAULT : default domains to clear 
+   MULLE_SDE_CLEAN_DEFAULT : default domains to clear, separated by ':'
 EOF
 
    cat <<EOF >&2
@@ -497,7 +534,7 @@ sde::clean::main()
             [ $# -eq 1 ] && sde::install::usage "Missing argument to \"$1\""
             shift
 
-            r_concat "${OPTION_DOMAINS}" "$1"
+            r_colon_concat "${OPTION_DOMAINS}" "$1"
             OPTION_DOMAINS="${RVAL}"
             OPTION_DOMAIN_DEFAULT="custom"
          ;;
@@ -578,11 +615,11 @@ test"
       ;;
 
       all)
-         domains="kitchendir dependencydir varcaches"
+         domains="kitchendir:dependencydir:varcaches"
       ;;
 
       alltestall)
-         domains="kitchendir dependencydir varcaches testall"
+         domains="kitchendir:dependencydir:varcaches:testall"
       ;;
 
       archive|archives)
@@ -601,7 +638,7 @@ test"
       ;;
 
       cache|upgrade)
-         domains="archive mirror"
+         domains="archive:mirror"
       ;;
 
       custom)
@@ -609,7 +646,7 @@ test"
       ;;
 
       default)
-         r_concat "${MULLE_SDE_CLEAN_DEFAULT}" "project subproject"
+         r_colon_concat "${MULLE_SDE_CLEAN_DEFAULT}" "project:subproject"
          domains="${RVAL}"
       ;;
 
@@ -623,7 +660,7 @@ test"
       ;;
 
       fetch)
-         domains="sourcetree varcaches output db monitor patternfile archive"
+         domains="sourcetree:varcaches:output:db:monitor:patternfile:archive"
       ;;
 
       graveyard)
@@ -631,7 +668,7 @@ test"
       ;;
 
       gravetidy|grave-tidy|gtidy)
-         domains="graveyard sourcetree_share varcaches output var db monitor patternfile"
+         domains="graveyard:sourcetree_share:varcaches:output:var:db:monitor:patternfile"
          MULLE_SOURCETREE_GRAVEYARD_ENABLED='NO'
          export MULLE_SOURCETREE_GRAVEYARD_ENABLED
       ;;
@@ -649,39 +686,32 @@ test"
       ;;
 
       tidy)
-         domains="sourcetree_share varcaches output var db monitor patternfile"
+         domains="sourcetree_share:varcaches:output:var:db:monitor:patternfile"
       ;;
 
       tmp)
          domains="tmp"
       ;;
 
-      domains-usage)
+      domain-help|domain-usage|domains-usage)
          sde::clean::domains_usage
          return 0
       ;;
 
       *)
+         local target
+         local target2
+
          if [ "${OPTION_TEST}" = 'YES' ]
          then
-            local escaped_dependency
-            local targets
-            local found
+            sde::clean::r_craft_targets
+            targets="${RVAL}"
 
-            r_escaped_grep_pattern "$1"
-            escaped_dependency="${RVAL}"
-
-            targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                                       --virtual-root \
-                                       -s \
-                                    craftorder \
-                                       --no-output-marks | sed 's|^.*/||'`"
-            found="`grep -x "${escaped_dependency}" <<< "${targets}" `"
-
-            if [ -z "${found}" ]
+            if ! sde::clean::r_find_craft_target "${targets}" "$1"
             then
                if [ "${OPTION_LENIENT}" = 'YES' ]
                then
+                  log_info "Ignoring unknown target ${C_RESET_BOLD}$1${C_INFO} due to leniency"
                   return
                fi
 
@@ -690,22 +720,11 @@ ${C_VERBOSE}Known dependencies:
 ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
 "
             fi
+
+            target="$1"
          fi
 
-         local target
-
-         target="$1"
-
-#         case "${MULLE_UNAME}" in
-#            darwin)
-#               if [ ! -z "${target}" -a "${target}" != "${PROJECT_NAME}" ]
-#               then
-#                  fail "Cleaning of a dependency by name leads to misery on Mac OS.
-#${C_INFO}Work around: ${C_RESET_BOLD}clean all"
-#               fi
-#            ;;
-#         esac
-
+         # Cleaning of a dependency by name leads to misery on Mac OS.
          #
          # TODO: mulle-craft needs to wipe dependency folder here, because
          #       the installed craftinfo folders may be whacked
@@ -725,7 +744,7 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    local rval 
 
    rval=0
-   .for domain in ${domains}
+   .foreachpath domain in ${domains}
    .do
       functionname="sde::clean::${domain}"
       if shell_is_function "${functionname}"

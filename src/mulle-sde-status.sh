@@ -528,7 +528,10 @@ sde::status::main()
       *,craftstatus,*)
          log_verbose "Craft status:"
 
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} --no-test-check craftstatus --output-terse
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                             --no-test-check \
+                           craftstatus \
+                             --output-terse
       ;;
    esac
 

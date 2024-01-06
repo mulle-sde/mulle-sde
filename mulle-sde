@@ -114,6 +114,7 @@ function sde::print_commands()
    project-dir    : print project root directory
    project        : rename a project and its files
    searchpath     : show search path for build products
+   source-dir     : print project source directory
    steal          : download and flatten source files from mulle-c projects
    subproject     : manage local subprojects
    task           : manage reflect tasks
@@ -344,10 +345,6 @@ sde::assert_test_environment()
 }
 
 
-#
-# execute a native mulle-env command, this is not expected to bounce back to
-# mulle-sde
-#
 sde::run_mulle_env()
 {
    log_entry "sde::run_mulle_env" "$@"
@@ -377,7 +374,8 @@ sde::run_mulle_env()
 
 
 #
-# same as above, but exec
+# execute a native mulle-env command, this is not expected to bounce back to
+# mulle-sde
 #
 sde::exec_mulle_env()
 {
@@ -773,7 +771,7 @@ sde::main()
             # commands that do not need a subshell (immediately)
             add|bash-completion|commands|env|environment|env-identifier|\
 extension|get|init|init-and-enter|install|reinit|status|hostname|remove|uname|\
-show|version|libexec-dir|library-path|project-dir|set|steal|test|upgrade|username)
+show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgrade|username)
             ;;
 
             # commands where we want to start a subshell and these don't have
@@ -1014,6 +1012,7 @@ run
 searchpath
 set
 show
+source-dir
 sourcetree
 subproject
 stash-dir
@@ -1533,6 +1532,22 @@ view"
          else
             sde::extension::main show meta
          fi
+      ;;
+
+      source-dir)
+         local directory
+         local subdir
+
+         if ! sde::r_determine_project_dir "${PWD}"
+         then
+            return 1
+         fi
+
+         directory="${RVAL}"
+         subdir="`sde::run_mulle_env environment get PROJECT_SOURCE_DIR`"
+
+         r_filepath_concat "${directory}" "${subdir}"
+         printf "%s\n" "${RVAL}"
       ;;
 
       stash-dir)

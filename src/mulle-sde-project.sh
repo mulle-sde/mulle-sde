@@ -535,7 +535,7 @@ sde::project::search_and_replace_filenames()
 
    local files
 
-   files="`eval_rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print `"
+   files="`rexekutor find "${dir}" -type "${type}" -name "*${old}*" -print `"
 
    local filename
 
