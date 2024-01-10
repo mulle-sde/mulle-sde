@@ -1578,7 +1578,11 @@ sde::craftinfo::list_main()
 
    if [ -z "${url}" ]
    then
-      .foreachline url in `mulle-sde dependency list -- --format '%a\n' --output-format csv --output-no-header`
+      .foreachline url in `mulle-sde dependency list --columnar \
+                                                     -- \
+                                                        --format '%a\n' \
+                                                        --output-format csv \
+                                                        --output-no-header`
       .do
          case "${url}" in
             craftinfo/*)

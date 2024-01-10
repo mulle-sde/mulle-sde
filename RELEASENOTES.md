@@ -1,3 +1,20 @@
+## 2.3.0
+
+* mulle-sde dep list --json is now the new default
+* added `source-dir` command
+* experimental support for cppcheck (use --cppcheck during craft)
+* craftorder command gained a --names option
+* for dependency listings  with full detail the --json option is the official way now
+* fixed a major bug in `init` where the init code of the extensions didn't run. This was most noticable with the missing .gitignore files after init of a new project
+* its now possible to serialize tasks in ``MULLE_SDE_REFLECT_CALLBACKS`` by prefixing them with `@`
+* mulle-sde test now supports coverage generation in conjunction with tests and mulle-test
+* new command `mulle-sde view` gives a different overview over the project
+* improved **clean** command
+* much improved **patternfile** command
+* improved **product** command
+* supermark `C` now adds `no-all-load` experimentally, though...
+
+
 ### 2.2.1
 
 * when run with -n reflect would produce an error and bail

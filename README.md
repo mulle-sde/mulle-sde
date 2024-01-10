@@ -2,19 +2,19 @@
 
 ... for Android, BSDs, Linux, macOS, SunOS, Windows (MinGW, WSL)
 
-**mulle-sde** is a command-line based software development environment.
-Organize your project in the filesystem, and then let
-mulle-sde reflect the changed filesystem back to the "Makefile".
-An important aspect of a mulle-sde project is, that your project
-can still be built without mulle-sde being installed.
+MulleSDE is an IDE and a dependency (package) manager for the commandline.
+You could call it a [npm](https://www.npmjs.com/) or a [virtualenv](//pypi.org/project/virtualenv)
+for C languages. [De Re mulle-sde](https://www.mulle-kybernetik.com/de-re-mulle-sde/) is a
+a short introductory guide, that gives an overview of some of the capabilities.
 
-As mulle-sde is a bunch of scripts, it is inherently scriptable. See the
-[mulle-sde Wiki](https://github.com/mulle-sde/mulle-sde/wiki) for
-a more indepth introduction on what **mulle-sde** is.
+MulleSDE strives to be self-explanatory through help texts and file comments.
+The [mulle-sde WiKi](//github.com/mulle-sde/mulle-sde/wiki) contains more in-depth information,
+that doesn't fit into the help texts of the various mulle-sde commands
+
 
 | Release Version                                       | Release Notes
 |-------------------------------------------------------|--------------
-| ![Mulle kybernetiK tag](https://img.shields.io/github/tag/mulle-sde/mulle-sde.svg?branch=release) | [RELEASENOTES](RELEASENOTES.md) |
+| ![Mulle kybernetiK tag](https://img.shields.io/github/tag/mulle-sde/mulle-sde.svg?branch=release)  | [RELEASENOTES](RELEASENOTES.md) |
 
 ## Documentation
 
@@ -47,6 +47,7 @@ There is also quite a bit of documentation in the [mulle-sde WiKi](//github.com/
 
 
 # Commands
+
 
 
 
@@ -404,6 +405,21 @@ mulle-sde tool add nroff
 ```
 
 
+## mulle-sde view
+
+![](dox/mulle-sde-view.svg)
+
+View combines the commands `craftinfo`, `dependency`, `library`,
+`definition` to give an overview over craft relevant settings and linkage,
+that are defined by mulle-sde. Build settings defined in **cmake** files are
+not shown though.
+
+``` sh
+mulle-sde view
+```
+
+
+
 ## Afterword
 
 There are many more commands in mulle-sde. These are the most commonly
@@ -443,6 +459,7 @@ alias l="mulle-sde list --files"
 ```
 
 
+
 ## You are here
 
 ![](dox/mulle-sde-overview.svg)
@@ -468,3 +485,5 @@ curl -L 'https://github.com/mulle-sde/mulle-sde/archive/latest.tar.gz' \
 ## Author
 
 [Nat!](https://mulle-kybernetik.com/weblog) for Mulle kybernetiK
+
+

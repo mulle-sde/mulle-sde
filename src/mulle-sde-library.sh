@@ -169,6 +169,8 @@ Usage:
    single entries between projects.
 
 Options:
+   -c       : use columnar output
+   --json   : output in JSON format (default)
    --       : pass remaining arguments to mulle-sourcetree list
 
 EOF
@@ -689,15 +691,24 @@ sde::library::main()
    #
    # handle options
    #
+   local cmd
+
    while :
    do
       case "$1" in
-         -h|--help|help)
+         -h*|--help|help)
             sde::library::usage
          ;;
 
          -*)
-            sde::library::usage "Unknown option \"$1\""
+            cmd="list" # assume its for list
+            break
+         ;;
+
+         --)
+            # pass rest to mulle-sourcetree
+            shift
+            break
          ;;
 
          *)
@@ -708,16 +719,14 @@ sde::library::main()
       shift
    done
 
-   local cmd="${1:-list}"
-
-   [ $# -ne 0 ] && shift
-
-   if [ -z "${MULLE_SDE_COMMON_SH}" ]
+   if [ -z "${cmd}" ]
    then
-      # shellcheck source=src/mulle-sde-common.sh
+      cmd="${1:-list}"
 
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+      [ $# -ne 0 ] && shift
    fi
+
+   include "sde::common"
 
    case "${cmd}" in
       add|get|list|set)

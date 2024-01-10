@@ -583,6 +583,12 @@ sde::init::add_to_sourcetree()
    local filename="$1"
    local projecttype="$2"
 
+
+   local configname
+
+#   r_basename "${filename}" # wrong
+   configname="config"
+
    #
    # specialty for sourcetree, could expand this in general to
    # other files
@@ -591,6 +597,7 @@ sde::init::add_to_sourcetree()
    then
       filename="${filename}-${projecttype}"
    fi
+
 
    local lines
 
@@ -601,6 +608,21 @@ sde::init::add_to_sourcetree()
       return
    fi
 
+   local oldfile
+   local previous_contents
+
+   oldfile="${PWD}/.mulle.old/share/sourcetree/${configname}"
+   if [ -e "${oldfile}" ]
+   then
+      log_fluff "Found previous share sourcetree \"${oldfile}\" file, trying to preserve UUIDs"
+      previous_contents="`rexekutor mulle-sourcetree list --config-file "${oldfile}" \
+                                                          -ll \
+                                                          --output-no-header`"
+   else
+      log_debug "No previous sourcetree at \"${oldfile}\" ($PWD)"
+      previous_contents=
+   fi
+
 #   log_debug "lines=${lines}"
 #   log_debug
 #   log_debug
@@ -608,16 +630,39 @@ sde::init::add_to_sourcetree()
 #   log_debug
 #   log_debug
 
-   MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+   MULLE_VIRTUAL_ROOT="" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      -N \
                      ${MULLE_TECHNICAL_FLAGS} \
                      ${MULLE_SOURCETREE_FLAGS:-} \
                      --use-fallback \
                   eval-add \
-                     --filename "${filename}" \
+                     --config-name "${configname}" \
                      -- \
                      "${lines}" || exit 1
+
+   if [ -z "${previous_contents}" ]
+   then
+      return
+   fi
+
+
+   # we would like to preserve the UUIDs of the original if possible, so
+   # we don't get uselessly changed files in the next commit
+
+   local contents
+   local newfile
+
+   newfile="${PWD}/.mulle/share/sourcetree/${configname}"
+   contents="`mulle-sourcetree list --config-file "${newfile}" \
+                                    -ll \
+                                    --output-no-header`"
+
+   if [ "${contents}" = "${previous_contents}" ]
+   then
+      log_debug "Could preserve it"
+      exekutor cp -p "${oldfile}" "${newfile}"
+   fi
 }
 
 
@@ -921,10 +966,10 @@ sde::init::install_sourcetree_files()
    local projecttype="$5"
 
    if ! sde::init::is_sourcetree_file_disabled_by_marks "${marks}" \
-                                             "${extensiondir}/sourcetree" \
-                                             "${projecttype}" \
-                                             "no-sourcetree" \
-                                             "no-sourcetree-${vendor}-${extname}"
+                                                        "${extensiondir}/sourcetree" \
+                                                        "${projecttype}" \
+                                                        "no-sourcetree" \
+                                                        "no-sourcetree-${vendor}-${extname}"
    then
       sde::init::add_to_sourcetree "${extensiondir}/sourcetree" "${projecttype}"
    fi
@@ -1519,30 +1564,32 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
                                            "no-env" \
                                            "no-env/${vendor}/${extname}"
       then
-         if [ "${OPTION_UPGRADE}" = 'YES' ]
-         then
-            sde::init::add_to_environment "${extensiondir}/environment-upgrade" \
-                                          "${projecttype}"
-         else
-            sde::init::add_to_environment "${extensiondir}/environment-init" \
-                                          "${projecttype}"
-         fi
+## the -init and -upgrade idea was IMO a mistake, because after an init/upgrade
+## the state would be different than just an init, which is really unexpected
+##         if [ "${OPTION_UPGRADE}" = 'YES' ]
+##         then
+##            sde::init::add_to_environment "${extensiondir}/environment-upgrade" \
+##                                          "${projecttype}"
+##         else
+##            sde::init::add_to_environment "${extensiondir}/environment-init" \
+##                                          "${projecttype}"
+##         fi
          sde::init::add_to_environment "${extensiondir}/environment" \
                                        "${projecttype}"
 
          #
          # same for post-environment
          #
-         if [ "${OPTION_UPGRADE}" = 'YES' ]
-         then
-            sde::init::add_to_environment "${extensiondir}/post-environment-upgrade" \
-                                          "${projecttype}" \
-                                          "post-extension"
-         else
-            sde::init::add_to_environment "${extensiondir}/post-environment-init" \
-                                          "${projecttype}" \
-                                          "post-extension"
-         fi
+##         if [ "${OPTION_UPGRADE}" = 'YES' ]
+##         then
+##            sde::init::add_to_environment "${extensiondir}/post-environment-upgrade" \
+##                                          "${projecttype}" \
+##                                          "post-extension"
+##         else
+##            sde::init::add_to_environment "${extensiondir}/post-environment-init" \
+##                                          "${projecttype}" \
+##                                          "post-extension"
+##         fi
          sde::init::add_to_environment "${extensiondir}/post-environment" \
                                        "${projecttype}" \
                                        "post-extension"
@@ -1916,10 +1963,6 @@ sde::init::install_motd()
       return
    fi
 
-   # just clobber it
-   local directory
-
-   directory=".mulle/share/env"
    remove_file_if_present "${motdfile}"
    redirect_exekutor "${motdfile}" printf "%s\n" "${text}"
 }
@@ -2449,7 +2492,7 @@ ${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#"${MULLE_USER_PWD}/"}\" not present)"
    fi
 
    sde::init::memorize_installed_extensions "${_INSTALLED_EXTENSIONS}" \
-                                 "${OPTION_EXTENSION_FILE}"
+                                            "${OPTION_EXTENSION_FILE}"
 
    sde::init::install_oneshot_extensions "${OPTION_ONESHOTS}" \
                                          "${PROJECT_TYPE}" \
@@ -2684,7 +2727,8 @@ sde::init::validate_projecttype()
          # except if we force it (for a test)
          if [ -z "${OPTION_META}" -a "${force}" != 'YES' ]
          then
-            fail "Meta extension required for projecttype \"${projecttype}\""
+            log_info "Defaulting to ${C_BOLD}${C_MAGENTA}foundation/objc-developer${C_INFO} as meta extension"
+            OPTION_META="foundation/objc-developer"
          fi
       ;;
 
@@ -2780,6 +2824,34 @@ This may hurt, but you have to init again."
    #
    # Not doing this anymore, as project moved to etc
    # memorize_project_name "${PROJECT_NAME}"
+
+   case ",${marks}," in
+      *',no-motd,'*)
+      ;;
+
+      *)
+         case "${_INSTALLED_EXTENSIONS}" in
+            *';buildtool'*)
+
+               local motd
+
+               motd="`printf "%b\n%b" \
+                             "${C_INFO}Run external commands with ${C_RESET_BOLD}mudo" \
+                             "${C_INFO}Project is ready to ${C_RESET_BOLD}craft${C_RESET}"`"
+
+               if [ -z "${_MOTD}" ]
+               then
+                  _MOTD="${motd}"
+               else
+                  _MOTD="${_MOTD}
+${motd}"
+               fi
+            ;;
+         esac
+         sde::init::install_motd "${_MOTD}"
+      ;;
+   esac
+
 
    #
    # repair patternfiles as a "bonus" with -add option
@@ -3079,26 +3151,33 @@ ${C_RESET_BOLD}   mulle-sde upgrade"
 }
 
 
-sde::init::save_mulle_in_old()
+sde::init::save_mulle_in_old_and_setup_new()
 {
-   log_entry "sde::init::save_mulle_in_old" "$@"
+   log_entry "sde::init::save_mulle_in_old_and_setup_new" "$@"
 
    rmdir_safer ".mulle.old"
-   exekutor mv ".mulle" ".mulle.old"
 
-   # copy stuff we may need for the upgrade back,
-   mkdir_if_missing ".mulle" || exit 1
+   exekutor mv ".mulle" ".mulle.old"  || fail  "Could not move old .mulle folder ($PWD#${MULLE_USER_PWD}/})"
 
    # order is important on mingw, first share than etc
    # for symlinks
-   exekutor cp -Rp ".mulle.old/share" ".mulle" || exit 1
-   if [ -d ".mulle.old/etc" ]
-   then
-      exekutor cp -Rp ".mulle.old/etc" ".mulle" || exit 1
-   fi
+   if ! \
+   (
+      set -e
+      mkdir_if_missing ".mulle"
+      exekutor cp -Rp ".mulle.old/share" ".mulle"
+      if [ -d ".mulle.old/etc" ]
+      then
+         exekutor cp -Rp ".mulle.old/etc" ".mulle"
+      fi
 
-   mkdir_if_missing "${MULLE_MATCH_VAR_DIR}" || exit 1
-   mkdir_if_missing "${MULLE_SDE_SHARE_DIR}" || exit 1
+      mkdir_if_missing "${MULLE_MATCH_VAR_DIR}"
+      mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
+   )
+   then
+      exekutor mv ".mulle.old" ".mulle"
+      fail  "Could not create new .mulle folder ($PWD#${MULLE_USER_PWD}/})"
+   fi
 }
 
 
@@ -3221,7 +3300,7 @@ sde::init::run_reinit()
 
    sde::init::check_dot_init
 
-   sde::init::save_mulle_in_old
+   sde::init::save_mulle_in_old_and_setup_new
 
    sde::init::start "Reinit"
 
@@ -3271,7 +3350,7 @@ sde::init::run_upgrade()
    # (i.e. CMakeLists.txt). Keep "extension" file around in case something
    # goes wrong. Also temporarily keep old share
    #
-   sde::init::save_mulle_in_old
+   sde::init::save_mulle_in_old_and_setup_new
 
    sde::init::start "Upgrade"
 
@@ -3485,7 +3564,6 @@ sde::init::_main()
    sde::project::clear_oneshot_variables
 
    OPTION_META="${MULLE_SDE_DEFAULT_META_EXTENSION}"
-
    #
    # handle options
    #
@@ -3524,7 +3602,7 @@ sde::init::_main()
          ;;
 
          -c)
-            OPTION_META="c-developer"
+            OPTION_META="mulle-c/c-developer"
          ;;
 
          --clean)
@@ -3536,7 +3614,7 @@ sde::init::_main()
          ;;
 
          -objc)
-            OPTION_META="objc-developer"
+            OPTION_META="foundation/objc-developer"
          ;;
 
          -d|--directory)

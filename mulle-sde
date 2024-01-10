@@ -427,6 +427,11 @@ ${C_RESET_BOLD}   mulle-sde clean tidy"
       fail "There is no mulle-sde project in (${current#"${MULLE_USER_PWD}/"}).
 ${C_INFO}Create an initial empty one with:
 ${C_RESET_BOLD}   mulle-sde init"
+   else 
+      if [ "${current}" != "${RVAL}" ]
+      then
+         log_verbose "Project directory determined to be ${C_RESET_BOLD}${RVAL#${MULLE_USER_PWD}/}"
+      fi
    fi
 
    if [ "${dir_action}" = 'CD' -a "${current}" != "${RVAL}" ]
@@ -1694,7 +1699,7 @@ view"
          echo
          echo
          log_info "${C_BR_BLUE}${C_BOLD}Dependency"
-         mulle-sde dependency list -- -f "%a\n" --no-output-header \
+         mulle-sde dependency list --columnar -- -f "%a\n" --no-output-header \
          | sort \
          | sed -e 's/^/   /'
          echo

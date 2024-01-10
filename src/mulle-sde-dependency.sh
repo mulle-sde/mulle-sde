@@ -281,7 +281,6 @@ EOF
 }
 
 
-
 sde::dependency::list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -290,9 +289,11 @@ sde::dependency::list_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency list [options]
 
-   List dependencies of this project.
+   List dependencies of this project in JSON format.
+   Use \`${MULLE_USAGE_NAME} dependency list --eval\` to expand value variables.
 
-   Use \`${MULLE_USAGE_NAME} dependency list --json\` for full detail.
+   Use \`${MULLE_USAGE_NAME} dependency list -c\` for less detail and
+   columnar output.
 
    Use \`${MULLE_USAGE_NAME} dependency list -- --output-format cmd\` for copying
    single entries between projects.
@@ -301,15 +302,17 @@ Usage:
    options, that are available.
 
 Options:
-   -l               : output long information
-   -ll              : output full information
-   -m               : show marks output (overwrites other flags)
-   -r               : recursive list
-   -g               : output branch/tag information (use -G for raw output)
-   -u               : output URL information  (use -U for raw output)
-   --json           : output in json format, precludes other flags
-   --no-mark <mark> : remove mark from output
-   --url            : show URL
+   -c               : output in the columnar format
+   -l               : columnar output long information
+   -ll              : columnar output full information
+   -m               : columnar show marks output (overwrites other flags)
+   -r               : columnar recursive list
+   -g               : columnar output branch/tag information (use -G for raw)
+   -u               : columnar output URL information  (use -U for raw output)
+   --eval           : expand variables in JSON format
+   --json           : output in JSON format, precludes other flags (default)
+   --no-mark <mark> : remove mark from columnar output
+   --url            : show URL in columnar output
    --               : pass remaining arguments to mulle-sourcetree list
 
 
@@ -571,7 +574,7 @@ sde::dependency::list_main()
 
    local OPTION_OUTPUT_COMMAND='NO'
    local OPTIONS
-   local OPTION_JSON
+   local OPTION_JSON='DEFAULT'
 
    while :
    do
@@ -580,19 +583,29 @@ sde::dependency::list_main()
             sde::dependency::list_usage
          ;;
 
-         --name-only)
-            formatstring="%a"
+         -c|--columnar|--no-json)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
+         ;;
+
+         --expand|--eval)
+            JSON_ARGS="--expand"
          ;;
 
          --json)
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't mix --json with \"$1\""
             OPTION_JSON='YES'
          ;;
 
          --url)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             formatstring="${formatstring};%u"
          ;;
 
-         -m|--more)
+         -m)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             formatstring="%v={NODE_INDEX,#,-};%a;%m;%i={aliases,,-------};%i={include,,-------}"
          ;;
 
@@ -604,6 +617,12 @@ sde::dependency::list_main()
             no_marks="${RVAL}"
          ;;
 
+         --name-only)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
+            formatstring="%a"
+         ;;
+
          --qualifier)
             [ "$#" -eq 1 ] && sde::dependency::list_usage "Missing argument to \"$1\""
             shift
@@ -612,16 +631,24 @@ sde::dependency::list_main()
          ;;
 
          --output-format)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             shift
             OPTION_OUTPUT_COMMAND='YES'
          ;;
 
          -l|-ll|-r|-g|-u|-G|-U)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             r_concat "${OPTIONS}" "$1"
             OPTIONS="${RVAL}"
          ;;
 
          --)
+            # this is actually "good", if one still wants JSON though you
+            # can pass this after --, but usually its an error
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             # pass rest to mulle-sourcetree
             shift
             break
@@ -639,7 +666,7 @@ sde::dependency::list_main()
       shift
    done
 
-   if [ "${OPTION_JSON}" = 'YES' ]
+   if [ "${OPTION_JSON}" != 'NO' ]
    then
       rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
@@ -649,7 +676,7 @@ sde::dependency::list_main()
                --marks "${DEPENDENCY_LIST_MARKS}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --qualifier "${qualifier}" \
-               "$@"
+               ${JSON_ARGS}
       return $?
    fi
 
@@ -1670,6 +1697,8 @@ sde::dependency::main()
 {
    log_entry "sde::dependency::main" "$@"
 
+   local cmd
+
    #
    # handle options
    #
@@ -1681,8 +1710,8 @@ sde::dependency::main()
          ;;
 
          -*)
-            fail "Unknown option \"$1\""
-            sde::dependency::usage
+            cmd="list" # assume its for list
+            break
          ;;
 
          --)
@@ -1699,14 +1728,19 @@ sde::dependency::main()
       shift
    done
 
-   local cmd="${1:-list}"
+   if [ -z "${cmd}" ]
+   then
+      cmd="${1:-list}"
 
-   [ $# -ne 0 ] && shift
+      [ $# -ne 0 ] && shift
+   fi
 
    # shellcheck source=src/mulle-sde-common.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
    # shellcheck source=src/mulle-sde-craftinfo.sh
    . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+
+   local rc 
 
    case "${cmd}" in
       add)
@@ -1779,19 +1813,24 @@ platform-excludes"
 
       remove|rem)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           --virtual-root \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                        "remove" \
+                           "$@"
+         rc=$?
+
+         if [ $rc -eq 0 ] 
+         then
+            MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \
                            ${MULLE_TECHNICAL_FLAGS} \
                         "remove" \
                            --if-present \
                            "craftinfo/$1-craftinfo"
-
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           --virtual-root \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                        "remove" \
-                           "$@"
+         fi
+         return $rc
       ;;
 
       set)

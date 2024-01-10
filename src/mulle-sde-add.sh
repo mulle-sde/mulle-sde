@@ -793,9 +793,11 @@ sde::add::main()
       then
          local flag
 
-          [ "${OPTION_ALMAGAMATED}" = 'YES' ] \
-             && flag="--almagamted" \
-             || flag="--embedded"
+         # set flag
+         [ "${OPTION_ALMAGAMATED}" = 'YES' ] \
+            && flag="--amalgamated" \
+            || flag="--embedded"
+
           rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
                      dependency add --scm "${scm}" \
                                     --address "src/${repo}" \

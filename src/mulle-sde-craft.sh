@@ -237,8 +237,8 @@ sde::craft::perform_mainproject_reflect_if_needed()
    reflectflags="--if-needed"
 
    case ":${MULLE_SDE_REFLECT_CALLBACKS:-}:" in
-      *:source:*)
-         tasks="source"
+      *:filesystem:*)
+         tasks="filesystem"
       ;;
    esac
 

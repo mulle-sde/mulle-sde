@@ -206,7 +206,7 @@ ${C_RESET_BOLD}   mulle-sde env --global set MULLE_MATCH_FILENAMES=\"${after}\""
       if [ "${sayok}" = 'YES' ]
       then
          _log_info "Environment variable ${C_RESET}MULLE_MATCH_FILENAMES${C_INFO} seems in sync with the patternfiles.
-${C_INFO}Check ${C_RESET}MULLE_MATCH_PATH${C_INFO}. if files aren't found by ${C_RESET_BOLD}mulle-sde files${C_INFO}."
+${C_INFO}Check ${C_RESET}MULLE_MATCH_PATH${C_INFO}, if files aren't found by ${C_RESET_BOLD}mulle-sde files${C_INFO}."
       fi
    fi
 
