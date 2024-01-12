@@ -638,6 +638,14 @@ sde::dependency::list_main()
             OPTION_OUTPUT_COMMAND='YES'
          ;;
 
+         -r)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
+            r_concat "${OPTIONS}" "$1"
+            OPTIONS="${RVAL}"
+            formatstring="%v={NODE_INDEX,#,-};%a;%s"
+         ;;
+
          -l|-ll|-r|-g|-u|-G|-U)
             [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
             OPTION_JSON='NO'
