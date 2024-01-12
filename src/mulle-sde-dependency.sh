@@ -486,9 +486,6 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
             local upcaseid
             local nodetype
 
-            sde::dependency::r_upcaseid "${address}" || return 1
-            upcaseid="${RVAL}"
-
             if [ -z "${nodetype}" ]
             then
                nodetype="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
@@ -499,9 +496,13 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
                log_debug "Nodetype guessed as \"${nodetype}\""
             fi
 
-            sde::dependency::__enhance_url "${value}" "${tag}" "" "${nodetype}" "${address}" ""
+            sde::dependency::__enhance_url "${value}" \
+                                           "${tag}" \
+                                           "" \
+                                           "${nodetype}" \
+                                           "${address}" ""
 
-            value="\${${upcaseid}_URL:-${value}}"
+            value="${_url}"
          fi
       ;;
 
@@ -790,14 +791,33 @@ sde::dependency::__enhance_url()
    then
       _tag="\${${upcaseid}_TAG}"
    else
-      _tag="\${${upcaseid}_TAG:-${tag}}"
+      case "${tag}" in
+         \$\{*)
+            # already wrapped
+            _tag="${tag}"
+         ;;
+
+         *)
+            _tag="\${${upcaseid}_TAG:-${tag}}"
+         ;;
+      esac
    fi
+
 
    if [ -z "${branch}" ]
    then
       _branch="\${${upcaseid}_BRANCH}"
    else
-      _branch="\${${upcaseid}_BRANCH:-${branch}}"
+      case "${branch}" in
+         \$\{*)
+            # already wrapped
+            _branch="${branch}"
+         ;;
+
+         *)
+            _branch="\${${upcaseid}_BRANCH:-${branch}}"
+         ;;
+      esac
    fi
 
    #
@@ -820,8 +840,20 @@ sde::dependency::__enhance_url()
       esac
    fi
 
+   log_setting "url: ${url}"
+
+   case "${url}" in
+      \$\{*)
+         # already wrapped
+         _url="${url}"
+      ;;
+
+      *)
+         _url="\${${upcaseid}_URL:-${url}}"
+      ;;
+   esac
+
    # common wrapper for archive and repository
-   _url="\${${upcaseid}_URL:-${url}}"
    _marks="${marks}"
    #
    # WRAPPING MARKS DOESN'T WORK YET asthe marks adding code bails
@@ -832,7 +864,16 @@ sde::dependency::__enhance_url()
    #  Maybe also allow changes based on UUID ?
    #
    # _marks="\${${upcaseid}_MARKS:-${marks}}"
-   _nodetype="\${${upcaseid}_NODETYPE:-${nodetype}}"
+   case "${nodetype}" in
+      \$\{*)
+         # already wrapped
+         _nodetype="${nodetype}"
+      ;;
+
+      *)
+         _nodetype="\${${upcaseid}_NODETYPE:-${nodetype}}"
+      ;;
+   esac
    _address="${address}"
 }
 
