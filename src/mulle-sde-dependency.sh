@@ -1268,6 +1268,11 @@ sde::dependency::add_main()
    fetchoptions="${OPTION_FETCHOPTIONS}"
 
    case "${originalurl}" in
+      comment:*)
+         scm="comment"
+         url="${originalurl#*:}"
+      ;;
+
       craftinfo:*)
          [ ! -z "${nodetype}" ]      && log_warning "Nodetype will be ignored with craftinfo: type URLs"
          [ ! -z "${user}" ]          && log_warning "User will be ignored with craftinfo: type URLs"
@@ -1281,21 +1286,8 @@ sde::dependency::add_main()
          return $?
       ;;
 
-      github:*)
-         domain="${originalurl%%:*}"
-         user="${originalurl#*:}"
-         user="${user%%/*}"
-
-         if [ -z "${nodetype}" ]
-         then
-            nodetype="git"
-            case "${user}" in
-               [Mm]ulle*)
-                  nodetype="tar"
-               ;;
-            esac
-         fi
-         repo="${originalurl##*/}"
+      *:*)
+         eval `rexekutor mulle-domain parse-url "${originalurl}"`
       ;;
    esac
 

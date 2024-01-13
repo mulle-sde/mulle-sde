@@ -495,6 +495,20 @@ sde::extension::_list_vendors()
 }
 
 
+sde::extension::get_installed_extension_by_name()
+{
+   log_entry "sde::extension::get_installed_extension_by_name" "$@"
+
+   local name="$1"
+
+   r_escaped_sed_pattern "${name}"
+
+   # interesting that the 'p' inside {} doesn't reference the 's' but
+   # the //
+   rexekutor sed -n -e "/${RVAL}/{s|\\(^[^/]*/${RVAL}\\);.*|\\1|p;q;}" "${MULLE_SDE_SHARE_DIR}/extension"
+}
+
+
 sde::extension::get_installed_version()
 {
    log_entry "sde::extension::get_installed_version" "$@"
@@ -1674,8 +1688,27 @@ sde::extension::r_vendor_expanded_extensions()
 
    installed_vendors="`sde::extension::list_installed_vendors`"
 
+
    for extension in "$@"
    do
+      case "${extension}" in
+         */*)
+         ;;
+
+         *)
+            if ! found="`sde::extension::get_installed_extension_by_name "${extension}"`"
+            then
+               if [ "${if_installed}" = 'YES' ]
+               then
+                  log_verbose "Skipping non-installed extension \"${extension}\""
+                  continue
+               fi
+            else
+               extension="${found}"
+            fi
+         ;;
+      esac
+
       case "${extension}" in
          */*)
             if [ "${if_installed}" = 'YES' ]
@@ -1691,8 +1724,10 @@ sde::extension::r_vendor_expanded_extensions()
          *)
             found='NO'
 
-            # vendors aren't installed "hierarchically" though
-            # so mulle-sde can be found before mulle-foundation (in theory)
+            #
+            # vendors should be "hierarchically" listed in "extensions" so
+            # that mulle-objc, preceeds mulle-c
+            #
             .foreachline installed in ${installed_vendors}
             .do
                if sde::extension::r_find "${installed}" "${extension}"

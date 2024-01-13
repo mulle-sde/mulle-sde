@@ -721,7 +721,7 @@ sde::add::main()
          ;;
 
          *:*)
-            eval `rexekutor mulle-domain parse-url "${filename}" 2> /dev/null`
+            eval `rexekutor mulle-domain parse-url "${filename}"`
 
             if [ ! -z "${user}" -a ! -z "${repo}" ]
             then

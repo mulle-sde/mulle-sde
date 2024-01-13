@@ -1312,7 +1312,7 @@ sde::init::set_extension_has_been_installed()
    if [ "${exttype}" != "oneshot" ]
    then
       log_debug "memorize extension ${vendor}/${extname} as installed"
-      r_add_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"
+      r_add_unique_line "${_INSTALLED_EXTENSIONS}" "${vendor}/${extname};${exttype}"
       _INSTALLED_EXTENSIONS="${RVAL}"
    fi
 }
