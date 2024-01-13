@@ -1696,7 +1696,8 @@ sde::extension::r_vendor_expanded_extensions()
          ;;
 
          *)
-            if ! found="`sde::extension::get_installed_extension_by_name "${extension}"`"
+            found="`sde::extension::get_installed_extension_by_name "${extension}"`"
+            if [ -z "${found}" ]
             then
                if [ "${if_installed}" = 'YES' ]
                then
@@ -1704,6 +1705,7 @@ sde::extension::r_vendor_expanded_extensions()
                   continue
                fi
             else
+               log_fluff "Best matching extension for \"${extension}\" is \"${found}\", using it"
                extension="${found}"
             fi
          ;;
