@@ -61,13 +61,14 @@ Options:
    -g                      : clean gravetidy before crafting
    -q                      : skip uptodate checks
    --                      : pass remaining flags to mulle-craft
+   --analyze               : run clang analyzer when crafting the project
+   --build-style <style>   : known configurations: Debug/Release/Test/RelDebug
+   --c-build-style <style> : set separate configuration for dependencies
    --clean                 : clean before crafting (see: mulle-sde clean)
+   --cppcheck              : run cppcheck after crafting the project
    --from <domain>         : clean specific depenency before crafting (s.a)
    --run                   : attempt to run produced executable
-   --analyze               : run clang analyzer when crafting the project
-   --cppcheck              : run cppcheck after crafting the project
    --serial                : compile one file at a time
-   --build-style <style>   : known styles are Debug/Release/Test/RelDebug
 
 Targets:
    all                     : build dependency folder, then project
@@ -83,6 +84,7 @@ Environment:
    MULLE_SDE_MAKE_FLAGS           : flags to pass to mulle-make via mulle-craft
    MULLE_SDE_TARGET               : default target (all)
    MULLE_SDE_CRAFT_STYLE          : configuration to build (Debug)
+   MULLE_SDE_CRAFTORDER_STYLE     : configuration to build for dependencies
    MULLE_SDE_REFLECT_CALLBACKS    : callbacks called during reflect
    MULLE_SDE_REFLECT_BEFORE_CRAFT : force reflect before craft (${MULLE_SDE_REFLECT_BEFORE_CRAFT:-NO})
 EOF
@@ -382,9 +384,10 @@ sde::craft::target()
    local craftorder_cmdline="$3"
    local craftorderfile="$4"
    local flags="$5"
-   local arguments="$6"
+   local project_arguments="$6"
+   local craftorder_arguments="$7"
 
-   [ $# -eq 6 ] || _internal_fail "API error"
+   [ $# -eq 7 ] || _internal_fail "API error"
 
    # uses rexekutor because -n flag should be passed down
    case "${target}" in
@@ -395,7 +398,7 @@ sde::craft::target()
                                  --craftorder-file "'${craftorderfile}'" \
                               craftorder \
                                  --no-memo-makeflags "'${flags}'" \
-                                 "${arguments}" || return 1
+                                 "${craftorder_arguments}" || return 1
          else
             log_fluff "No craftorderfile so skipping craftorder craft step"
          fi
@@ -408,7 +411,7 @@ sde::craft::target()
                                  --craftorder-file "'${craftorderfile}'" \
                               craftorder \
                                  --no-memo-makeflags "'${flags}'" \
-                                 "${arguments}"  || return 1
+                                 "${craftorder_arguments}"  || return 1
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${craftorderfile} does not exist"
@@ -426,7 +429,7 @@ sde::craft::target()
                                  --craftorder-file "'${craftorderfile}'" \
                               "${target}" \
                                  --no-memo-makeflags "'${flags}'" \
-                                 "${arguments}"  || return 1
+                                 "${craftorder_arguments}"  || return 1
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${craftorderfile} does not exist"
@@ -438,12 +441,12 @@ sde::craft::target()
    case "${target}" in
       'project')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} ${target}" \
-            eval_rexekutor "${project_cmdline}" project "${arguments}"  || return 1
+            eval_rexekutor "${project_cmdline}" project "${project_arguments}"  || return 1
       ;;
 
       'all')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME} craft" \
-            eval_rexekutor "${project_cmdline}" project "${arguments}"  || return 1
+            eval_rexekutor "${project_cmdline}" project "${project_arguments}"  || return 1
       ;;
    esac
 }
@@ -511,6 +514,38 @@ sde::craft::r_scan_build_anaylzer()
 
          compiler="`command -v "mulle-clang" `"
          r_resolve_symlinks "${compiler}"
+      ;;
+   esac
+}
+
+
+sde::craft::r_buildstyle_option()
+{
+   log_entry "sde::craft::r_buildstyle_option" "$@"
+
+   local name="$1"
+   local buildstyle="$2"
+
+   RVAL=
+   case "${buildstyle}" in
+      [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+         log_verbose "${name} buildstyle is Release"
+         RVAL="--release"
+      ;;
+
+      [Rr][Ee][Ll][Dd][Ee][Bb][Uu][Gg])
+         log_verbose "${name} buildstyle is RelDebug"
+         RVAL="--release-debug"
+      ;;
+
+      [Dd][Ee][Bb][Uu][Gg])
+         log_verbose "${name} buildstyle is Debug"
+         RVAL="--debug"
+      ;;
+
+      [Tt][Ee][Ss][Tt])
+         log_verbose "${name} buildstyle is test"
+         RVAL="--test --library-style dynamic"
       ;;
    esac
 }
@@ -613,7 +648,6 @@ sde::craft::main()
 {
    log_entry "sde::craft::main" "$@"
 
-   local buildstyle=""
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
@@ -623,6 +657,9 @@ sde::craft::main()
    local OPTION_CPPCHECK='NO'
 
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
+
+   local buildstyle=""
+   local craftorder_buildstyle=""
 
    while [ $# -ne 0 ]
    do
@@ -646,7 +683,7 @@ sde::craft::main()
             OPTION_CLEAN='YES'
          ;;
 
-         -a|-C|--all)
+         -a|-C|--all|--clean-all)
             OPTION_CLEAN='ALL'
          ;;
 
@@ -683,6 +720,13 @@ sde::craft::main()
             shift
 
             buildstyle="$1"
+         ;;
+
+         --c-build-type|--c-build-style|--craftorder-build-type|--craftorder-build-style)
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
+            shift
+
+            craftorder_buildstyle="$1"
          ;;
 
          --debug|--release)
@@ -999,6 +1043,13 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
       .done
    fi
 
+   if [ "${OPTION_SERIAL}" = 'YES' ]
+   then
+      r_concat '--serial' "${arguments}"
+      arguments="${RVAL}"
+   fi
+
+
    if [ -z "${buildstyle:-}" ]
    then
       buildstyle="${MULLE_SDE_CRAFT_STYLE:-}"
@@ -1008,32 +1059,30 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
       fi
    fi
 
+   local project_arguments
+
    case "${buildstyle}" in
       [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
          log_verbose "Buildstyle is Release"
          runstyle="Release"
-         r_concat "--release" "${arguments}"
-         arguments="${RVAL}"
+         project_arguments="--release"
       ;;
 
       [Rr][Ee][Ll][Dd][Ee][Bb][Uu][Gg])
          log_verbose "Buildstyle is RelDebug"
          runstyle="RelDebug"
-         r_concat "--release-debug" "${arguments}"
-         arguments="${RVAL}"
+         project_arguments="--release-debug"
       ;;
 
       [Dd][Ee][Bb][Uu][Gg])
          log_verbose "Buildstyle is Debug"
          runstyle="Debug"
-         r_concat "--debug" "${arguments}"
-         arguments="${RVAL}"
+         project_arguments="--debug"
       ;;
 
       [Tt][Ee][Ss][Tt])
          log_verbose "Buildstyle is test"
-         r_concat "--test --library-style dynamic" "${arguments}"
-         arguments="${RVAL}"
+         project_arguments="--test --library-style dynamic"
       ;;
 
       *)
@@ -1041,11 +1090,47 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
       ;;
    esac
 
-   if [ "${OPTION_SERIAL}" = 'YES' ]
+   if [ -z "${craftorder_buildstyle:-}" ]
    then
-      r_concat '--serial' "${arguments}"
-      arguments="${RVAL}"
+      craftorder_buildstyle="${MULLE_SDE_CRAFTORDER_STYLE:-}"
+      if [ ! -z "${craftorder_buildstyle:-}" ]
+      then
+         log_verbose "Craftorder buildstyle set from MULLE_SDE_CRAFTORDER_STYLE (${craftorder_buildstyle})"
+      else
+         craftorder_buildstyle="${MULLE_SDE_CRAFT_STYLE:-}"
+         if [ ! -z "${craftorder_buildstyle:-}" ]
+         then
+            log_verbose "Craftorder buildstyle set from MULLE_SDE_CRAFT_STYLE (${craftorder_buildstyle})"
+            craftorder_buildstyle="${MULLE_SDE_CRAFT_STYLE:-}"
+         else
+            craftorder_buildstyle="${buildstyle:-}"
+         fi
+      fi
    fi
+
+   local craftorder_arguments
+
+   case "${craftorder_buildstyle}" in
+      [Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+         log_verbose "Craftorder buildstyle is Release"
+         craftorder_arguments="--release"
+      ;;
+
+      [Rr][Ee][Ll][Dd][Ee][Bb][Uu][Gg])
+         log_verbose "Craftorder buildstyle is RelDebug"
+         craftorder_arguments="--release-debug"
+      ;;
+
+      [Dd][Ee][Bb][Uu][Gg])
+         log_verbose "Craftorder buildstyle is Debug"
+         craftorder_arguments="--debug"
+      ;;
+
+      [Tt][Ee][Ss][Tt])
+         log_verbose "Craftorder buildstyle is test"
+         craftorder_arguments="--test --library-style dynamic"
+      ;;
+   esac
 
    #
    # always specify is better, because then we don't get accidentally
@@ -1063,12 +1148,19 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 
    log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
+   r_concat "${arguments}" "${project_arguments}"
+   project_arguments="${RVAL}"
+
+   r_concat "${arguments}" "${craftorder_arguments}"
+   craftorder_arguments="${RVAL}"
+
    sde::craft::target "${target}"  \
                       "${project_cmdline}" \
                       "${craftorder_cmdline}" \
                       "${_craftorderfile}" \
                       "${flags}" \
-                      "${arguments}" || return 1
+                      "${project_arguments}" \
+                      "${craftorder_arguments}" || return 1
 
    log_verbose "Craft was successful"
 

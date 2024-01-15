@@ -1,3 +1,8 @@
+## 2.4.0
+
+* you can now have a project build as Debug and dependencies build as Release with `MULLE_SDE_CRAFTORDER_STYLE`
+
+
 ## 2.3.0
 
 * mulle-sde dep list --json is now the new default

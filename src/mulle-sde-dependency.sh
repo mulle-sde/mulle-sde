@@ -1104,7 +1104,6 @@ sde::dependency::add_main()
             OPTION_FETCHOPTIONS="$1"
          ;;
 
-
          --tag)
             [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
             shift
@@ -1288,6 +1287,10 @@ sde::dependency::add_main()
 
       *:*)
          eval `rexekutor mulle-domain parse-url "${originalurl}"`
+
+         # remap scm to nodetype, nodetype is misnomer through out this file
+         # it should be scm
+         nodetype="${nodetype:-${scm:-}}"
       ;;
    esac
 
