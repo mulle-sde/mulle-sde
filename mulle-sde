@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=2.4.0
+MULLE_EXECUTABLE_VERSION=3.0.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="5.1"
 
 #
@@ -61,8 +61,8 @@ function sde::print_commands()
       SHOWN_COMMANDS="\
    add            : create a source file from templates
    extension      : show available language and buildtool extensions
+   exec           : run a command in a subshell
    init           : create a new project
-   run            : run a command in a subshell
    show           : show available meta extensions
    status         : show information about the current directory"
 
@@ -84,11 +84,13 @@ function sde::print_commands()
    definition     : change projects craft options like CFLAGS
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
+   exec           : run a command in a subshell
    ignore         : remove files from being crafted
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (files matching patternfiles)
    reflect        : update project makefiles and sources
+   run            : run executable product
    status         : show information about the current project state
    view           : give an overview over the project settings"
 
@@ -774,7 +776,7 @@ sde::main()
       then
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
-            add|bash-completion|commands|env|environment|env-identifier|\
+            add|bash-completion|commands|env|environment|env-identifier|ext|\
 extension|get|init|init-and-enter|install|reinit|status|hostname|remove|uname|\
 show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgrade|username)
             ;;
@@ -788,7 +790,7 @@ show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgr
             #
             # commands that execute in the user PWD
             #
-            run)
+            run|exec|execute|debug|edit)
                if ! sde::is_non_environment_commandline "$@"
                then
                   sde::exec_command_in_subshell 'STAY' "$@"
@@ -977,10 +979,13 @@ craft
 craftinfo
 craftorder
 crun
+debug
 definition
 dependency
 dependency-dir
 environment
+edit
+exec
 extension
 fetch
 filename
@@ -1117,6 +1122,13 @@ view"
          sde::craft::main --run "$@"
       ;;
 
+      debug)
+         # shellcheck source=src/mulle-sde-debug.sh
+         include "mulle::debug"
+
+         sde::debug::main "$@"
+      ;;
+
       definition|definitions|def)
          if ! sde::is_non_environment_commandline "$@"
          then
@@ -1152,6 +1164,13 @@ view"
                      "${cmd}" "$@"
       ;;
 
+      edit)
+         # shellcheck source=src/mulle-sde-edit.sh
+         include "mulle::edit"
+
+         sde::edit::main "$@"
+      ;;
+
       enter)
          fail "Command must be run from outside of the current environment."
       ;;
@@ -1182,7 +1201,7 @@ view"
          rexekutor printf "%s\n" "${RVAL}"
       ;;
 
-      extension|extensions|ext)
+      extension|ext)
          # shellcheck source=src/mulle-sde-extension.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
 
@@ -1500,11 +1519,12 @@ view"
          sde::remove::main "$@"
       ;;
 
-      run)
+      exec|execute)
          local quote
          local args
          local arg
 
+         # why is it important that we eval here ?
          quote="'"
          args=""
          for arg in "$@"
@@ -1520,10 +1540,11 @@ view"
       ;;
 
 
-      searchpath)
-         exekutor "${MULLE_CRAFT:-mulle-craft}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                     searchpath "$@"
+      run)
+         # shellcheck source=src/mulle-sde-run.sh
+         include "mulle::run"
+
+         sde::run::main "$@"
       ;;
 
 

@@ -965,6 +965,8 @@ sde::init::install_sourcetree_files()
    local marks="$4"
    local projecttype="$5"
 
+   local rc
+
    if ! sde::init::is_sourcetree_file_disabled_by_marks "${marks}" \
                                                         "${extensiondir}/sourcetree" \
                                                         "${projecttype}" \
@@ -972,6 +974,9 @@ sde::init::install_sourcetree_files()
                                                         "no-sourcetree-${vendor}-${extname}"
    then
       sde::init::add_to_sourcetree "${extensiondir}/sourcetree" "${projecttype}"
+      rc=$?
+      log_debug "sde::init::install_sourcetree_files finished ($rc)"
+      return $rc
    fi
 }
 
@@ -2727,8 +2732,23 @@ sde::init::validate_projecttype()
          # except if we force it (for a test)
          if [ -z "${OPTION_META}" -a "${force}" != 'YES' ]
          then
-            log_info "Defaulting to ${C_BOLD}${C_MAGENTA}foundation/objc-developer${C_INFO} as meta extension"
-            OPTION_META="foundation/objc-developer"
+            local options
+            local row
+
+            options="`mulle-sde extension show --quiet meta`"
+            if [ -z "${options}" ]
+            then
+               fail "No meta extensions installed"
+            fi
+
+            mulle-menu --title "Choose language and library set:" \
+                 --final-title "" \
+                 --options "${options}"
+            row=$?
+            r_line_at_index "${options}" "${row}"
+            [ -z "${RVAL}" ] && exit 1
+
+            OPTION_META="${RVAL%% *}"
          fi
       ;;
 
@@ -3018,9 +3038,24 @@ sde::init::_run_common()
 {
    log_entry "sde::init::_run_common" "$@"
 
-   local projecttype="${1:-none}"
+   local projecttype="$1"
 
-   [ $# -ne 1 ] && shift && sde::init::usage "Superflous arguments \"$*\""
+   [ $# -gt 1 ] && shift && sde::init::usage "Superflous arguments \"$*\""
+
+   if [ -z "${projecttype}" ]
+   then
+      mulle-menu --title "Choose a project type:" \
+                 --final-title "" \
+                 "executable" \
+                 "library" \
+                 "none (choose for existing projects)"
+      case $? in
+         0) projecttype="executable" ;;
+         1) projecttype="library" ;;
+         2) projecttype="none" ;;
+         *) exit 1
+      esac
+   fi
 
    sde::init::validate_projecttype "${projecttype}" "${MULLE_FLAG_MAGNUM_FORCE}"
 
@@ -4005,8 +4040,6 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       sde::init::r_githubname
       GITHUB_USER="${RVAL}"
 
-      log_debug "GITHUB_USER set to \"${GITHUB_USER}\""
-
       log_setting "MULLE_MATCH_ETC_DIR        : \"${MULLE_MATCH_ETC_DIR}\""
       log_setting "MULLE_MATCH_SHARE_DIR      : \"${MULLE_MATCH_SHARE_DIR}\""
       log_setting "MULLE_CRAFT_SHARE_DIR      : \"${MULLE_CRAFT_SHARE_DIR}\""
@@ -4069,10 +4102,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          if [ "${OPTION_UPGRADE}" = 'YES' -a "${oldversion}" != "${MULLE_EXECUTABLE_VERSION}" ]
          then
             # shellcheck source=src/mulle-sde-migrate.sh
-            if [ -z "${MULLE_SDE_MIGRATE_SH}" ]
-            then
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh"
-            fi
+            include "sde::migrate"
 
             _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"

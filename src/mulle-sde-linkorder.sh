@@ -581,7 +581,7 @@ sde::linkorder::r_collect()
          fi
 
          fail "${RVAL}.
-${C_INFO}The linkorder will only be available after dependencies have been crafted.
+${C_INFO}The linkorder will be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
       fi
@@ -998,6 +998,12 @@ sde::linkorder::main()
       shift
    done
 
+
+   case "${PROJECT_EXTENSIONS}" in
+      args)
+         fail "A linkorder is only available for library projects"
+      ;;
+   esac
 
    local nodes
    local name

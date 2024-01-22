@@ -789,7 +789,7 @@ sde::extension::vendors_main()
    do
       case "$1" in
          -h*|--help|help)
-            sde_extension_vendors_usage
+            sde::extension::vendors_usage
          ;;
 
          --installed)
@@ -797,7 +797,7 @@ sde::extension::vendors_main()
          ;;
 
          -*)
-            sde_extension_vendors_usage "Unknown option \"$1\""
+            sde::extension::vendors_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -808,7 +808,7 @@ sde::extension::vendors_main()
       shift
    done
 
-   [ $# -gt 0 ] && sde_extension_vendors_usage "Superflous arguments \"$*\""
+   [ $# -gt 0 ] && sde::extension::vendors_usage "Superflous arguments \"$*\""
 
    if [ "${OPTION_INSTALLED}" = 'YES' ]
    then
@@ -984,9 +984,9 @@ sde::extension::get_version()
 }
 
 
-sde::extension::emit()
+sde::extension::quiet_emit()
 {
-   log_entry "sde::extension::emit" "$@"
+   log_entry "sde::extension::quiet_emit" "$@"
 
    local result="$1"
    local extensiontype="$2"
@@ -994,18 +994,12 @@ sde::extension::emit()
    local with_version="$4"
    local with_usage="$5"
 
-   if [ -z "${result}" ]
-   then
-      return
-   fi
-
-   local extension
-   local version
-   local output
-
-   log_info "Available ${extensiontype} extensions ${comment}:"
-
    (
+      local lines
+      local extension
+      local version
+      local output
+
       lines="`remove_duplicate_lines "${result}" `"
       .foreachline extension in ${lines}
       .do
@@ -1030,6 +1024,27 @@ sde::extension::emit()
 }
 
 
+sde::extension::emit()
+{
+   log_entry "sde::extension::emit" "$@"
+
+   local result="$1"
+   local extensiontype="$2"
+   local comment="$3"
+#   local with_version="$4"
+#   local with_usage="$5"
+
+   if [ -z "${result}" ]
+   then
+      return
+   fi
+
+   log_info "Available ${extensiontype} extensions ${comment}:"
+
+   sde::extension::quiet_emit "$@"
+}
+
+
 sde::extension::show_main()
 {
    log_entry "sde::extension::show_main" "$@"
@@ -1037,6 +1052,7 @@ sde::extension::show_main()
    local OPTION_VERSION='NO'
    local OPTION_OUTPUT_RAW='NO'
    local OPTION_USAGE='YES'
+   local OPTION_EMIT_FUNCTION='sde::extension::emit'
    local OPTION_ALL='NO'
 
    #
@@ -1067,6 +1083,10 @@ sde::extension::show_main()
 
          -a|--all)
             OPTION_ALL='YES'
+         ;;
+
+         --quiet)
+            OPTION_EMIT_FUNCTION='sde::extension::quiet_emit'
          ;;
 
          --output-format)
@@ -1207,11 +1227,11 @@ sde::extension::show_main()
       esac
    .done
 
-   sde::extension::emit "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
-   sde::extension::emit "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
-   sde::extension::emit "${buildtool_extension}" "buildtool" "[-b <extension>]" "${OPTION_VERSION}" "${OPTION_USAGE}"
-   sde::extension::emit "${extra_extension}"     "extra" "[-e <extension>]*"    "${OPTION_VERSION}" "${OPTION_USAGE}"
-   sde::extension::emit "${oneshot_extension}"   "oneshot" "[-o <extension>]*"  "${OPTION_VERSION}" "${OPTION_USAGE}"
+   ${OPTION_EMIT_FUNCTION} "${meta_extension}"      "meta" "[-m <extension>]"      "${OPTION_VERSION}" "${OPTION_USAGE}"
+   ${OPTION_EMIT_FUNCTION} "${runtime_extension}"   "runtime" "[-r <extension>]"   "${OPTION_VERSION}" "${OPTION_USAGE}"
+   ${OPTION_EMIT_FUNCTION} "${buildtool_extension}" "buildtool" "[-b <extension>]" "${OPTION_VERSION}" "${OPTION_USAGE}"
+   ${OPTION_EMIT_FUNCTION} "${extra_extension}"     "extra" "[-e <extension>]*"    "${OPTION_VERSION}" "${OPTION_USAGE}"
+   ${OPTION_EMIT_FUNCTION} "${oneshot_extension}"   "oneshot" "[-o <extension>]*"  "${OPTION_VERSION}" "${OPTION_USAGE}"
 
    :
 }
@@ -1688,7 +1708,6 @@ sde::extension::r_vendor_expanded_extensions()
 
    installed_vendors="`sde::extension::list_installed_vendors`"
 
-
    for extension in "$@"
    do
       case "${extension}" in
@@ -1803,22 +1822,41 @@ sde::extension::add_main()
       shift
    done
 
-   if [ -z "${MULLE_SDE_INIT_SH}" ]
-   then
-      # shellcheck source=src/mulle-sde-init.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
-   fi
+   # shellcheck source=src/mulle-sde-init.sh
+   include "sde::init"
 
    local expanded_extensions
 
-   sde::extension::r_vendor_expanded_extensions 'NO' "$@"
-   expanded_extensions="${RVAL}"
+   if [ $# -eq 0 ]
+   then
+      local options
+      local row
 
-   r_add_line "${args}" "${expanded_extensions}"
-   args="${RVAL}"
+      options="`mulle-sde extension show --quiet extra`"
+      if [ -z "${options}" ]
+      then
+         fail "No extra extensions installed"
+      fi
 
-   args="`sde::extension::hack_option_and_single_quote_everything "--extra" $args | tr '\012' ' '`"
+      mulle-menu --title "Choose extension:" \
+           --final-title "" \
+           --options "${options}"
+      row=$?
+      r_line_at_index "${options}" "${row}"
+      [ -z "${RVAL}" ] && return 1
 
+      args="${RVAL%% *}"
+   else
+      sde::extension::r_vendor_expanded_extensions 'NO' "$@"
+      expanded_extensions="${RVAL}"
+
+      r_add_line "${args}" "${expanded_extensions}"
+      args="${RVAL}"
+
+   fi
+
+   args="`sde::extension::hack_option_and_single_quote_everything "--extra" $args \
+          | tr '\012' ' '`"
    # --add must be very first option
    INIT_USAGE_NAME="${MULLE_USAGE_NAME} extension add" \
       eval sde::init::main --add --no-clean --no-blurb --no-env "${args}"
@@ -2049,8 +2087,12 @@ sde::extension::main()
    fi
 
    case "${cmd}" in
-      add|remove|freshen)
-         [ $# -eq 0 ] && sde_extension_${cmd}_usage
+      add)
+         sde::extension::${cmd}_main "$@"
+      ;;
+
+      remove|freshen)
+         [ $# -eq 0 ] && sde::extension::${cmd}_usage
 
          sde::extension::${cmd}_main "$@"
       ;;
@@ -2087,7 +2129,7 @@ sde::extension::main()
 
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            exekutor exec mulle-sde run mulle-sde extension "${cmd}"
+            exekutor exec mulle-sde exec mulle-sde extension "${cmd}"
          fi
 
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
@@ -2108,7 +2150,7 @@ sde::extension::main()
 
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            exekutor exec mulle-sde run mulle-sde extension "${cmd}"
+            exekutor exec mulle-sde exec mulle-sde extension "${cmd}"
          fi
 
          [ ! -z "${MULLE_SDE_SHARE_DIR}" ] || _internal_fail "MULLE_SDE_SHARE_DIR undefined"

@@ -289,7 +289,7 @@ sde::dependency::list_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency list [options]
 
-   List dependencies of this project in JSON format.
+   List the dependencies of this project in (quasi) JSON format.
    Use \`${MULLE_USAGE_NAME} dependency list --eval\` to expand value variables.
 
    Use \`${MULLE_USAGE_NAME} dependency list -c\` for less detail and
@@ -310,7 +310,7 @@ Options:
    -g               : columnar output branch/tag information (use -G for raw)
    -u               : columnar output URL information  (use -U for raw output)
    --eval           : expand variables in JSON format
-   --json           : output in JSON format, precludes other flags (default)
+   --json           : output true JSON format, precludes other flags (default)
    --no-mark <mark> : remove mark from columnar output
    --url            : show URL in columnar output
    --               : pass remaining arguments to mulle-sourcetree list
@@ -561,6 +561,31 @@ sde::dependency::get_main()
 }
 
 
+sde::dependency::json_filter()
+{
+   local mode="$1"
+
+   # in default mode we use ' for easier copy/paste into sde env set
+   case "${mode}" in
+      DEFAULT)
+         tr '"' $'\'' \
+         | cut -c 8- \
+         | sed -e '1,2d' \
+               -e '/^$/N;/\n$/D' \
+               -e "s/': /:/" \
+               -e "s/,\$//" \
+         | sed -e "/^address:/s/^address:[^']*'\\([^']*\\)'.*/\\1/;t next" \
+               -e "s/^/   /" \
+               -e ":next"
+      ;;
+
+      *)
+         cat
+      ;;
+   esac
+}
+
+
 sde::dependency::list_main()
 {
    log_entry "sde::dependency::list_main" "$@"
@@ -685,7 +710,7 @@ sde::dependency::list_main()
                --marks "${DEPENDENCY_LIST_MARKS}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --qualifier "${qualifier}" \
-               ${JSON_ARGS}
+               ${JSON_ARGS} | sde::dependency::json_filter "${OPTION_JSON}"
       return $?
    fi
 

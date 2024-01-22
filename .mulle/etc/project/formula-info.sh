@@ -20,6 +20,7 @@ LANGUAGE="bash"             # c,cpp, objc, bash ...
 DEPENDENCIES='${MULLE_NAT_TAP}mulle-bashfunctions
 ${MULLE_SDE_TAP}mulle-env
 ${MULLE_SDE_TAP}mulle-craft
+${MULLE_SDE_TAP}mulle-menu
 ${MULLE_SDE_TAP}mulle-monitor
 ${MULLE_SDE_TAP}mulle-platform
 ${MULLE_SDE_TAP}mulle-sourcetree
@@ -27,5 +28,5 @@ ${MULLE_SDE_TAP}mulle-template
 ${MULLE_SDE_TAP}mulle-test
 '
 
-DEBIAN_DEPENDENCIES="mulle-bashfunctions (>= 4.0.0), mulle-env, mulle-craft, mulle-monitor, mulle-platform, mulle-sourcetree, mulle-template, mulle-test"
+DEBIAN_DEPENDENCIES="mulle-bashfunctions (>= 6.0.0), mulle-env, mulle-craft, mulle-menu mulle-monitor, mulle-platform, mulle-sourcetree, mulle-template, mulle-test"
 

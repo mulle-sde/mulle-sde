@@ -1,3 +1,9 @@
+# 3.0.0
+
+* **BREAKING CHANGE** the run command has been renamed to exec, but there is a new run command that runs the project exectuble
+* mulle-sde init and mulle-sde extension can present now a small mulle-menu based dialog phase
+
+
 ## 2.4.0
 
 * you can now have a project build as Debug and dependencies build as Release with `MULLE_SDE_CRAFTORDER_STYLE`

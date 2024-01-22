@@ -38,6 +38,7 @@ mulle-env;${MULLE_ENV_VERSION}
 mulle-fetch;${MULLE_FETCH_VERSION}
 mulle-make;${MULLE_MAKE_VERSION}
 mulle-match;${MULLE_MATCH_VERSION}
+mulle-menu;${MULLE_MENU_VERSION}
 mulle-monitor;${MULLE_MONITOR_VERSION}
 mulle-platform;${MULLE_PLATFORM_VERSION}
 mulle-sde;${MULLE_SDE_VERSION}
