@@ -50,37 +50,38 @@ env::plugin::mulle::print_startup()
 
 case "\${MULLE_SHELL_MODE}" in
    *INTERACTIVE*)
-      if [ -z "${MULLE_SDE_NO_ALIAS}" ]
+      if [ -z "\${MULLE_SDE_NO_ALIAS}" ]
       then
-         alias craftorder="mulle-sde craftorder"
          alias clean="mulle-sde clean"
          alias craft="mulle-sde craft"
+         alias craftorder="mulle-sde craftorder"
          alias dependency="mulle-sde dependency"
          alias environment="mulle-sde environment"
          alias extension="mulle-sde extension"
          alias fetch="mulle-sde fetch"
-         alias show="mulle-sde show"
-         alias list="mulle-sde list"
          alias library="mulle-sde library"
+         alias list="mulle-sde list"
          alias log="mulle-sde log"
          alias match="mulle-sde match"
          alias monitor="mulle-sde monitor"
-         alias reflect="mulle-sde reflect"
          alias patternfile="mulle-sde patternfile"
+         alias reflect="mulle-sde reflect"
+         alias run="mulle-sde run"
+         alias show="mulle-sde show"
          alias subproject="mulle-sde subproject"
       fi
 
-      if [ -z "${MULLE_SDE_NO_QUICK_ALIAS}" ]
+      if [ -z "\${MULLE_SDE_NO_QUICK_ALIAS}" ]
       then
-         alias c="mulle-sde craft"
          alias C="mulle-sde clean; mulle-sde craft"
+         alias c="mulle-sde craft"
          alias CC="mulle-sde clean all; mulle-sde craft"
-         alias t="mulle-sde test rerun --serial"
-         alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
-         alias T="mulle-sde test craft ; mulle-sde test"
-         alias TT="mulle-sde test clean all; mulle-sde test"
-         alias r="mulle-sde reflect"
          alias l="mulle-sde list --files"
+         alias r="mulle-sde reflect"
+         alias T="mulle-sde test craft ; mulle-sde test"
+         alias t="mulle-sde test rerun --serial"
+         alias TT="mulle-sde test clean all; mulle-sde test"
+         alias tt="mulle-sde test craft ; mulle-sde test rerun --serial"
       fi
    ;;
 esac
