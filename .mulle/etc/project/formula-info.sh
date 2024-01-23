@@ -28,5 +28,5 @@ ${MULLE_SDE_TAP}mulle-template
 ${MULLE_SDE_TAP}mulle-test
 '
 
-DEBIAN_DEPENDENCIES="mulle-bashfunctions (>= 6.0.0), mulle-env, mulle-craft, mulle-menu mulle-monitor, mulle-platform, mulle-sourcetree, mulle-template, mulle-test"
+DEBIAN_DEPENDENCIES="mulle-bashfunctions (>= 6.0.0), mulle-env, mulle-craft, mulle-menu, mulle-monitor, mulle-platform, mulle-sourcetree, mulle-template, mulle-test"
 
