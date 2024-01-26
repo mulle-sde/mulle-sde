@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.0.0
+MULLE_EXECUTABLE_VERSION=3.0.1
 MULLE_EXECUTABLE_BASHFUNCTIONS="5.1"
 
 #
@@ -1124,7 +1124,7 @@ view"
 
       debug)
          # shellcheck source=src/mulle-sde-debug.sh
-         include "mulle::debug"
+         include "sde::debug"
 
          sde::debug::main "$@"
       ;;
@@ -1166,7 +1166,7 @@ view"
 
       edit)
          # shellcheck source=src/mulle-sde-edit.sh
-         include "mulle::edit"
+         include "sde::edit"
 
          sde::edit::main "$@"
       ;;
@@ -1542,7 +1542,7 @@ view"
 
       run)
          # shellcheck source=src/mulle-sde-run.sh
-         include "mulle::run"
+         include "sde::run"
 
          sde::run::main "$@"
       ;;

@@ -1,3 +1,7 @@
+### 3.0.1
+
+* fix run command wrong include
+
 # 3.0.0
 
 * **BREAKING CHANGE** the run command has been renamed to exec, but there is a new run command that runs the project exectuble
