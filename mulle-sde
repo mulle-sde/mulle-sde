@@ -817,7 +817,7 @@ ext|lib|pat|sub|unveil|view)
 
             _install)
                # shellcheck source=src/mulle-sde-install.sh
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-install.sh"
+               include "sde::install"
 
                shift
                sde::install::main "$@"
@@ -918,7 +918,7 @@ ext|lib|pat|sub|unveil|view)
    case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-add.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-add.sh" || exit 1
+         include "sde::add"
 
          sde::add::main "$@"
       ;;
@@ -959,7 +959,7 @@ ext|lib|pat|sub|unveil|view)
          fi
 
          # shellcheck source=src/mulle-sde-clean.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-clean.sh" || exit 1
+         include "sde::clean"
 
          sde::clean::main "$@"
       ;;
@@ -1050,7 +1050,8 @@ view"
             sde::assert_test_environment "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-config.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-config.sh" || exit 1
+         include "sde::config"
+
          sde::config::main "$@"
       ;;
 
@@ -1063,7 +1064,8 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh" || exit 1
+         include "sde::craft"
+
          sde::craft::main "$@"
       ;;
 
@@ -1076,7 +1078,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-craftinfo.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh" || exit 1
+         include "sde::craftinfo"
 
          sde::craftinfo::main "$@"
       ;;
@@ -1091,7 +1093,7 @@ view"
 
 
          # shellcheck source=src/mulle-sde-craftorder.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh" || exit 1
+         include "sde::craftorder"
 
          sde::craftorder::main "$@"
       ;;
@@ -1105,7 +1107,8 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh"
+         include "sde::craft"
+
          sde::craft::craftstatus_main "$@"
       ;;
 
@@ -1118,7 +1121,8 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-craft.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craft.sh" || exit 1
+         include "sde::craft"
+
          sde::craft::main --run "$@"
       ;;
 
@@ -1141,7 +1145,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-definition.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-definition.sh" || exit 1
+         include "sde::definition"
 
          sde::definition::main "$@"
       ;;
@@ -1153,7 +1157,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-dependency.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
+         include "sde::dependency"
 
          sde::dependency::main "$@"
       ;;
@@ -1203,7 +1207,7 @@ view"
 
       extension|ext)
          # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
+         include "sde::extension"
 
          sde::extension::main "$@"
       ;;
@@ -1214,7 +1218,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-fetch.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-fetch.sh" || exit 1
+         include "sde::fetch"
 
          sde::fetch::main "$@"
       ;;
@@ -1225,7 +1229,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-list.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
+         include "sde::list"
 
          sde::list::main --files "$@"
       ;;
@@ -1248,7 +1252,7 @@ view"
             sde::assert_test_environment "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-headerorder.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-headerorder.sh" || exit 1
+         include "sde::headerorder"
 
          sde::headerorder::main "$@"
       ;;
@@ -1259,14 +1263,14 @@ view"
 
       ignore)
          # shellcheck source=src/mulle-sde-ignore.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-ignore.sh" || exit 1
+         include "sde::ignore"
 
          sde::ignore::main "$@"
       ;;
 
       init)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+         include "sde::init"
 
          unset MULLE_SDE_VAR_DIR
          unset MULLE_SDE_ETC_DIR
@@ -1277,7 +1281,7 @@ view"
 
       init-and-enter)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+         include "sde::init"
 
          # interactive shell, dont set sde::usage
          sde::init::main --no-blurb "$@" && sde::exec_mulle_env
@@ -1314,7 +1318,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-library.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-library.sh" || exit 1
+         include "sde::library"
 
          sde::library::main "$@"
       ;;
@@ -1331,7 +1335,7 @@ view"
             sde::assert_test_environment "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-linkorder.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-linkorder.sh" || exit 1
+         include "sde::linkorder"
 
          sde::linkorder::main "$@"
       ;;
@@ -1342,7 +1346,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-list.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-list.sh" || exit 1
+         include "sde::list"
 
          sde::list::main "$@"
       ;;
@@ -1364,7 +1368,7 @@ view"
 
       match)
          # shellcheck source=src/mulle-sde-match.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-match.sh" || exit 1
+         include "sde::match"
 
          sde::match::main "$@"
       ;;
@@ -1376,7 +1380,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-dependency.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
+         include "sde::dependency"
 
          sde::dependency::main "${cmd}" "$@"
       ;;
@@ -1388,7 +1392,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
             # shellcheck source=src/mulle-sde-dependency.sh
-            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh" || exit 1
+            include "sde::dependency"
          fi
          sde::dependency::main "${cmd}" "$@"
       ;;
@@ -1406,7 +1410,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-migrate.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-migrate.sh" || exit 1
+         include "sde::migrate"
 
          sde::migrate::main "$@"
       ;;
@@ -1423,7 +1427,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-monitor.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-monitor.sh" || exit 1
+         include "sde::monitor"
 
          sde::monitor::main "$@"
       ;;
@@ -1442,22 +1446,21 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-patternfile.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-patternfile.sh" || exit 1
-
+         include "sde::patternfile"
 
          sde::patternfile::main "${cmd}" "$@"
       ;;
 
       product)
          # shellcheck source=src/mulle-sde-product.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-product.sh" || exit 1
+         include "sde::product"
 
          sde::product::main "$@"
       ;;
 
       project)
          # shellcheck source=src/mulle-sde-project.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || exit 1
+         include "sde::project"
 
          sde::project::main "$@"
       ;;
@@ -1472,7 +1475,7 @@ view"
 
       protect)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+         include "sde::init"
 
          sde::init::protect_unprotect "Protect" "a-w"
       ;;
@@ -1484,7 +1487,7 @@ view"
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
          fi
          # shellcheck source=src/mulle-sde-reflect.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-reflect.sh" || exit 1
+         include "sde::reflect"
 
          sde::reflect::main "$@"
       ;;
@@ -1507,14 +1510,14 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+         include "sde::init"
 
          sde::init::main --reinit "$@"
       ;;
 
       remove)
          # shellcheck source=src/mulle-sde-remove.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-remove.sh" || exit 1
+         include "sde::remove"
 
          sde::remove::main "$@"
       ;;
@@ -1550,7 +1553,7 @@ view"
 
       show)
          # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh" || exit 1
+         include "sde::extension"
 
          if [ $# -ne 0 ]
          then
@@ -1584,14 +1587,14 @@ view"
 
       status|doctor)
          # shellcheck source=src/mulle-sde-status.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-status.sh" || exit 1
+         include "sde::status"
 
          sde::status::main "$@"
       ;;
 
       steal)
          # shellcheck source=src/mulle-sde-steal.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-steal.sh" || exit 1
+         include "sde::steal"
 
          sde::steal::main "$@"
       ;;
@@ -1613,7 +1616,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-subproject.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || exit 1
+         include "sde::subproject"
 
          sde::subproject::main "$@"
       ;;
@@ -1629,7 +1632,7 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-test.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-test.sh" || exit 1
+         include "sde::test"
 
          sde::test::main "$@"
       ;;
@@ -1674,7 +1677,7 @@ view"
 
       unprotect)
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh" || exit 1
+         include "sde::init"
 
          sde::init::protect_unprotect "Unprotect" "ug+w"
       ;;
@@ -1686,14 +1689,14 @@ view"
          fi
 
          # shellcheck source=src/mulle-sde-unveil.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-unveil.sh" || exit 1
+         include "sde::unveil"
 
          sde::unveil::main "$@"
       ;;
 
       upgrade)
          # shellcheck source=src/mulle-sde-upgrade.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-upgrade.sh" || exit 1
+         include "sde::upgrade"
 
          sde::upgrade::main "$@"
       ;;
