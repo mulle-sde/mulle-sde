@@ -40,13 +40,39 @@ sde::run::usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} run [arguments] ...
+   ${MULLE_USAGE_NAME} run [options] [arguments] ...
 
    Run the main executable of the given project, with the arguments given.
    The executable will not run within the mulle-sde environment!
 
+Options:
+   -- pass remaining options as arguments
+
 EOF
    exit 1
+}
+
+
+sde::run::freshest_files()
+{
+   log_entry "sde::run::freshest_files" "$@"
+
+   local files="$1"
+
+   local filename
+   local sortlines
+
+   .foreachline filename in ${files}
+   .do
+      # guard for executables read from motd that find didn't check
+      if [ -f "${filename}" ]
+      then
+         r_add_line "${sortlines}" "`modification_timestamp "${filename}"` ${filename#${MULLE_USER_PWD}/}"
+         sortlines="${RVAL}"
+      fi
+   .done
+
+   sort -rn <<< "${sortlines}" | sed 's/[0-9]* //'
 }
 
 
@@ -54,18 +80,98 @@ sde::run::main()
 {
    local executable
 
-   # shellcheck source=src/mulle-sde-product.sh
-   include "sde::product"
+   local projecttype
 
-   if ! executable="`sde::product::main`"
+   projecttype="`mulle-sde env get PROJECT_TYPE`"
+   if [ "${projecttype}" != "executable" ]
    then
-      sde::run::usage "Product not yet available"
+      fail "\"mulle-sde run\" works only in executable projects"
    fi
 
-   if [ ! -x "${executable}" ]
+   local kitchen_dir
+
+   kitchen_dir="`mulle-sde kitchen-dir`"
+   if ! [ -d "${kitchen_dir}" ]
    then
-      sde::run::usage "Product not yet available"
+      log_info "Run craft first to produce product"
+      mulle-sde craft || exit 1
    fi
+
+   if ! [ -d "${kitchen_dir}" ]
+   then
+      fail "Couldn't figure out kitchen-dir. VERY OBSCURE!!"
+   fi
+
+   local motd_files
+   local executables
+   local filename
+
+   motd_files="`rexekutor find "${kitchen_dir}" -name '.motd' \
+                                                -type f \
+                                                -not -path "${kitchen_dir}/.craftorder/*" `"
+
+   motd_files="`sde::run::freshest_files "${motd_files}"`"
+
+   log_setting "kitchen_dir : ${kitchen_dir}"
+   log_setting "motd_files  : ${motd_files}"
+
+   if [ ! -z "${motd_files}" ]
+   then
+      r_line_at_index "${motd_files}" 0
+      filename="${RVAL}"
+
+      executables="`rexekutor sed -n  -e "s/"$'\033'"[^"$'\033'"]*$//g" \
+                                      -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
+                                     "${filename}" `"
+
+      hexdump -C <<< "${executables}"
+   fi
+
+   log_setting "executables  : ${executables}"
+
+   if [ -z "${executables}" ]
+   then
+      #
+      # fallback code, if we have no motd, or couldn't parse it
+      # then look for PROJECT_NAME.exe or
+      # PROJECT_NAME
+      #
+      local projectname
+
+      projectname="`mulle-sde env get PROJECT_TYPE`"
+      executables="`rexekutor find "${kitchen_dir}" \( -name "${projectname}" \
+                                                    -o -name "${projectname}.exe" \
+                                                    \) \
+                                                   -type f \
+                                                   -perm 111 \
+                                                   -not -path "${kitchen_dir}/.craftorder/*" `"
+
+      executables="`sde::run::freshest_files "${executables}"`"
+      if [ -z "${executables}" ]
+      then
+         fail "Could not figure what product was build.
+${C_RESET_BOLD}${projectname}${C_ERROR} or ${C_RESET_BOLD}${projectname}.exe${C_ERROR} not found in ${C_RESET_BOLD}${kitchendir#${MULLE_USER_PWD}/}"
+      fi
+
+      # we pick the first of whatever
+      r_line_at_index "${executables}"
+      executables="${RVAL}"
+   fi
+
+   local row
+   local executable
+
+   rexekutor mudo mulle-menu --title "Choose executable:" \
+                             --final-title "" \
+                             --options "${executables}"
+   row=$?
+
+   if [ $row -gt 128 ]
+   then
+      return 1
+   fi
+   r_line_at_index "${executables}" $row
+   executable="${RVAL}"
 
    exekutor mudo "${executable}" "$@"
 }

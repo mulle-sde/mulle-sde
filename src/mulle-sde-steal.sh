@@ -40,6 +40,8 @@ sde::steal::usage()
 Usage:
    ${MULLE_USAGE_NAME} steal [options] <URL>
 
+   ** obsoleted by zlib **
+
    Steal source code from a mulle-c compatible repository, and flatten the
    source files into a destination directory, which is the current working
    directory by default.
