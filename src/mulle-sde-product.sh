@@ -29,7 +29,7 @@
 #   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #   POSSIBILITY OF SUCH DAMAGE.
 #
-MULLE_SDE_product_SH='included'
+MULLE_SDE_PRODUCT_SH='included'
 
 
 sde::product::usage()
@@ -40,9 +40,11 @@ sde::product::usage()
 Usage:
    ${MULLE_USAGE_NAME} product [options] <list|run|searchpath>
 
-   Find product of mulle-sde craft (list) or run it if it's an executable.
-   Searchpath shows the expected places products of a certain type can
+   Find product of mulle-sde craft (list) or run it, if it's an executable.
+   Searchpath shows the places products of a certain type are expected to
    show up. See \`${MULLE_USAGE_NAME} product searchpath help\` for more info.
+
+   \`${MULLE_USAGE_NAME} run\` is a shortcut for \`${MULLE_USAGE_NAME} product run\`
 
 Options:
    -h                  : show this usage
@@ -53,6 +55,152 @@ Options:
    --sdk <sdk>         : set sdk
 EOF
    exit 1
+}
+
+
+sde::product::run_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} run [options] [arguments] ...
+
+   Run the main executable of the given project, with the arguments given.
+   The executable will not run within the mulle-sde environment!
+
+Options:
+   --  :   pass remaining options as arguments
+
+EOF
+   exit 1
+}
+
+
+
+sde::product::freshest_files()
+{
+   log_entry "sde::product::freshest_files" "$@"
+
+   local files="$1"
+
+   local filename
+   local sortlines
+
+   .foreachline filename in ${files}
+   .do
+      # guard for executables read from motd that find didn't check
+      if [ -f "${filename}" ]
+      then
+         r_add_line "${sortlines}" "`modification_timestamp "${filename}"` ${filename#${MULLE_USER_PWD}/}"
+         sortlines="${RVAL}"
+      fi
+   .done
+
+   sort -rn <<< "${sortlines}" | sed 's/[0-9]* //'
+}
+
+
+sde::product::r_executables()
+{
+   log_entry "sde::product::r_executables" "$@"
+
+   local projecttype
+
+   projecttype="`mulle-sde env get PROJECT_TYPE`"
+   if [ "${projecttype}" != "executable" ]
+   then
+      fail "\"mulle-sde run\" works only in executable projects"
+   fi
+
+   local kitchen_dir
+
+   kitchen_dir="`mulle-sde kitchen-dir`"
+   if ! [ -d "${kitchen_dir}" ]
+   then
+      log_info "Run craft first to produce product"
+      mulle-sde craft || exit 1
+   fi
+
+   if ! [ -d "${kitchen_dir}" ]
+   then
+      fail "Couldn't figure out kitchen-dir. VERY OBSCURE!!"
+   fi
+
+   local motd_files
+   local executables
+   local filename
+
+   motd_files="`rexekutor find "${kitchen_dir}" -name '.motd' \
+                                                -type f \
+                                                -not -path "${kitchen_dir}/.craftorder/*" `"
+
+   motd_files="`sde::product::freshest_files "${motd_files}"`"
+
+   log_setting "kitchen_dir : ${kitchen_dir}"
+   log_setting "motd_files  : ${motd_files}"
+
+   if [ ! -z "${motd_files}" ]
+   then
+      r_line_at_index "${motd_files}" 0
+      filename="${RVAL}"
+
+      executables="`rexekutor sed -n  -e "s/"$'\033'"[^"$'\033'"]*$//g" \
+                                      -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
+                                     "${filename}" `"
+   fi
+
+   log_setting "executables  : ${executables}"
+
+   if [ -z "${executables}" ]
+   then
+      #
+      # fallback code, if we have no motd, or couldn't parse it
+      # then look for PROJECT_NAME.exe or
+      # PROJECT_NAME
+      #
+      local projectname
+
+      projectname="`mulle-sde env get PROJECT_TYPE`"
+      executables="`rexekutor find "${kitchen_dir}" \( -name "${projectname}${MULLE_EXE_EXTENSION}" \
+                                                    -o -name "${projectname}" \
+                                                    \) \
+                                                   -type f \
+                                                   -perm 111 \
+                                                   -not -path "${kitchen_dir}/.craftorder/*" `"
+
+      executables="`sde::product::freshest_files "${executables}"`"
+      if [ -z "${executables}" ]
+      then
+         fail "Could not figure what product was build.
+${C_RESET_BOLD}${projectname}${C_ERROR} or ${C_RESET_BOLD}${projectname}.exe${C_ERROR} not found in ${C_RESET_BOLD}${kitchendir#${MULLE_USER_PWD}/}"
+      fi
+
+      # we pick the first of whatever
+      r_line_at_index "${executables}"
+      executables="${RVAL}"
+   fi
+
+   RVAL="${executables}"
+}
+
+
+sde::product::r_user_choses_executable()
+{
+   log_entry "sde::product::r_user_chosen_executable" "$@"
+
+   local executables="$1"
+
+   local row
+
+   rexekutor mudo mulle-menu --title "Choose executable:" \
+                             --final-title "" \
+                             --options "${executables}"
+   row=$?
+   log_debug "row=${row}"
+
+   r_line_at_index "${executables}" $row
+   [ ! -z "${RVAL}" ]
 }
 
 
@@ -186,9 +334,9 @@ sde::product::r_product_path()
 }
 
 
-sde::product::searchpath()
+sde::product::searchpath_main()
 {
-   log_entry "sde::product::searchpath" "$@"
+   log_entry "sde::product::searchpath_main" "$@"
 
    while :
    do
@@ -216,40 +364,9 @@ sde::product::searchpath()
 }
 
 
-sde::product::run()
+sde::product::list_main()
 {
-   log_entry "sde::product::run" "$@"
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde::product::usage
-         ;;
-
-         --)
-            shift
-            break
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   sde::product::r_product_path
-   log_info "${RVAL#${MULLE_USER_PWD}/}"
-   exekutor mudo -f ${MUDO_FLAGS} "${RVAL}" "$@"
-}
-
-
-
-sde::product::list()
-{
-   log_entry "sde::product::list" "$@"
+   log_entry "sde::product::list_main" "$@"
 
    while :
    do
@@ -274,6 +391,119 @@ sde::product::list()
    printf "%s\n" "${RVAL}"
 }
 
+
+sde::product::run_main()
+{
+
+   local executables
+
+   sde::product::r_executables
+   executables="${RVAL}"
+
+   local executable
+
+   if ! sde::product::r_user_choses_executable "${executables}"
+   then
+      return 1
+   fi
+   executable="${RVAL}"
+
+   exekutor mudo "${executable}" "$@"
+}
+
+
+sde::product::r_user_choses_debugger()
+{
+   log_entry "sde::product::r_user_chosen_debugger" "$@"
+
+   local debuggers="$1"
+
+   local row
+
+   rexekutor mudo mulle-menu --title "Choose debugger:" \
+                             --final-title "" \
+                             --options "${debuggers}"
+   row=$?
+   log_debug "row=${row}"
+
+   r_line_at_index "${debuggers}" $row
+   [ ! -z "${RVAL}" ]
+}
+
+
+sde::product::r_installed_debuggers()
+{
+   log_entry "sde::product::r_installed_debuggers" "$@"
+
+   local debuggers="$1"
+
+   local existing_debuggers
+   local debugger
+
+   .foreachpath debugger in ${debuggers}
+   .do
+      if mudo which "${debugger}" > /dev/null
+      then
+         r_add_line "${existing_debuggers}" "${debugger}"
+         existing_debuggers="${RVAL}"
+      fi
+   .done
+   RVAL="${existing_debuggers}"
+   log_debug "existing_debuggers: ${existing_debuggers}"
+}
+
+
+sde::product::debug_main()
+{
+   log_entry "sde::product::debug_main" "$@"
+
+   local executables
+
+   sde::product::r_executables
+   executables="${RVAL}"
+
+   local executable
+
+   if ! sde::product::r_user_choses_executable "${executables}"
+   then
+      return 1
+   fi
+   executable="${RVAL}"
+
+   local debugger
+
+   if [ "${OPTION_SELECT}" != 'YES' ]
+   then
+      debugger="${MULLE_SDE_DEBUGGER_CHOICE}"
+   fi
+
+   if [ ! -z "${debugger}" ]
+   then
+      debugger="`command -v "${debugger}"`"
+   fi
+
+   if [ -z "${debugger}" ]
+   then
+      local debuggers
+      local choices
+
+      choices="${MULLE_SDE_DEBUGGERS:-mulle-gdb:gdb:lldb}"
+      if ! sde::product::r_installed_debuggers "${choices}"
+      then
+         fail "No suitable debugger found, please install one of: ${choices}"
+      fi
+      debuggers="${RVAL}"
+
+      if ! sde::product::r_user_choses_debugger "${debuggers}"
+      then
+         return 1
+      fi
+      debugger="${RVAL}"
+
+      mulle-sde env --this-user set MULLE_SDE_DEBUGGER_CHOICE "${debugger}"
+   fi
+   exekutor mudo "${debugger}${MULLE_EXE_EXTENSION}" "${executable}" "$@"
+}
 
 
 sde::product::main()
@@ -306,6 +536,10 @@ sde::product::main()
             [ $# -eq 1 ] && sde::product::usage "Missing argument to \"$1\""
             shift
             OPTION_SDK="$1"
+         ;;
+
+         --select)
+            OPTION_SELECT='YES'
          ;;
 
          --restrict)
@@ -343,15 +577,19 @@ sde::product::main()
 
    case "${cmd}" in
       list)
-         sde::product::list "$@"
+         sde::product::list_main "$@"
       ;;
 
       run)
-         sde::product::run "$@"
+         sde::product::run_main "$@"
+      ;;
+
+      debug)
+         sde::product::debug_main "$@"
       ;;
 
       searchpath)
-         sde::product::searchpath "$@"
+         sde::product::searchpath_main "$@"
       ;;
 
       *)
