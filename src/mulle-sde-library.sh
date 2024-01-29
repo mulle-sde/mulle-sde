@@ -733,8 +733,24 @@ sde::library::main()
          sde::library::${cmd}_main "$@"
       ;;
 
+      move)
+         include "sde::dependency"
 
-      mark|move|remove|unmark|rcopy)
+         if sde::dependency::contains_numeric_arguments "$@"
+         then
+            fail "Only move libraries by name, as the sourcetree is shared with dependencies"
+         fi
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           --virtual-root \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           --silent-but-warn \
+                        'move' \
+                           "$@"
+      ;;
+
+
+      mark|remove|unmark|rcopy)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \

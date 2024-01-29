@@ -201,7 +201,7 @@ sde::list::definitions()
    if [ -z "${MULLE_SDE_DEFINITION_SH}" ]
    then
       # shellcheck source=src/mulle-sde-definition.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-definition.sh"
+      include "sde::definition"
    fi
 
    local text

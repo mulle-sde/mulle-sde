@@ -79,7 +79,7 @@ Usage:
 
    See the \`set\` command if the project has problems locating the header
    or library. Use \`mulle-sde dependency list -- --output-format cmd\` for
-   copying single entries between projects.
+   copying single entries between projects, or use \`mulle-sourcetree rcopy\`.
 
    Check out the Wiki for information on how to setup and tweak your
    dependencies:
@@ -585,6 +585,27 @@ sde::dependency::json_filter()
    esac
 }
 
+sde::dependency::pretty_filtered_json()
+{
+   log_entry "sde::dependency::pretty_filtered_json" "$@"
+
+   local text="$1"
+
+   .foreachline line in ${text}
+   .do
+      case "${line}" in
+         '   '*)
+            printf "%s\n" "${line}"
+         ;;
+
+         *)
+            printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "${line}"
+         ;;
+      esac
+   .done
+}
+
+
 
 sde::dependency::list_main()
 {
@@ -702,7 +723,9 @@ sde::dependency::list_main()
 
    if [ "${OPTION_JSON}" != 'NO' ]
    then
-      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+      local text
+
+      if ! text="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
                 --silent-but-warn \
@@ -710,8 +733,12 @@ sde::dependency::list_main()
                --marks "${DEPENDENCY_LIST_MARKS}" \
                --nodetypes "${DEPENDENCY_LIST_NODETYPES}" \
                --qualifier "${qualifier}" \
-               ${JSON_ARGS} | sde::dependency::json_filter "${OPTION_JSON}"
-      return $?
+               ${JSON_ARGS} | sde::dependency::json_filter "${OPTION_JSON}" `"
+      then
+         return $?
+      fi
+      sde::dependency::pretty_filtered_json "${text}"
+      return
    fi
 
    if [ "${OPTION_OUTPUT_COMMAND}" = 'YES' ]
@@ -1759,6 +1786,23 @@ sde::dependency::source_dir_main()
 }
 
 
+sde::dependency::contains_numeric_arguments()
+{
+   log_entry "sde::dependency::contains_numeric_arguments" "$@"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         [0-9]*)
+            return 0
+         ;;
+      esac
+      shift
+   done
+   return 1
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1805,9 +1849,9 @@ sde::dependency::main()
    fi
 
    # shellcheck source=src/mulle-sde-common.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+   include "sde::common"
    # shellcheck source=src/mulle-sde-craftinfo.sh
-   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh"
+   include "sde::craftinfo"
 
    local rc 
 
@@ -1849,7 +1893,21 @@ unmark"
          return $?
       ;;
 
-      duplicate|mark|move|unmark|rcopy)
+      move)
+         if sde::dependency::contains_numeric_arguments "$@"
+         then
+            fail "Only move dependencies by name, as the sourcetree is shared with libraries"
+         fi
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           --virtual-root \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           --silent-but-warn \
+                        'move' \
+                           "$@"
+      ;;
+
+      duplicate|mark|unmark|rcopy)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \

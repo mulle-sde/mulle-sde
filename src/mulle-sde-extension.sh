@@ -1782,7 +1782,6 @@ sde::extension::r_vendor_expanded_extensions()
          ;;
       esac
 
-
       log_info "Selecting \"${extension}\""
       r_add_line "${args}" "${extension}"
       args="${RVAL}"
@@ -1796,6 +1795,8 @@ sde::extension::add_main()
 {
    log_entry "sde::extension::add_main" "$@"
 
+   local OPTION_IF_MISSING=
+
    local args
 
    while :
@@ -1803,6 +1804,10 @@ sde::extension::add_main()
       case "$1" in
          -h*|--help|help)
             sde::extension::add_usage
+         ;;
+
+         --if-missing)
+            OPTION_IF_MISSING='YES'
          ;;
 
          --reflect|--no-reflect)
@@ -1826,6 +1831,7 @@ sde::extension::add_main()
    include "sde::init"
 
    local expanded_extensions
+   local installed
 
    if [ $# -eq 0 ]
    then
@@ -1838,21 +1844,30 @@ sde::extension::add_main()
          fail "No extra extensions installed"
       fi
 
-      mulle-menu --title "Choose extension:" \
-           --final-title "" \
-           --options "${options}"
+      rexekutor mulle-menu --title "Choose extension:" \
+                           --final-title "" \
+                           --options "${options}"
       row=$?
       r_line_at_index "${options}" "${row}"
       [ -z "${RVAL}" ] && return 1
 
       args="${RVAL%% *}"
    else
+      if [ "${OPTION_IF_MISSING}" = 'YES' ]
+      then
+         installed="`sde::extension::get_installed_extension_by_name "$1" `"
+         if [ ! -z "${installed}" ]
+         then
+            log_fluff "Extension $1 is already installed"
+            return 0
+         fi
+      fi
+
       sde::extension::r_vendor_expanded_extensions 'NO' "$@"
       expanded_extensions="${RVAL}"
 
       r_add_line "${args}" "${expanded_extensions}"
       args="${RVAL}"
-
    fi
 
    args="`sde::extension::hack_option_and_single_quote_everything "--extra" $args \

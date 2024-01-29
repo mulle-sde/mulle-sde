@@ -17,3 +17,4 @@ mulle-markdown-preview-*.html
 build-*/
 .idea/
 mulle-csv-to-sandbox
+.mulle/etc/project/publisher-info.sh

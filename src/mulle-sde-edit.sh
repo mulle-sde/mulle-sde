@@ -42,52 +42,158 @@ sde::edit::usage()
 Usage:
    ${MULLE_USAGE_NAME} edit [arguments] ...
 
-   ** THIS COMMAND IS WORK IN PROGRESS **
-
-   Edit the given project with the editor of your choice.
+   Edit the current project with the editor of your choice.
 
 Environment:
-   MULLE_SDE_EDITORS : list of editor separated by ':' (${MULLE_SDE_DEBUGGERS})
+   MULLE_SDE_EDITORS : list of editor separated by ':' (${MULLE_SDE_EDITORS})
 
 EOF
    exit 1
 }
 
 
-sde::edit::main()
+sde::edit::r_installed_editors()
 {
-   local executable
+   log_entry "sde::product::r_installed_editors" "$@"
 
-   # shellcheck source=src/mulle-sde-product.sh
-   include "sde::product"
+   local editors="$1"
 
-   if ! executable="`sde::product::main`"
-   then
-      sde::edit::usage "Product not yet available"
-   fi
-
-   if [ ! -x "${executable}" ]
-   then
-      sde::edit::usage "Product not yet available"
-   fi
-
-   local editors
+   local existing_editors
    local editor
-   local editor_executable
 
-   editors="${MULLE_SDE_DEBUGGERS:-mulle-gdb:gdb:lldb}"
    .foreachpath editor in ${editors}
    .do
-      if ! editor_executable="`mudo command -v "${MULLE_SDE_DEBUGGER:-mulle-gdb}"`"
+      if mudo which "${editor}" > /dev/null
       then
-         .break
+         r_add_line "${existing_editors}" "${editor}"
+         existing_editors="${RVAL}"
       fi
    .done
-
-   if [ -z "${editor_executable}" ]
-   then
-      fail "No suitable editor found, please install one of: ${editors}"
-   fi
-   exekutor mudo "${editor_executable}" "${executable}" "$@"
+   RVAL="${existing_editors}"
+   log_debug "existing_editors: ${existing_editors}"
 }
 
+
+sde::edit::r_user_choses_editor()
+{
+   log_entry "sde::product::r_user_choses_editor" "$@"
+
+   local editors="$1"
+
+   local row
+
+   rexekutor mudo mulle-menu --title "Choose editor:" \
+                             --final-title "" \
+                             --options "${editors}"
+   row=$?
+   log_debug "row=${row}"
+
+   r_line_at_index "${editors}" $row
+   [ ! -z "${RVAL}" ]
+}
+
+
+
+sde::edit::main()
+{
+   log_entry "sde::edit::main" "$@"
+
+   local OPTION_SELECT
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::edit::usage
+         ;;
+
+         --select)
+            OPTION_SELECT='YES'
+         ;;
+
+         --)
+            shift
+            break
+         ;;
+
+         -*)
+            sde::edit::usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local editor
+
+   if [ "${OPTION_SELECT}" != 'YES' ]
+   then
+      editor="${MULLE_SDE_EDITOR_CHOICE}"
+   fi
+
+   if [ ! -z "${editor}" ]
+   then
+      editor="`command -v "${editor}"`"
+   fi
+
+   if [ -z "${editor}" ]
+   then
+      local editors
+      local choices
+
+      choices="${MULLE_SDE_EDITORS:-subl:clion.sh:codium:code:micro:emacs:vi}"
+      if ! sde::edit::r_installed_editors "${choices}"
+      then
+         fail "No suitable editor found, please install one of: ${choices}"
+      fi
+      editors="${RVAL}"
+
+      if ! sde::edit::r_user_choses_editor "${editors}"
+      then
+         return 1
+      fi
+      editor="${RVAL}"
+
+      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env --this-user set MULLE_SDE_EDITOR_CHOICE "${editor}"
+   fi
+
+   log_setting "editor: ${editor}"
+
+   case "${editor}" in
+      subl*|*/subl*)
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing sublime-text
+         if [ $# -eq 0 ]
+         then
+            set -- "${MULLE_VIRTUAL_ROOT}"
+         fi
+      ;;
+      codium*|*/codium*|code*|*/code*)
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing vscode-clang
+         if [ $# -eq 0 ]
+         then
+            set -- "${MULLE_VIRTUAL_ROOT}"
+         fi
+      ;;
+      clion*|*/clion*)
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing idea
+         if [ $# -eq 0 ]
+         then
+            set -- "${MULLE_VIRTUAL_ROOT}"
+         fi
+      ;;
+
+      *)
+         if [ $# -eq 0 ]
+         then
+            set -- `dir_list_files "${MULLE_VIRTUAL_ROOT}/${PROJECT_SOURCE_DIR}" "*" "f"`
+         fi
+      ;;
+   esac
+
+   # want to edit with current environment, so no mudo
+   exekutor "${editor}${MULLE_EXE_EXTENSION}" "$@"
+}

@@ -1,3 +1,12 @@
+## 3.1.0
+
+* streamlined main usage output
+* check move command for numeric arguments and bail if any are found (use mulle-sourcetree move, if this bothers)
+* the edit command now adds the proper extension for the chosen IDE
+* separate debug/files merged into the product file, where its just easier to manage.
+* completely redid the README.md, which had gotten a little stale
+
+
 ### 3.0.1
 
 * fix run command wrong include

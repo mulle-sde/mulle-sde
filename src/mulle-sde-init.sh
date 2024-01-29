@@ -2741,9 +2741,9 @@ sde::init::validate_projecttype()
                fail "No meta extensions installed"
             fi
 
-            mulle-menu --title "Choose language and library set:" \
-                 --final-title "" \
-                 --options "${options}"
+            rexekutor mulle-menu --title "Choose language and library set:" \
+                                 --final-title "" \
+                                 --options "${options}"
             row=$?
             r_line_at_index "${options}" "${row}"
             [ -z "${RVAL}" ] && exit 1
@@ -3044,11 +3044,11 @@ sde::init::_run_common()
 
    if [ -z "${projecttype}" ]
    then
-      mulle-menu --title "Choose a project type:" \
-                 --final-title "" \
-                 "executable" \
-                 "library" \
-                 "none (choose for existing projects)"
+      rexekutor mulle-menu --title "Choose a project type:" \
+                           --final-title "" \
+                           "executable" \
+                           "library" \
+                           "none (choose for existing projects)"
       case $? in
          0) projecttype="executable" ;;
          1) projecttype="library" ;;

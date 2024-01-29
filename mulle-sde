@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.0.1
+MULLE_EXECUTABLE_VERSION=3.1.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="5.1"
 
 #
@@ -60,19 +60,14 @@ function sde::print_commands()
    then
       SHOWN_COMMANDS="\
    add            : create a source file from templates
-   extension      : show available language and buildtool extensions
-   exec           : run a command in a subshell
+   extension      : manage language and buildtool extensions
    init           : create a new project
-   show           : show available meta extensions
-   status         : show information about the current directory"
+   install        : install a remote mulle-sde project, like make install
+   show           : show available meta extensions"
 
       HIDDEN_COMMANDS="\
-   bash-completion: get bash completion with \`. \$(mulle-sde bash-completion)\`
-   environment    : manage environment variables (project settings)
    init-and-enter : create a new project then immediately start a subshell
-   install        : install a remote mulle-sde project
    libexec-dir    : print path to mulle-sde libexec
-   style          : manage environment style
    uname          : the simplified uname(1)"
 
    else
@@ -85,7 +80,7 @@ function sde::print_commands()
    dependency     : manage third party components (like GitHub projects)
    environment    : manage environment variables (project settings)
    exec           : run a command in a subshell
-   ignore         : remove files from being crafted
+   ignore         : block files from being crafted
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (files matching patternfiles)
@@ -101,9 +96,9 @@ function sde::print_commands()
    config         : show multiple sourcetree configurations
    donefile       : show contents of donefiles
    crun           : craft and run if project is an executable
-   callback       : manage reflect callbacks
+   callback       : manage reflection callbacks
    env-identifier : get variable name "MULLE_UIOS" for a name like "MulleUIOS"
-   extension      : show available language and buildtool extensions
+   extension      : manage language and buildtool extensions
    fetch          : fetch the sourcetree
    headerorder    : show header includes for dependencies and libraries
    init           : create a new project
@@ -117,9 +112,8 @@ function sde::print_commands()
    project        : rename a project and its files
    searchpath     : show search path for build products
    source-dir     : print project source directory
-   steal          : download and flatten source files from mulle-c projects
    subproject     : manage local subprojects
-   task           : manage reflect tasks
+   task           : manage reflection tasks
    test           : run tests using mulle-test
    treestatus     : show the sourcetree status
    unveil         : produce sandbox CSV"
@@ -176,7 +170,7 @@ Usage:
    * Craft    mulle-sde builds the dependencies and the project
 
 EOF
-   if [ -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .mulle ]
+   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       cat <<EOF
    Start a project with \`mulle-sde init\` or enter an existing mulle-sde
@@ -187,10 +181,10 @@ EOF
 EOF
    else
       cat <<EOF
-   Edit source files in '${PROJECT_SOURCE_DIR:-src}'. If you add, delete,
-   rename or move source files run \`mulle-sde reflect\`. Use \`mulle-sde craft\`
-   to craft your project. Add system libraries with \`mulle-sde library\` and
-   other dependencies with \`mulle-sde dependency\`.
+   Edit source files in '${PROJECT_SOURCE_DIR:-src}'. If you add, delete, rename or move
+   source files run \`mulle-sde reflect\`. Use \`mulle-sde craft\` to craft your
+   project. Add system libraries with \`mulle-sde library\` and other
+   dependencies with \`mulle-sde dependency\`.
 
 EOF
    fi
@@ -790,7 +784,7 @@ show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgr
             #
             # commands that execute in the user PWD
             #
-            run|exec|execute|debug|edit)
+            run|exec|execute|debug)
                if ! sde::is_non_environment_commandline "$@"
                then
                   sde::exec_command_in_subshell 'STAY' "$@"
@@ -802,8 +796,8 @@ show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgr
             # if there is no environment around
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|definition|dep|dependency|doctor|donefile|fetch|\
-files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
+craft-status|definition|dep|dependency|doctor|donefile|edit|fetch|\
+file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
 mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
 product|project|protect|reflect|searchpath|sourcetree|subproject|style|\
@@ -968,7 +962,6 @@ ext|lib|pat|sub|unveil|view)
          echo "
 add
 addiction-dir
-bash-completion
 craftorder
 buildstatus
 callback
@@ -989,7 +982,7 @@ exec
 extension
 fetch
 filename
-files
+file
 find
 get
 headerorder
@@ -1127,10 +1120,10 @@ view"
       ;;
 
       debug)
-         # shellcheck source=src/mulle-sde-debug.sh
-         include "sde::debug"
+         # shellcheck source=src/mulle-sde-product.sh
+         include "sde::product"
 
-         sde::debug::main "$@"
+         sde::product::debug_main "$@"
       ;;
 
       definition|definitions|def)
@@ -1205,6 +1198,28 @@ view"
          rexekutor printf "%s\n" "${RVAL}"
       ;;
 
+
+      exec|execute)
+         local quote
+         local args
+         local arg
+
+         # why is it important that we eval here ? We want to use
+         # local environment variables
+         quote="'"
+         args=""
+         for arg in "$@"
+         do
+            arg="${arg//${quote}/${quote}\"${quote}\"${quote}}"
+            args="${args} '${arg}'"
+         done
+
+         unset quote
+         unset arg
+
+         eval_exekutor "${args}"
+      ;;
+
       extension|ext)
          # shellcheck source=src/mulle-sde-extension.sh
          include "sde::extension"
@@ -1223,7 +1238,7 @@ view"
          sde::fetch::main "$@"
       ;;
 
-      files)
+      file|files)
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1522,34 +1537,20 @@ view"
          sde::remove::main "$@"
       ;;
 
-      exec|execute)
-         local quote
-         local args
-         local arg
-
-         # why is it important that we eval here ?
-         quote="'"
-         args=""
-         for arg in "$@"
-         do
-            arg="${arg//${quote}/${quote}\"${quote}\"${quote}}"
-            args="${args} '${arg}'"
-         done
-
-         unset quote
-         unset arg
-
-         eval_exekutor "${args}"
-      ;;
-
-
       run)
-         # shellcheck source=src/mulle-sde-run.sh
-         include "sde::run"
+         # shellcheck source=src/mulle-sde-product.sh
+         include "sde::product"
 
-         sde::run::main "$@"
+         sde::product::run_main "$@"
       ;;
 
+
+      # used by mulle-test
+      searchpath)
+         exekutor "${MULLE_CRAFT:-mulle-craft}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                     searchpath "$@"
+      ;;
 
       show)
          # shellcheck source=src/mulle-sde-extension.sh
