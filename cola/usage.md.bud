@@ -1,32 +1,57 @@
-## Quick Start
+{%
+   haveFile = [exists file:"usage.txt"]
+   usage    = nil
+   usage2   = nil
+   if not haveFile and config.createUsage
+      pwd        = [[NSFileManager defaultManager] currentDirectoryPath]
+      name       = [pwd lastPathComponent]
+      executable = [pwd stringByAppendingPathComponent:name];
 
-In a very basic mulle-sde scenario you have an existing project and
-you only want to maintain its dependencies with mulle-sde, the rest is
-kept as is:
+      cmdline    = [executable stringByAppendingString:" -v --help"];
+      taskInfo   = [NSTask mulleStringSystemCallWithCommandString:cmdline]
+      if taskInfo[ "standardErrorString"]
+         usage = taskInfo[ "standardErrorString"]
+      endif
 
-``` sh
-mulle-sde add github:madler/zlib # add one or more dependencies
+      environment = @{ "MULLE_VIRTUAL_ROOT": pwd }
+      taskInfo    = [NSTask mulleStringSystemCallWithCommandString:cmdline
+                                                       environment:environment]
+      if taskInfo[ "standardErrorString"]
+         usage2 = taskInfo[ "standardErrorString"]
+      endif
+
+      if( [usage isEqual:usage2])
+         usage2 = nil
+      endif
+   endif
+%}
+{% if haveFile or usage %}
+## Usage
+
+{%  if usage %}
+{%   if usage2 %}
+Outside of a mulle-sde project, you have these commands to initialize a new
+project or to create non-project files:
+
+{%   endif %}
 ```
-
-This will create four folders inside your project:
+{{ usage }}
+```
+{%   if usage2 %}
+Once a project has been created, you will have a virtual environment with
+a whole lot more commands at your disposal:
 
 ```
-.
-├── .mulle       # internal mulle-sde maintenance
-├── dependency   # the desired output will be found here
-├── kitchen      # temporary build folder
-└── stash        # downloaded dependencies
+{{ usage2 }}
 ```
-
-In `dependency` you will then find the familiar file structure with include and
-lib folders, ready for inclusion and linking in your project. You can change
-the positions of the three visible folders to any place you like with
-environment variables.
-
-If you want to embed the project instead and compile it yourself use:
-
-``` sh
-mulle-sde dependency add --embedded github:madler/zlib # add one or more dependencies
+{%   endif %}
+{%  else %}
 ```
+{% includes optionally verbatim "usage.txt" %}
+```
+{%  endif %}
+{% else %}
+# No usage
+{% endif %}
 
 

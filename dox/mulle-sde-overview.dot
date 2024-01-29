@@ -1,14 +1,23 @@
 digraph G {
-    graph [rankdir = TD];
+    graph [rankdir = LR];
 
     node[ shape=record];
-    edge [ label=" runs", style="dotted" ]
+    edge [ label=" runs" ]
 
-    "mulle-sde" -> "mulle-env"
-    "mulle-sde" -> "mulle-sourcetree"
-    "mulle-sde" -> "mulle-monitor"
-    "mulle-sde" -> "mulle-craft"
-    "mulle-sde" -> "mulle-match"
+    "mulle-craft" -> "mulle-dispense"
+    "mulle-craft" -> "mulle-make"
+    "mulle-fetch" -> "mulle-domain"
+    "mulle-fetch" -> "mulle-semver"
+    "mulle-sde"   -> "mulle-craft"
+    "mulle-sde"   -> "mulle-env"
+    "mulle-sde"   -> "mulle-match"
+    "mulle-sde"   -> "mulle-menu"
+    "mulle-sde"   -> "mulle-monitor"
+    "mulle-sde"   -> "mulle-platform"
+    "mulle-sde"   -> "mulle-sourcetree"
+    "mulle-sde"   -> "mulle-template"
+    "mulle-sde"   -> "mulle-test"
+    "mulle-sourcetree" -> "mulle-fetch"
 
     "mulle-sde"   [ color="dodgerblue"; fontcolor="dodgerblue"; penwidth="2"]
 }

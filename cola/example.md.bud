@@ -1,0 +1,106 @@
+## Example
+
+Here is run through of the major commands to get you going with an Objective-C
+project:
+
+### Initialize a project
+
+Choose `executable` and `foundation/objc-developer` at the prompts:
+
+```sh
+mkdir myproject
+cd myproject
+mulle-sde init
+```
+
+or
+
+```sh
+mulle-sde init -d myproject -m foundation/objc-developer executable
+cd myproject
+```
+
+### Look at project
+
+``` sh
+tree .               # or ls -R if tree is not installed
+mulle-sde file
+mulle-sde view
+mulle-sde dependency
+mulle-sde library
+```
+
+### Develop project
+
+Choose the editor of your choice, for a better demo effect, choose one of the
+IDEs.
+
+``` sh
+mulle-sde edit
+```
+
+You don't have to use `mulle-sde edit` though, it's a mere convenience.
+
+
+``` sh
+mulle-sde definition set CFLAGS "-DFOO=1"
+mulle-sde craft
+mulle-sde log
+mulle-sde product
+mulle-sde run
+mulle-sde debug
+mulle-sde add src/MyClass.m
+mulle-sde ignore src/MyClass.m src/MyClass.h
+mulle-sde clean
+mulle-sde clean all
+mulle-sde clean tidy
+```
+
+
+### Add third party dependency
+
+``` sh
+mulle-sde add github:madler/zlib.tar
+mulle-sde dependency move zlib to top
+mulle-sde craftinfo zlib CFLAGS "-DBAR=1"
+```
+
+`mulle-sde clean tidy` and the somewhat less safe `mulle-sde clean gravetidy`
+will become important, when doing lots of dependency manipulations.
+
+
+### Test project
+
+``` sh
+mulle-sde test init
+mulle-sde test craft
+mulle-sde test run
+mulle-sde test coverage
+```
+
+
+### Going a little deeper
+
+``` sh
+mulle-sde -vv craft
+mulle-sde craftorder
+mulle-sde craftstatus
+mulle-sde environment
+mulle-sde patternfile --cat
+mulle-sde style
+mulle-sde tool
+```
+
+### Going deep
+
+``` sh
+mulle-sde callback
+mulle-sde config
+mulle-sde donefile
+mulle-sde headerorder
+mulle-sde linkorder
+mulle-sde task
+mulle-sde -ld -ls -lx treestatus
+```
+
+

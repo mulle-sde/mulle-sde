@@ -1,9 +1,19 @@
 MulleSDE is an IDE and a dependency (package) manager for the commandline.
 You could call it a [npm](https://www.npmjs.com/) or a [virtualenv](//pypi.org/project/virtualenv)
-for C languages. [De Re mulle-sde](https://www.mulle-kybernetik.com/de-re-mulle-sde/) is a
-a short introductory guide, that gives an overview of some of the capabilities.
+for C languages. Currently C and Objective-C are supported. C++ is very
+likely to work too.
 
-MulleSDE strives to be self-explanatory through help texts and file comments.
-The [mulle-sde WiKi](//github.com/mulle-sde/mulle-sde/wiki) contains more in-depth information,
-that doesn't fit into the help texts of the various mulle-sde commands
+
+![Demo](https://github.com/mulle-sde/.github/raw/master/terminal.gif)
+
+The basic principle in mulle-sde is the **Edit - Reflect - Craft** cycle.
+
+**Edit** - `mulle-sde edit` sets up the editor of your choice. Use it or any Desktop GUI
+or the terminal to manage the project files.<br>
+**Reflect** - Changes in the filesystem are picked up by `mulle-sde reflect` and are used
+to update build system files and header files.<br>
+**Craft** - `mulle-sde craft` fetches dependencies, builds them and installs them local to
+your project. Then it will build your project.
+
+
 

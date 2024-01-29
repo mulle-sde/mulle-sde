@@ -1,4 +1,10 @@
 ## You are here
 
+mulle-sde is merely there for the developers convenience. The true power comes
+from commands like `mulle-env` or `mulle-sourcetree`. The abstraction
+offered by mulle-sde rarely makes it necessary to interact with them. Yet
+these tools have features, not presented by mulle-sde.
+
+
 ![](dox/mulle-sde-overview.svg)
 
