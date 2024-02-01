@@ -211,9 +211,10 @@ sde::reflect::_main()
       return $?
    fi
 
-   local statusfile
-   local parallel
+
    (
+      local statusfile
+
       if [ "${parallel}" = 'YES' ]
       then
          _r_make_tmp_in_dir "${MULLE_SDE_VAR_DIR}" "reflect"

@@ -31,20 +31,26 @@
 #
 MULLE_SDE_PRODUCT_SH='included'
 
-
 sde::product::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} product [options] <list|run|searchpath>
+   ${MULLE_USAGE_NAME} product [options] <command>
 
    Find product of mulle-sde craft (list) or run it, if it's an executable.
    Searchpath shows the places products of a certain type are expected to
    show up. See \`${MULLE_USAGE_NAME} product searchpath help\` for more info.
 
    \`${MULLE_USAGE_NAME} run\` is a shortcut for \`${MULLE_USAGE_NAME} product run\`
+
+Commands:
+   debug               : debug most recent product (if executable)
+   list                : list built products
+   run                 : run most recent product (if executable)
+   searchpath          : show product places 
+   sublime-debug       : emit debug settings to place in your .sublime-project
 
 Options:
    -h                  : show this usage
@@ -266,17 +272,25 @@ sde::product::r_product_path()
    eval_rexekutor `mulle-platform environment`
 
    local type
-   local filename
+   local filenames
 
    case "${PROJECT_TYPE}" in
       library)
          type="library"
-         filename=${MULLE_PLATFORM_LIBRARY_PREFIX}"${PROJECT_NAME}${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}"
+         filenames=${MULLE_PLATFORM_LIBRARY_PREFIX}"${PROJECT_NAME}${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}"
+
+         # also search for mulle-cored.lib (debug), generally speaking we should
+         # do this more cleverly
+         case "${MULLE_UNAME}" in
+            mingw*)
+               filenames=${filenames}:${MULLE_PLATFORM_LIBRARY_PREFIX}"${PROJECT_NAME}d${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}"
+            ;;
+         esac
       ;;
 
       executable)
          type="binary"
-         filename="${PROJECT_NAME}${MULLE_PLATFORM_EXECUTABLE_SUFFIX}"
+         filenames="${PROJECT_NAME}${MULLE_PLATFORM_EXECUTABLE_SUFFIX}"
       ;;
 
       none)
@@ -291,7 +305,7 @@ sde::product::r_product_path()
 
    if ! sde::product::r_search_path "${type}"
    then
-      fail "Product ${C_RESET_BOLD}${filename}${C_ERROR} not found. Maybe not build yet ?"
+      fail "Product ${C_RESET_BOLD}${filenames}${C_ERROR} not found. Maybe not build yet ?"
    fi
 
    local searchpath
@@ -303,13 +317,24 @@ sde::product::r_product_path()
 
    .foreachpath filepath in ${searchpath}
    .do
-      r_filepath_concat "${filepath}" "${filename}"
-      if [ -e "${RVAL}" ]
-      then
-         r_add_line "${candidates}" "${RVAL}"
-         candidates="${RVAL}"
-      fi
+      .foreachpath filename in ${filenames}
+      .do
+         r_filepath_concat "${filepath}" "${filename}"
+         if [ -e "${RVAL}" ]
+         then
+            r_add_line "${candidates}" "${RVAL}"
+            candidates="${RVAL}"
+         fi
+      .done
    .done
+
+   # if we don't find a prime candidate and its an executable, we might be 
+   # in "demos", where there are multiple candidates
+   if [ -z "${candidates}" -a "${PROJECT_TYPE}" = 'executable' ]
+   then
+      sde::product::r_executables
+      candidates="${RVAL}"
+   fi
 
    if [ -z "${candidates}" ]
    then
@@ -331,6 +356,33 @@ sde::product::r_product_path()
    .done
 
    RVAL="${filepath}"
+}
+
+sde::product::list_main()
+{
+   log_entry "sde::product::list_main" "$@"
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::product::usage
+         ;;
+
+         -*)
+            sde::product::usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   sde::product::r_product_path
+   printf "%s\n" "${RVAL}"
 }
 
 
@@ -360,34 +412,6 @@ sde::product::searchpath_main()
    done
 
    sde::product::r_search_path "$@"
-   printf "%s\n" "${RVAL}"
-}
-
-
-sde::product::list_main()
-{
-   log_entry "sde::product::list_main" "$@"
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde::product::usage
-         ;;
-
-         -*)
-            sde::product::usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   sde::product::r_product_path
    printf "%s\n" "${RVAL}"
 }
 
@@ -592,8 +616,22 @@ sde::product::main()
          sde::product::searchpath_main "$@"
       ;;
 
+      sublime-debug)
+         if sde::product::r_product_path "$@"
+         then
+            cat <<EOF 
+   "settings":
+   {
+      "sublimegdb_workingdir": "\${folder:`mulle-sde kitchen-dir`/Debug}",
+      "sublimegdb_commandline": "mulle-gdb --interpreter=mi ${RVAL}",
+   },
+EOF
+         fi
+      ;;
+
       *)
          sde::product::usage
+      ;;
    esac
 }
 

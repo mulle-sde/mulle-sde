@@ -1157,14 +1157,14 @@ sde::extension::show_main()
    log_verbose "Vendors:"
    log_verbose "`LC_ALL=C sort -u <<< "${vendors}" | sed 's/^/  /' `"
 
+   local vendorextensions
+
    .foreachline vendor in ${vendors}
    .do
       if [ -z "${vendor}" ]
       then
          .continue
       fi
-
-      local vendorextensions
 
       sde::extension::r_collect_vendorextensions "${vendor}"
       vendorextensions="${RVAL}"
