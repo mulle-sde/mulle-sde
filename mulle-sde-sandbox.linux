@@ -36,7 +36,7 @@ home="${HOME:-/home/${USERNAME}}"
 
 MULLE_SDE_SANDBOX_SRC_DIR="${MULLE_SDE_SANDBOX_SRC_DIR:-${home}/src}"
 MULLE_SDE_SANDBOX_VAR_DIR="${MULLE_SDE_SANDBOX_VAR_DIR:-${home}/.mulle}"
-MULLE_SDE_SANDBOX_CACHE_DIR="${MULLE_SDE_SANDBOX_CACHE_DIR:-${home}/.cache/mulle-fetch}"
+MULLE_SDE_SANDBOX_CACHE_DIR="${MULLE_SDE_SANDBOX_CACHE_DIR:-${home}/.cache}"
 
 # zfs="/mnt/zfs/nat"
 # 

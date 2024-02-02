@@ -186,6 +186,13 @@ main()
    #
    # install mulle-env plugins
    #
+   # newer homebrews have atomized shares which messes us up
+   case "${prefix}" in
+      */homebrew/Cellar/*/*)
+         prefix="/usr/local"
+      ;;
+   esac
+
    share="${prefix}/share/mulle-env"
    PLUGIN_DIR="${share}/plugins"
    mkdir -p "${PLUGIN_DIR}" || exit 1
