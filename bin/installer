@@ -187,9 +187,14 @@ main()
    # install mulle-env plugins
    #
    # newer homebrews have atomized shares which messes us up
+   # of course, we can't conveniently store in /usr/local as that would
+   # be to simple...
+   #
    case "${prefix}" in
       */homebrew/Cellar/*/*)
-         prefix="/usr/local"
+         prefix="`mulle-env libexecdir`"
+         prefix="`dirname -- "${prefix}"`"
+         prefix="${prefix}/share"
       ;;
    esac
 
