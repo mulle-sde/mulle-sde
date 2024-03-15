@@ -91,7 +91,9 @@ Commands:
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
    get        : retrieve a dependency settings from the sourcetree
+   headers    : list all headers in the built dependencies folder
    info       : for some dependencies there might be online help available
+   libraries  : list all libraries in the built dependencies folder
    list       : list dependencies in the sourcetree (default)
    mark       : add marks to a dependency in the sourcetree
    move       : reorder dependencies in the sourcetree
@@ -585,6 +587,7 @@ sde::dependency::json_filter()
    esac
 }
 
+
 sde::dependency::pretty_filtered_json()
 {
    log_entry "sde::dependency::pretty_filtered_json" "$@"
@@ -606,7 +609,6 @@ sde::dependency::pretty_filtered_json()
 }
 
 
-
 sde::dependency::list_main()
 {
    log_entry "sde::dependency::list_main" "$@"
@@ -615,7 +617,7 @@ sde::dependency::list_main()
    local qualifier
    local formatstring
 
-   formatstring="%v={NODE_INDEX,#,-};%a;%s;%i={aliases,,-------};%i={include,,-------}"
+   formatstring="%a;%s;%i={aliases,,-------};%i={include,,-------}"
    # with supermarks we don't filter stuff out anymore a priori
    no_marks=
 
@@ -653,7 +655,7 @@ sde::dependency::list_main()
          -m)
             [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
             OPTION_JSON='NO'
-            formatstring="%v={NODE_INDEX,#,-};%a;%m;%i={aliases,,-------};%i={include,,-------}"
+            formatstring="%a;%m;%i={aliases,,-------};%i={include,,-------}"
          ;;
 
          --no-mark|--no-marks)
@@ -689,7 +691,7 @@ sde::dependency::list_main()
             OPTION_JSON='NO'
             r_concat "${OPTIONS}" "$1"
             OPTIONS="${RVAL}"
-            formatstring="%v={NODE_INDEX,#,-};%a;%s"
+            formatstring="%a;%s"
          ;;
 
          -l|-ll|-r|-g|-u|-G|-U)
@@ -1055,13 +1057,14 @@ sde::dependency::add_main()
    local OPTION_PRIVATE='NO'
    local OPTION_SHARE='YES'
    local OPTION_SINGLEPHASE=
-   local OPTION_STARTUP='NO'
+   local OPTION_STARTUP='DEFAULT'
 
    local OPTION_ADDRESS
    local OPTION_BRANCH
    local OPTION_BRANCH_SET
    local OPTION_DOMAIN
    local OPTION_FILTER
+   local OPTION_HOST
    local OPTION_NODETYPE
    local OPTION_FETCHOPTIONS
    local OPTION_REPO
@@ -1133,6 +1136,13 @@ sde::dependency::add_main()
             shift
 
             OPTION_DOMAIN="$1"
+         ;;
+
+         --host)
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_HOST="$1"
          ;;
 
          --repo)
@@ -1300,6 +1310,7 @@ sde::dependency::add_main()
    local nodetype
    local address
    local branch
+   local host
    local user
    local originalurl
    local domain
@@ -1315,6 +1326,7 @@ sde::dependency::add_main()
    address="${OPTION_ADDRESS}"
    options="${OPTION_OPTIONS}"
    domain="${OPTION_DOMAIN}"
+   host="${OPTION_HOST}"
    repo="${OPTION_REPO}"
    fetchoptions="${OPTION_FETCHOPTIONS}"
 
@@ -1326,6 +1338,7 @@ sde::dependency::add_main()
 
       craftinfo:*)
          [ ! -z "${nodetype}" ]      && log_warning "Nodetype will be ignored with craftinfo: type URLs"
+         [ ! -z "${host}" ]          && log_warning "Host will be ignored with craftinfo: type URLs"
          [ ! -z "${user}" ]          && log_warning "User will be ignored with craftinfo: type URLs"
          [ ! -z "${tag}" ]           && log_warning "Tag will be ignored with craftinfo: type URLs"
          [ ! -z "${branch}" ]        && log_warning "Branch will be ignored with craftinfo: type URLs"
@@ -1356,6 +1369,9 @@ sde::dependency::add_main()
       local directory
 
       log_debug "Single argument special case search of MULLE_FETCH_SEARCH_PATH"
+
+      include "path"
+
       IFS=":"
       for directory in ${MULLE_FETCH_SEARCH_PATH}
       do
@@ -1363,11 +1379,6 @@ sde::dependency::add_main()
          if [ ! -d "${RVAL}" ]
          then
             continue
-         fi
-
-         if [ -z "${MULLE_PATH_SH}" ]
-         then
-            . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh"  || return 1
          fi
 
          log_fluff "Found local \"${RVAL}\""
@@ -1388,22 +1399,47 @@ sde::dependency::add_main()
       IFS="${DEFAULT_IFS}"
    fi
 
+   log_setting "address      : ${address}"
+   log_setting "branch       : ${branch}"
+   log_setting "domain       : ${domain}"
+   log_setting "fetchoptions : ${fetchoptions}"
+   log_setting "host         : ${host}"
+   log_setting "nodetype     : ${nodetype}"
+   log_setting "options      : ${options}"
+   log_setting "repo         : ${repo}"
+   log_setting "tag          : ${tag}"
+   log_setting "url          : ${url}"
+   log_setting "user         : ${user}"
+
    #
    # if domain is given, we compose from what's on the command line
    #
-   if [ ! -z "${domain}" ]
-   then
-      nodetype="${nodetype:-tar}"
-      url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-               ${MULLE_TECHNICAL_FLAGS} \
-               ${MULLE_DOMAIN_FLAGS} \
-            compose-url \
-               --user "${user}" \
-               --tag "${tag}" \
-               --repo "${repo:-$url}" \
-               --scm "${nodetype}" \
-               "${domain}" `" || exit 1
-   fi
+   case "${domain}" in
+      "")
+      ;;
+
+      'generic')
+         # keep URL as is
+         url="${originalurl}"
+      ;;
+
+
+      *)
+         nodetype="${nodetype:-tar}"
+         url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  ${MULLE_DOMAIN_FLAGS} \
+               compose-url \
+                  --user "${user}" \
+                  --tag "${tag}" \
+                  --repo "${repo:-$url}" \
+                  --scm "${nodetype}" \
+                  "${domain}" `" || exit 1
+      ;;
+
+   esac
+
+   log_setting "url (now)    : ${url}"
 
    #
    # Lets mulle-domain guess us some of the stuff, if none were given
@@ -1626,6 +1662,16 @@ sde::dependency::add_main()
       marks="${RVAL}"
    fi
 
+   if [ "${OPTION_STARTUP}" = 'DEFAULT' ]
+   then
+      case "${address}" in
+         *Start[Uu]p|*-[Ss]tart[Uu]p)
+            log_verbose "Determined \"${address}\" to be a startup library by name"
+            OPTION_STARTUP='YES'
+         ;;
+      esac
+   fi
+
    if [ "${OPTION_STARTUP}" = 'YES' ]
    then
       r_comma_concat "${marks}" "${DEPENDENCY_STARTUP_MARKS}"
@@ -1803,6 +1849,72 @@ sde::dependency::contains_numeric_arguments()
 }
 
 
+sde::dependency::headers_main()
+{
+   log_entry "sde::dependency::headers_main" "$@"
+
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to build dependencies, to list available headers"
+   fi
+
+   local directories
+   local directory
+
+   for directory in "${DEPENDENCY_DIR}/include" "${DEPENDENCY_DIR}/Debug/include"
+   do
+      if [ -d "${directory}" ]
+      then
+         r_concat "${directories}" "'${directory}'"
+         directories="${RVAL}"
+      fi
+   done
+
+   if [ -z "${directories}" ]
+   then
+      log_warning "Apparently there are no headers available, recraft dependencies ?"
+      return
+   fi
+
+   eval_rexekutor tree  -I '*.cmake' --prune --noreport "${directories}"
+}
+
+
+sde::dependency::libraries_main()
+{
+   log_entry "sde::dependency::libraries_main" "$@"
+
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to build dependencies, to list linkable libraries"
+   fi
+
+   local directories
+   local directory
+
+   for directory in "${DEPENDENCY_DIR}/lib" "${DEPENDENCY_DIR}/Debug/lib"
+   do
+      if [ -d  "${directory}" ]
+      then
+         r_concat "${directories}" "'${directory}'"
+         directories="${RVAL}"
+      fi
+   done
+
+   if [ -z "${directories}" ]
+   then
+      log_warning "Apparently there are no libraries available, recraft dependencies ?"
+      return
+   fi
+
+   eval_rexekutor tree -I '*.cmake' --prune --noreport "${directories}"
+}
+
+
+
+
 ###
 ### parameters and environment variables
 ###
@@ -1893,20 +2005,6 @@ unmark"
          return $?
       ;;
 
-      move)
-         if sde::dependency::contains_numeric_arguments "$@"
-         then
-            fail "Only move dependencies by name, as the sourcetree is shared with libraries"
-         fi
-         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
-            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           --virtual-root \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           --silent-but-warn \
-                        'move' \
-                           "$@"
-      ;;
-
       duplicate|mark|unmark|rcopy)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -1925,6 +2023,13 @@ unmark"
          return $?
       ;;
 
+      headers)
+         sde::dependency::headers_main "$@"
+      ;;
+
+      libraries)
+         sde::dependency::libraries_main "$@"
+      ;;
 
       keys)
          echo "\
@@ -1938,6 +2043,20 @@ platform-excludes"
          sde::dependency::list_main "$@"
       ;;
 
+      move)
+         if sde::dependency::contains_numeric_arguments "$@"
+         then
+            fail "Only move dependencies by name, as the sourcetree is shared with libraries"
+         fi
+         MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+            exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           --virtual-root \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           --silent-but-warn \
+                        'move' \
+                           "$@"
+      ;;
+
       remove|rem)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
              exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
@@ -1947,7 +2066,7 @@ platform-excludes"
                            "$@"
          rc=$?
 
-         if [ $rc -eq 0 ] 
+         if [ $rc -eq 0 ]
          then
             MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \

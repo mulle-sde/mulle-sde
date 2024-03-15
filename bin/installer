@@ -189,14 +189,14 @@ main()
    # newer homebrews have atomized shares which messes us up
    # of course, we can't conveniently store in /usr/local as that would
    # be to simple...
-   #
-   case "${prefix}" in
-      */homebrew/Cellar/*/*)
-         prefix="`mulle-env libexecdir`"
-         prefix="`dirname -- "${prefix}"`"
-         prefix="${prefix}/share"
-      ;;
-   esac
+   # MEMO: can't figure this out it only happens on ARM 14.
+   # case "${prefix}" in
+   #    */homebrew/Cellar/*/*)
+   #       prefix="`mulle-env libexecdir`"
+   #       prefix="`dirname -- "${prefix}"`"
+   #       prefix="${prefix}/share"
+   #    ;;
+   # esac
 
    share="${prefix}/share/mulle-env"
    PLUGIN_DIR="${share}/plugins"
