@@ -1844,9 +1844,9 @@ sde::extension::add_main()
          fail "No extra extensions installed"
       fi
 
-      rexekutor mulle-menu --title "Choose extension:" \
-                           --final-title "" \
-                           --options "${options}"
+      rexekutor mudo -f mulle-menu --title "Choose extension:" \
+                                   --final-title "" \
+                                   --options "${options}"
       row=$?
       r_line_at_index "${options}" "${row}"
       [ -z "${RVAL}" ] && return 1

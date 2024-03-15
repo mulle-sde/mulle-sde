@@ -770,9 +770,9 @@ sde::main()
       then
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
-            add|bash-completion|commands|env|environment|env-identifier|ext|\
+            add|bash-completion|commands|env|environment|env-identifier|edit|ext|\
 extension|get|init|init-and-enter|install|reinit|status|hostname|remove|uname|\
-show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgrade|username)
+show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|symlink|test|upgrade|username)
             ;;
 
             # commands where we want to start a subshell and these don't have
@@ -791,23 +791,6 @@ show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|test|upgr
                fi
             ;;
 
-            #
-            # commands that have a help text, we want to show this even
-            # if there is no environment around
-            #
-            callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|definition|dep|dependency|doctor|donefile|edit|fetch|\
-file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
-mark|match|migrate|monitor|move|\
-patterncheck|patternenv|patternfile|patternfiles|\
-product|project|protect|reflect|searchpath|sourcetree|subproject|style|\
-task|tool|treestatus|unmark|unprotect|update|\
-ext|lib|pat|sub|unveil|view)
-               if ! sde::is_non_environment_commandline "$@"
-               then
-                  sde::exec_command_in_subshell 'CD' "$@"
-               fi
-            ;;
 
             _install)
                # shellcheck source=src/mulle-sde-install.sh
@@ -823,6 +806,25 @@ ext|lib|pat|sub|unveil|view)
                MULLE_USAGE_NAME="mulle-sde" \
                   sde::exec_mulle_env "$@"
             ;;
+
+            #
+            # commands that have a help text, we want to show this even
+            # if there is no environment around
+            #
+            callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
+craft-status|definition|dep|dependency|doctor|donefile|fetch|\
+file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
+mark|match|migrate|monitor|move|\
+patterncheck|patternenv|patternfile|patternfiles|\
+product|project|protect|reflect|searchpath|sourcetree|subproject|style|\
+task|tool|treestatus|unmark|unprotect|update|\
+lib|pat|sub|unveil|view)
+               if ! sde::is_non_environment_commandline "$@"
+               then
+                  sde::exec_command_in_subshell 'CD' "$@"
+               fi
+            ;;
+
 
             "")
                # special treatment for empty, show sde::usage
@@ -856,11 +858,17 @@ ext|lib|pat|sub|unveil|view)
    # think about having a second MULLE_VIRTUAL_ROOT so that the project can
    # be read only and we keep the bookkeeping somewhere on the outside
    #
-   log_setting "MULLE_VIRTUAL_ROOT=\"${MULLE_VIRTUAL_ROOT}\""
-   log_setting "MULLE_TECHNICAL_FLAGS=\"${MULLE_TECHNICAL_FLAGS}\""
+   log_setting "MULLE_VIRTUAL_ROOT    = \"${MULLE_VIRTUAL_ROOT}\""
+   log_setting "MULLE_TECHNICAL_FLAGS = \"${MULLE_TECHNICAL_FLAGS}\""
 
    if ! sde::is_non_environment_commandline "$@"
    then
+      # get these variables via mulle-tool-env
+      #
+      # MULLE_SDE_VAR_DIR
+      # MULLE_SDE_ETC_DIR
+      # MULLE_SDE_SHARE_DIR
+      #
       if ! eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde`
       then
          if [ "${FLAG_OUTSIDE_ENV}" != "YES" ]
@@ -908,6 +916,10 @@ ext|lib|pat|sub|unveil|view)
          fi
       fi
    fi
+
+   log_setting "MULLE_SDE_VAR_DIR     = \"${MULLE_SDE_VAR_DIR}\""
+   log_setting "MULLE_SDE_ETC_DIR     = \"${MULLE_SDE_ETC_DIR}\""
+   log_setting "MULLE_SDE_SHARE_DIR   = \"${MULLE_SDE_SHARE_DIR}\""
 
    case "${cmd}" in
       add)
@@ -1021,6 +1033,7 @@ subproject
 stash-dir
 steal
 style
+symlink
 task
 test
 tool
@@ -1120,10 +1133,10 @@ view"
       ;;
 
       debug)
-         # shellcheck source=src/mulle-sde-product.sh
-         include "sde::product"
+         # shellcheck source=src/mulle-sde-debug.sh
+         include "sde::debug"
 
-         sde::product::debug_main "$@"
+         sde::debug::main "$@"
       ;;
 
       definition|definitions|def)
@@ -1188,7 +1201,6 @@ view"
 #         sde::environment::main "$@"
       ;;
 
-
       env-identifier)
          include "case"
 
@@ -1197,7 +1209,6 @@ view"
 
          rexekutor printf "%s\n" "${RVAL}"
       ;;
-
 
       exec|execute)
          local quote
@@ -1301,7 +1312,6 @@ view"
          # interactive shell, dont set sde::usage
          sde::init::main --no-blurb "$@" && sde::exec_mulle_env
       ;;
-
 
       install)
          # invoke ourselves with a clean environment so that we
@@ -1620,6 +1630,13 @@ view"
          include "sde::subproject"
 
          sde::subproject::main "$@"
+      ;;
+
+      symlink)
+         # shellcheck source=src/mulle-sde-product.sh
+         include "sde::product"
+
+         sde::product::symlink_main "$@"
       ;;
 
       test)

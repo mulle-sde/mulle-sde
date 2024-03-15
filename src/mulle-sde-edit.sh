@@ -40,9 +40,13 @@ sde::edit::usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} edit [arguments] ...
+   ${MULLE_USAGE_NAME} edit [options] [arguments] ...
 
    Edit the current project with the editor of your choice.
+
+Options:
+   --select   : reselect editors
+   --         : pass remaining arguments (if you need to pass --reselect)
 
 Environment:
    MULLE_SDE_EDITORS : list of editor separated by ':' (${MULLE_SDE_EDITORS})
@@ -63,7 +67,7 @@ sde::edit::r_installed_editors()
 
    .foreachpath editor in ${editors}
    .do
-      if mudo which "${editor}" > /dev/null
+      if mudo -f which "${editor}" > /dev/null
       then
          r_add_line "${existing_editors}" "${editor}"
          existing_editors="${RVAL}"
@@ -82,10 +86,11 @@ sde::edit::r_user_choses_editor()
 
    local row
 
-   rexekutor mudo mulle-menu --title "Choose editor:" \
-                             --final-title "" \
-                             --options "${editors}"
+   rexekutor mudo -f mulle-menu --title "Choose editor:" \
+                                --final-title "" \
+                                --options "${editors}"
    row=$?
+
    log_debug "row=${row}"
 
    r_line_at_index "${editors}" $row
@@ -93,12 +98,17 @@ sde::edit::r_user_choses_editor()
 }
 
 
-
+#
+# Keep in mind, that ideally this command should also "just" work even if
+# there is no environment, just to quickly hit up an editor from muscle memory
+#
 sde::edit::main()
 {
    log_entry "sde::edit::main" "$@"
 
    local OPTION_SELECT
+   local OPTION_JSON_ENV
+   local OPTION_SQUELCH='DEFAULT'
 
    while :
    do
@@ -107,10 +117,21 @@ sde::edit::main()
             sde::edit::usage
          ;;
 
-         --select)
+         --squelch)
+            OPTION_SQUELCH='YES'
+         ;;
+
+         --no-squelch)
+            OPTION_SQUELCH='NO'
+         ;;
+
+         --select|--reselect)
             OPTION_SELECT='YES'
          ;;
 
+         --json-env)
+            OPTION_JSON_ENV='YES'
+         ;;
          --)
             shift
             break
@@ -127,6 +148,53 @@ sde::edit::main()
 
       shift
    done
+
+   # so we are NOT in mulle-sde currently, the main reason for this is
+   # that mulle-sde may run in a sandbox, and this for example makes it
+   # impossible for "Sublime Text" to fork off a server.
+   #
+   # We do want the environment though... We don't need the tool resrictions
+   #
+   local directory
+
+   local ADDICTION_DIR
+   local DEPENDENCY_DIR
+   local KITCHEN_DIR
+   local STASH_DIR
+
+   if sde::r_determine_project_dir
+   then
+      MULLE_VIRTUAL_ROOT="${RVAL}"
+
+      log_debug "Sourcing environment from ${MULLE_VIRTUAL_ROOT#${MULLE_USER_PWD}/}..."
+
+      . "${MULLE_VIRTUAL_ROOT}/.mulle/share/env/include-environment.sh"
+
+      #
+      # gather KITCHEN_DIR
+      # gather STASH_DIR
+      # gather DEPENDENCY_DIR
+      # gather ADDICTION_DIR
+      # and pass as environment
+      #
+      ADDICTION_DIR="`mulle-craft addiction-dir`"
+      DEPENDENCY_DIR="`mulle-craft dependency-dir`"
+      KITCHEN_DIR="`mulle-craft kitchen-dir`"
+      STASH_DIR="`mulle-sourcetree stash-dir`"
+   fi
+
+   if [ "${OPTION_JSON_ENV}" = 'YES' ]
+   then
+      cat <<EOF
+{
+   "ADDICTION_DIR":  "${ADDICTION_DIR:-${PWD}/addiction}",
+   "DEPENDENCY_DIR": "${DEPENDENCY_DIR:-${PWD}/dependency}",
+   "KITCHEN_DIR":    "${KITCHEN_DIR:-${PWD}/kitchen}",
+   "STASH_DIR":      "${STASH_DIR:-${PWD}/stash}"
+}
+EOF
+      return 0
+   fi
 
    local editor
 
@@ -145,7 +213,7 @@ sde::edit::main()
       local editors
       local choices
 
-      choices="${MULLE_SDE_EDITORS:-subl:clion.sh:codium:code:micro:emacs:vi}"
+      choices="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:codium:code:micro:emacs:vi}"
       if ! sde::edit::r_installed_editors "${choices}"
       then
          fail "No suitable editor found, please install one of: ${choices}"
@@ -158,32 +226,73 @@ sde::edit::main()
       fi
       editor="${RVAL}"
 
-      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env --this-user set MULLE_SDE_EDITOR_CHOICE "${editor}"
+      # don't save preference if we are not in sde
+      if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env --this-user set MULLE_SDE_EDITOR_CHOICE "${editor}"
+      fi
    fi
 
    log_setting "editor: ${editor}"
 
+   local vendorprefix
+
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      PROJECT_TYPE="`rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env get PROJECT_TYPE`"
+      if [ "${PROJECT_TYPE}" = "none" ]
+      then
+         vendorprefix="mulle-sde/"
+      fi
+   fi
+
    case "${editor}" in
       subl*|*/subl*)
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing sublime-text
+         local any
+
+         any="`dir_list_files "${MULLE_VIRTUAL_ROOT:-${MULLE_USER_PWD}}" "*.sublime-project" 2> /dev/null | head -1`"
+         if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a -z "${any}" ]
+         then
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing "${vendorprefix}sublime-text"
+         fi
+
          if [ $# -eq 0 ]
          then
-            set -- "${MULLE_VIRTUAL_ROOT}"
+            # memo: if you just open a folder, sublime-text will not necessarily
+            #       read the project file and then most likely you won't have
+            #       access to build systems and debugging, which sucketh
+            if [ ! -z "${any}" ]
+            then
+               set -- --project-file "${any}"
+            else
+               set -- "${MULLE_VIRTUAL_ROOT:-${MULLE_USER_PWD}}"
+            fi
          fi
       ;;
       codium*|*/codium*|code*|*/code*)
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing vscode-clang
+         if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .vscode ]
+         then
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing "${vendorprefix}vscode-clang"
+         fi
          if [ $# -eq 0 ]
          then
-            set -- "${MULLE_VIRTUAL_ROOT}"
+            set -- ${MULLE_VIRTUAL_ROOT}
          fi
       ;;
       clion*|*/clion*)
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing idea
+         if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .idea ]
+         then
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing "${vendorprefix}idea"
+         fi
          if [ $# -eq 0 ]
          then
-            set -- "${MULLE_VIRTUAL_ROOT}"
+            set -- ${MULLE_VIRTUAL_ROOT}
          fi
+         if [ "${OPTION_SQUELCH}" = 'DEFAULT' ]
+         then
+            OPTION_SQUELCH='YES'
+         fi
+         OPTION_BG='YES'
       ;;
 
       *)
@@ -194,6 +303,45 @@ sde::edit::main()
       ;;
    esac
 
-   # want to edit with current environment, so no mudo
-   exekutor "${editor}${MULLE_EXE_EXTENSION}" "$@"
+   #
+   # gather KITCHEN_DIR
+   # gather STASH_DIR
+   # gather DEPENDENCY_DIR
+   # gather ADDICTION_DIR
+   # and pass as environment
+   #
+   local ADDICTION_DIR
+   local DEPENDENCY_DIR
+   local KITCHEN_DIR
+   local STASH_DIR
+
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      export ADDICTION_DIR="${ADDICTION_DIR}"
+      export DEPENDENCY_DIR="${DEPENDENCY_DIR}"
+      export KITCHEN_DIR="${KITCHEN_DIR}"
+      export STASH_DIR="${STASH_DIR}"
+
+      exekutor_trace exekutor_print export ADDICTION_DIR="${ADDICTION_DIR}"
+      exekutor_trace exekutor_print export DEPENDENCY_DIR="${DEPENDENCY_DIR}"
+      exekutor_trace exekutor_print export KITCHEN_DIR="${KITCHEN_DIR}"
+      exekutor_trace exekutor_print export STASH_DIR="${STASH_DIR}"
+   fi
+
+   if [ "${OPTION_SQUELCH}" = 'YES' ]
+   then
+      if [ "${OPTION_BG}" = 'YES' ]
+      then
+         exekutor exec "${editor}${MULLE_EXE_EXTENSION}" "$@" > /dev/null 2>&1 &
+      else
+         exekutor exec "${editor}${MULLE_EXE_EXTENSION}" "$@" > /dev/null 2>&1
+      fi
+   else
+      if [ "${OPTION_BG}" = 'YES' ]
+      then
+         exekutor exec "${editor}${MULLE_EXE_EXTENSION}" "$@" &
+      else
+         exekutor exec "${editor}${MULLE_EXE_EXTENSION}" "$@"
+      fi
+   fi
 }

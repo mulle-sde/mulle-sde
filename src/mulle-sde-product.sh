@@ -46,11 +46,10 @@ Usage:
    \`${MULLE_USAGE_NAME} run\` is a shortcut for \`${MULLE_USAGE_NAME} product run\`
 
 Commands:
-   debug               : debug most recent product (if executable)
    list                : list built products
+   link                : symlink current product into ~/bin
    run                 : run most recent product (if executable)
    searchpath          : show product places 
-   sublime-debug       : emit debug settings to place in your .sublime-project
 
 Options:
    -h                  : show this usage
@@ -59,6 +58,21 @@ Options:
    --release           : shortcut for --configuration Release
    --restrict          : run product with restricted environment
    --sdk <sdk>         : set sdk
+EOF
+   exit 1
+}
+
+sde::product::link_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} link
+
+   Forceably symlink the main executable of the given project, into ~/bin.
+   This can be dangerous and convenient at the same time.
+
 EOF
    exit 1
 }
@@ -78,10 +92,12 @@ Usage:
 Options:
    --  :   pass remaining options as arguments
 
+Environment:
+   MULLE_SDE_RUN  : command line to use, use \${EXECUTABLE} as variable
+
 EOF
    exit 1
 }
-
 
 
 sde::product::freshest_files()
@@ -167,19 +183,19 @@ sde::product::r_executables()
       #
       local projectname
 
-      projectname="`mulle-sde env get PROJECT_TYPE`"
+      projectname="`mulle-sde env get PROJECT_NAME`"
       executables="`rexekutor find "${kitchen_dir}" \( -name "${projectname}${MULLE_EXE_EXTENSION}" \
                                                     -o -name "${projectname}" \
                                                     \) \
                                                    -type f \
-                                                   -perm 111 \
+                                                   -perm +111 \
                                                    -not -path "${kitchen_dir}/.craftorder/*" `"
 
       executables="`sde::product::freshest_files "${executables}"`"
       if [ -z "${executables}" ]
       then
          fail "Could not figure what product was build.
-${C_RESET_BOLD}${projectname}${C_ERROR} or ${C_RESET_BOLD}${projectname}.exe${C_ERROR} not found in ${C_RESET_BOLD}${kitchendir#${MULLE_USER_PWD}/}"
+${C_RESET_BOLD}${projectname}${C_ERROR} or ${C_RESET_BOLD}${projectname}.exe${C_ERROR} not found in ${C_RESET_BOLD}${kitchen_dir#${MULLE_USER_PWD}/}"
       fi
 
       # we pick the first of whatever
@@ -197,11 +213,21 @@ sde::product::r_user_choses_executable()
 
    local executables="$1"
 
+   local names
+   local executable
+
+   .foreachline executable in ${executables}
+   .do
+      r_basename "${executable}"
+      r_add_line "${names}" "${RVAL}"
+      names="${RVAL}"
+   .done
+
    local row
 
-   rexekutor mudo mulle-menu --title "Choose executable:" \
-                             --final-title "" \
-                             --options "${executables}"
+   rexekutor mudo -f mulle-menu --title "Choose executable:" \
+                                --final-title "" \
+                                --options "${names}"
    row=$?
    log_debug "row=${row}"
 
@@ -416,8 +442,90 @@ sde::product::searchpath_main()
 }
 
 
+sde::product::r_executable()
+{
+   log_entry "sde::product::r_executable" "$@"
+
+   local executables
+
+   sde::product::r_executables
+   executables="${RVAL}"
+
+   local executable
+
+   if ! sde::product::r_user_choses_executable "${executables}"
+   then
+      return 1
+   fi
+}
+
+
 sde::product::run_main()
 {
+   log_entry "sde::product::run_main" "$@"
+
+   local EXECUTABLE
+
+   if ! sde::product::r_executable
+   then
+      return 1
+   fi
+   EXECUTABLE="${RVAL}"
+
+   local commandline
+
+   commandline="`mulle-sde env get MULLE_SDE_RUN`"
+
+   if [ ! -z "${commandline}" ]
+   then
+      r_expanded_string "${commandline}"
+      commandline="${RVAL}"
+
+      log_verbose "Use MULLE_SDE_RUN '${commandline}' as command line"
+      eval_exekutor mudo -f "${commandline}" "$@"
+   else
+      exekutor mudo -f "${EXECUTABLE}" "$@"
+   fi
+
+   commandline="`mulle-sde env get MULLE_SDE_POST_RUN`"
+   if [ ! -z "${commandline}" ]
+   then
+      r_expanded_string "${commandline}"
+      commandline="${RVAL}"
+
+      log_verbose "Use MULLE_SDE_POST_RUN '${commandline}' as command line"
+      eval_exekutor mudo -f "${commandline}" "$@"
+   fi
+}
+
+
+#
+# this needs to run outside of the sandbox
+#
+sde::product::symlink_main()
+{
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::product::symlink_usage
+         ;;
+
+         -*)
+            sde::product::symlink_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local dstdir
+
+   dstdir="${1:-${HOME}/bin}"
 
    local executables
 
@@ -432,101 +540,19 @@ sde::product::run_main()
    fi
    executable="${RVAL}"
 
-   exekutor mudo "${executable}" "$@"
-}
+   local name
 
+   r_basename "${executable}"
+   name="${RVAL}"
 
-sde::product::r_user_choses_debugger()
-{
-   log_entry "sde::product::r_user_chosen_debugger" "$@"
+   local linkname
 
-   local debuggers="$1"
+   r_filepath_concat "${dstdir}" "${name}"
+   linkname="${RVAL}"
 
-   local row
-
-   rexekutor mudo mulle-menu --title "Choose debugger:" \
-                             --final-title "" \
-                             --options "${debuggers}"
-   row=$?
-   log_debug "row=${row}"
-
-   r_line_at_index "${debuggers}" $row
-   [ ! -z "${RVAL}" ]
-}
-
-
-sde::product::r_installed_debuggers()
-{
-   log_entry "sde::product::r_installed_debuggers" "$@"
-
-   local debuggers="$1"
-
-   local existing_debuggers
-   local debugger
-
-   .foreachpath debugger in ${debuggers}
-   .do
-      if mudo which "${debugger}" > /dev/null
-      then
-         r_add_line "${existing_debuggers}" "${debugger}"
-         existing_debuggers="${RVAL}"
-      fi
-   .done
-   RVAL="${existing_debuggers}"
-   log_debug "existing_debuggers: ${existing_debuggers}"
-}
-
-
-sde::product::debug_main()
-{
-   log_entry "sde::product::debug_main" "$@"
-
-   local executables
-
-   sde::product::r_executables
-   executables="${RVAL}"
-
-   local executable
-
-   if ! sde::product::r_user_choses_executable "${executables}"
-   then
-      return 1
-   fi
-   executable="${RVAL}"
-
-   local debugger
-
-   if [ "${OPTION_SELECT}" != 'YES' ]
-   then
-      debugger="${MULLE_SDE_DEBUGGER_CHOICE}"
-   fi
-
-   if [ ! -z "${debugger}" ]
-   then
-      debugger="`command -v "${debugger}"`"
-   fi
-
-   if [ -z "${debugger}" ]
-   then
-      local debuggers
-      local choices
-
-      choices="${MULLE_SDE_DEBUGGERS:-mulle-gdb:gdb:lldb}"
-      if ! sde::product::r_installed_debuggers "${choices}"
-      then
-         fail "No suitable debugger found, please install one of: ${choices}"
-      fi
-      debuggers="${RVAL}"
-
-      if ! sde::product::r_user_choses_debugger "${debuggers}"
-      then
-         return 1
-      fi
-      debugger="${RVAL}"
-
-      mulle-sde env --this-user set MULLE_SDE_DEBUGGER_CHOICE "${debugger}"
-   fi
-   exekutor mudo "${debugger}${MULLE_EXE_EXTENSION}" "${executable}" "$@"
+   log_info "Create symlink for ${C_MAGENTA}${C_BOLD}${name}${C_INFO} in ${C_RESET_BOLD}${dstdir#${MULLE_USER_PWD}/}"
+   exekutor ln -s -f "${executable}" "${linkname}"
+   log_verbose "${linkname} -> ${executable}"
 }
 
 
@@ -608,25 +634,8 @@ sde::product::main()
          sde::product::run_main "$@"
       ;;
 
-      debug)
-         sde::product::debug_main "$@"
-      ;;
-
       searchpath)
          sde::product::searchpath_main "$@"
-      ;;
-
-      sublime-debug)
-         if sde::product::r_product_path "$@"
-         then
-            cat <<EOF 
-   "settings":
-   {
-      "sublimegdb_workingdir": "\${folder:`mulle-sde kitchen-dir`/Debug}",
-      "sublimegdb_commandline": "mulle-gdb --interpreter=mi ${RVAL}",
-   },
-EOF
-         fi
       ;;
 
       *)
@@ -634,6 +643,4 @@ EOF
       ;;
    esac
 }
-
-
 
