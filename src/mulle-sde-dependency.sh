@@ -88,8 +88,11 @@ Usage:
 
 Commands:
    add        : add a dependency to the sourcetree
+   binaries   : list all binaries in the built dependencies folder
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
+   etcs       : list all etc files in the built dependencies folder
+   fetch      : fetch dependencies (same as mulle-sde fetch)
    get        : retrieve a dependency settings from the sourcetree
    headers    : list all headers in the built dependencies folder
    info       : for some dependencies there might be online help available
@@ -100,6 +103,8 @@ Commands:
    rcopy      : copy a dependency from another project with a sourcetree
    remove     : remove a dependency from the sourcetree
    set        : change a dependency settings in the sourcetree
+   shares     : list all share files in the built dependencies folder
+   stashes    : list downloaded dependencies
    source-dir : find the source location of a dependency
    unmark     : remove marks from a dependency in the sourcetree
          (use <command> -h for more help about commands)
@@ -568,16 +573,17 @@ sde::dependency::json_filter()
    local mode="$1"
 
    # in default mode we use ' for easier copy/paste into sde env set
+   # remove address and make it a "banner"
    case "${mode}" in
       DEFAULT)
          tr '"' $'\'' \
-         | cut -c 8- \
+         | cut -c 7- \
          | sed -e '1,2d' \
                -e '/^$/N;/\n$/D' \
-               -e "s/': /:/" \
+               -e "s/'\([a-z0-9A-Z_]*\)': /\1:/" \
                -e "s/,\$//" \
          | sed -e "/^address:/s/^address:[^']*'\\([^']*\\)'.*/\\1/;t next" \
-               -e "s/^/   /" \
+               -e "s/^\([a-z]\)/   \1/" \
                -e ":next"
       ;;
 
@@ -593,7 +599,9 @@ sde::dependency::pretty_filtered_json()
    log_entry "sde::dependency::pretty_filtered_json" "$@"
 
    local text="$1"
+   local sep 
 
+   sep=""
    .foreachline line in ${text}
    .do
       case "${line}" in
@@ -602,7 +610,8 @@ sde::dependency::pretty_filtered_json()
          ;;
 
          *)
-            printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "${line}"
+            printf "%s${C_CYAN}${C_BOLD}%s${C_RESET}\n" "${sep}" "${line}"
+            sep=$'\n'
          ;;
       esac
    .done
@@ -1913,6 +1922,126 @@ sde::dependency::libraries_main()
 }
 
 
+sde::dependency::binaries_main()
+{
+   log_entry "sde::dependency::binaries_main" "$@"
+
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to build dependencies, to list binaries"
+   fi
+
+   local directories
+   local directory
+
+   for directory in "${DEPENDENCY_DIR}/bin" "${DEPENDENCY_DIR}/Debug/bin"
+   do
+      if [ -d  "${directory}" ]
+      then
+         r_concat "${directories}" "'${directory}'"
+         directories="${RVAL}"
+      fi
+   done
+
+   if [ -z "${directories}" ]
+   then
+      log_warning "Apparently there are no binaries available"
+      return
+   fi
+
+   eval_rexekutor tree --prune --noreport "${directories}"
+}
+
+
+sde::dependency::etcs_main()
+{
+   log_entry "sde::dependency::etcs_main" "$@"
+
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to build dependencies, to list etc files"
+   fi
+
+   local directories
+   local directory
+
+   for directory in "${DEPENDENCY_DIR}/etc" "${DEPENDENCY_DIR}/Debug/etc"
+   do
+      if [ -d  "${directory}" ]
+      then
+         r_concat "${directories}" "'${directory}'"
+         directories="${RVAL}"
+      fi
+   done
+
+   if [ -z "${directories}" ]
+   then
+      log_warning "Apparently there are no etc files"
+      return
+   fi
+
+   eval_rexekutor tree --prune --noreport "${directories}"
+}
+
+
+sde::dependency::shares_main()
+{
+   log_entry "sde::dependency::shares_main" "$@"
+
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to build dependencies, to list share files"
+   fi
+
+   local directories
+   local directory
+
+   for directory in "${DEPENDENCY_DIR}/share" "${DEPENDENCY_DIR}/Debug/share"
+   do
+      if [ -d  "${directory}" ]
+      then
+         r_concat "${directories}" "'${directory}'"
+         directories="${RVAL}"
+      fi
+   done
+
+   if [ -z "${directories}" ]
+   then
+      log_warning "Apparently there are no share files"
+      return
+   fi
+
+   eval_rexekutor tree --prune --noreport "${directories}"
+}
+
+
+sde::dependency::downloads_main()
+{
+   log_entry "sde::dependency::downloads_main" "$@"
+
+   if [ ! -d "${MULLE_SOURCETREE_STASH_DIR:-stash}" ]
+   then
+      fail "Need to fetch dependencies, to list stashed files"
+   fi
+
+   if [ ! -d "${MULLE_SOURCETREE_STASH_DIR:-stash}" ]
+   then
+      log_warning "Apparently there are no share files"
+      return
+   fi
+
+   eval_rexekutor tree --noreport "${MULLE_SOURCETREE_STASH_DIR:-stash}"
+}
+
+
+sde::dependency::stashes_main()
+{
+   sde::dependency::downloads_main "$@"
+}
+
 
 
 ###
@@ -1979,9 +2108,15 @@ sde::dependency::main()
       commands)
          echo "\
 add
+binaries
 craftinfo
 duplicate
+downloads
+etcs
+fetch
 get
+headers
+libraries
 list
 help
 info
@@ -1991,13 +2126,9 @@ move
 rcopy
 remove
 set
+shares
 source-dir
 unmark"
-      ;;
-
-      info)
-         sde::craftinfo::info_main "$@"
-         return $?
       ;;
 
       craftinfo)
@@ -2015,6 +2146,12 @@ unmark"
                            "$@"
       ;;
 
+      fetch)
+         include "sde::fetch"
+
+         sde::fetch::main "$@"
+      ;;
+
       get)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
@@ -2023,13 +2160,16 @@ unmark"
          return $?
       ;;
 
-      headers)
-         sde::dependency::headers_main "$@"
+      binaries|downloads|etcs|headers|libraries|shares|stashes)
+         sde::dependency::${cmd}_main "$@"
       ;;
 
-      libraries)
-         sde::dependency::libraries_main "$@"
+
+      info)
+         sde::craftinfo::info_main "$@"
+         return $?
       ;;
+
 
       keys)
          echo "\
