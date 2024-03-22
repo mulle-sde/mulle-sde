@@ -188,7 +188,7 @@ sde::product::r_executables()
                                                     -o -name "${projectname}" \
                                                     \) \
                                                    -type f \
-                                                   -perm +111 \
+                                                   -perm /111 \
                                                    -not -path "${kitchen_dir}/.craftorder/*" `"
 
       executables="`sde::product::freshest_files "${executables}"`"
@@ -212,6 +212,7 @@ sde::product::r_user_choses_executable()
    log_entry "sde::product::r_user_chosen_executable" "$@"
 
    local executables="$1"
+   local preferredname="$2"
 
    local names
    local executable
@@ -219,6 +220,13 @@ sde::product::r_user_choses_executable()
    .foreachline executable in ${executables}
    .do
       r_basename "${executable}"
+
+      if [ ! -z "${preferredname}" -a "${preferredname%.exe}" = "${RVAL%.exe}" ]
+      then
+         RVAL="${executable}"
+         return 0
+      fi
+
       r_add_line "${names}" "${RVAL}"
       names="${RVAL}"
    .done
@@ -446,6 +454,8 @@ sde::product::r_executable()
 {
    log_entry "sde::product::r_executable" "$@"
 
+   local preferredname="$1"
+
    local executables
 
    sde::product::r_executables
@@ -453,7 +463,7 @@ sde::product::r_executable()
 
    local executable
 
-   if ! sde::product::r_user_choses_executable "${executables}"
+   if ! sde::product::r_user_choses_executable "${executables}" "${preferredname}"
    then
       return 1
    fi
@@ -466,7 +476,7 @@ sde::product::run_main()
 
    local EXECUTABLE
 
-   if ! sde::product::r_executable
+   if ! sde::product::r_executable "$@"
    then
       return 1
    fi
