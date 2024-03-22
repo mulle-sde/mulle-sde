@@ -94,19 +94,50 @@ sde::clean::r_craft_targets()
 {
    log_entry "sde::clean::r_craft_targets" "$@"
 
-   RVAL="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                              --virtual-root \
-                              -s \
-                           craftorder \
-                              --no-output-marks | sed 's|^.*/||'`"
+   local cachefile
+
+   cachefile="${MULLE_SDE_VAR_DIR}/cache/targets"
+
+   local targets
+
+   if [ ! -f "${cachefile}" ]
+   then
+      targets="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        --virtual-root \
+                        -s \
+                     craftorder \
+                        --no-output-marks`"
+
+      local target 
+      local text 
+
+      .foreachline target in ${targets}
+      .do
+         case "${target}" in 
+            \${MULLE_SOURCETREE_STASH_DIR}/*)
+               target="${target#*/}"
+            ;;
+
+            craftinfo/*)
+               continue
+            ;;
+         esac
+
+         r_add_line "${text}" "${target}"
+         text="${RVAL}"
+      .done
+
+      r_mkdir_parent_if_missing "${cachefile}"
+      redirect_exekutor "${cachefile}" sort <<< "${text}"
+   fi
+   RVAL="`cat "${cachefile}"`"
 }
+
 
 
 sde::clean::r_find_craft_target()
 {
    log_entry "sde::clean::r_find_craft_target" "$@"
-
-   local targets
 
    local targets="$1"
    local pattern="$2"
@@ -152,6 +183,8 @@ Usage:
       Only then give up.
 
 Options:
+   --gui          : on participating platforms use a GUI menu
+   --interactive  : choose dependency to clean from a menu
    --no-graveyard : do not create backups in graveyard
    --no-test      : do not check, if a dependecy exists
 
@@ -164,6 +197,8 @@ EOF
 Domains:
 EOF
    sde::clean::domains_usage >&2
+   echo >&2
+
    exit 1
 }
 
@@ -503,6 +538,67 @@ sde::clean::varcaches()
 }
 
 
+
+sde::clean::named_target()
+{
+   local target="$1"
+
+   # Cleaning of a dependency by name leads to misery on Mac OS.
+   #
+   # TODO: mulle-craft needs to wipe dependency folder here, because
+   #       the installed craftinfo folders may be whacked
+   #
+   if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                   ${MULLE_TECHNICAL_FLAGS} \
+               clean \
+                  "${target}"
+   then
+      return $?
+   fi
+}
+
+
+#
+# MEMO: place this into mulle-menu instead ?
+#
+sde::clean::r_interactive_target()
+{
+   local gui="$1"
+
+   local targets
+
+   sde::clean::r_craft_targets
+   targets="${RVAL}"
+
+   if [ -z "${targets}" ]
+   then
+      log_warning "No clean targets known"
+      return 1
+   fi
+
+   local guiflag 
+
+   if [ "${gui}" = 'YES' ]
+   then
+      guiflag=--gui
+   fi
+
+   local row
+
+   rexekutor mudo -f mulle-menu --title "Choose Clean Target:" \
+                                --final-title "" \
+                                ${guiflag} \
+                                --options "${targets}"
+   row=$?
+
+   log_debug "row=${row}"
+   r_line_at_index "${targets}" $row
+
+   [ ! -z "${RVAL}" ]
+}
+
+
+
 sde::clean::main()
 {
    log_entry "sde::clean::main" "$@"
@@ -549,6 +645,17 @@ sde::clean::main()
             OPTION_DOMAIN_DEFAULT="gravetidy"
          ;;
 
+         -i|--interactive)
+            OPTION_INTERACTIVE='YES'
+            OPTION_TEST='NO'
+         ;;
+
+         --gui)
+            OPTION_INTERACTIVE='YES'
+            OPTION_GUI='YES'
+            OPTION_TEST='NO'
+         ;;
+
          --lenient)
             OPTION_LENIENT='YES'
          ;;
@@ -589,6 +696,7 @@ sde::clean::main()
 
    local domain
    local domains
+   local target
 
    [ $# -gt 1 ] && shift && sde::clean::usage "superflous arguments \"$*\""
 
@@ -635,6 +743,7 @@ test"
                         ${MULLE_TECHNICAL_FLAGS} \
                      clean \
                         craftorder
+         domains="var"
       ;;
 
       cache|upgrade)
@@ -646,8 +755,18 @@ test"
       ;;
 
       default)
-         r_colon_concat "${MULLE_SDE_CLEAN_DEFAULT}" "project:subproject"
-         domains="${RVAL}"
+         if [ "${OPTION_INTERACTIVE}" = 'YES' ]
+         then
+            if ! sde::clean::r_interactive_target "${OPTION_GUI}"
+            then
+               return $?
+            fi
+            r_colon_concat "@${RVAL}" "project:subproject"
+            domains="${RVAL}"
+         else
+            r_colon_concat "${MULLE_SDE_CLEAN_DEFAULT}" "project:subproject:var"
+            domains="${RVAL}"
+         fi
       ;;
 
       # used by mulle-craft implicitly via error message
@@ -660,7 +779,7 @@ test"
       ;;
 
       fetch)
-         domains="sourcetree:varcaches:output:db:monitor:patternfile:archive"
+         domains="sourcetree:varcaches:output:var:db:monitor:patternfile:archive"
       ;;
 
       graveyard)
@@ -699,44 +818,28 @@ test"
       ;;
 
       *)
-         local target
-         local target2
-
+         target="$1"
          if [ "${OPTION_TEST}" = 'YES' ]
          then
             sde::clean::r_craft_targets
             targets="${RVAL}"
 
-            if ! sde::clean::r_find_craft_target "${targets}" "$1"
+            if ! sde::clean::r_find_craft_target "${targets}" "${target}"
             then
                if [ "${OPTION_LENIENT}" = 'YES' ]
                then
-                  log_info "Ignoring unknown target ${C_RESET_BOLD}$1${C_INFO} due to leniency"
+                  log_info "Ignoring unknown target ${C_RESET_BOLD}${target}${C_INFO} due to leniency"
                   return
                fi
 
-               fail "Unknown clean target \"$1\".
+               fail "Unknown clean target \"${target}\".
 ${C_VERBOSE}Known dependencies:
 ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
 "
             fi
 
-            target="$1"
          fi
-
-         # Cleaning of a dependency by name leads to misery on Mac OS.
-         #
-         # TODO: mulle-craft needs to wipe dependency folder here, because
-         #       the installed craftinfo folders may be whacked
-         #
-         if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                         ${MULLE_TECHNICAL_FLAGS} \
-                     clean \
-                        "${target}"
-         then
-            return $?
-         fi
-         domains="project"
+         domains="@${target}:project:subproject"
       ;;
    esac
 
@@ -747,7 +850,8 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    .foreachpath domain in ${domains}
    .do
       functionname="sde::clean::${domain}"
-      if shell_is_function "${functionname}"
+      target="${domain#@}"
+      if [ "${target}" = "${domain}" ] && shell_is_function "${functionname}"
       then
          "${functionname}"
          if [ $? -ne 0 ]
@@ -760,7 +864,7 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
          if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
                         clean \
-                           "${domain}"
+                           "${target}"
          then
             rval=1
          fi
