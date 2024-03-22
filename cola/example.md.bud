@@ -32,7 +32,7 @@ mulle-sde library
 
 ### Develop project
 
-Choose the editor of your choice, for a better demo effect, choose one of the
+Choose the editor of your choice. For a better demo effect, choose one of the
 IDEs.
 
 ``` sh
@@ -51,18 +51,23 @@ mulle-sde run
 mulle-sde debug
 mulle-sde add src/MyClass.m
 mulle-sde ignore src/MyClass.m src/MyClass.h
+mulle-sde reflect
 mulle-sde clean
 mulle-sde clean all
 mulle-sde clean tidy
 ```
 
 
-### Add third party dependency
+### Add a third party dependency
 
 ``` sh
 mulle-sde add github:madler/zlib.tar
 mulle-sde dependency move zlib to top
+mulle-sde dependency list
 mulle-sde craftinfo zlib CFLAGS "-DBAR=1"
+mulle-sde craft
+mulle-sde dependency headers
+mulle-sde dependency libraries
 ```
 
 `mulle-sde clean tidy` and the somewhat less safe `mulle-sde clean gravetidy`
