@@ -103,7 +103,7 @@ Environment:
 
 EOF
 
-   sde::extension::show_main meta >&2
+   sde::extension::show_main --all --quiet  meta >&2
 
    exit 1
 }
@@ -561,6 +561,7 @@ sde::init::read_template_expanded_file()
       PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
       GITHUB_USER="${GITHUB_USER}" \
       PROJECT_NAME="${PROJECT_NAME}" \
+      TEST_PROJECT_NAME="${TEST_PROJECT_NAME}" \
       PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}" \
       PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}" \
       PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}" \
@@ -568,7 +569,7 @@ sde::init::read_template_expanded_file()
       PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}" \
       PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
       PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
-         template::generate::main csed-script `" || exit 1
+         template::generate::main csed-script `" || exit $?
 
    eval_rexekutor sed -f "${scriptfile}" "${filename}" | grep -E -v '^#'
 
@@ -639,7 +640,7 @@ sde::init::add_to_sourcetree()
                   eval-add \
                      --config-name "${configname}" \
                      -- \
-                     "${lines}" || exit 1
+                     "${lines}" || exit $?
 
    if [ -z "${previous_contents}" ]
    then
@@ -714,7 +715,7 @@ sde::init::add_to_environment()
                            environment \
                               --scope "${scope:-extension}" \
                               mset "${environment}"
-   ) || exit 1
+   ) || exit $?
 }
 
 
@@ -847,6 +848,7 @@ PROJECT_EXTENSIONS='${PROJECT_EXTENSIONS}' \
 PROJECT_LANGUAGE='${PROJECT_LANGUAGE}' \
 PROJECT_NAME='${PROJECT_NAME}' \
 PROJECT_TYPE='${PROJECT_TYPE}' \
+TEST_PROJECT_NAME='${TEST_PROJECT_NAME}' \
 ONESHOT_FILENAME='${ONESHOT_FILENAME}' \
 ONESHOT_IDENTIFIER='${ONESHOT_IDENTIFIER}' \
 MULLE_VIRTUAL_ROOT='$(pwd -P)' \
@@ -1881,6 +1883,7 @@ sde::init::install_extension()
       (
          sde::project::export_name_environment "${PROJECT_NAME}"
          sde::project::export_language_environment "${PROJECT_LANGUAGE}"
+         sde::project::export_test_environment "${TEST_PROJECT_NAME}"
 
          #
          # Read what extensions added to the project so far. environment-project
@@ -1905,8 +1908,8 @@ sde::init::install_extension()
          #
          # we use files because command lines can be fairly large
          #
-         csed_file="`template::generate::main csed-script`" || exit 1
-         fsed_file="`template::generate::main fsed-script`" || exit 1
+         csed_file="`template::generate::main csed-script`" || exit $?
+         fsed_file="`template::generate::main fsed-script`" || exit $?
 
          CONTENTS_SED="-f '${csed_file}'"
          FILENAME_SED="-f '${fsed_file}'"
@@ -1921,13 +1924,13 @@ sde::init::install_extension()
             then
                # memo: arguments are fully created including comments in
                # sde::init::_copy_extension_template_files
-               eval_exekutor template::generate::main "${arguments}" || exit 1
+               eval_exekutor template::generate::main "${arguments}" || exit $?
             fi
          .done
 
          remove_file_if_present "${fsed_file}"
          remove_file_if_present "${csed_file}"
-      ) || exit 1
+      ) || exit $?
    fi
 
    #
@@ -1945,7 +1948,7 @@ sde::init::install_extension()
             then
                # memo: arguments are fully created including comments in
                # sde::init::_copy_extension_template_files
-               eval_exekutor "${cmdline}" || exit 1
+               eval_exekutor "${cmdline}" || exit $?
             fi
          .done
       ) || exit
@@ -2127,7 +2130,7 @@ sde::init::memorize_installed_extensions()
    local filename="$2"
 
    mkdir_if_missing "${MULLE_SDE_SHARE_DIR}"
-   redirect_exekutor "${filename}" printf "%s\n" "${extensions}" || exit 1
+   redirect_exekutor "${filename}" printf "%s\n" "${extensions}" || exit $?
 }
 
 
@@ -2447,7 +2450,7 @@ changes into your subshell"
                            environment \
                               --scope extension \
                               mset "${defines}"
-   ) || exit 1
+   ) || exit $?
 }
 
 
@@ -2484,7 +2487,7 @@ ${C_VERBOSE}(\"${MULLE_SDE_SHARE_DIR#"${MULLE_USER_PWD}/"}\" not present)"
 
    local _INSTALLED_EXTENSIONS
 
-   _INSTALLED_EXTENSIONS="`sde::init::recall_installed_extensions "${OPTION_EXTENSION_FILE}"`" || exit 1
+   _INSTALLED_EXTENSIONS="`sde::init::recall_installed_extensions "${OPTION_EXTENSION_FILE}"`" || exit $?
    log_debug "Installed extensions: ${_INSTALLED_EXTENSIONS}"
 
    if ! sde::init::install_extra_extensions "${OPTION_EXTRAS}" \
@@ -2537,7 +2540,7 @@ sde::init::get_installed_extensions()
 
    local extensions
 
-   extensions="`sde::init::recall_installed_extensions "${extensionfile}"`" || exit 1
+   extensions="`sde::init::recall_installed_extensions "${extensionfile}"`" || exit $?
    if [ -z "${extensions}" ]
    then
       log_fluff "No installed extensions found"
@@ -2653,6 +2656,7 @@ If you reinited the environment. Try:
    log_setting "PROJECT_NAME=\"${PROJECT_NAME}\""
    log_setting "PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
    log_setting "PROJECT_TYPE=\"${PROJECT_TYPE}\""
+   log_setting "TEST_PROJECT_NAME=\"${TEST_PROJECT_NAME}\""
 }
 
 
@@ -2683,7 +2687,7 @@ sde::init::run_user_post_init_script()
    log_info "You can suppress this behavior with --no-post-init"
 
    MULLE_TECHNICAL_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
-      exekutor "${scriptfile}" "$@" || exit 1
+      exekutor "${scriptfile}" "$@" || exit $?
 }
 
 
@@ -2735,7 +2739,7 @@ sde::init::validate_projecttype()
             local options
             local row
 
-            options="`mulle-sde extension show --quiet meta`"
+            options="`mulle-sde extension show --all --quiet meta`"
             if [ -z "${options}" ]
             then
                fail "No meta extensions installed"
@@ -2772,7 +2776,7 @@ sde::init::_run_upgrade()
    rexekutor "${MULLE_ENV:-mulle-env}" \
                      ${MULLE_TECHNICAL_FLAGS} \
                      --no-protect \
-                     upgrade || exit 1
+                     upgrade || exit $?
 
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
    then
@@ -3038,9 +3042,10 @@ sde::init::_run_common()
 {
    log_entry "sde::init::_run_common" "$@"
 
-   local projecttype="$1"
+   local projectname="$1"
+   local projecttype="$2"
 
-   [ $# -gt 1 ] && shift && sde::init::usage "Superflous arguments \"$*\""
+   [ $# -gt 2 ] && shift && sde::init::usage "Superflous arguments \"$*\""
 
    if [ -z "${projecttype}" ]
    then
@@ -3083,29 +3088,6 @@ sde::init::_run_common()
       ;;
    esac
 
-   local projectname
-
-   case "${OPTION_NAME}" in
-      DEFAULT)
-         projectname="${PROJECT_NAME}"
-         if [ -z "${projectname}" ]
-         then
-            r_basename "${PWD}"
-            RVAL="${RVAL//[^a-zA-Z0-9-]/_}"
-            projectname="${RVAL}"
-         fi
-      ;;
-
-      "")
-         fail "project name is empty"
-      ;;
-
-      *)
-         projectname="${OPTION_NAME}"
-      ;;
-   esac
-
-   sde::project::assert_name "${projectname}"
 
    sde::init::add_environment_variables "${OPTION_DEFINES}"
 
@@ -3130,8 +3112,8 @@ sde::init::_run_common()
    if [ "${OPTION_POST_INIT}" = 'YES' ]
    then
       sde::init::run_user_post_init_script "${PROJECT_LANGUAGE}" \
-                                "${PROJECT_DIALECT}" \
-                                "${projecttype}"
+                                           "${PROJECT_DIALECT}" \
+                                           "${projecttype}"
    fi
 }
 
@@ -3147,7 +3129,7 @@ sde::init::_run_reinit()
 
    sde::init::read_project_environment
 
-   sde::init::_run_common "$@"
+   sde::init::_run_common "${PROJECT_NAME}" "${PROJECT_TYPE}"
 }
 
 
@@ -3291,6 +3273,29 @@ sde::init::run()
 {
    log_entry "sde::init::run" "$@"
 
+   local projectname="$1"
+   local projecttype="$2"
+
+   case "${projectname}" in
+      DEFAULT)
+         r_basename "${PWD}"
+#
+# not good for deboost.context, also this code is not used in other
+# default code...
+#            RVAL="${RVAL//[^a-zA-Z0-9.-]/_}"
+         projectname="${RVAL}"
+      ;;
+
+      "")
+         fail "project name is empty"
+      ;;
+
+      *)
+      ;;
+   esac
+
+   sde::project::assert_name "${projectname}"
+
    sde::init::check_dot_init
 
    log_verbose "Init start"
@@ -3299,7 +3304,7 @@ sde::init::run()
 
    local rval
    (
-      sde::init::_run_init "$@"
+      sde::init::_run_init "${projectname}" "${projecttype}"
    )
    rval="$?"
 
@@ -3341,7 +3346,7 @@ sde::init::run_reinit()
 
    local rval
    (
-      sde::init::_run_reinit "$@"
+      sde::init::_run_reinit
    )
    rval="$?"
 
@@ -3553,6 +3558,7 @@ sde::init::_main()
    local OPTION_COMMON="sde"
    local OPTION_DEFINES
    local OPTION_DIALECT
+   local OPTION_DIRECTORY
    local OPTION_ENV_STYLE='DEFAULT'
    local OPTION_EXTENSION_FILE=".mulle/share/sde/extension"
    local OPTION_EXTENSIONS
@@ -3656,8 +3662,7 @@ sde::init::_main()
             [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
-            exekutor mkdir -p "$1" 2> /dev/null
-            exekutor cd "$1" || fail "can't change to \"$1\""
+            OPTION_DIRECTORY="$1"
             PURGE_PWD_ON_ERROR='YES'
          ;;
 
@@ -3757,6 +3762,15 @@ sde::init::_main()
 
             [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable project-name during init (rename to it later)"
             OPTION_NAME="$1"
+         ;;
+
+         --test-project-name)
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
+            shift
+
+            # shabby hack for mulle-test, there must be a general way to
+            # define additional project (?) environment variables
+            TEST_PROJECT_NAME="$1"
          ;;
 
          # little hack
@@ -3995,6 +4009,65 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
 
+   local create_dir
+
+   create_dir='NO'
+   # is real init (no previous project) ?
+   if [ "${OPTION_ADD}" != 'YES' -a "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_REINIT}" != 'YES' ]
+   then
+      create_dir='YES'
+
+      if [ -z "${OPTION_DIRECTORY}" ]
+      then
+         local input
+
+         printf "If you specify a project name, a new project will be created in \"${PWD#${MULLE_USER_PWD}/}/<project name>\"\n"
+         printf "or leave empty to initialize for the exisiting directory \"${PWD#${MULLE_USER_PWD}/}\"\n"
+         printf "Project name > "
+         read -r input
+
+         if [ ! -z "${input}" ]
+         then
+            PROJECT_NAME="${input}"
+            OPTION_DIRECTORY="${input}"
+         fi
+      fi
+   fi
+
+   if [ ! -z "${OPTION_DIRECTORY}" ]
+   then
+      if [ "${create_dir}" = 'YES' -a ! -d "${OPTION_DIRECTORY}" ]
+      then
+         mkdir_if_missing "${OPTION_DIRECTORY}"
+         PURGE_PWD_ON_ERROR='YES'
+      fi
+      exekutor cd "${OPTION_DIRECTORY}" || exit 1
+      eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit $?
+   fi
+
+   case "${OPTION_NAME}" in
+      DEFAULT)
+         if [ -z "${PROJECT_NAME}" ]
+         then
+            r_basename "${PWD}"
+#
+# not good for deboost.context, also this code is not used in other
+# default code...
+#            RVAL="${RVAL//[^a-zA-Z0-9.-]/_}"
+            PROJECT_NAME="${RVAL}"
+         fi
+      ;;
+
+      "")
+         fail "project name is empty"
+      ;;
+
+      *)
+         PROJECT_NAME="${OPTION_NAME}"
+      ;;
+   esac
+
+
    log_verbose "Setup environment"
 
    # fake an environment so mulle-env gives us proper environment variables
@@ -4023,7 +4096,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env monitor`  \
       && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`  \
       && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` \
-      || exit 1
+      || exit $?
 
       if [ "${tmp_file}" = 'YES' ]
       then
@@ -4051,7 +4124,9 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       log_setting "MULLE_VIRTUAL_ROOT         : \"${MULLE_VIRTUAL_ROOT}\""
       log_setting "GITHUB_USER                : \"${GITHUB_USER}\""
       log_setting "PROJECT_NAME               : \"${PROJECT_NAME}\""
+      log_setting "PROJECT_TYPE               : \"${PROJECT_TYPE}\""
       log_setting "PWD                        : \"${PWD}\""
+      log_setting "TEST_PROJECT_NAME          : \"${TEST_PROJECT_NAME}\""
 
       (
          if [ "${OPTION_ADD}" = 'YES' ]
@@ -4070,9 +4145,14 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
                if [ "${OPTION_REINIT}" = 'YES' ]
                then
-                  sde::init::run_reinit "$@" || exit $?
+                  sde::init::run_reinit || exit $?
                else
-                  sde::init::run "$@" || exit $?
+                  if [ $# -ne 0 ]
+                  then
+                     PROJECT_TYPE="$1"
+                     shift
+                  fi
+                  sde::init::run "${PROJECT_NAME}" "${PROJECT_TYPE}" || exit $?
                fi
             fi
 
@@ -4106,7 +4186,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
             _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
-            sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 1
+            sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit $?
          fi
 
          # need -f option to clean "test" without warning
@@ -4116,7 +4196,7 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
                         ${MULLE_TECHNICAL_FLAGS} \
                         -N \
                         -f \
-                     clean tidy || exit 1
+                     clean tidy || exit $?
          fi
 
          if [ "${OPTION_REFLECT}" = 'YES' ]
@@ -4124,7 +4204,7 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
             exekutor "${MULLE_SDE:-mulle-sde}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                         -N \
-                     reflect || exit 1
+                     reflect || exit $?
          fi
       )
       fi

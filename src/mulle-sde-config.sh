@@ -583,29 +583,29 @@ sde::config::r_switch_dependency()
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         log_warning "${dependency_dir#"${MULLE_USER_PWD}/"} is a symlink. The change may affect other projects."
+         log_warning "${dependency_dir#"${MULLE_USER_PWD}/"} is a symlink. Only changing the environment variable!"
       else
          fail "${dependency_dir#"${MULLE_USER_PWD}/"} is a symlink. The change could affect other projects.
 ${C_INFO}Use -f to force the switch"
       fi
-   fi
+   else
+      #
+      # need to reflect before clean tidy for the dependency
+      #
+      if [ ! -z "${dependency_dir}" ]
+      then
+         # goto dependency_dir and switch there (which will reflect). Then the
+         # "config name" for the dependency project reflects the state properly
+         (
+            log_info "${C_CYAN}*${C_INFO} Switch dependency in ${C_MAGENTA}${C_BOLD}${OPTION_DEPENDENCY}${C_INFO} (${dependency_dir#"${MULLE_USER_PWD}/"})"
 
-   #
-   # need to reflect before clean tidy for the dependency
-   #
-   if [ ! -z "${dependency_dir}" ]
-   then
-      # goto dependency_dir and switch there (which will reflect). Then the
-      # "config name" for the dependency project reflects the state properly
-      (
-         log_info "${C_CYAN}*${C_INFO} Switch dependency in ${C_MAGENTA}${C_BOLD}${OPTION_DEPENDENCY}${C_INFO} (${dependency_dir#"${MULLE_USER_PWD}/"})"
-
-         exekutor cd "${dependency_dir}" || return 1
-         MULLE_VIRTUAL_ROOT=
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
-                             ${MULLE_SDE_FLAGS} \
-                             config switch "${name}"
-      ) || fail "failed because $?"
+            exekutor cd "${dependency_dir}" || return 1
+            MULLE_VIRTUAL_ROOT=
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                                ${MULLE_SDE_FLAGS} \
+                                config switch "${name}"
+         ) || fail "failed because $?"
+      fi
    fi
 
    local varname
@@ -645,7 +645,7 @@ ${C_INFO}Use -f to force the switch"
 
    r_shell_indirect_expand "${varname}"
    log_setting "${varname} : ${RVAL}"
-   }
+}
 
 
 sde::config::print()

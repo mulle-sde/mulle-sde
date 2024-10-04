@@ -34,6 +34,20 @@
 MULLE_SDE_ADD_SH='included'
 
 
+sde::add::filetypes()
+{
+   local extensions
+
+   extensions="`sde::extension::show_main "$@" --no-usage --all oneshot `"
+
+   log_debug "extensions: ${extensions}"
+
+   # remove craftinfo from list
+   rexekutor sed -n -e 's|^mulle-sde/||' \
+                    -e '/\.[a-z]*$/p' <<< "${extensions}" \
+      | sort
+}
+
 #
 # TODO: make it add src/foo.m
 #
@@ -58,7 +72,7 @@ sde::add::usage()
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} add [options] <file|url>
+   ${MULLE_USAGE_NAME} add [options] [file|url]
 
    Add an existing file or create a file from a template. If an URL is given,
    it is used to create a dependency instead. This is a convenience command
@@ -76,6 +90,7 @@ Usage:
    to have different contents for different languages.
 
    The add command can be executed without a virtual environment in place.
+   Without an argument, you will be prompted for a file type and file name.
 
 Examples:
       ${MULLE_USAGE_NAME} add src/foo.c
@@ -92,9 +107,9 @@ EOF
 
    echo >&2
 
-   sde::extension::show_main --all oneshot \
-      | sed -n -e 's|^mulle-sde/||' -e '/\.[a-z]*$/p' \
-      | sort >&2
+   sde::add::filetypes >&2
+
+   echo >&2
 
    exit 1
 }
@@ -467,7 +482,7 @@ sde::add::in_project()
       _log_warning "The new file \"${filename}\" will not be found by \`reflect\`.
 ${C_INFO}Tip: The PROJECT_SOURCE_DIR environment variable is ${C_RESET_BOLD}${PROJECT_SOURCE_DIR}.
 ${C_INFO}Maybe remove the generated file and try anew with:
-${C_RESET_BOLD}mulle-sde add \"${RVAL#"${MULLE_USER_PWD}/"}\""
+${C_RESET_BOLD}   mulle-sde add \"${RVAL#"${MULLE_USER_PWD}/"}\""
       return
    fi
 
@@ -527,7 +542,6 @@ sde::add::not_in_project()
                                            "${type}" \
                                            "" \
                                            "${ext}"
-
       rval=$?
       case $rval in
          4)
@@ -552,7 +566,6 @@ sde::add::not_in_project()
 }
 
 
-
 ###
 ### parameters and environment variables
 ###
@@ -569,15 +582,17 @@ sde::add::main()
       fi
    fi
 
-   local OPTION_NAME
-   local OPTION_VENDOR
-   local OPTION_FILE_EXTENSION
-   local OPTION_TYPE
-   local OPTION_EMBEDDED
    local OPTION_ALMAGAMATED
    local OPTION_BUILD_TYPE
-   local OPTION_POST_INIT='YES'
+   local OPTION_DIRECTORY
+   local OPTION_EMBEDDED
+   local OPTION_FILE_EXTENSION
+   local OPTION_GUI
    local OPTION_IS_URL='DEFAULT'
+   local OPTION_NAME
+   local OPTION_POST_INIT='YES'
+   local OPTION_TYPE
+   local OPTION_VENDOR
 
    # need includes for usage
 
@@ -604,6 +619,13 @@ sde::add::main()
 
          --embedded)
             OPTION_EMBEDDED='YES'
+         ;;
+
+         -d|--directory)
+            [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_DIRECTORY="$1"
          ;;
 
          -t|--type)
@@ -697,179 +719,216 @@ sde::add::main()
       shift
    done
 
-   [ $# -ne 1  ] && sde::add::usage
-
    local filename
-   local scheme domain host user repo branch tag scm
 
-   filename="$1"
-   scm="git"
-   r_basename "$1"
-   repo="${RVAL}"
-
-   if [ "${OPTION_IS_URL}" = 'DEFAULT' ]
+   if [ $# -eq 0 ]
    then
-      case "${filename}" in
-         *://*)
-            OPTION_IS_URL='YES'
-         ;;
+      local vendors
+      local row
 
-         comment:*)
-            scm="comment"
-            filename="${filename#*:}"
-            OPTION_IS_URL='YES'
-         ;;
+      vendors="`sde::add::filetypes --quiet`"
+      rexekutor mudo -f mulle-menu --title "Choose file type:" \
+                                   --final-title "${C_GREEN}File type:${C_RESET} " \
+                                   --options "${vendors}"
 
-         *:*)
-            eval `rexekutor mulle-domain parse-url "${filename}"`
+      row=$?
+      log_debug "row=${row}"
 
-            if [ ! -z "${user}" -a ! -z "${repo}" ]
-            then
-               case "${domain}" in
-                  clib)
-                     r_filepath_concat "${user}" "${repo}"
-                     filename="clib:${RVAL}"
-                     scm="${domain}"
-                     OPTION_EMBEDDED='YES'
-                  ;;
+      r_line_at_index "${vendors}" $row
+      [ -z "${RVAL}" ] && return 1
+      OPTION_VENDOR="$RVAL"
 
-                  *)
-                     if [ ! -z "${host}" ]
-                     then
-                        filename="`mulle-domain compose-url --domain "${domain}" \
-                                                            --scm "${scm}"       \
-                                                            --host "${host}"     \
-                                                            --user "${user}"     \
-                                                            --repo "${repo}"  `"
-                        # if somehow unprintable use original again
-                        filename="${filename:-$1}"
-                     fi
-                  ;;
-               esac
-            fi
-            OPTION_IS_URL='YES'
-         ;;
-      esac
+      printf "${C_GREEN}File name:${C_RESET} "
+      if ! read filename
+      then
+         return 1
+      fi
+
+      r_filepath_concat "${OPTION_DIRECTORY:-${PROJECT_SOURCE_DIR}}" "${filename}"
+      filename="${RVAL}"
+
+      OPTION_IS_URL='NO'
+      set -- "${filename}"
    fi
+
+   # empty string no good
+   [ $# -eq 0 ] && sde::add::usage "Missing file to add"
 
    local has_run_init
-
-   #
-   # check if destination is within our project, decide on where to go
-   #
-   if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-   then
-      if [ "${OPTION_IS_URL}" != 'YES' ]
-      then
-         sde::add::not_in_project "${filename}" \
-                                  "${OPTION_VENDOR}" \
-                                  "${OPTION_NAME}" \
-                                  "${OPTION_TYPE}" \
-                                  "${OPTION_FILE_EXTENSION}"
-         return $?
-      fi
-
-      # don't use post-init here, or otherwise we need to be able to allow
-      # the user to turn it off, which complicates things and this is more
-      # of a noob interface anyway
-      local flags
-
-      if [ "${OPTION_POST_INIT}" = 'NO' ]
-      then
-         flags=--no-post-init
-      fi
-
-      rexekutor "${MULLE_SDE:-mulle-sde}" \
-                     ${MULLE_TECHNICAL_FLAGS} init ${flags} \
-                                                   -e sde \
-                                                   --no-demo \
-                                                   --if-missing || return 1
-      has_run_init='YES'
-   fi
-
-   if [ "${OPTION_IS_URL}" = 'YES' ]
-   then
-      if [ "${OPTION_EMBEDDED}" = 'YES' ]
-      then
-         local flag
-
-         # set flag
-         [ "${OPTION_ALMAGAMATED}" = 'YES' ] \
-            && flag="--amalgamated" \
-            || flag="--embedded"
-
-          rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
-                     dependency add --scm "${scm}" \
-                                    --address "src/${repo}" \
-                                    ${flag} \
-                                    "${filename}" &&
-         if [ "${OPTION_QUICK}" != 'YES' ]
-         then
-            if ! rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
-            then
-               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} -s \
-                            dependency remove "src/${repo}"
-               return 1
-            fi
-            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect
-            return $?
-         fi
-      else
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
-                      dependency add --scm "${scm}" "${filename}" &&
-         if [ "${OPTION_QUICK}" != 'YES' ]
-         then
-            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect || return $?
-            if sde::is_test_directory "$PWD"
-            then
-               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test craft
-            else
-               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder
-            fi
-            return $?
-         fi
-      fi
-      return 0
-   fi
-
    local filepath
+   local scheme domain host user repo branch tag scm
+   local flag
 
-   filepath="${filename}"
-   if ! is_absolutepath "${filepath}"
-   then
-      r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
+   for filename in "$@"
+   do
+      r_filepath_concat "${OPTION_DIRECTORY}" "${filename}"
+      filename="${RVAL}"
+
+      if [ "${OPTION_IS_URL}" = 'DEFAULT' ]
+      then
+         scm="git"
+         r_basename "${filename}"
+         repo="${RVAL}"
+
+         case "${filename}" in
+            *://*)
+               OPTION_IS_URL='YES'
+            ;;
+
+            comment:*)
+               scm="comment"
+               filename="${filename#*:}"
+               OPTION_IS_URL='YES'
+            ;;
+
+            *:*)
+               eval `rexekutor mulle-domain parse-url "${filename}"`
+
+               if [ ! -z "${user}" -a ! -z "${repo}" ]
+               then
+                  case "${domain}" in
+                     clib)
+                        r_filepath_concat "${user}" "${repo}"
+                        filename="clib:${RVAL}"
+                        scm="${domain}"
+                        OPTION_EMBEDDED='YES'
+                     ;;
+
+                     *)
+                        if [ ! -z "${host}" ]
+                        then
+                           filename="`mulle-domain compose-url --domain "${domain}" \
+                                                               --scm "${scm}"       \
+                                                               --host "${host}"     \
+                                                               --user "${user}"     \
+                                                               --repo "${repo}"  `"
+                           # if somehow unprintable use original again
+                           filename="${filename:-$1}"
+                        fi
+                     ;;
+                  esac
+               fi
+               OPTION_IS_URL='YES'
+            ;;
+         esac
+      fi
+
+
+      #
+      # check if destination is within our project, decide on where to go
+      #
+      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         if [ "${OPTION_IS_URL}" != 'YES' ]
+         then
+            sde::add::not_in_project "${filename}" \
+                                     "${OPTION_VENDOR}" \
+                                     "${OPTION_NAME}" \
+                                     "${OPTION_TYPE}" \
+                                     "${OPTION_FILE_EXTENSION}" || return $?
+
+            continue
+         fi
+
+         # don't use post-init here, or otherwise we need to be able to allow
+         # the user to turn it off, which complicates things and this is more
+         # of a noob interface anyway
+         local flags
+
+         if [ "${OPTION_POST_INIT}" = 'NO' ]
+         then
+            flags=--no-post-init
+         fi
+
+         rexekutor "${MULLE_SDE:-mulle-sde}" \
+                        ${MULLE_TECHNICAL_FLAGS} init ${flags} \
+                                                      -e sde \
+                                                      --no-demo \
+                                                      --if-missing || return 1
+         has_run_init='YES'
+      fi
+
+      if [ "${OPTION_IS_URL}" = 'YES' ]
+      then
+         if [ "${OPTION_EMBEDDED}" = 'YES' ]
+         then
+            # set flag
+            [ "${OPTION_ALMAGAMATED}" = 'YES' ] \
+               && flag="--amalgamated" \
+               || flag="--embedded"
+
+             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                        dependency add --scm "${scm}" \
+                                       --address "src/${repo}" \
+                                       ${flag} \
+                                       "${filename}" &&
+            if [ "${OPTION_QUICK}" != 'YES' ]
+            then
+               if ! rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
+               then
+                  rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} -s \
+                               dependency remove "src/${repo}"
+                  return 1
+               fi
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect || return $?
+               continue
+            fi
+         else
+            rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                         dependency add --scm "${scm}" "${filename}" &&
+            if [ "${OPTION_QUICK}" != 'YES' ]
+            then
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect || return $?
+               if sde::is_test_directory "$PWD"
+               then
+                  rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test craft || return $?
+               else
+                  rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder || return $?
+               fi
+            fi
+         fi
+         continue
+      fi
+
+      filepath="${filename}"
+      if ! is_absolutepath "${filepath}"
+      then
+         r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
+         filepath="${RVAL}"
+      fi
+
+      # make comparable
+      r_resolve_all_path_symlinks "${filepath}"
       filepath="${RVAL}"
-   fi
 
-   # make comparable
-   r_resolve_all_path_symlinks "${filepath}"
-   filepath="${RVAL}"
+      r_relative_path_between "${filepath}" "${MULLE_VIRTUAL_ROOT}"
+      log_debug "${C_RED}${filepath} - ${MULLE_VIRTUAL_ROOT} = relative=${RVAL}"
 
-   r_relative_path_between "${filepath}" "${MULLE_VIRTUAL_ROOT}"
-   log_debug "${C_RED}${filepath} - ${MULLE_VIRTUAL_ROOT} = relative=${RVAL}"
+      case "${RVAL}" in
+         ../*)
+            fail "File path \"${RVAL}\" escapes the project"
+            return
+         ;;
+      esac
 
-   case "${RVAL}" in
-      ../*)
-         fail "File path \"${RVAL}\" escapes the project"
-         return
-      ;;
-   esac
+      local type_defaults
 
-   local type_defaults
+      if [ "${PROJECT_DIALECT}" = 'objc' ]
+      then
+         type_defaults="class:file"
+      else
+         type_defaults="file"
+      fi
 
-   if [ "${PROJECT_DIALECT}" = 'objc' ]
-   then
-      type_defaults="class:file"
-   else
-      type_defaults="file"
-   fi
-
-   sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
-                        "${OPTION_VENDOR}" \
-                        "${OPTION_NAME}" \
-                        "${OPTION_TYPE}" \
-                        "${type_defaults}" \
-                        "${OPTION_FILE_EXTENSION}"
-   return $?
+      if ! sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
+                                "${OPTION_VENDOR}" \
+                                "${OPTION_NAME}" \
+                                "${OPTION_TYPE}" \
+                                "${type_defaults}" \
+                                "${OPTION_FILE_EXTENSION}"
+      then
+         return 1
+      fi
+   done
 }
 

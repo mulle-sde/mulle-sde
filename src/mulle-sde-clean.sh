@@ -119,7 +119,7 @@ sde::clean::r_craft_targets()
             ;;
 
             craftinfo/*)
-               continue
+               .continue
             ;;
          esac
 
@@ -130,7 +130,8 @@ sde::clean::r_craft_targets()
       r_mkdir_parent_if_missing "${cachefile}"
       redirect_exekutor "${cachefile}" sort <<< "${text}"
    fi
-   RVAL="`cat "${cachefile}"`"
+
+   RVAL="`rexekutor cat "${cachefile}"`"
 }
 
 
@@ -506,6 +507,7 @@ sde::clean::tmp()
 
 #
 # this doesn't wipe var/etc or var/test (just var/sde)
+#
 sde::clean::var()
 {
    log_entry "sde::clean::var" "$@"
@@ -518,6 +520,8 @@ sde::clean::var()
 
 #
 # this clean all caches .mulle/var/<hostname>/<username>/*/cache
+# example:
+# MULLE_SDE_VAR_DIR='/home/src/srcO/MulleUI/MulleAudio/test/.mulle/var/peschel/nat/sde'
 #
 sde::clean::varcaches()
 {
@@ -531,7 +535,9 @@ sde::clean::varcaches()
    shell_enable_nullglob
    for dir in "${MULLE_SDE_VAR_DIR}"/../*/cache
    do
-      log_verbose "Cleaning cache \"${dir}\""
+      r_simplified_path "${dir}"
+      dir="${RVAL}"
+      log_verbose "Cleaning cache \"${dir#${MULLE_USER_PWD}/}\""
       rmdir_safer "${dir}"
    done
    shell_disable_nullglob
@@ -698,7 +704,7 @@ sde::clean::main()
    local domains
    local target
 
-   [ $# -gt 1 ] && shift && sde::clean::usage "superflous arguments \"$*\""
+   [ $# -gt 1 ] && shift && sde::clean::usage "superfluous arguments \"$*\""
 
    case "${1:-${OPTION_DOMAIN_DEFAULT}}" in
       'domains')
@@ -810,6 +816,10 @@ test"
 
       tmp)
          domains="tmp"
+      ;;
+
+      varcaches)
+         domains="varcaches"
       ;;
 
       domain-help|domain-usage|domains-usage)

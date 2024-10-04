@@ -281,7 +281,7 @@ Usage:
       ${MULLE_USAGE_NAME} dependency info freetype
 
 Environment:
-   CRAFTINFO_REPOS : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS : Repo URLS separated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -416,7 +416,7 @@ sde::dependency::set_main()
    else
       if [ ! -z "${OPTION_DIALECT}" ]
       then
-         sde::dependency::set_usage "superflous field"
+         sde::dependency::set_usage "superfluous field"
       fi
       shift
    fi
@@ -813,6 +813,7 @@ sde::dependency::__enhance_url()
    local marks="$6"
 
    local rval
+   local changes
 
    if [ -z "${address}" ]
    then
@@ -839,6 +840,8 @@ sde::dependency::__enhance_url()
 
          url="file://${url}"
          nodetype="git"
+      else
+         changes='address'
       fi
    fi
 
@@ -861,6 +864,8 @@ sde::dependency::__enhance_url()
    if [ -z "${tag}" ]
    then
       _tag="\${${upcaseid}_TAG}"
+      r_concat "${changes}" 'tag'
+      changes="${RVAL}"
    else
       case "${tag}" in
          \$\{*)
@@ -870,6 +875,9 @@ sde::dependency::__enhance_url()
 
          *)
             _tag="\${${upcaseid}_TAG:-${tag}}"
+
+            r_concat "${changes}" 'tag'
+            changes="${RVAL}"
          ;;
       esac
    fi
@@ -878,6 +886,8 @@ sde::dependency::__enhance_url()
    if [ -z "${branch}" ]
    then
       _branch="\${${upcaseid}_BRANCH}"
+      r_concat "${changes}" 'branch'
+      changes="${RVAL}"
    else
       case "${branch}" in
          \$\{*)
@@ -887,6 +897,8 @@ sde::dependency::__enhance_url()
 
          *)
             _branch="\${${upcaseid}_BRANCH:-${branch}}"
+            r_concat "${changes}" 'branch'
+            changes="${RVAL}"
          ;;
       esac
    fi
@@ -903,10 +915,14 @@ sde::dependency::__enhance_url()
          [01236].*|5.1*)
             r_escaped_sed_pattern "${tag}"
             url="$(sed -e "s/${RVAL}/\\\${MULLE_TAG}/g" <<< "${url}" )"
+            r_concat "${changes}" 'url'
+            changes="${RVAL}"
          ;;
 
          *)
             url="${url//${tag}/\$\{MULLE_TAG\}}"
+            r_concat "${changes}" 'url'
+            changes="${RVAL}"
          ;;
       esac
    fi
@@ -921,6 +937,8 @@ sde::dependency::__enhance_url()
 
       *)
          _url="\${${upcaseid}_URL:-${url}}"
+         r_concat "${changes}" 'url'
+         changes="${RVAL}"
       ;;
    esac
 
@@ -943,8 +961,16 @@ sde::dependency::__enhance_url()
 
       *)
          _nodetype="\${${upcaseid}_NODETYPE:-${nodetype}}"
+         r_concat "${changes}" 'nodetype'
+         changes="${RVAL}"
       ;;
    esac
+
+   if [ ! -z "${changes}" ]
+   then
+      log_verbose "Enhanced node fields: ${C_MAGENTA}${C_BOLD}${changes}"
+   fi
+
    _address="${address}"
 }
 
@@ -1390,7 +1416,7 @@ sde::dependency::add_main()
             continue
          fi
 
-         log_fluff "Found local \"${RVAL}\""
+         log_verbose "Found local \"${RVAL}\", assume github tar project"
 
          r_simplified_absolutepath "${directory}"
 #         r_dirname "${RVAL}"
@@ -1432,7 +1458,6 @@ sde::dependency::add_main()
          url="${originalurl}"
       ;;
 
-
       *)
          nodetype="${nodetype:-tar}"
          url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
@@ -1445,7 +1470,6 @@ sde::dependency::add_main()
                   --scm "${nodetype}" \
                   "${domain}" `" || exit 1
       ;;
-
    esac
 
    log_setting "url (now)    : ${url}"

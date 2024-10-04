@@ -90,7 +90,7 @@ Options:
    --os <name>     : specify settings for a specific OS
 
 Environment:
-   CRAFTINFO_REPOS : Repo URLs seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS : Repo URLs separated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -199,7 +199,7 @@ Usage:
       mulle-sde dependency craftinfo exists async.h
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS   : Repo URLS separated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -233,7 +233,7 @@ Options:
    --rename-git    : Rename .git folder in downloaded craftinfo (Default)
 
 Environment:
-   CRAFTINFO_REPOS : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS : Repo URLS separated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -256,7 +256,7 @@ Usage:
       mulle-sde dependency craftinfo info postgresql
 
 Environment:
-   CRAFTINFO_REPOS   : Repo URLS seperated by | (https://github.com/craftinfo)
+   CRAFTINFO_REPOS   : Repo URLS separated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -496,7 +496,9 @@ sde::craftinfo::readd_main()
    local _subprojectdir
    local _folder
 
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" "${OPTION_LENIENT}"
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   "${OPTION_LENIENT}" \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -584,6 +586,7 @@ sde::craftinfo::__vars_with_url_or_address()
 
    local url="$1"
    local emptyok="${2:-YES}"
+   local configname="${3:-config}"
 
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               --virtual-root \
@@ -632,7 +635,7 @@ sde::craftinfo::__vars_with_url_or_address()
    key="MULLE_SOURCETREE_CONFIG_NAME_${RVAL}"
 
    r_shell_indirect_expand "${key}"
-   config="${RVAL:-${MULLE_SOURCETREE_CONFIG_NAME:-config}}"
+   config="${RVAL:-${configname}}"
    _config=""
 
    if [ ! -z "${config}" ]
@@ -710,7 +713,9 @@ sde::craftinfo::create_main()
    local _subprojectdir
    local _folder
 
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" "${OPTION_LENIENT}"
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   "${OPTION_LENIENT}" \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -770,7 +775,9 @@ sde::craftinfo::remove_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   'NO' \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -841,7 +848,9 @@ sde::craftinfo::exists_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "$1"
+   if ! sde::craftinfo::__vars_with_url_or_address "$1" \
+                                                   'YES' \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -1068,7 +1077,9 @@ sde::craftinfo::fetch_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "$1" "${OPTION_LENIENT}"
+   if ! sde::craftinfo::__vars_with_url_or_address "$1" \
+                                                   "${OPTION_LENIENT}"
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -1160,7 +1171,9 @@ sde::craftinfo::set_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   'NO' \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -1266,7 +1279,9 @@ sde::craftinfo::script_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   'NO' \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -1387,7 +1402,9 @@ sde::craftinfo::unset_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" 'NO'
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   'NO' \
+                                                   "${OPTION_CONFIG_NAME}"
    then
       return 1
    fi
@@ -1442,7 +1459,9 @@ sde::craftinfo::get_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      sde::craftinfo::__vars_with_url_or_address "${url}"
+      sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                 'YES' \
+                                                 "${OPTION_CONFIG_NAME}"
 
       local rval
 
@@ -1468,7 +1487,9 @@ sde::craftinfo::get_main()
       return $?
    fi
 
-   sde::craftinfo::__vars_with_url_or_address "${url}"
+   sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                              'YES' \
+                                              "${OPTION_CONFIG_NAME}"
 
    exekutor "${MULLE_MAKE}"  \
                   ${MULLE_TECHNICAL_FLAGS} \
@@ -1499,7 +1520,7 @@ sde::craftinfo::_list_main()
 
    if [ "${extension}" = "DEFAULT" ]
    then
-      if sde::craftinfo::__vars_with_url_or_address "${url}"
+      if sde::craftinfo::__vars_with_url_or_address "${url}" 'YES' "${OPTION_CONFIG_NAME}"
       then
          text1="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
             definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"`"
@@ -1532,7 +1553,7 @@ sde::craftinfo::_list_main()
       return
    fi
 
-   if sde::craftinfo::__vars_with_url_or_address "${url}"
+   if sde::craftinfo::__vars_with_url_or_address "${url}" 'YES' "${OPTION_CONFIG_NAME}"
    then
       log_info "${url}${extension}"
 
@@ -1659,6 +1680,7 @@ sde::craftinfo::main()
    log_entry "sde::craftinfo::main" "$@"
 
    local extension
+   local OPTION_CONFIG_NAME="${MULLE_SOURCETREE_CONFIG_NAME}"
 
    extension="DEFAULT"
 
@@ -1671,6 +1693,14 @@ sde::craftinfo::main()
 
          --global)
             extension=""
+         ;;
+
+         --config-name|--config)
+            [ "$#" -eq 1 ] && \
+               sde::craftinfo::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_CONFIG_NAME="$1"
          ;;
 
          --os|--platform)

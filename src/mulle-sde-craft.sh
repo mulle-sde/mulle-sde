@@ -415,6 +415,7 @@ sde::craft::target()
          else
             log_info "There are no dependencies or libraries to build"
             log_fluff "${craftorderfile} does not exist"
+            log_fluff "Target is \"craftorder\" so no attempt to build project"
          fi
       ;;
 
@@ -808,7 +809,6 @@ sde::craft::main()
 
    target="${target:-${MULLE_SDE_TARGET}}"
    target="${target:-${MULLE_SDE_CRAFT_TARGET}}"
-   target="${target:-all}"
 
    if [ "${target}" = "NONE" ]
    then
@@ -821,7 +821,16 @@ sde::craft::main()
       log_fluff "PROJECT_TYPE is \"none\", so only craftorder will be built"
       target="craftorder"
       OPTION_REFLECT='NO'
+   else
+      if [ ! -z "${target}" ]
+      then
+         log_fluff "Target is \"${target}\" set from environment (or commandline)"
+      fi
    fi
+
+
+   target="${target:-all}"
+
 
    #
    # our craftorder is specific to a host

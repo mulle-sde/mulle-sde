@@ -67,7 +67,7 @@ sde::edit::r_installed_editors()
 
    .foreachpath editor in ${editors}
    .do
-      if mudo -f which "${editor}" > /dev/null
+      if mudo -f which "${editor}" > /dev/null 2>&1
       then
          r_add_line "${existing_editors}" "${editor}"
          existing_editors="${RVAL}"
@@ -213,7 +213,20 @@ EOF
       local editors
       local choices
 
-      choices="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:codium:code:micro:emacs:vi}"
+      case "${MULLE_UNAME}" in
+         windows)
+            choices="${MULLE_SDE_EDITORS:-subl.exe:clion.exe:vscode.exe:cursor.exe}"
+         ;;
+
+         macos)
+            choices="${MULLE_SDE_EDITORS:-subl:clion:lion:vscode:cursor.exe}"
+         ;;
+
+         *)
+            choices="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:codium:code:cursor:micro:emacs:vi}"
+         ;;
+      esac
+
       if ! sde::edit::r_installed_editors "${choices}"
       then
          fail "No suitable editor found, please install one of: ${choices}"
@@ -269,7 +282,7 @@ EOF
             fi
          fi
       ;;
-      codium*|*/codium*|code*|*/code*)
+      cursor|codium*|*/codium*|code*|*/code*)
          if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a ! -d .vscode ]
          then
             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} extension add --if-missing "${vendorprefix}vscode-clang"

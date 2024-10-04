@@ -43,6 +43,8 @@ Usage:
    This command can start a debugger of your choice with the project
    executable. It can also provide helpful output for IDEs.
 
+   The debugger is run in the mulle-sde environment.
+
 Commands:
    run                 : debug most recent executable
    sublime-debug       : emit debug settings to place in your .sublime-project
@@ -69,10 +71,12 @@ Usage:
    ${MULLE_USAGE_NAME} debug [options] [arguments] ...
 
    Debug the main executable of the given project, with the arguments given.
-   The executable will not run within the mulle-sde environment!
+   The executable will be debigged within the mulle-sde environment unless -e
+   is given.
 
 Options:
-   --  :   pass remaining options as arguments
+   --  : pass remaining options as arguments
+   -e  : debug the main executable outside of the mulle-sde environment.
 
 EOF
    exit 1
@@ -110,7 +114,7 @@ sde::debug::r_installed_debuggers()
 
    .foreachpath debugger in ${debuggers}
    .do
-      if mudo -f which "${debugger}" > /dev/null
+      if mudo -f which "${debugger}" > /dev/null 2>&1
       then
          r_add_line "${existing_debuggers}" "${debugger}"
          existing_debuggers="${RVAL}"
@@ -171,20 +175,35 @@ sde::debug::run_main()
 {
    log_entry "sde::debug::run_main" "$@"
 
-   local executables
-
    include "sde::product"
-
-   sde::product::r_executables
-   executables="${RVAL}"
 
    local executable
 
-   if ! sde::product::r_user_choses_executable "${executables}"
+   if ! sde::product::r_executable "$1"
    then
       return 1
    fi
    executable="${RVAL}"
+
+   if [ $# -ne 0 ]
+   then
+      case "$1" in
+         -h|--help|help)
+            sde::product::debug_usage
+         ;;
+
+         -e)
+            MUDO_FLAGS="$1"
+         ;;
+
+         -*)
+         ;;
+
+         *)
+            shift
+         ;;
+      esac
+   fi
 
    local debugger
    local preference
@@ -214,30 +233,47 @@ sde::debug::run_main()
    # gather ADDICTION_DIR
    # and pass as environment
    #
-   local ADDICTION_DIR
-   local DEPENDENCY_DIR
-   local KITCHEN_DIR
-   local STASH_DIR
 
-   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
-   then
-      ADDICTION_DIR="`mulle-craft addiction-dir`"
-      DEPENDENCY_DIR="`mulle-craft dependency-dir`"
-      KITCHEN_DIR="`mulle-craft kitchen-dir`"
-      STASH_DIR="`mulle-sourcetree stash-dir`"
+   local args
 
-      export ADDICTION_DIR="${ADDICTION_DIR}"
-      export DEPENDENCY_DIR="${DEPENDENCY_DIR}"
-      export KITCHEN_DIR="${KITCHEN_DIR}"
-      export STASH_DIR="${STASH_DIR}"
+   RVAL=""
+   for arg in "$@"
+   do
+      r_concat "${RVAL}" "'${arg}'"
+   done
+   args="${RVAL}"
 
-      exekutor_trace exekutor_print export ADDICTION_DIR="${ADDICTION_DIR}"
-      exekutor_trace exekutor_print export DEPENDENCY_DIR="${DEPENDENCY_DIR}"
-      exekutor_trace exekutor_print export KITCHEN_DIR="${KITCHEN_DIR}"
-      exekutor_trace exekutor_print export STASH_DIR="${STASH_DIR}"
-   fi
+   (
+      local environment
+      local i
+      local filename
 
-   exekutor mudo -f "${debugger}${MULLE_EXE_EXTENSION}" "${executable}" "$@"
+      eval `mulle-env mulle-tool-env env` || exit 1
+      filename="${MULLE_ENV_VAR_DIR}/custom-post-environment.${MULLE_ENV_PID}"
+
+      log_debug "read custom environment from: ${filename}"
+      environment="`cat "${filename}" 2> /dev/null`"
+
+      if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         ADDICTION_DIR="`mulle-craft addiction-dir`"
+         DEPENDENCY_DIR="`mulle-craft dependency-dir`"
+         KITCHEN_DIR="`mulle-craft kitchen-dir`"
+         STASH_DIR="`mulle-sourcetree stash-dir`"
+
+         r_concat "${environment}" "ADDICTION_DIR='${ADDICTION_DIR}'"
+         r_concat "${RVAL}" "DEPENDENCY_DIR='${DEPENDENCY_DIR}'"
+         r_concat "${RVAL}" "KITCHEN_DIR='${KITCHEN_DIR}'"
+         r_concat "${RVAL}" "STASH_DIR='${STASH_DIR}'"
+      fi
+      environment="${RVAL}"
+
+      eval_exekutor mudo "${MUDO_FLAGS}" -f \
+                    "${environment}" \
+                    "'${debugger}${MULLE_EXE_EXTENSION}'" \
+                    "'${executable}'" \
+                    "${args}"
+   )
 }
 
 
@@ -312,7 +348,7 @@ sde::debug::main()
       sublime-debug)
          include "sde::product"
 
-         if ! sde::product::r_executable
+         if ! sde::product::r_executable "$@"
          then
             return 1
          fi
@@ -345,7 +381,7 @@ if .settings == null then .settings = {} else . end \
       vscode-debug)
          include "sde::product"
 
-         if sde::product::r_executable
+         if sde::product::r_executable  "$@"
          then
             local executable
 
@@ -414,7 +450,7 @@ EOF
       ;;
 
       *)
-         sde::debug::run_main "$@"
+         sde::debug::run_main "${cmd}"
       ;;
    esac
 }

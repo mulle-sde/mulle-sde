@@ -124,7 +124,7 @@ sde::steal::combine_sources()
                \\! -name '[_-]test.aam' \
             \\)"
 
-      # make it nicer to print for exekutor by removing superflous space
+      # make it nicer to print for exekutor by removing superfluous space
       local old
 
       old=""

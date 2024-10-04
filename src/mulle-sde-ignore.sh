@@ -103,7 +103,7 @@ sde::ignore::main()
 
    case "${cmd}" in
       list)
-         [ "$#" -ne 0 ] && sde::ignore::usage "superflous arguments \"$*\""
+         [ "$#" -ne 0 ] && sde::ignore::usage "superfluous arguments \"$*\""
          if [ ! -z "${filepath}" ]
          then
             printf "%s\n" "${filepath#"${MULLE_USER_PWD}/"}"
@@ -112,7 +112,7 @@ sde::ignore::main()
       ;;
 
       cat)
-         [ "$#" -ne 0 ] && sde::ignore::usage "superflous arguments \"$*\""
+         [ "$#" -ne 0 ] && sde::ignore::usage "superfluous arguments \"$*\""
          if [ ! -z "${filepath}" ]
          then
             cat "${filepath}"
@@ -122,7 +122,7 @@ sde::ignore::main()
    esac
 
    [ "$#" -eq 0 ] && sde::ignore::usage "Missing argument"
-   [ "$#" -ne 1 ] && sde::ignore::usage "superflous arguments \"$*\""
+   [ "$#" -ne 1 ] && sde::ignore::usage "superfluous arguments \"$*\""
 
    exekutor "${MULLE_MATCH:-mulle-match}" \
                                     ${MULLE_TECHNICAL_FLAGS} \

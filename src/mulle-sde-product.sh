@@ -39,7 +39,8 @@ sde::product::usage()
 Usage:
    ${MULLE_USAGE_NAME} product [options] <command>
 
-   Find product of mulle-sde craft (list) or run it, if it's an executable.
+   Find the product (library/executable) of \`mulle-sde craft\` and/or run it.
+   If there are  multiple products the most recently built one will be used.
    Searchpath shows the places products of a certain type are expected to
    show up. See \`${MULLE_USAGE_NAME} product searchpath help\` for more info.
 
@@ -87,13 +88,32 @@ Usage:
    ${MULLE_USAGE_NAME} run [options] [arguments] ...
 
    Run the main executable of the given project, with the arguments given.
-   The executable will not run within the mulle-sde environment!
+   The executable will run within the mulle-sde environment unless -e is
+   given.
 
 Options:
-   --  :   pass remaining options as arguments
+   --  : pass remaining options as arguments
+   -e  : run the main executable outside of the mulle-sde environment.
 
 Environment:
    MULLE_SDE_RUN  : command line to use, use \${EXECUTABLE} as variable
+   MULLE_POST_RUN : command line after executable has started
+
+EOF
+   exit 1
+}
+
+
+sde::product::list_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} list
+
+   List all craft products. The most recently built product will be listed
+   first.
 
 EOF
    exit 1
@@ -129,7 +149,7 @@ sde::product::r_executables()
 
    local projecttype
 
-   projecttype="`mulle-sde env get PROJECT_TYPE`"
+   projecttype="`rexekutor mulle-sde env get PROJECT_TYPE`"
    if [ "${projecttype}" != "executable" ]
    then
       fail "\"mulle-sde run\" works only in executable projects"
@@ -137,11 +157,14 @@ sde::product::r_executables()
 
    local kitchen_dir
 
-   kitchen_dir="`mulle-sde kitchen-dir`"
+   kitchen_dir="`rexekutor mulle-sde kitchen-dir`"
+
+   log_setting "kitchen_dir: ${kitchen_dir}"
+
    if ! [ -d "${kitchen_dir}" ]
    then
-      log_info "Run craft first to produce product"
-      mulle-sde craft || exit 1
+      log_info "Running ${C_MAGENTA}${C_BOLD}craft${C_INFO} first to produce product"
+      rexekutor mulle-sde craft || exit 1
    fi
 
    if ! [ -d "${kitchen_dir}" ]
@@ -167,15 +190,15 @@ sde::product::r_executables()
       r_line_at_index "${motd_files}" 0
       filename="${RVAL}"
 
-      executables="`rexekutor sed -n  -e "s/"$'\033'"[^"$'\033'"]*$//g" \
-                                      -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
-                                     "${filename}" `"
+      executables="`sed -n -e "s/"$'\033'"[^"$'\033'"]*$//g" \
+                           -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
+                           "${filename}" `"
    fi
 
-   log_setting "executables  : ${executables}"
 
    if [ -z "${executables}" ]
    then
+      log_debug "No executables found using .motd"
       #
       # fallback code, if we have no motd, or couldn't parse it
       # then look for PROJECT_NAME.exe or
@@ -187,9 +210,9 @@ sde::product::r_executables()
       executables="`rexekutor find "${kitchen_dir}" \( -name "${projectname}${MULLE_EXE_EXTENSION}" \
                                                     -o -name "${projectname}" \
                                                     \) \
-                                                   -type f \
-                                                   -perm /111 \
-                                                   -not -path "${kitchen_dir}/.craftorder/*" `"
+                                                    -type f \
+                                                    -perm /111 \
+                                                    -not -path "${kitchen_dir}/.craftorder/*" `"
 
       executables="`sde::product::freshest_files "${executables}"`"
       if [ -z "${executables}" ]
@@ -203,7 +226,45 @@ ${C_RESET_BOLD}${projectname}${C_ERROR} or ${C_RESET_BOLD}${projectname}.exe${C_
       executables="${RVAL}"
    fi
 
+   log_setting "executables  : ${executables}"
+
    RVAL="${executables}"
+}
+
+
+sde::product::r_preferred_executable()
+{
+   log_entry "sde::product::r_preferred_executable" "$@"
+
+   local executables="$1"
+   local preferredname="$2"
+
+   local names
+   local executable
+   local executable_name
+
+   # allow user to pass in path as well
+   r_extensionless_basename "${preferredname}"
+   preferredname="${RVAL}"
+
+   .foreachline executable in ${executables}
+   .do
+      r_basename "${executable}"
+      executable_name="${RVAL}"
+
+      if [ ! -z "${preferredname}" -a "${preferredname}" = "${executable_name%.exe}" ]
+      then
+         RVAL="${executable}"
+         log_debug "Preferred executable found: ${executable}"
+         return 0
+      fi
+
+      r_add_line "${names}" "${executable_name}"
+      names="${RVAL}"
+   .done
+
+   RVAL="${names}"
+   return 2
 }
 
 
@@ -214,22 +275,14 @@ sde::product::r_user_choses_executable()
    local executables="$1"
    local preferredname="$2"
 
+   if sde::product::r_preferred_executable "${executables}" "${preferredname}"
+   then
+      return 0
+   fi
+
    local names
-   local executable
 
-   .foreachline executable in ${executables}
-   .do
-      r_basename "${executable}"
-
-      if [ ! -z "${preferredname}" -a "${preferredname%.exe}" = "${RVAL%.exe}" ]
-      then
-         RVAL="${executable}"
-         return 0
-      fi
-
-      r_add_line "${names}" "${RVAL}"
-      names="${RVAL}"
-   .done
+   names="${RVAL}"
 
    local row
 
@@ -283,9 +336,36 @@ sde::product::r_search_path()
 }
 
 
-sde::product::r_product_path()
+sde::product::r_least_recently_changed_file()
 {
-   log_entry "sde::product::r_product_path" "$@"
+   log_entry "sde::product::r_least_recently_changed_file" "$@"
+
+   local candidates="$1"
+
+   local candidate
+   local latest_timestamp
+   local timestamp
+   local filepath
+
+   log_setting "candidates: ${candidates}"
+
+   .foreachline candidate in ${candidates}
+   .do
+      timestamp="`modification_timestamp "${candidate}" `"
+      if [ -z "${latest_timestamp}" ] || [ ${timestamp} -gt ${latest_timestamp} ]
+      then
+         filepath="${candidate}"
+         latest_timestamp="${timestamp}"
+      fi
+   .done
+
+   RVAL="${filepath}"
+}
+
+
+sde::product::r_product_paths()
+{
+   log_entry "sde::product::r_product_paths" "$@"
 
    local MULLE_PLATFORM_EXECUTABLE_SUFFIX
    local MULLE_PLATFORM_FRAMEWORK_PATH_LDFLAG
@@ -368,39 +448,40 @@ sde::product::r_product_path()
    then
       sde::product::r_executables
       candidates="${RVAL}"
+
+      if sde::product::r_preferred_executable "${candidates}" "$@"
+      then
+         log_debug "returns: ${RVAL}"
+         return 0
+      fi
+
+      RVAL="${candidates}"
+      log_debug "returns: ${RVAL}"
+      return 0
    fi
 
    if [ -z "${candidates}" ]
    then
       fail "Product ${C_RESET_BOLD}${filename}${C_ERROR} not found."
    fi
-
-   local candidate
-   local latest_timestamp
-   local timestamp
-
-   .foreachline candidate in ${candidates}
-   .do
-      timestamp="`modification_timestamp "${candidate}" `"
-      if [ -z "${latest_timestamp}" ] || [ ${timestamp} -gt ${latest_timestamp} ]
-      then
-         filepath="${candidate}"
-         latest_timestamp="${timestamp}"
-      fi
-   .done
-
-   RVAL="${filepath}"
 }
+
 
 sde::product::list_main()
 {
    log_entry "sde::product::list_main" "$@"
+
+   local OPTION_ALL='YES'
 
    while :
    do
       case "$1" in
          -h|--help|help)
             sde::product::usage
+         ;;
+
+         -first-only|--1)
+            OPTION_ALL='NO'
          ;;
 
          -*)
@@ -415,8 +496,17 @@ sde::product::list_main()
       shift
    done
 
-   sde::product::r_product_path
-   printf "%s\n" "${RVAL}"
+   local filepaths
+
+   sde::product::r_product_paths "$@"
+   filepaths="${RVAL}"
+
+   if [ "${OPTION_ALL}" != 'YES' ]
+   then
+      sde::product::r_least_recently_changed_file "${filepaths}"
+      filepaths="${RVAL}"
+   fi
+   printf "%s\n" "${filepaths}"
 }
 
 
@@ -474,6 +564,8 @@ sde::product::run_main()
 {
    log_entry "sde::product::run_main" "$@"
 
+   local run_env="$1"; shift
+
    local EXECUTABLE
 
    if ! sde::product::r_executable "$@"
@@ -482,9 +574,46 @@ sde::product::run_main()
    fi
    EXECUTABLE="${RVAL}"
 
+   local preferredname
+   #
+   # so if we used first argument as preferred name, then
+   # remove it from arguments
+   #
+   r_extensionless_basename "${EXECUTABLE}"
+   preferredname="${RVAL}"
+
+   if [ $# -ne 0 ]
+   then
+      case "$1" in
+         -h|--help|help)
+            sde::product::run_usage
+         ;;
+
+         -e)
+            MUDO_FLAGS="$1"
+         ;;
+
+         -*)
+         ;;
+
+         *)
+            if [ "${preferredname}" = "$1" ]
+            then
+               shift
+            fi
+         ;;
+      esac
+   fi
+
    local commandline
 
-   commandline="`mulle-sde env get MULLE_SDE_RUN`"
+   if [ "${run_env}" = 'YES' ]
+   then
+      commandline="`mulle-sde env get MULLE_SDE_RUN`"
+   fi
+
+   log_setting "commandline        : ${commandline}"
+   log_setting "MULLE_VIRTUAL_ROOT : ${MULLE_VIRTUAL_ROOT}"
 
    if [ ! -z "${commandline}" ]
    then
@@ -492,9 +621,9 @@ sde::product::run_main()
       commandline="${RVAL}"
 
       log_verbose "Use MULLE_SDE_RUN '${commandline}' as command line"
-      eval_exekutor mudo -f "${commandline}" "$@"
+      eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}" "$@"
    else
-      exekutor mudo -f "${EXECUTABLE}" "$@"
+      exekutor mudo ${MUDO_FLAGS} -f "${EXECUTABLE}" "$@"
    fi
 
    commandline="`mulle-sde env get MULLE_SDE_POST_RUN`"
@@ -503,8 +632,10 @@ sde::product::run_main()
       r_expanded_string "${commandline}"
       commandline="${RVAL}"
 
+      # we don't push "$@" unto the post run though, if this is a problem
+      # pass it as an environment variable (and a wrapper shell script)
       log_verbose "Use MULLE_SDE_POST_RUN '${commandline}' as command line"
-      eval_exekutor mudo -f "${commandline}" "$@"
+      eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}"
    fi
 }
 
@@ -573,6 +704,8 @@ sde::product::main()
    local OPTION_CONFIGURATION
    local OPTION_SDK
    local OPTION_EXISTS
+   local OPTION_NAME
+   local OPTION_SDE_RUN_ENV='YES'
    local MUDO_FLAGS="-e"
 
    while :
@@ -614,6 +747,16 @@ sde::product::main()
             OPTION_CONFIGURATION="Debug"
          ;;
 
+         --no-run-env)
+            OPTION_SDE_RUN_ENV='NO'
+         ;;
+
+         --name)
+            [ $# -eq 1 ] && sde::product::usage "Missing argument to \"$1\""
+            shift
+            OPTION_NAME="$1"
+         ;;
+
          --)
             shift
             break
@@ -635,13 +778,18 @@ sde::product::main()
 
    [ $# -ne 0 ] && shift
 
+   if [ "${OPTION_NAME}" ]
+   then
+      set -- "${OPTION_NAME}" "$@"
+   fi
+
    case "${cmd}" in
       list)
          sde::product::list_main "$@"
       ;;
 
       run)
-         sde::product::run_main "$@"
+         sde::product::run_main "${OPTION_SDE_RUN_ENV}" "$@"
       ;;
 
       searchpath)
@@ -649,7 +797,7 @@ sde::product::main()
       ;;
 
       *)
-         sde::product::usage
+         sde::product::list_main "${cmd}"
       ;;
    esac
 }

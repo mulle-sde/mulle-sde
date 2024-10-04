@@ -110,8 +110,7 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
    # hack for shell scripts
    PROJECT_PREFIXLESS_NAME="${PROJECT_NAME#*-}"
 
-   r_identifier "${PROJECT_PREFIXLESS_NAME}"
-   r_lowercase "${RVAL}"
+   r_smart_file_downcase_identifier "${PROJECT_PREFIXLESS_NAME}"
    PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${RVAL}"
 
    include "case"
@@ -119,7 +118,7 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
    r_smart_file_upcase_identifier "${PROJECT_NAME}"
    PROJECT_UPCASE_IDENTIFIER="${RVAL}"
 
-   r_lowercase "${RVAL}"
+   r_lowercase "${PROJECT_UPCASE_IDENTIFIER}"
    PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
 }
 
@@ -397,6 +396,17 @@ sde::project::export_language_environment()
 }
 
 
+sde::project::export_test_environment()
+{
+   log_entry "sde::project::export_testproject_environment" "$@"
+
+   [ -z "${TEST_PROJECT_NAME}" ]  && return
+
+   export TEST_PROJECT_NAME
+}
+
+
+
 
 sde::project::add_envscope_if_missing()
 {
@@ -443,8 +453,8 @@ sde::project::assert_name()
          fail "Project name \"$1\" contains spaces"
       ;;
 
-      ""|*[^a-zA-Z0-9_-]*|[^a-zA-Z_]*)
-         fail "Project name \"$1\" must be an identifier (may have -)"
+      ""|*[^a-zA-Z0-9_.-]*|[^a-zA-Z_]*)
+         fail "Project name \"$1\" must be an identifier (may have - or .)"
       ;;
    esac
 }
@@ -452,11 +462,15 @@ sde::project::assert_name()
 # those affected by renames
 sde::project::save_name_variables()
 {
-  log_entry "sde::project::save_name_variables" "$@"
+   log_entry "sde::project::save_name_variables" "$@"
 
-  sde::project::assert_name "${PROJECT_NAME}"
+   sde::project::assert_name "${PROJECT_NAME}"
 
-  sde::project::env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
+   sde::project::env_set_var PROJECT_NAME        "${PROJECT_NAME}"  "$@"
+   if [ ! -z "${TEST_PROJECT_NAME}" ]
+   then
+     sde::project::env_set_var TEST_PROJECT_NAME   "${TEST_PROJECT_NAME}"  "$@"
+   fi
 #  sde::project::env_set_var PROJECT_IDENTIFIER  "${PROJECT_IDENTIFIER}" "$@"
 }
 
@@ -889,63 +903,69 @@ sde::project::rename_main()
    if [ "${OPTION_TESTS}" != 'NO' ]
    then
       local test_path
+      local project_path
       local testdir
 
       log_verbose "Renaming test directories (if present)"
 
+      project_path="`rexekutor mulle-sde project-dir`"
       test_path="`rexekutor mulle-sde -s test test-dir`"
 
-      local cmdline
+      # if we want to rename the test project itself, a second one would
+      # give a unfathomable error, so avoid it
+      if [ "${project_path}" != "${test_path}" ]
+      then
+         local cmdline
 
-      cmdline="--no-tests"
+         cmdline="--no-tests"
 
-      case "${OPTION_SEARCH_REPLACE_FILENAMES}" in
-         'YES')
-            cmdline="${cmdline} --filenames"
-         ;;
+         case "${OPTION_SEARCH_REPLACE_FILENAMES}" in
+            'YES')
+               cmdline="${cmdline} --filenames"
+            ;;
 
-         'NO')
-            cmdline="${cmdline} --no-filenames"
-         ;;
-      esac
+            'NO')
+               cmdline="${cmdline} --no-filenames"
+            ;;
+         esac
 
-      case "${OPTION_SEARCH_REPLACE_CONTENTS}" in
-         'YES')
-            cmdline="${cmdline} --contents"
-         ;;
+         case "${OPTION_SEARCH_REPLACE_CONTENTS}" in
+            'YES')
+               cmdline="${cmdline} --contents"
+            ;;
 
-         'NO')
-            cmdline="${cmdline} --no-contents"
-         ;;
-      esac
+            'NO')
+               cmdline="${cmdline} --no-contents"
+            ;;
+         esac
 
-      case "${OPTION_SAVE_ENV}" in
-         'YES')
-            cmdline="${cmdline} --save-env"
-         ;;
+         case "${OPTION_SAVE_ENV}" in
+            'YES')
+               cmdline="${cmdline} --save-env"
+            ;;
 
-         'NO')
-            cmdline="${cmdline} --no-save-env"
-         ;;
-      esac
+            'NO')
+               cmdline="${cmdline} --no-save-env"
+            ;;
+         esac
 
-      .foreachline testdir in ${test_path}
-      .do
-         (
-            MULLE_VIRTUAL_ROOT=
-            PROJECT_NAME=
+         .foreachline testdir in ${test_path}
+         .do
+            (
+               MULLE_VIRTUAL_ROOT=
+               PROJECT_NAME=
 
-            log_verbose "$testdir"
+               log_verbose "$testdir"
 
-            rexekutor cd "${testdir}" && \
-            exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
-                           project \
-                              rename \
-                                 ${cmdline} "${newname}"
-         )
-      .done
+               rexekutor cd "${testdir}" && \
+               exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                              project \
+                                 rename \
+                                    ${cmdline} "${newname}"
+            )
+         .done
+      fi
    fi
-
    log_verbose "Done"
 }
 

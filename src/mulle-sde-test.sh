@@ -67,6 +67,7 @@ Command:
    linkorder  : show library command for linking test executable
    recraft    : re-craft library and dependencies
    rerun      : rerun failed tests
+   retest     : clean gravetidy and then craft and run tests once more
    run        : run tests only
    test-dir   : list test directories
 
@@ -726,7 +727,7 @@ sde::test::r_main()
 
       # build commands
       clean|crun|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft|\
-recrun|rerun|run)
+recrun|rerun|retest|run)
          RVAL='DEFAULT'
          return 1;
       ;;
@@ -770,6 +771,14 @@ recrun|rerun|run)
       init)
          shift
          sde::test::r_init "$@"
+      ;;
+
+      # layme, other known commands that don't work in test
+      # rerun them with mulle-sde
+      config)
+         RVAL='DONE'
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} "$@"
+         return $?
       ;;
 
       *)

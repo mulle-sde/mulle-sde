@@ -306,14 +306,24 @@ sde::definition::set()
    local flags="$2"
    local etcdir="$3"
    local sharedir="$4"
-   shift 4
+   local additive="$5"
+
+   shift 5
 
    local scopes 
+   local cmd
+
+   if [ "${additive}" = 'YES' ]
+   then
+      additivemode="-+"
+   else
+      additivemode="--non-additive"
+   fi
 
    case "${scope}" in
       ALL)
          etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
-         sde::definition::call "set" "${flags}" "${etcdir}" "$@"
+         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}" "$@"
 
          sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
@@ -323,24 +333,24 @@ sde::definition::set()
          .foreachline i in ${scopes}
          .do
             etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" 'NO'
-            sde::definition::call "set" "${flags}" "${etcdir}.${i}" "$@"
+            sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}.${i}" "$@"
          .done   
          return
       ;;
 
       DEFAULT)
          etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" 'NO'
-         sde::definition::call "set" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
+         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
       ;;
 
       global)
          etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
-         sde::definition::call "set" "${flags}" "${etcdir}" "$@"
+         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}" "$@"
       ;;
 
       *)
          etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" 'NO'
-         sde::definition::call "set" "${flags}" "${etcdir}.${scope}" "$@"
+         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}.${scope}" "$@"
       ;;
    esac
 }
@@ -637,27 +647,16 @@ sde::definition::main()
    local OPTION_SHARE_DEFINITION_DIR=".mulle/share/craft/definition"
    local OPTION_ETC_DEFINITION_DIR=".mulle/etc/craft/definition"
 
-   if [ -z "${MULLE_PATH_SH}" ]
-   then
-      # shellcheck source=../../mulle-bashfunctions/src/mulle-path.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-path.sh" || exit 1
-   fi
-   if [ -z "${MULLE_FILE_SH}" ]
-   then
-      # shellcheck source=../../mulle-bashfunctions/src/mulle-file.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-file.sh" || exit 1
-   fi
-   if [ -z "${MULLE_ETC_SH}" ]
-   then
-      # shellcheck source=../../mulle-bashfunctions/src/mulle-etc.sh
-      . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-etc.sh" || exit 1
-   fi
+   include "path"
+   include "file"
+   include "etc"
 
    local argument
    local flags
    local searchflags
    local terse="${MULLE_FLAG_LOG_TERSE}"
    local scope="DEFAULT"
+   local OPTION_ADDITIVE='YES'
 
    while [ $# -ne 0 ]
    do
@@ -704,6 +703,14 @@ sde::definition::main()
             searchflags="${RVAL}"
          ;;
 
+         -+|--additive)
+            OPTION_ADDITIVE='YES'
+         ;;
+
+         --non-additive)
+            OPTION_ADDITIVE='NO'
+         ;;
+
          --terse)
             terse='YES'
          ;;
@@ -740,13 +747,24 @@ sde::definition::main()
             sde::definition::scopes "$@"
       ;;
 
+     set)
+         MULLE_FLAG_LOG_TERSE="${terse}" \
+            sde::definition::set "${scope}" \
+                                 "${flags}" \
+                                 "${OPTION_ETC_DEFINITION_DIR}" \
+                                 "${OPTION_SHARE_DEFINITION_DIR}" \
+                                 "${OPTION_ADDITIVE}" \
+                                 "$@"
+      ;;
+
+
       cat|get|keys|list|remove|set|unset)
          MULLE_FLAG_LOG_TERSE="${terse}" \
             sde::definition::${cmd} "${scope}" \
-                                  "${flags}" \
-                                  "${OPTION_ETC_DEFINITION_DIR}" \
-                                  "${OPTION_SHARE_DEFINITION_DIR}" \
-                                  "$@"
+                                    "${flags}" \
+                                    "${OPTION_ETC_DEFINITION_DIR}" \
+                                    "${OPTION_SHARE_DEFINITION_DIR}" \
+                                    "$@"
       ;;
 
       '')

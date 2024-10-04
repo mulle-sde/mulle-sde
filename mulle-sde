@@ -67,6 +67,7 @@ function sde::print_commands()
 
       HIDDEN_COMMANDS="\
    init-and-enter : create a new project then immediately start a subshell
+   commands       : list of all available commands (some undocumented)
    libexec-dir    : print path to mulle-sde libexec
    uname          : the simplified uname(1)"
 
@@ -91,6 +92,7 @@ function sde::print_commands()
 
       HIDDEN_COMMANDS="\
    cd             : change directory to dependency,kitchen et al.
+   commands       : list of all available commands (some undocumented)
    craftorder     : show craftorder of dependencies
    craftstatus    : show the craft status of the dependencies
    config         : show multiple sourcetree configurations
@@ -110,6 +112,7 @@ function sde::print_commands()
    product        : location of main executable or library, heuristic
    project-dir    : print project root directory
    project        : rename a project and its files
+   retest         : retest using mulle-test
    searchpath     : show search path for build products
    source-dir     : print project source directory
    subproject     : manage local subprojects
@@ -770,14 +773,16 @@ sde::main()
       then
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
-            add|bash-completion|commands|env|environment|env-identifier|edit|ext|\
-extension|get|init|init-and-enter|install|reinit|status|hostname|remove|uname|\
-show|version|libexec-dir|library-path|project-dir|set|source-dir|steal|symlink|test|upgrade|username)
+            add|bash-completion|commands|common-unames|env|environment|\
+env-identifier|edit|ext|extension|get|init|init-and-enter|install|reinit|\
+status|hostname|remove|uname|show|version|libexec-dir|library-path|project-dir|\
+retest|set|source-dir|steal|symlink|test|upgrade|username|source-tree|\
+project-tree)
             ;;
 
             # commands where we want to start a subshell and these don't have
             # any help text
-            addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir|tool-env|stash-dir)
+            addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir|tool-env|stash-dir|*-tree)
                sde::exec_command_in_subshell 'CD' "$@"
             ;;
 
@@ -922,24 +927,38 @@ lib|pat|sub|unveil|view)
    log_setting "MULLE_SDE_SHARE_DIR   = \"${MULLE_SDE_SHARE_DIR}\""
 
    case "${cmd}" in
-      add)
+      *-tree)
+         if ! TREE="${TREE:-`command -v tree`}"
+         then
+            fail "Need \"tree\" command in PATH"
+         fi
+
+         local directory
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%-tree}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+         rexekutor "${TREE}" --noreport "$@" "${directory}"
+      ;;
+
+      'add')
          # shellcheck source=src/mulle-sde-add.sh
          include "sde::add"
 
          sde::add::main "$@"
       ;;
 
-      addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir)
-         exekutor "${MULLE_CRAFT:-mulle-craft}" \
+      'addiction-dir'|'craftorder-kitchen-dir'|'dependency-dir'|'kitchen-dir')
+         rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      "${cmd}"
       ;;
 
-      bash-completion)
+      'bash-completion')
          log_warning "bash completion no longer supported"
       ;;
 
-      callback|task)
+      'callback'|'task')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -957,7 +976,7 @@ lib|pat|sub|unveil|view)
                            "$@"
       ;;
 
-      clean)
+      'clean')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -970,7 +989,7 @@ lib|pat|sub|unveil|view)
          sde::clean::main "$@"
       ;;
 
-      commands)
+      'commands')
          echo "
 add
 addiction-dir
@@ -979,6 +998,7 @@ buildstatus
 callback
 clean
 commands
+common-unames
 config
 craft
 craftinfo
@@ -1023,6 +1043,7 @@ protect
 reinit
 reflect
 remove
+retest
 run
 searchpath
 set
@@ -1048,12 +1069,16 @@ view"
          exit 0
       ;;
 
-      config|sourcetree)
+      'common-unames')
+         rexekutor mulle-bashfunctions common-unames
+      ;;
+
+      'config'|'sourcetree')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
-            sde::assert_test_environment "${cmd}"
+            # sde::assert_test_environment "${cmd}"
          fi
          # shellcheck source=src/mulle-sde-config.sh
          include "sde::config"
@@ -1061,7 +1086,7 @@ view"
          sde::config::main "$@"
       ;;
 
-      craft)
+      'craft')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1075,7 +1100,7 @@ view"
          sde::craft::main "$@"
       ;;
 
-      craftinfo|craftinfos)
+      'craftinfo'|'craftinfos')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1089,7 +1114,7 @@ view"
          sde::craftinfo::main "$@"
       ;;
 
-      craftorder|craftorders)
+      'craftorder'|'craftorders')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1104,7 +1129,7 @@ view"
          sde::craftorder::main "$@"
       ;;
 
-      craftstatus|craft-status)
+      'craftstatus'|'craft-status')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1118,7 +1143,7 @@ view"
          sde::craft::craftstatus_main "$@"
       ;;
 
-      crun)
+      'crun')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1132,14 +1157,14 @@ view"
          sde::craft::main --run "$@"
       ;;
 
-      debug)
+      'debug')
          # shellcheck source=src/mulle-sde-debug.sh
          include "sde::debug"
 
          sde::debug::main "$@"
       ;;
 
-      definition|definitions|def)
+      'definition'|'definitions'|'def')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1156,7 +1181,7 @@ view"
          sde::definition::main "$@"
       ;;
 
-      dependency|dep)
+      'dependency'|'dep')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1168,24 +1193,24 @@ view"
          sde::dependency::main "$@"
       ;;
 
-      donefile|donefiles)
+      'donefile'|'donefiles')
          exekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      "${cmd}" "$@"
       ;;
 
-      edit)
+      'edit')
          # shellcheck source=src/mulle-sde-edit.sh
          include "sde::edit"
 
          sde::edit::main "$@"
       ;;
 
-      enter)
+      'enter')
          fail "Command must be run from outside of the current environment."
       ;;
 
-      environment|env)
+      'environment'|'env')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
             sde::exec_mulle_env -N \
                                 "environment" \
@@ -1201,7 +1226,7 @@ view"
 #         sde::environment::main "$@"
       ;;
 
-      env-identifier)
+      'env-identifier')
          include "case"
 
          [ -z "$1" ] && fail "Specify desired project name for env-identifier"
@@ -1210,7 +1235,7 @@ view"
          rexekutor printf "%s\n" "${RVAL}"
       ;;
 
-      exec|execute)
+      'exec'|'execute')
          local quote
          local args
          local arg
@@ -1231,14 +1256,14 @@ view"
          eval_exekutor "${args}"
       ;;
 
-      extension|ext)
+      'extension'|'ext')
          # shellcheck source=src/mulle-sde-extension.sh
          include "sde::extension"
 
          sde::extension::main "$@"
       ;;
 
-      fetch)
+      'fetch')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1249,7 +1274,7 @@ view"
          sde::fetch::main "$@"
       ;;
 
-      file|files)
+      'file'|'files')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1270,7 +1295,7 @@ view"
                      "${cmd}" "$@"
       ;;
 
-      headerorder)
+      'headerorder')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
@@ -1283,18 +1308,18 @@ view"
          sde::headerorder::main "$@"
       ;;
 
-      hostname)
+      'hostname')
          rexekutor printf "%s\n" "${MULLE_HOSTNAME}"
       ;;
 
-      ignore)
+      'ignore')
          # shellcheck source=src/mulle-sde-ignore.sh
          include "sde::ignore"
 
          sde::ignore::main "$@"
       ;;
 
-      init)
+      'init')
          # shellcheck source=src/mulle-sde-init.sh
          include "sde::init"
 
@@ -1305,7 +1330,7 @@ view"
          sde::init::main "$@"
       ;;
 
-      init-and-enter)
+      'init-and-enter')
          # shellcheck source=src/mulle-sde-init.sh
          include "sde::init"
 
@@ -1313,7 +1338,7 @@ view"
          sde::init::main --no-blurb "$@" && sde::exec_mulle_env
       ;;
 
-      install)
+      'install')
          # invoke ourselves with a clean environment so that we
          # don't accidentally inherit something from the current
          # environment. If you use -n, it won't work. This is not a "bounce"
@@ -1326,7 +1351,7 @@ view"
          return $?
       ;;
 
-      json)
+      'json')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1337,7 +1362,7 @@ view"
                      "json" "$@"
       ;;
 
-      library|libraries|lib)
+      'library'|'libraries'|'lib')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1348,11 +1373,11 @@ view"
          sde::library::main "$@"
       ;;
 
-      libexec-dir|library-path)
+      'libexec-dir'|'library-path')
          exekutor printf "%s\n" "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
-      linkorder)
+      'linkorder')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
@@ -1365,7 +1390,7 @@ view"
          sde::linkorder::main "$@"
       ;;
 
-      list)
+      'list')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1376,7 +1401,7 @@ view"
          sde::list::main "$@"
       ;;
 
-      log)
+      'log')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
@@ -1391,14 +1416,14 @@ view"
                            "$@"
       ;;
 
-      match)
+      'match')
          # shellcheck source=src/mulle-sde-match.sh
          include "sde::match"
 
          sde::match::main "$@"
       ;;
 
-      move)
+      'move')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1411,7 +1436,7 @@ view"
       ;;
 
       # convenient shortcuts
-      mark|unmark)
+      'mark'|'unmark')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1423,11 +1448,7 @@ view"
       ;;
 
 
-      '')
-         log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
-      ;;
-
-      migrate)
+      'migrate')
          _log_warning "Command only to be used for development of mulle-sde"
 
          if ! sde::is_non_environment_commandline "$@"
@@ -1440,7 +1461,7 @@ view"
          sde::migrate::main "$@"
       ;;
 
-      monitor)
+      'monitor')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}"
@@ -1457,7 +1478,7 @@ view"
          sde::monitor::main "$@"
       ;;
 
-      patterncheck|patternenv|patternfile|pat|patternfiles|filename|patternmatch)
+      'patterncheck'|'patternenv'|'patternfile'|'pat'|'patternfiles'|'filename'|'patternmatch')
          cmd="${cmd//patternfiles/patternfile}"
 
          if ! sde::is_non_environment_commandline "$@"
@@ -1476,21 +1497,21 @@ view"
          sde::patternfile::main "${cmd}" "$@"
       ;;
 
-      product)
+      'product')
          # shellcheck source=src/mulle-sde-product.sh
          include "sde::product"
 
          sde::product::main "$@"
       ;;
 
-      project)
+      'project')
          # shellcheck source=src/mulle-sde-project.sh
          include "sde::project"
 
          sde::project::main "$@"
       ;;
 
-      project-dir)
+      'project-dir')
          if ! sde::r_determine_project_dir "${PWD}"
          then
             return 1
@@ -1498,14 +1519,14 @@ view"
          printf "%s\n" "${RVAL}"
       ;;
 
-      protect)
+      'protect')
          # shellcheck source=src/mulle-sde-init.sh
          include "sde::init"
 
          sde::init::protect_unprotect "Protect" "a-w"
       ;;
 
-      reflect|update)
+      'reflect'|'update')
          if ! sde::is_non_environment_commandline "$@"
          then
             # must allow NO for subenv updates
@@ -1522,7 +1543,7 @@ view"
       # project files with --allow-project to get proper identifiers in
       # your files
       #
-      reinit)
+      'reinit')
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
          then
             log_error "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
@@ -1540,29 +1561,44 @@ view"
          sde::init::main --reinit "$@"
       ;;
 
-      remove)
+      'remove')
          # shellcheck source=src/mulle-sde-remove.sh
          include "sde::remove"
 
          sde::remove::main "$@"
       ;;
 
-      run)
+      'retest')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+            then
+               rexekutor cd "${MULLE_VIRTUAL_ROOT}" \
+               || fail "MULLE_VIRTUAL_ROOT \"${MULLE_VIRTUAL_ROOT}\" is missing"
+            fi
+         fi
+
+         # shellcheck source=src/mulle-sde-test.sh
+         include "sde::test"
+
+         sde::test::main retest "$@"
+      ;;
+
+      'run')
          # shellcheck source=src/mulle-sde-product.sh
          include "sde::product"
 
-         sde::product::run_main "$@"
+         sde::product::run_main 'YES' "$@"
       ;;
 
-
       # used by mulle-test
-      searchpath)
+      'searchpath')
          exekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      searchpath "$@"
       ;;
 
-      show)
+      'show')
          # shellcheck source=src/mulle-sde-extension.sh
          include "sde::extension"
 
@@ -1574,7 +1610,7 @@ view"
          fi
       ;;
 
-      source-dir)
+      'source-dir')
          local directory
          local subdir
 
@@ -1590,32 +1626,32 @@ view"
          printf "%s\n" "${RVAL}"
       ;;
 
-      stash-dir)
+      'stash-dir')
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      stash-dir
       ;;
 
-      status|doctor)
+      'status'|'doctor')
          # shellcheck source=src/mulle-sde-status.sh
          include "sde::status"
 
          sde::status::main "$@"
       ;;
 
-      steal)
+      'steal')
          # shellcheck source=src/mulle-sde-steal.sh
          include "sde::steal"
 
          sde::steal::main "$@"
       ;;
 
-      style)
+      'style')
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
            sde::exec_mulle_env -N "${cmd}" "$@"
       ;;
 
-      subproject|subprojects|sub)
+      'subproject'|'subprojects'|'sub')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
@@ -1632,14 +1668,14 @@ view"
          sde::subproject::main "$@"
       ;;
 
-      symlink)
+      'symlink')
          # shellcheck source=src/mulle-sde-product.sh
          include "sde::product"
 
          sde::product::symlink_main "$@"
       ;;
 
-      test)
+      'test')
          if ! sde::is_non_environment_commandline "$@"
          then
             if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -1655,7 +1691,7 @@ view"
          sde::test::main "$@"
       ;;
 
-      tool)
+      'tool')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "${cmd}"
@@ -1664,8 +1700,7 @@ view"
            sde::exec_mulle_env -N "${cmd}" "$@"
       ;;
 
-
-      tool-env)
+      'tool-env')
          (
             exekutor "${MULLE_CRAFT:-mulle-craft}" \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -1676,7 +1711,7 @@ view"
          ) | sort
       ;;
 
-      treestatus)
+      'treestatus')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1689,18 +1724,18 @@ view"
                            "$@"
       ;;
 
-      uname)
+      'uname')
          rexekutor printf "%s\n" "${MULLE_UNAME}"
       ;;
 
-      unprotect)
+      'unprotect')
          # shellcheck source=src/mulle-sde-init.sh
          include "sde::init"
 
          sde::init::protect_unprotect "Unprotect" "ug+w"
       ;;
 
-      unveil)
+      'unveil')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root "environment" 'NO'
@@ -1712,24 +1747,23 @@ view"
          sde::unveil::main "$@"
       ;;
 
-      upgrade)
+      'upgrade')
          # shellcheck source=src/mulle-sde-upgrade.sh
          include "sde::upgrade"
 
          sde::upgrade::main "$@"
       ;;
 
-      username)
+      'username')
          rexekutor printf "%s\n" "${MULLE_USERNAME}"
       ;;
 
-      version)
+      'version')
          rexekutor printf "%s\n" "${MULLE_EXECUTABLE_VERSION}"
          return 0
       ;;
 
-
-      view)
+      'view')
          log_info "${C_BR_BLUE}${C_BOLD}Environment"
          mulle-sde -s env list --output-eval \
          | GREP_COLOR=none grep -E '^MULLE_SOURCETREE_CONFIG|^MULLE_CRAFT_|FLAGS=' \
@@ -1755,6 +1789,11 @@ view"
          log_info "${C_BR_BLUE}${C_BOLD}Craftinfo"
          mulle-sde craftinfo
          echo
+      ;;
+
+
+      '')
+         log_warning "You are already in a virtual environment ($MULLE_VIRTUAL_ROOT)"
       ;;
 
       *)

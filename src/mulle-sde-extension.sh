@@ -185,7 +185,7 @@ Usage:
 
 EOF
 
-   sde::extension::show_main extra >&2
+   mulle-sde extension list extra >&2
 
    exit 1
 }
@@ -1134,7 +1134,10 @@ sde::extension::show_main()
 
    case "${cmd}" in
       vendor|vendors)
-         log_info "Available vendors"
+         if [ "${OPTION_EMIT_FUNCTION}" = 'sde::extension::emit' ]
+         then
+            log_info "Available vendors"
+         fi
          printf "%s\n" "`sde::extension::list_vendors`"
          return
       ;;
@@ -1658,7 +1661,7 @@ sde::extension::usage_main()
    [ -z "${extension}" ] && sde::extension::usage_usage "missing extension name"
    shift
 
-   [ "$#" -ne 0 ] && sde::extension::usage_usage "superflous arguments \"$*\""
+   [ "$#" -ne 0 ] && sde::extension::usage_usage "superfluous arguments \"$*\""
 
    if [ "${OPTION_LIST_TYPES}" = 'YES' ]
    then

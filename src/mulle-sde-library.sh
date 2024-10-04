@@ -92,9 +92,9 @@ Usage:
    without prefix or suffix. E.g. "libm.a" is just "m".
 
 Examples:
-      ${MULLE_USAGE_NAME} libraries add pthread
-      ${MULLE_USAGE_NAME} libraries add -lpthread -lm
-      ${MULLE_USAGE_NAME} libraries add $(pkg-config --static --libs-only-l glfw3)
+      ${MULLE_USAGE_NAME} library add pthread
+      ${MULLE_USAGE_NAME} library add -lpthread -lm
+      ${MULLE_USAGE_NAME} library add \$(pkg-config --static --libs-only-l glfw3)
 
 Options:
    -l<name>    : add a system library, multiple use possible
@@ -102,6 +102,9 @@ Options:
    --framework : library is a MacOS framework (does NOT imply --objc)
    --objc      : used for static Objective-C libraries
    --optional  : library is not required to exist
+   --<os>      : use library only on platform <os> (\`mulle-sde common-unames\`)
+   --no-header : do not generate include statements
+   --no-<os>   : library will be ignored on platform <os>
    --private   : headers are not visible to API consumers
 EOF
   exit 1
@@ -288,7 +291,7 @@ ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libn
 }
 
 
-# let add run mulitple times over input
+# let add run multiple times over input
 sde::library::add_main()
 {
    log_entry "sde::library::add_main" "$@"
@@ -297,16 +300,23 @@ sde::library::add_main()
    local userinfo
    local names
    local added
-   local marks
-   local defaultmarks
    local OPTION_FRAMEWORK='NO'
    local s
+   local included_platforms
+   local excluded_platforms
 
    # default is
+   local marks
+   local defaultmarks
+
    defaultmarks="${LIBRARY_INIT_MARKS},no-import,no-import,no-cmake-inherit"
    marks="${defaultmarks}"
 
    include "mulle-sourcetree::marks"
+
+   local known_platforms
+
+   known_platforms="`mulle-bashfunctions common-unames`"
 
    while [ $# -ne 0 ]
    do
@@ -388,7 +398,7 @@ sde::library::add_main()
             marks="${RVAL}"
          ;;
 
-        --userinfo)
+         --userinfo)
             [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
             shift
 
@@ -420,6 +430,44 @@ sde::library::add_main()
             added='YES'
          ;;
 
+         --no-*)
+            platform="${1:5}"
+            case "${platform}" in
+               macos)
+                  platform="${platform}"
+               ;;
+            esac
+
+            if ! find_line "${known_platforms}" "${platform}"
+            then
+               sde::library::add_usage "Unknown option \"$1\""
+            fi
+
+            r_remove_line "${included_platforms}" "${platform}"
+            included_platforms="${RVAL}"
+            r_add_unique_line "${excluded_platforms}" "${platform}"
+            excluded_platforms="${RVAL}"
+         ;;
+
+         --*)
+            platform="${1:2}"
+            case "${platform}" in
+               macos)
+                  platform="${platform}"
+               ;;
+            esac
+
+            if ! find_line "${known_platforms}" "${platform}"
+            then
+               sde::library::add_usage "Unknown option \"$1\""
+            fi
+
+            r_remove_line "${excluded_platforms}" "${platform}"
+            included_platforms="${RVAL}"
+            r_add_unique_line "${included_platforms}" "${platform}"
+            included_platforms="${RVAL}"
+         ;;
+
          -*)
             sde::library::add_usage "Unknown option \"$1\""
          ;;
@@ -429,6 +477,20 @@ sde::library::add_main()
          ;;
 
          *)
+            local line
+
+            .foreachline line in ${included_platforms}
+            .do
+               sourcetree::marks::r_add "${marks}" "only-platform-${line}"
+               marks="${RVAL}"
+            .done
+
+            .foreachline line in ${excluded_platforms}
+            .do
+               sourcetree::marks::r_add "${marks}" "no-platform-${line}"
+               marks="${RVAL}"
+            .done
+
             if [ "${OPTION_FRAMEWORK}" = 'YES' ]
             then
                sourcetree::marks::r_add "${marks}" "only-framework"

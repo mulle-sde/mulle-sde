@@ -34,6 +34,6 @@ if( DEFINITION_DIRS)
 	   )
 	endforeach()
 else()
-   message( FATAL_ERROR "Remove craftinfo \"<|ONESHOT_NAME|>\" as it is empty with:\n   mulle-sourcetree remove craftinfo/<|ONESHOT_NAME|>\n   rm -rf craftinfo/<|ONESHOT_NAME|>")
+   message( SEND_ERROR "Remove craftinfo \"<|ONESHOT_NAME|>\" as it is empty with:\n   mulle-sourcetree remove craftinfo/<|ONESHOT_NAME|>\n   rm -rf craftinfo/<|ONESHOT_NAME|>")
 endif()
 
