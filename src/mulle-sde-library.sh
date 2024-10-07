@@ -42,6 +42,7 @@ LIBRARY_INIT_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 LIBRARY_MARKS="no-fs,no-dependency,no-build,no-update,no-delete"
 LIBRARY_LIST_MARKS="no-dependency"
 LIBRARY_LIST_NODETYPES="none"
+LIBRARY_NODETYPE="none"
 
 #
 # This puts some additional stuff into userinfo of the sourcetree
@@ -70,6 +71,7 @@ Options:
 
 Commands:
    add    : add a library or multiple libraries
+   export : export library entry as script
    get    : retrieve library settings
    list   : list libraries (default)
    remove : remove a library
@@ -561,11 +563,12 @@ sde::library::set_main()
    local marks
 
    if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}"  \
-                              get "${address}" marks`"
+                              get --marks "${LIBRARY_MARKS}" none "${address}" marks`"
    then
       return 1
    fi
 
+   # superflous now
    if ! sde::common::marks_compatible_with_marks "${marks}" "${LIBRARY_MARKS}"
    then
       fail "${address} is not a library.
@@ -619,12 +622,16 @@ sde::library::get_main()
    done
 
    local address="$1"
+
    [ -z "${address}" ] && sde::library::get_usage "Missing address"
    shift
 
    local field="$1"
+
    [ -z "${field}" ] && sde::library::get_usage "Missing field"
    shift
+
+   [ $# -ne 0 ] && sde::library::get_usage "Superflous arguments $*"
 
    case "${field}" in
       # can be easily extended with more fields,
@@ -637,9 +644,30 @@ sde::library::get_main()
       ;;
 
       *)
-         sde::library::get_usage "Unknown field name \"${field}\""
+         rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        ${MULLE_SOURCETREE_FLAGS:-} \
+                     get --marks "${LIBRARY_MARKS}" \
+                         --nodetype "${LIBRARY_NODETYPE}" \
+                     "${address}" \
+                     "${field}"
       ;;
    esac
+}
+
+
+sde::library::export_main()
+{
+   log_entry "sde::library::export_main" "$@"
+
+   local address="$1"
+
+   [ -z "${address}" ] && sde::dependency::export_usage "missing address"
+   shift
+
+   include "sde::common"
+
+   sde::common::export_sourcetree_node 'library' "${address}" "${LIBRARY_MARKS}"
 }
 
 
@@ -791,7 +819,7 @@ sde::library::main()
    include "sde::common"
 
    case "${cmd}" in
-      add|get|list|set)
+      add|export|get|list|set)
          sde::library::${cmd}_main "$@"
       ;;
 

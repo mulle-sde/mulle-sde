@@ -163,6 +163,68 @@ sde::migrate::from_v1_14_to_v2_2()
 }
 
 
+sde::migrate::from_v2_2_to_v3_2()
+{
+   log_entry "sde::migrate::from_v2_2_to_v3_2" "$@"
+
+   local files
+   local old_craft_dir
+   local craft_dir
+
+   local sourcetree_name
+   local sourcetree
+   local name
+
+   if [ ! -d "craftinfo" ]
+   then
+      return
+   fi
+
+   files="`dir_list_files craftinfo '*' 'd'`"
+   .foreachline old_craft_dir in ${files}
+   .do
+      case "${old_craft_dir}" in
+         *-craftinfo)
+            .continue
+         ;;
+      esac
+
+      craft_dir="${old_craft_dir}-craftinfo"
+      if [ -d "${craft_dir}" ]
+      then
+         .continue
+      fi
+
+      r_basename "${old_craft_dir}"
+      name="${RVAL}"
+
+      exekutor mv "${old_craft_dir}" "${craft_dir}"
+
+
+      shell_enable_nullglob
+      for sourcetree in .mulle/etc/sourcetree/*
+      do
+         if [ -d "${sourcetree}" ]
+         then
+            continue
+         fi
+
+         r_basename "${sourcetree}"
+         sourcetree_name="${RVAL}"
+
+         rexekutor mulle-sourcetree ${MULLE_TECHNICAL_FLAGS} \
+                                    --config-name "${sourcetree_name}" \
+                                    rename \
+                                       "craftinfo/${name}" \
+                                       "craftinfo/${name}-craftinfo"
+      done
+      shell_disable_nullglob
+
+   .done
+}
+
+
+
 sde::migrate::do()
 {
    log_entry "sde::migrate::do" "$@"
@@ -210,7 +272,7 @@ sde::migrate::do()
       oldminor=47
    fi
 
-   if [ "${oldmajor}" -lt 1 ] || [ "${oldmajor}" -eq 1 -a "${oldminor}" -le 13 ]
+   if [ "${oldmajor}" -lt 1 ] || [ "${oldmajor}" -eq 1 -a "${oldminor}" -lt 14 ]
    then
       (
          sde::migrate::from_v0_47_to_v1_14
@@ -219,13 +281,23 @@ sde::migrate::do()
       oldminor=14
    fi
 
-   if [ "${oldmajor}" -lt 2 ] || [ "${oldmajor}" -eq 2 -a "${oldminor}" -le 2 ]
+   if [ "${oldmajor}" -lt 2 ] || [ "${oldmajor}" -eq 2 -a "${oldminor}" -lt 2 ]
    then
       (
          sde::migrate::from_v1_14_to_v2_2
       ) || exit 1
       oldmajor=2
       oldminor=2
+   fi
+
+   # for debugging run this always before release...
+   if [ "${oldmajor}" -lt 3 ] || [ "${oldmajor}" -eq 3 -a "${oldminor}" -lt 3 ]
+   then
+      (
+         sde::migrate::from_v2_2_to_v3_2
+      ) || exit 1
+      oldmajor=3
+      oldminor=3
    fi
 
    #

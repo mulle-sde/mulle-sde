@@ -75,6 +75,7 @@ EOF
 Commands:
    create          : create an empty craftinfo. Rarely needed. Use \`set\`.
    exists          : check if a craftinfo is available from CRAFTINFO_REPOS
+   export          : output shell script commands
    fetch           : fetch craftinfo from CRAFTINFO_REPOS
    get             : retrieve a build setting of a dependency
    info            : find online help for a dependency
@@ -368,6 +369,24 @@ EOF
 }
 
 
+
+sde::craftinfo::export_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency craftinfo export [dep]
+
+   Export build settings of a dependency for use in a craftinfo "add"
+   script.
+
+EOF
+  exit 1
+}
+
+
+
 sde::craftinfo::list_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -498,7 +517,7 @@ sde::craftinfo::readd_main()
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    "${OPTION_LENIENT}" \
-                                                   "${OPTION_CONFIG_NAME}"
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -622,6 +641,10 @@ sde::craftinfo::__vars_with_url_or_address()
       ;;
    esac
 
+   #
+   # The -craftinfo suffix to the name is there to disambiguate in cmake
+   # target names
+   #
    r_basename "${_address}"
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}-craftinfo"
@@ -715,7 +738,7 @@ sde::craftinfo::create_main()
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    "${OPTION_LENIENT}" \
-                                                   "${OPTION_CONFIG_NAME}"
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -777,7 +800,7 @@ sde::craftinfo::remove_main()
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    'NO' \
-                                                   "${OPTION_CONFIG_NAME}"
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -850,7 +873,7 @@ sde::craftinfo::exists_main()
 
    if ! sde::craftinfo::__vars_with_url_or_address "$1" \
                                                    'YES' \
-                                                   "${OPTION_CONFIG_NAME}"
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -1077,9 +1100,9 @@ sde::craftinfo::fetch_main()
    local _folder
    local _config
 
-   if ! sde::craftinfo::__vars_with_url_or_address "$1" \
-                                                   "${OPTION_LENIENT}"
-                                                   "${OPTION_CONFIG_NAME}"
+   if ! sde::craftinfo::__vars_with_url_or_address "$1"                \
+                                                   "${OPTION_LENIENT}" \
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -1118,86 +1141,6 @@ sde::craftinfo::fetch_main()
    fail "There is no craftinfo available for download ($url)"
 }
 
-
-sde::craftinfo::set_main()
-{
-   log_entry "sde::craftinfo::set_main" "$@"
-
-   local extension="$1"; shift
-
-   local flags
-
-   while :
-   do
-      case "$1" in
-         -h|--help|help)
-            sde::craftinfo::set_usage
-         ;;
-
-         --append)
-            r_concat "${flags}" "$1"
-            flags="${RVAL}"
-         ;;
-
-         -*)
-            sde::craftinfo::set_usage "Unknown option \"$1\""
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-
-      shift
-   done
-
-   [ $# -eq 0 ] && sde::craftinfo::set_usage "Missing url or address argument"
-
-   local url="$1"
-   shift
-
-   [ "$#" -eq 0 ] && sde::craftinfo::set_usage "Missing key"
-   [ "$#" -eq 1 ] && sde::craftinfo::set_usage "Missing value"
-   [ "$#" -gt 2 ] && sde::craftinfo::set_usage "Superflous arguments \"$*\""
-
-   if [ "${extension}" = "DEFAULT" ]
-   then
-      extension=""
-   fi
-
-   local _address
-   local _name
-   local _subprojectdir
-   local _folder
-   local _config
-
-   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
-                                                   'NO' \
-                                                   "${OPTION_CONFIG_NAME}"
-   then
-      return 1
-   fi
-
-   sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
-                                                      "${_name}" \
-                                                      "${OPTION_COPY}" \
-                                                      "DEFAULT"
-   case "$?" in
-      0|2)
-      ;;
-
-      *)
-         exit 1
-      ;;
-   esac
-
-   exekutor "${MULLE_MAKE}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               definition \
-                     --definition-dir "${_folder}${extension}" \
-                  set \
-                     ${flags} "$@"
-}
 
 
 
@@ -1281,7 +1224,7 @@ sde::craftinfo::script_main()
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    'NO' \
-                                                   "${OPTION_CONFIG_NAME}"
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -1357,6 +1300,94 @@ sde::craftinfo::script_main()
 }
 
 
+sde::craftinfo::set_main()
+{
+   log_entry "sde::craftinfo::set_main" "$@"
+
+   local extension="$1"; shift
+
+   local flags
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::craftinfo::set_usage
+         ;;
+
+         --append|--append0|--additive|--non-additive|--clobber|-concat|--concat0|--ifempty)
+            r_concat "${flags}" "$1"
+            flags="${RVAL}"
+         ;;
+
+         -*)
+            sde::craftinfo::set_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local url
+
+   if [ -z "${OPTION_ADDRESS}" ]
+   then
+      [ $# -eq 0 ] && sde::craftinfo::unset_usage "Missing url or address argument"
+
+      url="$1"
+      shift
+   else
+      url="${OPTION_ADDRESS}"
+   fi
+
+   [ "$#" -eq 0 ] && sde::craftinfo::set_usage "Missing key"
+   [ "$#" -eq 1 ] && sde::craftinfo::set_usage "Missing value"
+   [ "$#" -gt 2 ] && sde::craftinfo::set_usage "Superflous arguments \"$*\""
+
+   if [ "${extension}" = "DEFAULT" ]
+   then
+      extension=""
+   fi
+
+   local _address
+   local _name
+   local _subprojectdir
+   local _folder
+   local _config
+
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   'NO' \
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
+   then
+      return 1
+   fi
+
+   sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
+                                                      "${_name}" \
+                                                      "${OPTION_COPY}" \
+                                                      "DEFAULT"
+   case "$?" in
+      0|2)
+      ;;
+
+      *)
+         exit 1
+      ;;
+   esac
+
+   exekutor "${MULLE_MAKE}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               definition \
+                     --definition-dir "${_folder}${extension}" \
+                  set \
+                     ${flags} "$@"
+}
+
+
 sde::craftinfo::unset_main()
 {
    log_entry "sde::craftinfo::unset_main" "$@"
@@ -1383,10 +1414,17 @@ sde::craftinfo::unset_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde::craftinfo::unset_usage "Missing url or address argument"
+   local url
 
-   local url="$1"
-   shift
+   if [ -z "${OPTION_ADDRESS}" ]
+   then
+      [ $# -eq 0 ] && sde::craftinfo::unset_usage "Missing url or address argument"
+
+      url="$1"
+      shift
+   else
+      url="${OPTION_ADDRESS}"
+   fi
 
    [ "$#" -eq 0 ] && sde::craftinfo::unset_usage "Missing key"
    [ "$#" -gt 1 ] && shift && sde::craftinfo::unset_usage "Superflous arguments \"$*\""
@@ -1404,7 +1442,7 @@ sde::craftinfo::unset_main()
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    'NO' \
-                                                   "${OPTION_CONFIG_NAME}"
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
       return 1
    fi
@@ -1444,10 +1482,17 @@ sde::craftinfo::get_main()
       shift
    done
 
-   [ $# -eq 0 ] && sde::craftinfo::get_usage "Missing url or address argument"
+   local url
 
-   local url="$1"
-   shift
+   if [ -z "${OPTION_ADDRESS}" ]
+   then
+      [ $# -eq 0 ] && sde::craftinfo::get_usage "Missing url or address argument"
+
+      url="$1"
+      shift
+   else
+      url="${OPTION_ADDRESS}"
+   fi
 
    [ $# -eq 0 ] && sde::craftinfo::get_usage "Missing key"
 
@@ -1461,7 +1506,7 @@ sde::craftinfo::get_main()
    then
       sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                  'YES' \
-                                                 "${OPTION_CONFIG_NAME}"
+                                                 "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
 
       local rval
 
@@ -1489,7 +1534,7 @@ sde::craftinfo::get_main()
 
    sde::craftinfo::__vars_with_url_or_address "${url}" \
                                               'YES' \
-                                              "${OPTION_CONFIG_NAME}"
+                                              "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
 
    exekutor "${MULLE_MAKE}"  \
                   ${MULLE_TECHNICAL_FLAGS} \
@@ -1515,51 +1560,55 @@ sde::craftinfo::_list_main()
    local _subprojectdir
    local _folder
    local _config
-   local text1
-   local text2
 
-   if [ "${extension}" = "DEFAULT" ]
+   if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
+                                                   'YES'     \
+                                                   "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
    then
-      if sde::craftinfo::__vars_with_url_or_address "${url}" 'YES' "${OPTION_CONFIG_NAME}"
-      then
-         text1="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
-            definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"`"
-         text2="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
-            definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@" | \
-               sed "s/^/   ${indent}/"`"
-
-         if [ ! -z "${text1}" -o ! -z "${text2}" ]
-         then
-            if [ ! -z "${_config}" ]
-            then
-               log_info "${url}.${_config}"
-            else
-               log_info "${url}"
-            fi
-
-            if [ ! -z "${text1}" ]
-            then
-               log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
-               printf "%s\n" "${text1}"
-            fi
-
-            if [ ! -z "${text2}" ]
-            then
-               log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
-               printf "%s\n" "${text2}"
-            fi
-         fi
-      fi
-      return
+      return 1
    fi
 
-   if sde::craftinfo::__vars_with_url_or_address "${url}" 'YES' "${OPTION_CONFIG_NAME}"
+   log_info "${url}"
+
+   if [ "${extension}" != "DEFAULT" ]
    then
       log_info "${url}${extension}"
 
       log_info "${C_MAGENTA}${C_BOLD}${indent}${extension} ${C_RESET_BOLD}"
       exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
          definition --definition-dir "${_folder}${extension}" list "$@"  | sed "s/^/   ${indent}/"
+      return $?
+   fi
+
+   local text1
+   local text2
+
+   text1="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
+      definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"`"
+   text2="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
+      definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@" | \
+         sed "s/^/   ${indent}/"`"
+
+   if [ ! -z "${text1}" -o ! -z "${text2}" ]
+   then
+      if [ ! -z "${_config}" ]
+      then
+         log_info "${url}.${_config}"
+      else
+         log_info "${url}"
+      fi
+
+      if [ ! -z "${text1}" ]
+      then
+         log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
+         printf "%s\n" "${text1}"
+      fi
+
+      if [ ! -z "${text2}" ]
+      then
+         log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
+         printf "%s\n" "${text2}"
+      fi
    fi
 }
 
@@ -1597,25 +1646,277 @@ sde::craftinfo::list_main()
       shift
    done
 
-   if [ -z "${url}" ]
+   if [ ! -z "${url}" ]
    then
-      .foreachline url in `mulle-sde dependency list --columnar \
-                                                     -- \
-                                                        --format '%a\n' \
-                                                        --output-format csv \
-                                                        --output-no-header`
-      .do
-         case "${url}" in
-            craftinfo/*)
-               .continue
-            ;;
-         esac
-
-         sde::craftinfo::_list_main "${extension}" "${url}" "   "
-      .done
-   else
       sde::craftinfo::_list_main "${extension}" "${url}" ""
+      return $?
    fi
+
+   .foreachline url in `mulle-sde dependency list --columnar \
+                                                  -- \
+                                                     --format '%a\n' \
+                                                     --output-format csv \
+                                                     --output-no-header`
+   .do
+      # ignore crafinfo dependencies, slightly counterintuitively
+      case "${url}" in
+         craftinfo/*)
+            .continue
+         ;;
+      esac
+
+      sde::craftinfo::_list_main "${extension}" "${url}" "   "
+   .done
+}
+
+
+sde::craftinfo::export_definitions()
+{
+   log_entry "sde::craftinfo::export_definitions" "$@"
+
+   local definition_dir="$1"
+   local config_name="$2"
+   local address="$3"
+
+   local os_name
+
+   r_path_extension "${definition_dir}"
+   os_name="${RVAL}"
+
+   local export_line
+
+   export_line="mulle-sde craftinfo"
+   if [ "${config_name:-default}" != 'default' ]
+   then
+      r_concat "${export_line}" "--config '${config_name}'"
+      export_line="${RVAL}"
+   fi
+   if [ ! -z "${os_name}" ]
+   then
+      r_concat "${export_line}" "--os '${os_name}'"
+      export_line="${RVAL}"
+   fi
+   export_line="${export_line} --address '${address}'"
+
+   rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
+               definition                              \
+                  --definition-dir "${definition_dir}" \
+                  export                               \
+                     --export-command "${export_line}"
+}
+
+
+sde::craftinfo::export_scripts()
+{
+   log_entry "sde::craftinfo::export_scripts" "$@"
+
+   local config_dir="$1"
+
+   if [ ! -d "${config_dir}/bin" ]
+   then
+      return
+   fi
+
+   local scripts
+   local script
+   local actual_scripts
+
+   scripts="`dir_list_files "${config_dir}/bin" '' 'f'`"
+
+   .foreachline script in ${scripts}
+   .do
+      case "${script}" in
+         *\.example)
+            log_fluff "Ignore example file \"${script}\""
+            .continue
+         ;;
+      esac
+
+      if [ ! -x "${script}" ]
+      then
+         log_fluff "Ignore file \"${script}\" as its not executable"
+         .continue
+      fi
+
+      r_add_line "${actual_scripts}" "${script}"
+      actual_scripts="${RVAL}"
+   .done
+
+   if [ -z "${actual_scripts}" ]
+   then
+      return
+   fi
+
+   # use  "quoted" heredoc
+   printf "#\n"
+   printf "# Scripts\n"
+   printf "#\n\n"
+   printf "mkdir -p \"${config_dir}/bin\"\n"
+
+   local script_name
+
+   .foreachline script in ${actual_scripts}
+   .do
+      r_basename "${script}"
+      script_name="${RVAL}"
+
+      printf "cat <<'EOF' > \"${config_dir}/bin/${script_name}\"\n"
+      cat "${script}"
+      printf "EOF\n"
+      printf "chmod 755 \"${config_dir}/bin/${script_name}\"\n\n"
+   .done
+}
+
+
+sde::craftinfo::_export_main()
+{
+   log_entry "sde::craftinfo::_export_main" "$@"
+
+   local extension="$1"
+   local export_scripts="$2"
+   shift 2
+
+   local address="$1"
+
+   local name
+
+   r_basename "${address}"
+   name="${RVAL}"
+
+   if [ -z "${name}" ]
+   then
+      fail "need a name"
+   fi
+
+   #
+   # MEMO do not use "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
+   # for export
+   #
+   local configname="${OPTION_CONFIG_NAME}"
+   local pattern
+
+   if [ -z "${configname}" ]
+   then
+      pattern='*'
+   else
+      pattern=".${configname}"
+   fi
+
+   local config_dirs
+   local config_dir
+
+   pattern="${name}-craftinfo${pattern}"
+   config_dirs="`dir_list_files craftinfo "${pattern}" 'd'`"
+   if [ -z "${config_dirs}" ]
+   then
+      fail "No craftinfos found for \"${address}\" (craftinfo/${name}-craftinfo)"
+   fi
+
+   local definition_dir
+   local definition_dirs
+   local config_name
+   local have_definition_dir
+
+   .foreachline config_dir in ${config_dirs}
+   .do
+      r_basename "${config_dir}"
+      case "${RVAL}" in
+         *\.*)
+            config_name="${RVAL##*\.}"
+         ;;
+
+         *)
+            config_name='default'
+         ;;
+      esac
+
+#      r_filepath_concat "craftinfo" "${config_dir}"
+#      config_dir="${RVAL}"
+
+      if [ -z "${extension}" ]
+      then
+         pattern='*'
+      else
+         pattern="${extension}"
+      fi
+
+      definition_dirs="`dir_list_files "${config_dir}" "definition${pattern}" 'd'`"
+      .foreachline definition_dir in ${definition_dirs}
+      .do
+         sde::craftinfo::export_definitions "${definition_dir}" \
+                                            "${config_name}" \
+                                            "${address}"
+         have_definition_dir='YES'
+      .done
+
+      # export scripts if wanted
+      if [ "${export_scripts}" = 'YES' ]
+      then
+         if [ -z "${have_definition_dir}" ]
+         then
+            printf "mulle-sde craftinfo create \"${config_name}\"\n"
+            have_definition_dir='NO' # just marker as we printed already
+         fi
+
+         sde::craftinfo::export_scripts "${config_dir}"
+      fi
+   .done
+}
+
+
+sde::craftinfo::export_main()
+{
+   log_entry "sde::craftinfo::export_main" "$@"
+
+   local extension="$1"; shift
+   local url
+
+   local OPTION_EXPORT_SCRIPTS='YES'
+
+   while :
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::craftinfo::export_usage
+         ;;
+
+         --export-scripts)
+            OPTION_EXPORT_SCRIPTS='YES'
+         ;;
+
+         --no-export-scripts)
+            OPTION_EXPORT_SCRIPTS='NO'
+         ;;
+
+         --)
+            shift
+            break
+         ;;
+
+         -*)
+            sde::craftinfo::export_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   [ $# -ne 1 ] && sde::craftinfo::export_usage
+
+   local url
+
+   url="$1"
+
+   if [ "${extension}" = 'DEFAULT' ]
+   then
+      extension=""
+   fi
+
+   sde::craftinfo::_export_main "${extension}" "${OPTION_EXPORT_SCRIPTS}" "${url}" ""
 }
 
 
@@ -1661,6 +1962,7 @@ sde::craftinfo::show_main()
       for url in ${urls}
       do
          IFS="${DEFAULT_IFS}"
+
          r_basename "${url}"
          user="${RVAL}"
 
@@ -1680,7 +1982,7 @@ sde::craftinfo::main()
    log_entry "sde::craftinfo::main" "$@"
 
    local extension
-   local OPTION_CONFIG_NAME="${MULLE_SOURCETREE_CONFIG_NAME}"
+   local OPTION_CONFIG_NAME
 
    extension="DEFAULT"
 
@@ -1701,6 +2003,14 @@ sde::craftinfo::main()
             shift
 
             OPTION_CONFIG_NAME="$1"
+         ;;
+
+         --address)
+            [ "$#" -eq 1 ] && \
+               sde::craftinfo::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_ADDRESS="$1"
          ;;
 
          --os|--platform)
@@ -1738,7 +2048,7 @@ sde::craftinfo::main()
    fi
 
    case "${subcmd}" in
-      create|set|get|list|fetch|exists|readd|remove|script|show|unset)
+      create|set|get|list|fetch|export|exists|readd|remove|script|show|unset)
          sde::craftinfo::${subcmd}_main "${extension}" "$@" || return 1
          if [ "${subcmd}" = "set" -o "${subcmd}" = "script" ]
          then

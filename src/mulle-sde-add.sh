@@ -340,9 +340,9 @@ sde::add::file_via_oneshot_extension()
    local names
 
    names="${name}"
-   sde::add::r_get_class_category_genericname "${filename}" \
-                                              "${name}" \
-                                              "${type}" \
+   sde::add::r_get_class_category_genericname "${filename}"      \
+                                              "${name}"          \
+                                              "${type}"          \
                                               "${type_defaults}" \
                                               "${ext}"
    if [ -z "${names}" ]
@@ -356,11 +356,11 @@ sde::add::file_via_oneshot_extension()
    log_setting "category:     ${_category}"
    log_setting "genericname:  ${_genericname}"
 
-   sde::add::_file_via_oneshot_extension "${filename}" \
-                                         "${vendors}" \
-                                         "${names}" \
-                                         "${_class}" \
-                                         "${_category}" \
+   sde::add::_file_via_oneshot_extension "${filename}"     \
+                                         "${vendors}"      \
+                                         "${names}"        \
+                                         "${_class}"       \
+                                         "${_category}"    \
                                          "${_genericname}"
 }
 
@@ -410,10 +410,10 @@ sde::add::in_project()
       rval=4
       if [ ! -z "${query_vendors}" ]
       then
-         sde::add::file_via_oneshot_extension "${filename}" \
+         sde::add::file_via_oneshot_extension "${filename}"      \
                                               "${query_vendors}" \
-                                              "${name}" \
-                                              "${type}" \
+                                              "${name}"          \
+                                              "${type}"          \
                                               "${type_defaults}" \
                                               "${ext}"
          rval=$?
@@ -432,10 +432,10 @@ sde::add::in_project()
          # fallback to all
          query_vendors="`sde::extension::main vendors`"
 
-         sde::add::file_via_oneshot_extension "${filename}" \
+         sde::add::file_via_oneshot_extension "${filename}"      \
                                               "${query_vendors}" \
-                                              "${done_names}" \
-                                              "${type}" \
+                                              "${done_names}"    \
+                                              "${type}"          \
                                               "${type_defaults}" \
                                               "${ext}"
          rval=$?
@@ -583,11 +583,11 @@ sde::add::main()
    fi
 
    local OPTION_ALMAGAMATED
-   local OPTION_BUILD_TYPE
+   local OPTION_BUILD_TYPE="--release"
    local OPTION_DIRECTORY
    local OPTION_EMBEDDED
+   local OPTION_EXTERNAL_COMMAND='YES'
    local OPTION_FILE_EXTENSION
-   local OPTION_GUI
    local OPTION_IS_URL='DEFAULT'
    local OPTION_NAME
    local OPTION_POST_INIT='YES'
@@ -609,7 +609,7 @@ sde::add::main()
          ;;
 
          --debug|--release)
-            OPTION_BUILD_TYPE="${1:2}"
+            OPTION_BUILD_TYPE="$1"
          ;;
 
          --amalgamated)
@@ -699,6 +699,10 @@ sde::add::main()
             OPTION_POST_INIT='NO'
          ;;
 
+         --no-external-command)
+            OPTION_EXTERNAL_COMMAND='NO'
+         ;;
+
          -v|--vendor)
             [ $# -eq 1 ] && sde::add::usage "Missing argument to \"$1\""
             shift
@@ -759,6 +763,21 @@ sde::add::main()
    local scheme domain host user repo branch tag scm
    local flag
 
+   if [ $# -eq 1 -a "${OPTION_EXTERNAL_COMMAND}" = 'YES' ]
+   then
+      include "sde::common"
+
+      sde::common::update_git_if_needed "${HOME}/.mulle/share/craftinfo" \
+                                        "${MULLE_SDE_CRAFTINFO_URL:-https://github.com/craftinfo/craftinfo.git}" \
+                                        "${MULLE_SDE_CRAFTINFO_BRANCH}"
+
+      sde::common::maybe_exec_external_command 'add' \
+                                               "$1"  \
+                                               "${HOME}/.mulle/share/craftinfo" \
+                                               'YES'
+      # if no external command happened, just continue
+   fi
+
    for filename in "$@"
    do
       r_filepath_concat "${OPTION_DIRECTORY}" "${filename}"
@@ -813,7 +832,6 @@ sde::add::main()
          esac
       fi
 
-
       #
       # check if destination is within our project, decide on where to go
       #
@@ -821,10 +839,10 @@ sde::add::main()
       then
          if [ "${OPTION_IS_URL}" != 'YES' ]
          then
-            sde::add::not_in_project "${filename}" \
+            sde::add::not_in_project "${filename}"      \
                                      "${OPTION_VENDOR}" \
-                                     "${OPTION_NAME}" \
-                                     "${OPTION_TYPE}" \
+                                     "${OPTION_NAME}"   \
+                                     "${OPTION_TYPE}"   \
                                      "${OPTION_FILE_EXTENSION}" || return $?
 
             continue
@@ -841,8 +859,8 @@ sde::add::main()
          fi
 
          rexekutor "${MULLE_SDE:-mulle-sde}" \
-                        ${MULLE_TECHNICAL_FLAGS} init ${flags} \
-                                                      -e sde \
+                        ${MULLE_TECHNICAL_FLAGS} init ${flags}  \
+                                                      -e sde    \
                                                       --no-demo \
                                                       --if-missing || return 1
          has_run_init='YES'
@@ -857,10 +875,10 @@ sde::add::main()
                && flag="--amalgamated" \
                || flag="--embedded"
 
-             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
-                        dependency add --scm "${scm}" \
+             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS}      \
+                        dependency add --scm "${scm}"          \
                                        --address "src/${repo}" \
-                                       ${flag} \
+                                       ${flag}                 \
                                        "${filename}" &&
             if [ "${OPTION_QUICK}" != 'YES' ]
             then
@@ -883,7 +901,7 @@ sde::add::main()
                then
                   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test craft || return $?
                else
-                  rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft --release craftorder || return $?
+                  rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft ${OPTION_BUILD_TYPE} craftorder || return $?
                fi
             fi
          fi
@@ -921,10 +939,10 @@ sde::add::main()
       fi
 
       if ! sde::add::in_project "${filepath#"${MULLE_VIRTUAL_ROOT}/"}" \
-                                "${OPTION_VENDOR}" \
-                                "${OPTION_NAME}" \
-                                "${OPTION_TYPE}" \
-                                "${type_defaults}" \
+                                "${OPTION_VENDOR}"                     \
+                                "${OPTION_NAME}"                       \
+                                "${OPTION_TYPE}"                       \
+                                "${type_defaults}"                     \
                                 "${OPTION_FILE_EXTENSION}"
       then
          return 1

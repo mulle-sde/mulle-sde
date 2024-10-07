@@ -100,6 +100,7 @@ function sde::print_commands()
    crun           : craft and run if project is an executable
    callback       : manage reflection callbacks
    env-identifier : get variable name "MULLE_UIOS" for a name like "MulleUIOS"
+   export         : export a dependency or library as mulle-sde commands
    extension      : manage language and buildtool extensions
    fetch          : fetch the sourcetree
    headerorder    : show header includes for dependencies and libraries
@@ -817,7 +818,7 @@ project-tree)
             # if there is no environment around
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|definition|dep|dependency|doctor|donefile|fetch|\
+craft-status|definition|dep|dependency|doctor|donefile|export|fetch|\
 file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
 mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
@@ -1011,6 +1012,7 @@ dependency-dir
 environment
 edit
 exec
+export
 extension
 fetch
 filename
@@ -1254,6 +1256,13 @@ view"
          unset arg
 
          eval_exekutor "${args}"
+      ;;
+
+      'export')
+         # shellcheck source=src/mulle-sde-export.sh
+         include "sde::export"
+
+         sde::export::main "$@"
       ;;
 
       'extension'|'ext')

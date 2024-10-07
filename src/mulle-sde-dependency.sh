@@ -92,6 +92,7 @@ Commands:
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
    etcs       : list all etc files in the built dependencies folder
+   export     : export dependency as script command
    fetch      : fetch dependencies (same as mulle-sde fetch)
    get        : retrieve a dependency settings from the sourcetree
    headers    : list all headers in the built dependencies folder
@@ -224,9 +225,9 @@ Options:
    --remove          : remove the value
 
 Keys:
-   aliases           : names of library to search for, separated by comma
-                       you can prefix a name with "Debug:" or "Release:" to
-                       narrow the use to these cmake build types
+   aliases           : names of library to search for, separated by comma.
+                       You can prefix a name with a build type and a colon,
+                       like "Debug:" or "Release:".
 EOF
    (
       cat <<EOF
@@ -237,6 +238,23 @@ EOF
    ) | sort >&2
 
   echo "" >&2
+  exit 1
+}
+
+
+sde::dependency::export_usage()
+{
+   [ "$#" -ne 0 ] &&  log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency export <dep>
+
+   Create mulle-sde command statements to recreate the dependency as
+   specified in the sourcetree. (This does not export the craftinfo,
+   use the more global \`mulle-sde export\` for this).
+
+EOF
   exit 1
 }
 
@@ -350,6 +368,7 @@ sde::dependency::r_upcaseid()
 
    r_smart_file_upcase_identifier "$1"
 }
+
 
 #
 #
@@ -544,10 +563,12 @@ sde::dependency::get_main()
    [ -z "${address}" ]&& sde::dependency::get_usage "missing address"
    shift
 
-   local field="$1";
+   local field="$1"
 
    [ -z "${field}" ] && sde::dependency::get_usage "missing field"
    shift
+
+   [ $# -ne 0 ] && sde::dependency::get_usage "Superflous arguments $*"
 
    case "${field}" in
       platform-excludes)
@@ -562,9 +583,30 @@ sde::dependency::get_main()
          rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                         ${MULLE_SOURCETREE_FLAGS:-} \
-                     get "${address}" "${field}"
+                     get --marks "${DEPENDENCY_MARKS}" \
+                        "${address}" \
+                        "${field}"
       ;;
    esac
+}
+
+
+sde::dependency::export_main()
+{
+   log_entry "sde::dependency::export_main" "$@"
+
+   [ $# -eq 0 ] && sde::dependency::export_usage
+
+   local address="$1"
+
+   [ -z "${address}" ] && sde::dependency::export_usage "empty address"
+   shift
+
+   [ $# -ne 0 ] && sde::dependency::export_usage "superflous arguments $*"
+
+   include "sde::common"
+
+   sde::common::export_sourcetree_node 'dependency' "${address}" "${DEPENDENCY_MARKS}"
 }
 
 
@@ -986,8 +1028,6 @@ sde::dependency::add_to_sourcetree()
 
    local line
    local lines
-   local arguments
-   local arguments_list
 
    lines="`rexekutor grep -E -v '^#' "${filename}"`"
    if [ -z "${lines}" ]
@@ -1087,6 +1127,7 @@ sde::dependency::add_main()
    local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_EXECUTABLE='NO'
    local OPTION_FETCH='YES'
+   local OPTION_LATEST='NO'
    local OPTION_MARKS
    local OPTION_OPTIONAL='NO'
    local OPTION_PRIVATE='NO'
@@ -1234,6 +1275,10 @@ sde::dependency::add_main()
          --if-missing)
             r_concat "${OPTION_OPTIONS}" "--if-missing"
             OPTION_OPTIONS="${RVAL}"
+         ;;
+
+         --latest)
+            OPTION_LATEST='YES'
          ;;
 
          --marks)
@@ -1394,6 +1439,8 @@ sde::dependency::add_main()
       ;;
    esac
 
+   local found_local
+
    #
    # Special case, if we just get a name, we check if this is a project
    # which is in MULLE_FETCH_SEARCH_PATH. If yes we pick its location and
@@ -1417,6 +1464,7 @@ sde::dependency::add_main()
          fi
 
          log_verbose "Found local \"${RVAL}\", assume github tar project"
+         found_local='YES'
 
          r_simplified_absolutepath "${directory}"
 #         r_dirname "${RVAL}"
@@ -1434,6 +1482,24 @@ sde::dependency::add_main()
       IFS="${DEFAULT_IFS}"
    fi
 
+   local skip_this
+
+   if [ -z "${found_local}" -a "${OPTION_LATEST}" = 'YES' ]
+   then
+      if ! latest_url="`rexekutor mulle-domain resolve --latest "${url}" '*' `"
+      then
+         log_warning "Could not figure out latest tag for \"${url}\""
+      else
+         # re-evaluate to fill values
+         eval `rexekutor mulle-domain parse-url "${latest_url}"`
+
+         # remap scm to nodetype, nodetype is misnomer through out this file
+         # it should be scm, here though nodetype must be available
+         nodetype="${scm}"
+         domain="${domain:-github}"
+      fi
+   fi
+
    log_setting "address      : ${address}"
    log_setting "branch       : ${branch}"
    log_setting "domain       : ${domain}"
@@ -1442,6 +1508,7 @@ sde::dependency::add_main()
    log_setting "nodetype     : ${nodetype}"
    log_setting "options      : ${options}"
    log_setting "repo         : ${repo}"
+#   log_setting "scm          : ${scm}"
    log_setting "tag          : ${tag}"
    log_setting "url          : ${url}"
    log_setting "user         : ${user}"
@@ -1521,7 +1588,7 @@ sde::dependency::add_main()
 
       case "${guessed_user}" in
          mulle*)
-            case "${scm}" in 
+            case "${scm}" in
                tar|zip)
                   tag="${tag:-latest}"
                ;;
@@ -1588,6 +1655,7 @@ sde::dependency::add_main()
          ;;
       esac
    fi
+
 
    include "sde::library"
 
@@ -2137,6 +2205,7 @@ craftinfo
 duplicate
 downloads
 etcs
+export
 fetch
 get
 headers
@@ -2176,11 +2245,11 @@ unmark"
          sde::fetch::main "$@"
       ;;
 
-      get)
+      get|export)
          # shellcheck source=src/mulle-sde-common.sh
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
-         sde::dependency::get_main "$@"
+         sde::dependency::${cmd}_main "$@"
          return $?
       ;;
 

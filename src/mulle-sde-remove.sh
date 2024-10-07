@@ -83,6 +83,7 @@ sde::remove::not_in_project()
 }
 
 
+
 ###
 ### parameters and environment variables
 ###
@@ -103,6 +104,7 @@ sde::remove::main()
    local OPTION_VENDOR
    local OPTION_ALL_VENDORS='NO'
    local OPTION_FILE_EXTENSION
+   local OPTION_EXTERNAL_COMMAND='YES'
    local OPTION_TYPE
    local OPTION_QUICK
    local OPTION_EMBEDDED
@@ -140,6 +142,10 @@ sde::remove::main()
             OPTION_IS_ENV='NO'
          ;;
 
+         --no-external-command)
+            OPTION_EXTERNAL_COMMAND='NO'
+         ;;
+
          -q|--quick)
             OPTION_QUICK='YES'
          ;;
@@ -157,6 +163,22 @@ sde::remove::main()
    done
 
    [ $# -ne 1  ] && sde::remove::usage
+
+
+   if [ $# -eq 1 -a "${OPTION_EXTERNAL_COMMAND}" = 'YES' ]
+   then
+      include "sde::common"
+
+      sde::common::update_git_if_needed "${HOME}/.mulle/share/craftinfo}" \
+                                        "${MULLE_SDE_CRAFTINFO_URL:-https://github.com/craftinfo/craftinfo.git}" \
+                                        "${MULLE_SDE_CRAFTINFO_BRANCH}"
+
+      sde::common::maybe_exec_external_command 'remove' \
+                                               "$1" \
+                                               "${HOME}/.mulle/share/craftinfo" \
+                                               'NO'
+      # if no external command happened, just continue
+   fi
 
    local filename
 
