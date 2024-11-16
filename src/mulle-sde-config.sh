@@ -524,6 +524,7 @@ sde::config::copy()
 sde::config::switch_local()
 {
    local name="$1"
+   local args="$2"
 
    #
    # when we change the environment with mulle-env
@@ -539,7 +540,7 @@ sde::config::switch_local()
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host set "MULLE_SOURCETREE_CONFIG_NAME" "${name}"
+                        environment ${args} set "MULLE_SOURCETREE_CONFIG_NAME" "${name}"
       eval "MULLE_SOURCETREE_CONFIG_NAME='${name}'"
       export MULLE_SOURCETREE_CONFIG_NAME
    else
@@ -550,7 +551,7 @@ sde::config::switch_local()
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host remove "MULLE_SOURCETREE_CONFIG_NAME"
+                        environment ${args} remove "MULLE_SOURCETREE_CONFIG_NAME"
       unset MULLE_SOURCETREE_CONFIG_NAME
    fi
 
@@ -563,7 +564,8 @@ sde::config::r_switch_dependency()
    log_entry "sde::config::r_switch_dependency" "$@"
 
    local dependency="$1"
-   local name="$2"
+   local args="$2"
+   local name="$3"
 
    [ "${dependency}" = "${PROJECT_NAME}" ] && fail "Dependency is the actual project. Omit -d <dependency> from command"
 
@@ -603,7 +605,7 @@ ${C_INFO}Use -f to force the switch"
             MULLE_VIRTUAL_ROOT=
             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
                                 ${MULLE_SDE_FLAGS} \
-                                config switch "${name}"
+                                config switch ${args} "${name}"
          ) || fail "failed because $?"
       fi
    fi
@@ -628,7 +630,7 @@ ${C_INFO}Use -f to force the switch"
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host set "${varname}" "${name}"
+                        environment ${args} set "${varname}" "${name}"
       eval "${varname}='${name}'"
       eval "export ${varname}"
    else
@@ -639,7 +641,7 @@ ${C_INFO}Use -f to force the switch"
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_ENV_FLAGS} \
-                        environment --this-host remove "${varname}"
+                        environment ${args} remove "${varname}"
       eval unset "${varname}"
    fi
 
@@ -684,6 +686,7 @@ sde::config::switch()
 
    local OPTION_PRINT='NO'
    local OPTION_DEPENDENCY
+   local OPTION_ENV_SCOPE_ARGS="--this-os"
 
    while [ $# -ne 0 ]
    do
@@ -701,15 +704,30 @@ sde::config::switch()
                               "$@" || exit 1
          ;;
 
-         -p|--print)
-            OPTION_PRINT='YES'
-         ;;
-
          -d|--dependency)
             [ $# -eq 1 ] && sde::craft::switch_usage "Missing argument to \"$1\""
             shift
 
             OPTION_DEPENDENCY="$1"
+         ;;
+
+         -p|--print)
+            OPTION_PRINT='YES'
+         ;;
+
+         --scope)
+            [ $# -eq 1 ] && sde::craft::switch_usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_ENV_SCOPE_ARGS="--scope $1"
+         ;;
+
+         --host|--this-host)
+            OPTION_ENV_SCOPE_ARGS="--this-host"
+         ;;
+
+         --os|--this-os)
+            OPTION_ENV_SCOPE_ARGS="--this-os"
          ;;
 
          -*)
@@ -753,10 +771,13 @@ sde::config::switch()
 
    if [ ! -z "${OPTION_DEPENDENCY}" ]
    then
-      sde::config::r_switch_dependency "${OPTION_DEPENDENCY}" "${name}"
+      sde::config::r_switch_dependency "${OPTION_DEPENDENCY}" \
+                                       "${OPTION_ENV_SCOPE_ARGS}" \
+                                       "${name}"
       dependency_dir="${RVAL}"
    else
-      sde::config::switch_local "${name}"
+      sde::config::switch_local "${name}" \
+                                "${OPTION_ENV_SCOPE_ARGS}"
    fi
 
    #

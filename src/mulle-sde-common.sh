@@ -583,11 +583,14 @@ sde::common::maybe_exec_external_command()
       fi
    fi
 
-
    if [ ! -z "${executable}" ]
    then
       # use sh to execute, need not be executable bit set then
       # also forces bash shell for compatibility...
+      export MULLE_UNAME="${MULLE_UNAME}"
+      export MULLE_USERNAME="${MULLE_USERNAME}"
+      export MULLE_HOSTNAME="${MULLE_HOSTNAME}"
+
       exekutor exec sh "${executable}" "$@"
       exit 1
    else

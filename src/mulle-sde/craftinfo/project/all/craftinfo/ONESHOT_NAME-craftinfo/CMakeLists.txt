@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.15)
 
-project( <|ONESHOT_NAME|>-craftinfo NONE)
+project( <|ONESHOT_NAME|>-craftinfo LANGUAGES NONE)
 
 
 # install build script, if any into "${DEPENDENCY_DIR}/bin"

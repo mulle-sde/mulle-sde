@@ -158,10 +158,10 @@ sde::definition::call()
    MULLE_USAGE_COMMAND="definition" \
       exekutor "${MULLE_MAKE:-mulle-make}" \
                      ${MULLE_TECHNICAL_FLAGS} \
-                     ${flags} \
                   "definition" \
                      --definition-dir "${directory}" \
                      "${cmd}" \
+                        ${flags} \
                         "$@"
 }
 
@@ -313,17 +313,16 @@ sde::definition::set()
    local scopes 
    local cmd
 
-   if [ "${additive}" = 'YES' ]
+   if [ "${additive}" != 'YES' ]
    then
-      additivemode="-+"
-   else
-      additivemode="--non-additive"
+      r_concat "--non-additive" "${flags}"
+      flags="${RVAL}"
    fi
 
    case "${scope}" in
       ALL)
          etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
-         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}" "$@"
+         sde::definition::call 'set' "${flags}" "${etcdir}" "$@"
 
          sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
@@ -333,24 +332,24 @@ sde::definition::set()
          .foreachline i in ${scopes}
          .do
             etc_setup_from_share_if_needed "${etcdir}.${i}" "${sharedir}.${i}" 'NO'
-            sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}.${i}" "$@"
+            sde::definition::call 'set' "${flags}" "${etcdir}.${i}" "$@"
          .done   
          return
       ;;
 
       DEFAULT)
          etc_setup_from_share_if_needed "${etcdir}.${MULLE_UNAME}" "${sharedir}.${MULLE_UNAME}" 'NO'
-         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
+         sde::definition::call 'set' "${flags}" "${etcdir}.${MULLE_UNAME}" "$@"
       ;;
 
       global)
          etc_setup_from_share_if_needed "${etcdir}" "${sharedir}" 'NO'
-         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}" "$@"
+         sde::definition::call 'set' "${flags}" "${etcdir}" "$@"
       ;;
 
       *)
          etc_setup_from_share_if_needed "${etcdir}.${scope}" "${sharedir}.${scope}" 'NO'
-         sde::definition::call 'set' "${additivemode}" "${flags}" "${etcdir}.${scope}" "$@"
+         sde::definition::call 'set' "${flags}" "${etcdir}.${scope}" "$@"
       ;;
    esac
 }
@@ -419,9 +418,9 @@ sde::definition::unset()
    case "${scope}" in
       ALL)
          sde::definition::scoped_unset "${flags}" \
-                                     "${etcdir}" \
-                                     "${sharedir}" \
-                                     "$@"
+                                       "${etcdir}" \
+                                       "${sharedir}" \
+                                       "$@"
 
          sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
@@ -431,38 +430,38 @@ sde::definition::unset()
          .foreachline i in ${scopes}
          .do
             sde::definition::scoped_unset "${flags}" \
-                                        "${etcdir}.${i}" \
-                                        "${sharedir}.${i}" \
-                                        "$@"
+                                          "${etcdir}.${i}" \
+                                          "${sharedir}.${i}" \
+                                          "$@"
          .done         
          return
       ;;
 
       DEFAULT)
          if ! sde::definition::scoped_unset "${flags}" \
-                                          "${etcdir}.${MULLE_UNAME}" \
-                                          "${sharedir}.${MULLE_UNAME}" \
-                                          "$@"
+                                            "${etcdir}.${MULLE_UNAME}" \
+                                            "${sharedir}.${MULLE_UNAME}" \
+                                            "$@"
          then
             sde::definition::scoped_unset "${flags}" \
-                                        "${etcdir}" \
-                                        "${sharedir}" \
-                                        "$@"
+                                          "${etcdir}" \
+                                          "${sharedir}" \
+                                          "$@"
          fi
       ;; 
 
       global)
          sde::definition::scoped_unset "${flags}" \
-                                     "${etcdir}"  \
-                                     "${sharedir}" \
-                                     "$@"
+                                       "${etcdir}"  \
+                                       "${sharedir}" \
+                                       "$@"
       ;;
 
       *)
          sde::definition::scoped_unset "${flags}" \
-                                     "${etcdir}.${scope}" \
-                                     "${sharedir}.${scope}" \
-                                     "$@"
+                                       "${etcdir}.${scope}" \
+                                       "${sharedir}.${scope}" \
+                                       "$@"
       ;;
    esac
 }
@@ -529,7 +528,8 @@ sde::definition::cmd_scope()
    log_entry "sde::definition::cmd_scope" "$@"
 
    local cmd="$1"
-   shift 1
+   local flags="$2"
+   shift 2
 
    local etcdir="$1"
    local sharedir="$2"
@@ -555,7 +555,8 @@ sde::definition::cmd_global()
    log_entry "sde::definition::cmd_global" "$@"
 
    local cmd="$1"
-   shift 1
+   local flags="$2"
+   shift 2
 
    local etcdir="$1"
    local sharedir="$2"
@@ -590,7 +591,7 @@ sde::definition::_cmd()
 
    case "${scope}" in
       ALL)
-         sde::definition::cmd_global "${cmd}" "${etcdir}" "${sharedir}"
+         sde::definition::cmd_global "${cmd}" "${flags}" "${etcdir}" "${sharedir}"
 
          sde::definition::r_scopes "no-global"
          scopes="${RVAL}"
@@ -599,24 +600,24 @@ sde::definition::_cmd()
 
          .foreachline i in ${scopes}
          .do
-            sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${i}"
+            sde::definition::cmd_scope "${cmd}" "${flags}" "${etcdir}" "${sharedir}" "${i}"
          .done
          return
          ;;
 
       DEFAULT)
-         sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${MULLE_UNAME}"
-         sde::definition::cmd_global "${cmd}" "${etcdir}" "${sharedir}"
+         sde::definition::cmd_scope "${cmd}" "${flags}" "${etcdir}" "${sharedir}" "${MULLE_UNAME}"
+         sde::definition::cmd_global "${cmd}" "${flags}" "${etcdir}" "${sharedir}"
          return
       ;;
 
       global)
-         sde::definition::cmd_global "${cmd}" "${etcdir}" "${sharedir}"
+         sde::definition::cmd_global "${cmd}" "${flags}" "${etcdir}" "${sharedir}"
          return
       ;;
 
       *)
-         sde::definition::cmd_scope "${cmd}" "${etcdir}" "${sharedir}" "${scope}"
+         sde::definition::cmd_scope "${cmd}" "${flags}" "${etcdir}" "${sharedir}" "${scope}"
          sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
          return
       ;;
@@ -656,7 +657,7 @@ sde::definition::main()
    local searchflags
    local terse="${MULLE_FLAG_LOG_TERSE}"
    local scope="DEFAULT"
-   local OPTION_ADDITIVE='YES'
+   local OPTION_ADDITIVE='YES'  # TODO: why is this not in flags ?
 
    while [ $# -ne 0 ]
    do

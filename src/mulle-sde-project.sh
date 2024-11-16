@@ -123,6 +123,38 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
 }
 
 
+sde::project::set_test_name_variables()
+{
+   log_entry "sde::project::set_test_name_variables" "$@"
+
+   TEST_PROJECT_NAME="${1:-${TEST_PROJECT_NAME}}"
+
+   # its rarely set, and its no problem if its not set
+   if [ -z "${TEST_PROJECT_NAME}" ] 
+   then
+      return
+   fi
+
+   r_identifier "${TEST_PROJECT_NAME}"
+   TEST_PROJECT_IDENTIFIER="${RVAL}"
+
+   # hack for shell scripts
+   TEST_PROJECT_PREFIXLESS_NAME="${TEST_PROJECT_NAME#*-}"
+
+   r_smart_file_downcase_identifier "${TEST_PROJECT_PREFIXLESS_NAME}"
+   TEST_PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${RVAL}"
+
+   include "case"
+
+   r_smart_file_upcase_identifier "${TEST_PROJECT_NAME}"
+   TEST_PROJECT_UPCASE_IDENTIFIER="${RVAL}"
+
+   r_lowercase "${TEST_PROJECT_UPCASE_IDENTIFIER}"
+   TEST_PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+}
+
+
+
 sde::project::set_language_variables()
 {
    log_entry "sde::project::set_language_variables" "$@"
@@ -402,11 +434,13 @@ sde::project::export_test_environment()
 
    [ -z "${TEST_PROJECT_NAME}" ]  && return
 
-   export TEST_PROJECT_NAME
+   export TEST_PROJECT_NAME \
+          TEST_PROJECT_IDENTIFIER \
+          TEST_PROJECT_DOWNCASE_IDENTIFIER \
+          TEST_PROJECT_UPCASE_IDENTIFIER \
+          TEST_PROJECT_PREFIXLESS_NAME \
+          TEST_PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER
 }
-
-
-
 
 sde::project::add_envscope_if_missing()
 {

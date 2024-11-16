@@ -94,10 +94,12 @@ Usage:
 Options:
    --  : pass remaining options as arguments
    -e  : run the main executable outside of the mulle-sde environment.
+   -b  : run the executable in the background (&)
 
 Environment:
-   MULLE_SDE_RUN  : command line to use, use \${EXECUTABLE} as variable
-   MULLE_POST_RUN : command line after executable has started
+   MULLE_SDE_RUN      : command line to use, use \${EXECUTABLE} as variable
+   MULLE_SDE_PRE_RUN  : command line before executable starts
+   MULLE_SDE_POST_RUN : command line after executable has started, implies -b
 
 EOF
    exit 1
@@ -211,7 +213,7 @@ sde::product::r_executables()
                                                     -o -name "${projectname}" \
                                                     \) \
                                                     -type f \
-                                                    -perm /111 \
+                                                    -perm 0111 \
                                                     -not -path "${kitchen_dir}/.craftorder/*" `"
 
       executables="`sde::product::freshest_files "${executables}"`"
@@ -567,6 +569,7 @@ sde::product::run_main()
    local run_env="$1"; shift
 
    local EXECUTABLE
+   local OPTION_BACKGROUND='DEFAULT'
 
    if ! sde::product::r_executable "$@"
    then
@@ -593,6 +596,14 @@ sde::product::run_main()
             MUDO_FLAGS="$1"
          ;;
 
+         -b|--background)
+            OPTION_BACKGROUND='YES'
+         ;;
+
+         --no-background|--foreground)
+            OPTION_BACKGROUND='NO'
+         ;;
+
          -*)
          ;;
 
@@ -606,14 +617,37 @@ sde::product::run_main()
    fi
 
    local commandline
+   local post_commandline
+   local pre_commandline
 
    if [ "${run_env}" = 'YES' ]
    then
       commandline="`mulle-sde env get MULLE_SDE_RUN`"
+      pre_commandline="`mulle-sde env get MULLE_SDE_PRE_RUN`"
+      post_commandline="`mulle-sde env get MULLE_SDE_POST_RUN`"
    fi
 
-   log_setting "commandline        : ${commandline}"
+
+   if [ ! -z "${post_commandline}" -a "${OPTION_BACKGROUND}" = 'DEFAULT' ]
+   then
+      OPTION_BACKGROUND='YES'
+   fi
+
+   log_setting "MULLE_SDE_RUN      : ${commandline}"
+   log_setting "MULLE_SDE_PRE_RUN  : ${pre_commandline}"
+   log_setting "MULLE_SDE_POST_RUN : ${post_commandline}"
    log_setting "MULLE_VIRTUAL_ROOT : ${MULLE_VIRTUAL_ROOT}"
+
+   if [ ! -z "${pre_commandline}" ]
+   then
+      r_expanded_string "${pre_commandline}"
+      pre_commandline="${RVAL}"
+
+      # we don't push "$@" unto the post run though, if this is a problem
+      # pass it as an environment variable (and a wrapper shell script)
+      log_verbose "Use MULLE_SDE_PRE_RUN '${pre_commandline}' as command line"
+      eval_exekutor mudo ${MUDO_FLAGS} -f "${pre_commandline}"
+   fi
 
    if [ ! -z "${commandline}" ]
    then
@@ -621,21 +655,30 @@ sde::product::run_main()
       commandline="${RVAL}"
 
       log_verbose "Use MULLE_SDE_RUN '${commandline}' as command line"
-      eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}" "$@"
+      if [ "${OPTION_BACKGROUND}" = 'YES' ]
+      then
+         eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}" "$@" &
+      else
+         eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}" "$@"
+      fi
    else
-      exekutor mudo ${MUDO_FLAGS} -f "${EXECUTABLE}" "$@"
+      if [ "${OPTION_BACKGROUND}" = 'YES' ]
+      then
+         exekutor mudo ${MUDO_FLAGS} -f "${EXECUTABLE}" "$@" &
+      else
+         exekutor mudo ${MUDO_FLAGS} -f "${EXECUTABLE}" "$@"
+      fi
    fi
 
-   commandline="`mulle-sde env get MULLE_SDE_POST_RUN`"
-   if [ ! -z "${commandline}" ]
+   if [ ! -z "${post_commandline}" ]
    then
-      r_expanded_string "${commandline}"
-      commandline="${RVAL}"
+      r_expanded_string "${post_commandline}"
+      post_commandline="${RVAL}"
 
       # we don't push "$@" unto the post run though, if this is a problem
       # pass it as an environment variable (and a wrapper shell script)
-      log_verbose "Use MULLE_SDE_POST_RUN '${commandline}' as command line"
-      eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}"
+      log_verbose "Use MULLE_SDE_POST_RUN '${post_commandline}' as command line"
+      eval_exekutor mudo ${MUDO_FLAGS} -f "${post_commandline}"
    fi
 }
 

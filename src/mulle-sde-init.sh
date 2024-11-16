@@ -58,7 +58,7 @@ sde::init::usage()
    --no-comment-files     : don't write template info into generated files
    --no-sourcetree        : do not add sourcetree to project
    --source-dir <dir>     : specify source directory location (src)
-   --stash-dir <dir>      : specify stash directory (stash)
+   --stash-dir <dir>      : specify stash directory (${MULLE_SOURCETREE_STASH_DIRNAME:-stash})
    -b <buildtool>         : specify the buildtool extension to use
    -o <oneshot>           : specify oneshot extensions. Multiples possible
    -r <runtime>           : specify runtime extension to use
@@ -557,14 +557,19 @@ sde::init::read_template_expanded_file()
 
    local scriptfile
 
+   sde::project::set_test_name_variables "${TEST_PROJECT_NAME}"
+
    scriptfile="`PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY}" \
       PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER="${PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER}" \
       GITHUB_USER="${GITHUB_USER}" \
       PROJECT_NAME="${PROJECT_NAME}" \
-      TEST_PROJECT_NAME="${TEST_PROJECT_NAME}" \
       PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}" \
       PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}" \
       PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}" \
+      TEST_PROJECT_NAME="${TEST_PROJECT_NAME}" \
+      TEST_PROJECT_IDENTIFIER="${TEST_PROJECT_IDENTIFIER}" \
+      TEST_PROJECT_UPCASE_IDENTIFIER="${TEST_PROJECT_UPCASE_IDENTIFIER}" \
+      TEST_PROJECT_DOWNCASE_IDENTIFIER="${TEST_PROJECT_DOWNCASE_IDENTIFIER}" \
       PROJECT_PREFIXLESS_NAME="${PROJECT_PREFIXLESS_NAME}" \
       PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER="${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}" \
       PROJECT_LANGUAGE="${PROJECT_LANGUAGE:-c}" \
@@ -2649,6 +2654,12 @@ sde::init::read_project_environment()
      fail "Could not find required PROJECT_TYPE in environment.
 If you reinited the environment. Try:
    ${C_RESET}${C_BOLD}mulle-sde environment --project set PROJECT_TYPE library"
+
+   #
+   # for old test projects that do not have <xxx>-test as names yet, we
+   # need the value in TEST_PROJECT_NAME anyway to create sourcetree info
+   # properly
+   TEST_PROJECT_NAME="${TEST_PROJECT_NAME:-${PROJECT_NAME}}"
 
    log_setting "PROJECT_DIALECT=\"${PROJECT_DIALECT}\""
    log_setting "PROJECT_EXTENSIONS=\"${PROJECT_EXTENSIONS}\""

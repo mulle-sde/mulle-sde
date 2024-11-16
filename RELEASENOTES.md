@@ -1,3 +1,43 @@
+## 3.2.0
+
+feat: streamline dependency management and improve editor support
+
+* Enhance dependency management
+  - Remove craftinfo remote repository integration
+  - Simplify dependency addition workflow
+  - Add new commands for inspecting dependencies:
+    headers, libraries, shares, downloads, binaries
+  - Fix JSON output formatting in list command
+
+* Improve editor integration
+  - Add direct editor selection via --editor flag
+  - Support environment variable passing to editors
+  - Fix path handling for stash directory
+  - Improve editor detection across platforms
+
+* Configuration improvements
+  - Add scope control for config switching (--scope, --host, --os)
+  - Fix environment variable handling in config changes
+  - Improve config inheritance across project boundaries
+
+* Other improvements
+  - Add export command for sharing dependency settings
+  - Fix environment variable handling in shell scripts
+  - Improve error messages and logging
+  - Remove obsolete documentation
+
+* new export command to transfer dependency information between non-related projects more conveniently
+* add `<dependency|stash|kitchen>`-tree commands for easier access
+* added new clean target `varcaches` for more surgical precision and less rebuild (sometimes)
+* improved debug command can now forward env like -DNSZombieEnabled=YES, which was prevented by mudo previously
+* library command can now understand --no-linux or --darwin flags like the dependency command
+* improved product command
+* the mulle-sde clean command lets you now chose the clean target via mulle-menu, it also caches the clean targets for better performance
+* new dependency sub commands: headers, libraries, fetch, shares, downloads, binaries
+* new experimental mulle-sde dependency subcommands **libraries** and **headers**
+* new command **debug**
+
+
 ## 3.1.0
 
 * streamlined main usage output

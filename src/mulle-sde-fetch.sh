@@ -51,6 +51,7 @@ Options:
    --serial                     : don't fetch dependencies in parallel
 
 Environment:
+   MULLE_SDE_FETCH              : disables fetching when set to NO
    MULLE_FETCH_ARCHIVE_DIR      : local cache of archives
    MULLE_FETCH_MIRROR_DIR       : local mirror of git repositories
    MULLE_FETCH_SEARCH_PATH      : specify local search directories, : separated

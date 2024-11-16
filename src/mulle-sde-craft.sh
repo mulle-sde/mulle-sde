@@ -907,7 +907,7 @@ sde::craft::main()
 
    if [ ! -z "${RVAL}" ]
    then
-      log_warning "There have been changes in the dependencies ${RVAL}.
+      _log_warning "There have been changes in the dependencies ${RVAL}.
 ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all up."
    fi
 

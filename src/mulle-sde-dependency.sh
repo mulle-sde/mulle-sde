@@ -127,10 +127,6 @@ Usage:
    mulle-fetch plugins are installed). But you can also embed remote source
    files into your source tree.
 
-   There is a list of known projects on https://github.com/craftinfo. If the
-   URL is craftinfo:name, then the respective craftinfo is searched and if
-   a "sourcetree" file is found, this will be used to create the dependency.
-
    The default dependency is a C library with header files. You need to use
    the appropriate options to build Objective-C libraries, header-less or
    header-only or purely embedded dependencies.
@@ -139,9 +135,6 @@ Usage:
       https://github.com/mulle-sde/mulle-sde/wiki
 
 Examples:
-   Add dependency via craftinfo:
-      ${MULLE_USAGE_NAME} dependency add craftinfo:openssl
-
    Add a github repository as a dependency:
       ${MULLE_USAGE_NAME} dependency add --github madler --scm git zlib
 
@@ -173,7 +166,6 @@ Options:
    --headeronly    : has no library
    --if-missing    : if a node with the same address is present, do nothing
    --multiphase    : the dependency can be crafted in three phases (default)
-   --no-fetch      : do not attempt to find a matching craftinfo on github
    --objc          : used for Objective-C dependencies
    --optional      : dependency is not required to exist by dependency owner
    --plain         : do not enhance URLs with environment variables
@@ -277,29 +269,6 @@ Keys:
    aliases           : names of library to search for, separated by comma
    include           : include filename to use
    platform-excludes : names of platform to exclude, separated by comma
-
-EOF
-  exit 1
-}
-
-
-sde::dependency::info_usage()
-{
-   [ "$#" -ne 0 ] &&  log_error "$1"
-
-    cat <<EOF >&2
-Usage:
-   ${MULLE_USAGE_NAME} dependency info <name>
-
-   Check online for help about a dependency. Pretty much just a README.md
-   reader for https://github.com/craftinfo repositories. The dependency
-   need not be present already.
-
-   Examples:
-      ${MULLE_USAGE_NAME} dependency info freetype
-
-Environment:
-   CRAFTINFO_REPOS : Repo URLS separated by | (https://github.com/craftinfo)
 
 EOF
   exit 1
@@ -962,7 +931,13 @@ sde::dependency::__enhance_url()
          ;;
 
          *)
-            url="${url//${tag}/\$\{MULLE_TAG\}}"
+            if [[ -n "$ZSH_VERSION" ]]; then
+                # zsh version
+                url="${url//${tag}/\${MULLE_TAG\}}"
+            else
+                # bash version
+                url="${url//${tag}/\$\{MULLE_TAG\}}"
+            fi
             r_concat "${changes}" 'url'
             changes="${RVAL}"
          ;;
@@ -1042,77 +1017,6 @@ sde::dependency::add_to_sourcetree()
                            ${MULLE_TECHNICAL_FLAGS} \
                            ${MULLE_SOURCETREE_FLAGS:-} \
                         eval-add --filename "${filename}" "${lines}" || exit 1
-}
-
-
-sde::dependency::use_craftinfo_main()
-{
-   log_entry "sde::dependency::use_craftinfo_main" "$@"
-
-   local dependency="$1"
-   local lenient="$2"
-
-   # shellcheck source=src/mulle-sde-craftinfo.sh
-   include "sde::craftinfo"
-
-   if sde::craftinfo::exists_main "DEFAULT" --crafthelp "${dependency}"
-   then
-      sde::craftinfo::info_main --crafthelp "${dependency}"
-   fi
-
-   if ! sde::craftinfo::exists_main "DEFAULT" "${dependency}"
-   then
-      return 0
-   fi
-
-   local args
-
-   if [ "${lenient}" = 'YES' ]
-   then
-      args="--lenient"
-   fi
-
-   if ! sde::craftinfo::create_main "DEFAULT" ${args} "${dependency}"
-   then
-      return 1
-   fi
-
-   if ! sde::craftinfo::fetch_main "DEFAULT" ${args} --clobber "${dependency}"
-   then
-      return 1
-   fi
-}
-
-
-sde::dependency::add_craftinfo_url()
-{
-   log_entry "sde::dependency::add_craftinfo_url" "$@"
-
-   local dependency="$1"
-   local lenient="$2"
-
-   if [ "${OPTION_FETCH}" = 'NO' ]
-   then
-      fail "Craftinfo handling disabled by --no-fetch"
-   fi
-
-   if ! sde::dependency::use_craftinfo_main "${dependency}" "${lenient}"
-   then
-      fail "No craftinfo exists for \"${dependency}\""
-   fi
-
-   # grab sourcetree from craftinfo and apply it
-   r_filepath_concat "${RVAL}" "sourcetree"
-   sourcetree="${RVAL}"
-
-   if [ ! -f "${sourcetree}" ]
-   then
-      sde::craftinfo::remove_main "DEFAULT" "${dependency}"
-      fail "This craftinfo has no sourcetree file.
-So it can't be used with craftinfo: style add."
-   fi
-
-   sde::dependency::add_to_sourcetree "${sourcetree}"
 }
 
 
@@ -1414,20 +1318,6 @@ sde::dependency::add_main()
       comment:*)
          scm="comment"
          url="${originalurl#*:}"
-      ;;
-
-      craftinfo:*)
-         [ ! -z "${nodetype}" ]      && log_warning "Nodetype will be ignored with craftinfo: type URLs"
-         [ ! -z "${host}" ]          && log_warning "Host will be ignored with craftinfo: type URLs"
-         [ ! -z "${user}" ]          && log_warning "User will be ignored with craftinfo: type URLs"
-         [ ! -z "${tag}" ]           && log_warning "Tag will be ignored with craftinfo: type URLs"
-         [ ! -z "${branch}" ]        && log_warning "Branch will be ignored with craftinfo: type URLs"
-         [ ! -z "${address}" ]       && log_warning "Address will be ignored with craftinfo: type URLs"
-         [ ! -z "${options}" ]       && log_warning "Options will be ignored with craftinfo: type URLs"
-         [ ! -z "${fetchoptions}" ]  && log_warning "Fetchoptions will be ignored with craftinfo: type URLs"
-
-         sde::dependency::add_craftinfo_url "${originalurl#craftinfo:}" 'YES'
-         return $?
       ;;
 
       *:*)
@@ -1844,11 +1734,6 @@ sde::dependency::add_main()
 
    dependency="${address:-${originalurl}}"
 
-   if [ "${OPTION_FETCH}" != 'NO' ]
-   then
-      sde::dependency::use_craftinfo_main "${dependency}" 'NO'
-   fi
-
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
       _log_info "${C_VERBOSE}After \`mulle-sde fetch\` check for boring embedded files with \`mulle-sde fetch\` and ignore them with:
@@ -2255,12 +2140,6 @@ unmark"
 
       binaries|downloads|etcs|headers|libraries|shares|stashes)
          sde::dependency::${cmd}_main "$@"
-      ;;
-
-
-      info)
-         sde::craftinfo::info_main "$@"
-         return $?
       ;;
 
 

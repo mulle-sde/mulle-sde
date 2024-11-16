@@ -109,6 +109,7 @@ sde::edit::main()
    local OPTION_SELECT
    local OPTION_JSON_ENV
    local OPTION_SQUELCH='DEFAULT'
+   local OPTION_EDITOR
 
    while :
    do
@@ -132,6 +133,11 @@ sde::edit::main()
          --json-env)
             OPTION_JSON_ENV='YES'
          ;;
+
+         --[A-Za-z]*)
+            OPTION_EDITOR="${1:2}"
+         ;;
+
          --)
             shift
             break
@@ -190,7 +196,7 @@ sde::edit::main()
    "ADDICTION_DIR":  "${ADDICTION_DIR:-${PWD}/addiction}",
    "DEPENDENCY_DIR": "${DEPENDENCY_DIR:-${PWD}/dependency}",
    "KITCHEN_DIR":    "${KITCHEN_DIR:-${PWD}/kitchen}",
-   "STASH_DIR":      "${STASH_DIR:-${PWD}/stash}"
+   "STASH_DIR":      "${STASH_DIR:-${PWD}/${MULLE_SOURCETREE_STASH_DIRNAME:-stash}}"
 }
 EOF
       return 0
@@ -200,7 +206,7 @@ EOF
 
    if [ "${OPTION_SELECT}" != 'YES' ]
    then
-      editor="${MULLE_SDE_EDITOR_CHOICE}"
+      editor="${OPTION_EDITOR:-${MULLE_SDE_EDITOR_CHOICE}}"
    fi
 
    if [ ! -z "${editor}" ]
@@ -323,11 +329,6 @@ EOF
    # gather ADDICTION_DIR
    # and pass as environment
    #
-   local ADDICTION_DIR
-   local DEPENDENCY_DIR
-   local KITCHEN_DIR
-   local STASH_DIR
-
    if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       export ADDICTION_DIR="${ADDICTION_DIR}"

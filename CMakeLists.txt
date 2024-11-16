@@ -1,9 +1,9 @@
 cmake_minimum_required( VERSION 3.15)
 
-project( mulle-sde NONE)
+project( mulle-sde VERSION 3.2.0 LANGUAGES NONE)
 
 execute_process( COMMAND ./mulle-sde version
-                 WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                  OUTPUT_VARIABLE MULLE_SDE_VERSION
                  OUTPUT_STRIP_TRAILING_WHITESPACE)
 message( STATUS "MULLE_SDE_VERSION is ${MULLE_SDE_VERSION} according to mulle-sde")

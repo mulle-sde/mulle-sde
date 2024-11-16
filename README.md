@@ -27,7 +27,7 @@ your project. Then it will build your project.
 
 ## Example
 
-Here is quick run through of commands to get you going with an Objective-C
+Here is run through of the major commands to get you going with an Objective-C
 project:
 
 ### Initialize a project
@@ -59,7 +59,7 @@ mulle-sde library
 
 ### Develop project
 
-Choose the editor of your choice, for a better demo effect, choose one of the
+Choose the editor of your choice. For a better demo effect, choose one of the
 IDEs.
 
 ``` sh
@@ -77,19 +77,24 @@ mulle-sde product
 mulle-sde run
 mulle-sde debug
 mulle-sde add src/MyClass.m
-mulle-sde ignore src/MyClass.m.old
+mulle-sde ignore src/MyClass.m src/MyClass.h
+mulle-sde reflect
 mulle-sde clean
 mulle-sde clean all
 mulle-sde clean tidy
 ```
 
 
-### Add third party dependency
+### Add a third party dependency
 
 ``` sh
 mulle-sde add github:madler/zlib.tar
 mulle-sde dependency move zlib to top
+mulle-sde dependency list
 mulle-sde craftinfo zlib CFLAGS "-DBAR=1"
+mulle-sde craft
+mulle-sde dependency headers
+mulle-sde dependency libraries
 ```
 
 `mulle-sde clean tidy` and the somewhat less safe `mulle-sde clean gravetidy`
@@ -169,6 +174,7 @@ Flags:
 
 Commands:
    add            : create a source file from templates
+   commands       : list of all available commands (some undocumented)
    extension      : manage language and buildtool extensions
    init           : create a new project
    init-and-enter : create a new project then immediately start a subshell
@@ -215,6 +221,7 @@ Commands:
    callback       : manage reflection callbacks
    cd             : change directory to dependency,kitchen et al.
    clean          : clean various parts of the project
+   commands       : list of all available commands (some undocumented)
    config         : show multiple sourcetree configurations
    craft          : craft the project using mulle-craft
    craftinfo      : show build flags of dependencies
@@ -227,6 +234,7 @@ Commands:
    env-identifier : get variable name MULLE_UIOS for a name like MulleUIOS
    environment    : manage environment variables (project settings)
    exec           : run a command in a subshell
+   export         : export a dependency or library as mulle-sde commands
    extension      : manage language and buildtool extensions
    fetch          : fetch the sourcetree
    headerorder    : show header includes for dependencies and libraries
@@ -244,6 +252,7 @@ Commands:
    project        : rename a project and its files
    project-dir    : print project root directory
    reflect        : update project makefiles and sources
+   retest         : retest using mulle-test
    run            : run executable product
    searchpath     : show search path for build products
    source-dir     : print project source directory

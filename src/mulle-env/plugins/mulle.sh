@@ -158,10 +158,12 @@ EOF
 # # environment-project.sh                |
 # #                                       | environment-extension.sh
 # # environment-global.sh                 |
-# # environment-os-\${MULLE_UNAME}.sh      |
-# # environment-host-\${MULLE_HOSTNAME}.sh |
-# # environment-user-\${MULLE_USERNAME}.sh           |
-# # environment-custom.sh                 |
+# # environment-os-\${MULLE_UNAME}.sh                              |
+# # environment-host-\${MULLE_HOSTNAME}.sh                         |
+# # environment-user-\${MULLE_USERNAME}.sh                         |
+# # environment-user-\${MULLE_USERNAME}-os-\${MULLE_UNAME}.sh      |
+# # environment-user-\${MULLE_USERNAME}-host-\${MULLE_HOSTNAME}.sh |
+# # environment-custom.sh                                          |
 # #
 #
 # #
@@ -260,7 +262,7 @@ env::plugin::mulle::print_tools()
    # have an assortment of tools ready so one can at least fetch stuff
    # and build stuff
    # sysctl and uptime are used by mulle-bashfunctions/parallel
-
+   #
    MULLE_SDE_BINARIES="\
 mulle-column
 column
@@ -271,6 +273,7 @@ wget
 shasum
 sysctl
 sw_vers
+tree
 uptime
 xcrun
 xcodebuild

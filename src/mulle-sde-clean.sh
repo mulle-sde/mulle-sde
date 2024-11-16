@@ -420,7 +420,7 @@ sde::clean::sourcetree_share()
 {
    log_entry "sde::clean::sourcetree_share" "$@"
 
-   log_verbose "Cleaning sourcetree and stash"
+   log_verbose "Cleaning sourcetree and ${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
