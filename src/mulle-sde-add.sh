@@ -573,12 +573,12 @@ sde::add::main()
 {
    log_entry "sde::add::main" "$@"
 
-   # if we are in a project, but not not really within yet, rexecute
+   # if we are in a project, but not really within yet, rexecute
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       if rexekutor mulle-sde -s status --clear --project
       then
-         sde::exec_command_in_subshell "CD" add "$@"
+         sde::exec_command_in_subshell "mulle-sde" add "$@"
       fi
    fi
 

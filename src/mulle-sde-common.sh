@@ -475,6 +475,7 @@ sde::common::update_git_if_needed()
       r_mkdir_parent_if_missing "${directory}"
       parent_dir="${RVAL}"
 
+      log_verbose "Downloading craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
       (
          exekutor cd "${parent_dir}"                \
          && exekutor git clone --depth 1            \
@@ -494,6 +495,7 @@ sde::common::update_git_if_needed()
       return
    fi
 
+   log_verbose "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
    (
       exekutor cd "${directory}" \
       && exekutor git pull \
