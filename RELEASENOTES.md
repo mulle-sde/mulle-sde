@@ -1,3 +1,7 @@
+### 3.2.1
+
+* fix sed escaping problem in mulle-sde add
+
 ## 3.2.0
 
 feat: streamline dependency management and improve editor support

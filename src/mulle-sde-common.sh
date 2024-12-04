@@ -475,7 +475,7 @@ sde::common::update_git_if_needed()
       r_mkdir_parent_if_missing "${directory}"
       parent_dir="${RVAL}"
 
-      log_verbose "Downloading craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+      log_info "Downloading craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
       (
          exekutor cd "${parent_dir}"                \
          && exekutor git clone --depth 1            \
@@ -490,12 +490,12 @@ sde::common::update_git_if_needed()
    local refresh_date
 
    refresh_date=$(( $last_touch + ${GIT_REFRESH_SECONDS:-86400} ))
-   if [ `timestamp_now` -lt ${refresh_date} ]
+   if [ "`timestamp_now`" -lt "${refresh_date}" -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       return
    fi
 
-   log_verbose "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+   log_info "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
    (
       exekutor cd "${directory}" \
       && exekutor git pull \
@@ -515,17 +515,18 @@ sde::common::maybe_exec_external_command()
 
    shift 4
 
-   local alias_name
-   local escaped_name
-
-   r_escaped_sed_pattern "${name}"
-   escaped_name="${name}"
-
    if [ -f "${directory}/aliases.txt" ]
    then
-      alias_name="`grep -v -E '^#' "${directory}/aliases.txt" \
-                  | sed -n "/^[[:alnum:]_]/ s/^${escaped_name}[[:space:]]*=[[:space:]]*//p" \
+      local alias_name
+      local escaped_name
+
+      r_escaped_sed_pattern "${name}"
+      escaped_name="${RVAL}"
+
+      alias_name="`rexekutor grep -v -E '^#' "${directory}/aliases.txt" \
+                  | rexekutor sed -n "/^[[:alnum:]_]/ s/^${escaped_name}[[:space:]]*=[[:space:]]*//p" \
                   | head -1 `"
+
       if [ ! -z "${alias_name}" ]
       then
          log_info "Alias \"${alias_name}\" found for \"${name}\""
