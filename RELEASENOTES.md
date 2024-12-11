@@ -1,3 +1,7 @@
+### 3.2.2
+
+* add ill-fated symbol command
+
 ### 3.2.1
 
 * fix sed escaping problem in mulle-sde add

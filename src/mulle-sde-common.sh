@@ -499,7 +499,7 @@ sde::common::update_git_if_needed()
    (
       exekutor cd "${directory}" \
       && exekutor git pull \
-      && exekturo touch "${git_dir}"
+      && exekutor touch "${git_dir}"
    )
 }
 

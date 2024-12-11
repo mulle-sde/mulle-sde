@@ -319,6 +319,9 @@ sde::product::r_search_path()
 
    sdks="${OPTION_SDK:-${MULLE_CRAFT_SDKS}}"
 
+   r_concat "${cmdline}" "--add-kitchen-path"
+   cmdline="${RVAL}"
+
    if [ ! -z "${sdks}" ]
    then
       r_concat "${cmdline}" "--sdks '${sdks}'"
@@ -326,9 +329,6 @@ sde::product::r_search_path()
    fi
 
    r_concat "${cmdline}" "--configurations '${OPTION_CONFIGURATION:-Release:Debug}'"
-   cmdline="${RVAL}"
-
-   r_concat "${cmdline}" "--kitchen"
    cmdline="${RVAL}"
 
    r_concat "${cmdline}" "'${type}'"
@@ -453,7 +453,7 @@ sde::product::r_product_paths()
 
       if sde::product::r_preferred_executable "${candidates}" "$@"
       then
-         log_debug "returns: ${RVAL}"
+         log_debug "returns preferred executable: ${RVAL}"
          return 0
       fi
 
@@ -466,6 +466,8 @@ sde::product::r_product_paths()
    then
       fail "Product ${C_RESET_BOLD}${filename}${C_ERROR} not found."
    fi
+
+   RVAL="${candidates}"
 }
 
 

@@ -18,3 +18,4 @@ build-*/
 .idea/
 mulle-csv-to-sandbox
 .mulle/etc/project/publisher-info.sh
+.mulle/etc/make

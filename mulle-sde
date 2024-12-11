@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.2.1
+MULLE_EXECUTABLE_VERSION=3.2.2
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -823,7 +823,7 @@ file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
 mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
 product|project|protect|reflect|searchpath|sourcetree|subproject|style|\
-task|tool|treestatus|unmark|unprotect|update|\
+symbol|task|tool|treestatus|unmark|unprotect|update|\
 lib|pat|sub|unveil|view)
                if ! sde::is_non_environment_commandline "$@"
                then
@@ -1653,6 +1653,13 @@ view"
          include "sde::steal"
 
          sde::steal::main "$@"
+      ;;
+
+      'symbol')
+         # shellcheck source=src/mulle-sde-symbol.sh
+         include "sde::symbol"
+
+         sde::symbol::main "$@"
       ;;
 
       'style')
