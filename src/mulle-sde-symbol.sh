@@ -40,14 +40,19 @@ MULLE_SDE_SYMBOL_SH='included'
 
 sde::symbol::print_flags()
 {
-   echo "   -f    : force operation"
+   echo "   -f                   : force operation"
+   echo "   --category <name>    : mulle-match category (${OPTION_CATEGORY})"
+   echo "   --ctags-kinds <s>    : ctags kinds to list, e.g. cm for +/-methods"
+   echo "   --ctags-language <s> : ctags language to use"
+   echo "   --ctags-output <s>   : ctags output format (json)"
+   echo "   --ctags-xformat <s>  : ctags xformat"
 
    ##
    ## ADD YOUR FLAGS DESCRIPTIONS HERE
    ##
 
    options_technical_flags_usage \
-                "         : "
+                "                : "
 }
 
 
@@ -58,13 +63,18 @@ sde::symbol::usage()
 
    cat <<EOF >&2
 Usage:
-   mulle-sde symbol [flags]
+   mulle-sde symbol [flags] ...
 
-   List symbols defined in the public headers (by default) by classes.
-   Unfortunately ctags does not do categories or protocols, so the output
-   is very incomplete.
+   List symbols defined in the public headers (by default). This is a
+   convenient way to run \`mulle-match list --category-matches public-headers\`
+   and then execute \`ctags\` to create a list of symbols.
 
-   clangd is supergimped and useless.
+   All unused arguments are passed to \`ctags\`.
+
+   The ctags output formats are: u-ctags|e-ctags|etags|xref|json|csv. The
+   default output is JSON for languages other than Objective-C. The tags
+   formats will create a tags or TAGS file, instead of printing to standard
+   output.
 
 Flags:
 EOF
@@ -73,17 +83,247 @@ EOF
    exit 1
 }
 
+#
+# So this is _maybe_ a little overengineered. We want to match "objc"
+# against "ObjectiveC"
+
+#
+# Convert string to double metaphone code
+# Parameters:
+#   1: string to convert
+# Returns:
+#   RVAL: metaphone code
+#
+r_double_metaphone()
+{
+   local str="${1:-}"
+   local len
+   local i
+   local char
+   local code
+   local prev_char
+
+   # convert to uppercase
+   str="${str^^}"
+   len=${#str}
+   code=""
+   prev_char=""
+
+   # basic rules for programming language names
+   for ((i=0; i<len; i++))
+   do
+      char="${str:$i:1}"
+      case "${char}" in
+         [AEIOU])
+            [ $i -eq 0 ] && code="${code}A"
+            ;;
+         [B])
+            code="${code}B"
+            ;;
+         [C])
+            if [ "${str:$i:2}" = "CH" ]
+            then
+               code="${code}X"
+               ((i++))
+            else
+               code="${code}K"
+            fi
+            ;;
+         [DT])
+            code="${code}T"
+            ;;
+         [L])
+            code="${code}L"
+            ;;
+         [MN])
+            code="${code}N"
+            ;;
+         [P])
+            code="${code}P"
+            ;;
+         [R])
+            code="${code}R"
+            ;;
+         [SZ])
+            code="${code}S"
+            ;;
+         [FV])
+            code="${code}F"
+            ;;
+         [WY])
+            [ $i -eq 0 ] && code="${code}A"
+            ;;
+         [XKQ])
+            code="${code}K"
+            ;;
+         [JG])
+            code="${code}J"
+            ;;
+      esac
+      prev_char="${char}"
+   done
+
+   RVAL="${code}"
+}
+
+#
+# Calculate similarity between two strings using metaphone
+# Parameters:
+#   1: string1
+#   2: string2
+# Returns:
+#   RVAL: similarity score (0-100, higher is better match)
+#
+r_phonetic_match()
+{
+   local str1="${1:-}"
+   local str2="${2:-}"
+   local code1
+   local code2
+   local len1
+   local len2
+   local matches
+   local i
+
+   r_double_metaphone "${str1}"
+   code1="${RVAL}"
+   r_double_metaphone "${str2}"
+   code2="${RVAL}"
+
+   len1=${#code1}
+   len2=${#code2}
+   matches=0
+
+   # Compare codes
+   for ((i=0; i<len1 && i<len2; i++))
+   do
+      [ "${code1:$i:1}" = "${code2:$i:1}" ] && ((matches++))
+   done
+
+   # Score based on matches and length
+   if [ ${len1} -gt ${len2} ]
+   then
+      RVAL=$((matches * 100 / len1))
+   else
+      RVAL=$((matches * 100 / len2))
+   fi
+}
+
+
+#! /bin/bash
+
+#
+# Find best matching languages from ctags list
+# Parameters:
+#   1: search term
+#   2: minimum score (optional, default: 80)
+# Returns:
+#   prints matching languages to stdout
+#
+#! /bin/bash
+
+#
+# Find best matching languages from ctags list
+# Parameters:
+#   1: search term
+# Returns:
+#   prints matching languages to stdout
+#
+r_find_best_language_matches()
+{
+   local search="${1:-}"
+
+   local best_score=0
+   local matches=""
+   local language
+   local score
+
+   while read -r language
+   do
+      case "${language}" in
+         *'[disabled]'*)
+            continue
+         ;;
+      esac
+
+      r_phonetic_match "${search}" "${language}"
+      score=${RVAL}
+
+      # skip zero scores
+      [ ${score} -eq 0 ] && continue
+
+      # collect languages with equal best score
+      if [ ${score} -gt ${best_score} ]
+      then
+         best_score=${score}
+         matches="${language}"
+      else
+         if [ ${score} -eq ${best_score} ]
+         then
+            r_add_line "${matches}" "${language}"
+            matches="${RVAL}"
+         fi
+      fi
+   done < <(rexekutor ctags --list-languages)
+
+   log_debug "matches: $matches"
+   RVAL="${matches}"
+}
+
+#
+# Select best candidate from a list of matches
+# Parameters:
+#   1: search term
+#   2: newline separated list of candidates
+# Returns:
+#   RVAL: selected candidate
+#
+r_select_best_candidate()
+{
+   local search="${1:-}"
+   local candidates="${2:-}"
+
+   local best
+   local candidate
+
+   .foreachline candidate in ${candidates}
+   .do
+      # check for exact match first (case insensitive)
+      if [ "${candidate,,}" = "${search,,}" ]
+      then
+         RVAL="${candidate}"
+         return
+      fi
+   .done
+
+   # no exact match, pick shortest
+   best=""
+   .foreachline candidate in ${candidates}
+   .do
+      if [ -z "${best}" ] || [ ${#candidate} -lt ${#best} ]
+      then
+         best="${candidate}"
+      fi
+   .done
+
+   log_info "Picked ${C_MAGENTA}${BOLD}${best}${C_INFO} as best match"
+   RVAL="${best}"
+}
+
+
+
 
 
 #
 # copy files to header, remove MULLE_OBJC_THREADSAFE_METHOD
 # and MULLE_OBJC_THREADSAFE_PROPERTY
 #
-sde::symbol::copy_and_preprocess_sources()
+sde::symbol::copy_and_preprocess_c_sources()
 {
-   log_entry "sde::symbol::copy_and_prepocess_sources" "$@"
+   log_entry "sde::symbol::copy_and_preprocess_c_sources" "$@"
 
    local tmp_dir="$1"
+   local language="$2"
 
    local filename 
 
@@ -102,7 +342,11 @@ sde::symbol::copy_and_preprocess_sources()
       # MEMO: #pragma mark - trips up ctags, so we just remove pragma lines
       #
       redirect_exekutor "${RVAL}" sed -e 's/MULLE_OBJC_[A-Z][A-Z]*_METHOD//g' \
-                                      -e 's/MULLE_[A-Z][A-Z]*GLOBAL//g' \
+                                      -e 's/MULLE_OBJC_[A-Z][A-Z]*_PROPERTY//g' \
+                                      -e 's/MULLE_[A-Z][A-Z]*GLOBAL/extern/g' \
+                                      -e 's/[_]*PROTOCOLCLASS_INTERFACE[0-9]*(\([^)]*\))/@interface \1/g' \
+                                      -e 's/PROTOCOLCLASS_IMPLEMENTATION(\([^)]*\))/@implementation \1/g' \
+                                      -e 's/PROTOCOLCLASS_END/@end/g' \
                                       -e 's/^[ ]*#[ ]*pragma.*$//' \
                                       "${filename}" \
       || fail "Failed to copy ${filename}"
@@ -115,36 +359,62 @@ sde::symbol::ctags()
 {
    log_entry "sde::symbol::ctags" "$@"
 
+   local category="$1"
+   local language="$2"
+   local output_format="$3"
+   local kinds="$4"
+   local xformat="$5"
+   local keep_tmp="$6"
+
+   shift 6
+
+   local directory
+
+   directory="${PWD}"
+
    local tmp_dir
 
-   r_make_tmp_directory || exit 1
-   tmp_dir="${RVAL}"
+   case "${language}" in
+      C|ObjectiveC)
+         r_make_tmp_directory || exit 1
+         tmp_dir="${RVAL}"
 
-   sde::symbol::copy_and_prepocess_sources "${tmp_dir}" < \
-      <( rexekutor mulle-match list --category-matches  "${OPTION_CATEGORY}" ) || exit 1
-
-   local language
-
-   language='ObjectiveC'
+         sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
+            <( rexekutor mulle-match list --category-matches  "${category}" ) || exit 1
+         directory="${tmp_dir}"
+      ;;
+   esac
 
    local rval 
 
    (
-      exekutor cd "${tmp_dir}" 
+      exekutor cd "${directory}"
       find . -type f -print \
-      | rexekutor grep -E -v '/reflect/|/generic/' \
-      | rexekutor ctags -x -L - "--languages=${language}" \
-                      "--kinds-${language}=${OPTION_KINDS}" \
-                      --_xformat="${OPTION_FORMAT}" \
-      | rexekutor sed 's/^method /-/;s/^class /+/'
+      | rexekutor ctags --output-format="${output_format}" \
+                        -L - \
+                        "--languages=${language}" \
+                        "--kinds-${language}=${kinds}" \
+                        --_xformat="${xformat}" \
+                        "$@" \
+      | (
+           if [ "${language}" = "ObjectiveC" ]
+           then
+              rexekutor sed 's/^method /-/;s/^class /+/'
+           else
+              cat
+           fi
+        )
    )
    rval=$?
 
-   if [ "${OPTION_KEEP_TMP}" = 'NO' ]
+   if [ ! -z "${tmp_dir}" ]
    then
-      rmdir_safer "${tmp_dir}"
-   else
-      log_info "Tmp is ${C_RESET}${tmp_dir}"
+      if [ "${keep_tmp}" = 'NO' ]
+      then
+         rmdir_safer "${tmp_dir}"
+      else
+         log_info "Tmp is ${C_RESET}${tmp_dir}"
+      fi
    fi
 
    return $rval
@@ -174,38 +444,62 @@ EOF
 }
 
 
-sde::symbol::clangd()
+# sde::symbol::clangd()
+# {
+#    log_entry "sde::symbol::clangd" "$@"
+#
+#    local tmp_dir
+#
+#    r_make_tmp_directory || exit 1
+#    tmp_dir="${RVAL}"
+#
+#    sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
+#       <( rexekutor mulle-match list --category-matches  "${OPTION_CATEGORY}" ) || exit 1
+#
+#    local rval
+#
+#    (
+#       exekutor cd "${tmp_dir}" || exit 1
+#
+#       find . -type f -not -name "compile_commands.json" -print \
+#       | redirect_exekutor "compile_commands.json" sde::symbol::generate_compilation_database
+#
+#       rexekutor clangd --compile-commands-dir=. "$@"
+#    )
+#    rval=$?
+#
+#    if [ "${OPTION_KEEP_TMP}" = 'NO' ]
+#    then
+#       rmdir_safer "${tmp_dir}"
+#    else
+#       log_info "Tmp is ${C_RESET}${tmp_dir}"
+#    fi
+#
+#    return $rval
+# }
+#
+
+r_unique_chars()
 {
-   log_entry "sde::symbol::clangd" "$@"
-   
-   local tmp_dir
+   local str="${1:-}"
+   local result=""
+   local char
+   local i
 
-   r_make_tmp_directory || exit 1
-   tmp_dir="${RVAL}"
+   for ((i=0; i<${#str}; i++))
+   do
+      char="${str:i:1}"
+      case "${result}" in
+         *"${char}"*)
+            continue
+            ;;
+         *)
+            result="${result}${char}"
+            ;;
+      esac
+   done
 
-   sde::symbol::copy_and_preprocess_sources "${tmp_dir}" < \
-      <( rexekutor mulle-match list --category-matches  "${OPTION_CATEGORY}" ) || exit 1
-
-   local rval 
-
-   (
-      exekutor cd "${tmp_dir}" || exit 1
-      
-      find . -type f -not -name "compile_commands.json" -print \
-      | redirect_exekutor "compile_commands.json" sde::symbol::generate_compilation_database
-
-      rexekutor clangd --compile-commands-dir=. "$@"
-   )
-   rval=$?
-
-   if [ "${OPTION_KEEP_TMP}" = 'NO' ]
-   then
-      rmdir_safer "${tmp_dir}"
-   else
-      log_info "Tmp is ${C_RESET}${tmp_dir}"
-   fi
-
-   return $rval
+   RVAL="${result}"
 }
 
 
@@ -214,11 +508,13 @@ sde::symbol::main()
    #
    # simple option/flag handling
    #
+   local OPTION_LANGUAGE
    local OPTION_CATEGORY='public-headers'
-   local OPTION_KINDS='cm'
-   local OPTION_FORMAT='%K [%s %N] %F:%n'
+   local OPTION_KINDS
+   local OPTION_OUTPUT_FORMAT  # u-ctags|e-ctags|etags|xref|json
+   local OPTION_XFORMAT
    local OPTION_KEEP_TMP='NO'
-   local OPTION_CTAGS='NO'
+#   local OPTION_CTAGS='YES'
 
    while [ $# -ne 0 ]
    do
@@ -237,18 +533,6 @@ sde::symbol::main()
             sde::symbol::usage
          ;;
 
-         --ctags)
-            OPTION_CTAGS='YES'
-         ;;
-
-         --clangd)
-            OPTION_CTAGS='NO'
-         ;;
-
-         --keep-tmp)
-            OPTION_KEEP_TMP='YES'
-         ;;
-
          --category)
             [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
             shift
@@ -256,18 +540,193 @@ sde::symbol::main()
             OPTION_CATEGORY="$1"
          ;;
 
-         --kinds)
+#         --clangd)
+#            OPTION_CTAGS='NO'
+#         ;;
+#
+#         --ctags)
+#            OPTION_CTAGS='YES'
+#         ;;
+
+         --ctags-kinds)
             [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
             shift
 
             OPTION_KINDS="$1"
          ;;
 
-         --format)
+         --ctags-language)
             [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
             shift
 
-            OPTION_FORMAT="$1"
+            OPTION_LANGUAGE="$1"
+         ;;
+
+         --ctags-output|--ctags-output-format)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            OPTION_OUTPUT_FORMAT="$1"
+         ;;
+
+         --ctags-xformat)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            OPTION_XFORMAT="$1"
+         ;;
+
+         ## shortcuts
+
+         --csv|--json)
+            OPTION_OUTPUT_FORMAT="${1:2}"
+         ;;
+
+         ## C kinds
+         --enumerators)
+             OPTION_KINDS="${OPTION_KINDS}e"
+         ;;
+
+         --enums)
+             OPTION_KINDS="${OPTION_KINDS}g"
+         ;;
+
+         --externs|--extern-variables)
+             OPTION_KINDS="${OPTION_KINDS}x"
+         ;;
+
+         --functions)
+             OPTION_KINDS="${OPTION_KINDS}f"
+         ;;
+
+         --headers)
+             OPTION_KINDS="${OPTION_KINDS}h"
+         ;;
+
+         --labels)
+             OPTION_KINDS="${OPTION_KINDS}L"
+         ;;
+
+         --locals|--local-variables)
+             OPTION_KINDS="${OPTION_KINDS}l"
+         ;;
+
+         --macro-parameters)
+             OPTION_KINDS="${OPTION_KINDS}D"
+         ;;
+
+         --macros)
+             OPTION_KINDS="${OPTION_KINDS}d"
+         ;;
+
+         --members)
+             OPTION_KINDS="${OPTION_KINDS}m"
+         ;;
+
+         --parameters)
+             OPTION_KINDS="${OPTION_KINDS}z"
+         ;;
+
+         --prototypes)
+             OPTION_KINDS="${OPTION_KINDS}p"
+         ;;
+
+         --structs)
+             OPTION_KINDS="${OPTION_KINDS}s"
+         ;;
+
+         --typedefs)
+             OPTION_KINDS="${OPTION_KINDS}t"
+         ;;
+
+         --unions)
+             OPTION_KINDS="${OPTION_KINDS}u"
+         ;;
+
+         --variables|--variable-definitions)
+             OPTION_KINDS="${OPTION_KINDS}v"
+         ;;
+
+         ## Objective C kinds
+
+         --categories)
+            OPTION_KINDS="${OPTION_KINDS}C"
+         ;;
+
+         --class-methods)
+            OPTION_KINDS="${OPTION_KINDS}c"
+         ;;
+
+         --enums)
+            OPTION_KINDS="${OPTION_KINDS}e"
+         ;;
+
+         --fields)
+            OPTION_KINDS="${OPTION_KINDS}E"
+         ;;
+
+         --functions)
+            OPTION_KINDS="${OPTION_KINDS}f"
+         ;;
+
+         --implementations)
+            OPTION_KINDS="${OPTION_KINDS}I"
+         ;;
+
+         --instance-methods)
+            OPTION_KINDS="${OPTION_KINDS}m"
+         ;;
+
+         --interfaces)
+            OPTION_KINDS="${OPTION_KINDS}i"
+         ;;
+
+         --macros)
+            OPTION_KINDS="${OPTION_KINDS}M"
+         ;;
+
+         --methods)
+            OPTION_KINDS="${OPTION_KINDS}mc"
+         ;;
+
+         --properties)
+            OPTION_KINDS="${OPTION_KINDS}p"
+         ;;
+
+         --protocols)
+            OPTION_KINDS="${OPTION_KINDS}P"
+         ;;
+
+         --structs)
+            OPTION_KINDS="${OPTION_KINDS}s"
+         ;;
+
+         --typedefs)
+            OPTION_KINDS="${OPTION_KINDS}t"
+         ;;
+
+         --variables|--global-variables)
+            OPTION_KINDS="${OPTION_KINDS}v"
+         ;;
+
+         ##
+
+         --dialect|--project-dialect)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            PROJECT_DIALECT="$1"
+         ;;
+
+         --keep-tmp)
+            OPTION_KEEP_TMP='YES'
+         ;;
+
+         --language|--project-language)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            PROJECT_LANGUAGE="$1"
          ;;
 
          --version)
@@ -289,11 +748,80 @@ sde::symbol::main()
 
    options_setup_trace "${MULLE_TRACE}" && set -x
 
-   if [ "${OPTION_CTAGS}" = 'YES' ]
+   log_setting "PROJECT_LANGUAGE : ${PROJECT_LANGUAGE}"
+   log_setting "PROJECT_DIALECT  : ${PROJECT_DIALECT}"
+
+   local language
+   local try_language
+   local attempt
+
+   language="${OPTION_LANGUAGE}"
+   if [ -z "${language}" ]
    then
-      sde::symbol::ctags "$@"
-      return $?
+      attempt="${PROJECT_DIALECT:-${PROJECT_LANGUAGE:-c}}"
+      r_find_best_language_matches "${attempt}"
+      r_select_best_candidate "${attempt}" "${RVAL}"
+      language="${RVAL}"
+      if [ -z "${language}" ]
+      then
+         log_warning "Defaulting to C. Check ctags --list-languages for supported languages"
+         language="C"
+      fi
    fi
 
-   sde::symbol::clangd "$@"
+   # %F = input file
+   # %n = line number
+   # %l = language
+   # %k = kind
+   # %N = name
+   # %s = scope
+   # %t = typeref
+   # %S = signature
+   # %p = pattern
+
+   if [ -z "${OPTION_OUTPUT_FORMAT}" ]
+   then
+      case "${language}" in
+         ObjectiveC)
+            OPTION_OUTPUT_FORMAT='xref'
+            OPTION_KINDS="${OPTION_KINDS:-cm}"
+            case "${OPTION_KINDS}" in
+               cm|mc|c|m)
+                  OPTION_XFORMAT="${OPTION_XFORMAT:-%K [%s %N] %F:%n}"
+               ;;
+
+               [a-z]|[A-Z])
+                  OPTION_XFORMAT="${OPTION_XFORMAT:-%N (%s) %F:%n}"
+               ;;
+            esac
+         ;;
+
+         *)
+            OPTION_OUTPUT_FORMAT='json'
+         ;;
+      esac
+   fi
+
+   if [ "${OPTION_OUTPUT_FORMAT}" = 'csv' ]
+   then
+      OPTION_OUTPUT_FORMAT='xref'
+      OPTION_XFORMAT="%F,%n,%l,%k,%N,%s,%t,%S,%p"
+      OPTION_KINDS="${OPTION_KINDS:-*}"
+      printf "input,line,language,kind,name,scope,typeref,signature,pattern\n"
+   fi
+
+   r_unique_chars "${OPTION_KINDS}"
+   OPTION_KINDS="${RVAL:-N}"
+
+   sde::symbol::ctags "${OPTION_CATEGORY}"      \
+                      "${language}"             \
+                      "${OPTION_OUTPUT_FORMAT}" \
+                      "${OPTION_KINDS}"         \
+                      "${OPTION_XFORMAT}"       \
+                      "${OPTION_KEEP_TMP}"      \
+                      "$@"
+   return $?
+#
+#   log_warning "clangd support has not been coded yet"
+#   sde::symbol::clangd "$@"
 }

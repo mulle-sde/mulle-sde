@@ -1,3 +1,7 @@
+### 3.2.3
+
+* symbol command now actually works
+
 ### 3.2.2
 
 * add ill-fated symbol command
