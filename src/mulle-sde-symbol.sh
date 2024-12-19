@@ -46,7 +46,7 @@ sde::symbol::print_flags()
    echo "   --ctags-language <s> : ctags language to use"
    echo "   --ctags-output <s>   : ctags output format (json)"
    echo "   --ctags-xformat <s>  : ctags xformat"
-
+   echo "   --csv-separator <s>  : separator character for CSV ('${OPTION_SEPARATOR}')"
    ##
    ## ADD YOUR FLAGS DESCRIPTIONS HERE
    ##
@@ -63,13 +63,13 @@ sde::symbol::usage()
 
    cat <<EOF >&2
 Usage:
-   mulle-sde symbol [flags] ...
+   mulle-sde symbol [flags] -- ...
 
    List symbols defined in the public headers (by default). This is a
    convenient way to run \`mulle-match list --category-matches public-headers\`
    and then execute \`ctags\` to create a list of symbols.
 
-   All unused arguments are passed to \`ctags\`.
+   All arguments after -- are passed to \`ctags\`.
 
    The ctags output formats are: u-ctags|e-ctags|etags|xref|json|csv. The
    default output is JSON for languages other than Objective-C. The tags
@@ -514,6 +514,8 @@ sde::symbol::main()
    local OPTION_OUTPUT_FORMAT  # u-ctags|e-ctags|etags|xref|json
    local OPTION_XFORMAT
    local OPTION_KEEP_TMP='NO'
+   local OPTION_SEPARATOR='|'
+
 #   local OPTION_CTAGS='YES'
 
    while [ $# -ne 0 ]
@@ -580,6 +582,13 @@ sde::symbol::main()
 
          --csv|--json)
             OPTION_OUTPUT_FORMAT="${1:2}"
+         ;;
+
+         -F|--csv-separator)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            OPTION_SEPARATOR="$1"
          ;;
 
          ## C kinds
@@ -734,6 +743,11 @@ sde::symbol::main()
             exit 0
          ;;
 
+         --)
+            shift
+            break
+         ;;
+
          -*)
             sde::symbol::usage "Unknown flag \"$1\""
          ;;
@@ -805,9 +819,9 @@ sde::symbol::main()
    if [ "${OPTION_OUTPUT_FORMAT}" = 'csv' ]
    then
       OPTION_OUTPUT_FORMAT='xref'
-      OPTION_XFORMAT="%F,%n,%l,%k,%N,%s,%t,%S,%p"
+      OPTION_XFORMAT="%F${OPTION_SEPARATOR}%n${OPTION_SEPARATOR}%l${OPTION_SEPARATOR}%k${OPTION_SEPARATOR}%N${OPTION_SEPARATOR}%s${OPTION_SEPARATOR}%t${OPTION_SEPARATOR}%S${OPTION_SEPARATOR}%p"
       OPTION_KINDS="${OPTION_KINDS:-*}"
-      printf "input,line,language,kind,name,scope,typeref,signature,pattern\n"
+      printf "input${OPTION_SEPARATOR}line${OPTION_SEPARATOR}language${OPTION_SEPARATOR}kind${OPTION_SEPARATOR}name${OPTION_SEPARATOR}scope${OPTION_SEPARATOR}typeref${OPTION_SEPARATOR}signature${OPTION_SEPARATOR}pattern\n"
    fi
 
    r_unique_chars "${OPTION_KINDS}"

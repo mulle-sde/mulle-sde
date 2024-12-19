@@ -1,3 +1,10 @@
+### 3.2.4
+
+* mulle-sde fetch now always forces a refresh if successful, otherwise a add - fetch - craft would have wrong headers
+* mulle-sde kitchen-tree now always uses -a to show hidden craftorder directory
+* mulle-sde symbols CSV separator is now a pipe by default (can be changed)
+* fixed broken mulle-sde mark command
+
 ### 3.2.3
 
 * symbol command now actually works

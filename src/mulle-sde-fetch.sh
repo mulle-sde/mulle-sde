@@ -49,6 +49,7 @@ Usage:
 
 Options:
    --serial                     : don't fetch dependencies in parallel
+   --no-reflect                 : does not run a reflect after a sync
 
 Environment:
    MULLE_SDE_FETCH              : disables fetching when set to NO
@@ -176,9 +177,18 @@ sde::fetch::main()
       fi
    fi
 
+   local rc
+
    if [ "${do_update}" = 'YES' ]
    then
       sde::fetch::do_sync_sourcetree "${OPTION_SERIAL}" "$@"
+      rc=$?
+      if [ $rc -eq 0 ]
+      then
+         include 'sde::reflect'
+
+         sde::reflect::main
+      fi
       return $?
    else
       log_verbose "Nothing to do"

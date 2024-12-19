@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.2.3
+MULLE_EXECUTABLE_VERSION=3.2.4
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -935,11 +935,20 @@ lib|pat|sub|unveil|view)
          fi
 
          local directory
+
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
                                              "${cmd%-tree}-dir" `"
          [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
-         rexekutor "${TREE}" --noreport "$@" "${directory}"
+
+         local treeflags case
+
+         case "${cmd}" in
+            kitchen-tree)
+               treeflags=-a
+            ;;
+         esac
+         rexekutor "${TREE}" ${treeflags} --noreport "$@" "${directory}"
       ;;
 
       'add')
@@ -1451,9 +1460,10 @@ view"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
 
-            # shellcheck source=src/mulle-sde-dependency.sh
-            include "sde::dependency"
          fi
+         # shellcheck source=src/mulle-sde-dependency.sh
+         include "sde::dependency"
+
          sde::dependency::main "${cmd}" "$@"
       ;;
 

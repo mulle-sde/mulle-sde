@@ -4033,7 +4033,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          local input
 
          printf "If you specify a project name, a new project will be created in \"${PWD#${MULLE_USER_PWD}/}/<project name>\"\n"
-         printf "or leave empty to initialize for the exisiting directory \"${PWD#${MULLE_USER_PWD}/}\"\n"
+         printf "or leave empty to initialize for the existing directory \"${PWD#${MULLE_USER_PWD}/}\"\n"
          printf "Project name > "
          read -r input
 

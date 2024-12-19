@@ -1058,8 +1058,9 @@ sde::dependency::add_main()
 
    argc=$#
 
+   local domain
    local name
-
+   local repo
    local domains
 
    #
@@ -1261,18 +1262,20 @@ sde::dependency::add_main()
          --*)
             [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
 
-            name="${1#--}"
+            domain="${1#--}"
+            shift
+
             domains="${domains:-`rexekutor ${MULLE_DOMAIN:-mulle-domain} -s list `}"
 
-            if find_line "${domains}" "${name}"
+            if find_line "${domains}" "${domain}"
             then
-               OPTION_DOMAIN="${name}"
-               shift
-               OPTION_USER="$1"
+               OPTION_DOMAIN="${domain}"
+               OPTION_USER="${1%/*}"
+               OPTION_REPO="${OPTION_REPO:-"${1##*/}"}"
             else
-               r_concat "${OPTION_OPTIONS}" "$1 '$2'"
+               # unknown domain, must be some other option
+               r_concat "${OPTION_OPTIONS}" "--${domain} '$1'"
                OPTION_OPTIONS="${RVAL}"
-               shift
             fi
          ;;
 
@@ -1284,11 +1287,23 @@ sde::dependency::add_main()
       shift
    done
 
-   local url="$1"
+   local url="${1:-}"
 
-   [ -z "${url}" ] && sde::dependency::add_usage "URL argument is missing ($*)"
-   shift
-   [ "$#" -eq 0 ] || sde::dependency::add_usage "Superflous arguments \"$*\""
+   if [ -z "${url}" ]
+   then
+      if [ -z "${OPTION_USER}" -o -z "${OPTION_REPO}" -o "${OPTION_DEMO}" ]
+      then
+         if [ -z "${OPTION_USER}" -a -z "${OPTION_REPO}" -a "${OPTION_DEMO}" ]
+         then
+            sde::dependency::add_usage "URL argument is missing ($*)"
+         else
+            sde::dependency::add_usage "URL argument is missing or incomplete options given"
+         fi
+      fi
+   else
+      shift
+      [ "$#" -eq 0 ] || sde::dependency::add_usage "Superflous arguments \"$*\""
+   fi
 
    local options
    local nodetype
@@ -1298,7 +1313,6 @@ sde::dependency::add_main()
    local user
    local originalurl
    local domain
-   local repo
    local fetchoptions
 
    originalurl="${url}"
