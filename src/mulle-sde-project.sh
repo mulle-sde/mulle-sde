@@ -120,6 +120,13 @@ ${C_INFO}Are you running inside a mulle-sde environment ?"
 
    r_lowercase "${PROJECT_UPCASE_IDENTIFIER}"
    PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+
+   log_setting "PROJECT_NAME:                ${PROJECT_NAME}"
+   log_setting "PROJECT_IDENTIFIER:          ${PROJECT_IDENTIFIER}"
+   log_setting "PROJECT_PREFIXLESS_NAME:     ${PROJECT_PREFIXLESS_NAME}"
+   log_setting "PROJECT_DOWNCASE_IDENTIFIER: ${PROJECT_UPCASE_DIALECT}"
+   log_setting "PROJECT_UPCASE_IDENTIFIER:   ${PROJECT_DOWNCASE_DIALECT}"
+   log_setting "PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER: ${PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}"
 }
 
 
@@ -151,6 +158,14 @@ sde::project::set_test_name_variables()
 
    r_lowercase "${TEST_PROJECT_UPCASE_IDENTIFIER}"
    TEST_PROJECT_DOWNCASE_IDENTIFIER="${RVAL}"
+
+   log_setting "TEST_PROJECT_NAME:                ${TEST_PROJECT_NAME}"
+   log_setting "TEST_PROJECT_IDENTIFIER:          ${TEST_PROJECT_IDENTIFIER}"
+   log_setting "TEST_PROJECT_PREFIXLESS_NAME:     ${TEST_PROJECT_PREFIXLESS_NAME}"
+   log_setting "TEST_PROJECT_DOWNCASE_IDENTIFIER: ${TEST_PROJECT_UPCASE_DIALECT}"
+   log_setting "TEST_PROJECT_UPCASE_IDENTIFIER:   ${TEST_PROJECT_DOWNCASE_DIALECT}"
+   log_setting "TEST_PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER: ${TEST_PROJECT_PREFIXLESS_DOWNCASE_IDENTIFIER}"
+
 }
 
 
@@ -179,6 +194,14 @@ sde::project::set_language_variables()
    PROJECT_UPCASE_DIALECT="${RVAL}"
 
    PROJECT_EXTENSIONS="${PROJECT_EXTENSIONS:-${PROJECT_DOWNCASE_DIALECT}}"
+
+   log_setting "PROJECT_LANGUAGE:          ${PROJECT_LANGUAGE}"
+   log_setting "PROJECT_DOWNCASE_LANGUAGE: ${PROJECT_DOWNCASE_LANGUAGE}"
+   log_setting "PROJECT_UPCASE_LANGUAGE:   ${PROJECT_UPCASE_LANGUAGE}"
+   log_setting "PROJECT_DIALECT:           ${PROJECT_DIALECT}"
+   log_setting "PROJECT_DOWNCASE_DIALECT:  ${PROJECT_DOWNCASE_DIALECT}"
+   log_setting "PROJECT_UPCASE_DIALECT:    ${PROJECT_UPCASE_DIALECT}"
+   log_setting "PROJECT_EXTENSIONS:        ${PROJECT_EXTENSIONS}"
 }
 
 
@@ -293,6 +316,9 @@ sde::project::set_oneshot_variables()
       ONESHOT_CATEGORY="${category}"
    fi
 
+   log_setting "ONESHOT_CLASS:    ${ONESHOT_CLASS}"
+   log_setting "ONESHOT_CATEGORY: ${ONESHOT_CATEGORY}"
+
    if [ -z "${filename}" ]
    then
       return
@@ -334,6 +360,17 @@ sde::project::set_oneshot_variables()
 
    r_basename "${ONESHOT_FILENAME}"
    ONESHOT_BASENAME="${RVAL}"
+
+   log_setting "ONESHOT_FILENAME:        ${ONESHOT_FILENAME}"
+   log_setting "ONESHOT_BASENAME:        ${ONESHOT_BASENAME}"
+   log_setting "ONESHOT_FILENAME_NO_EXT: ${ONESHOT_FILENAME_NO_EXT}"
+   log_setting "ONESHOT_NAME:            ${ONESHOT_NAME}"
+   log_setting "ONESHOT_IDENTIFIER:      ${ONESHOT_IDENTIFIER}"
+   log_setting "ONESHOT_UPCASE_IDENTIFIER:     ${ONESHOT_UPCASE_IDENTIFIER}"
+   log_setting "ONESHOT_UPCASE_C_IDENTIFIER:   ${ONESHOT_UPCASE_C_IDENTIFIER}"
+   log_setting "ONESHOT_DOWNCASE_C_IDENTIFIER: ${ONESHOT_DOWNCASE_C_IDENTIFIER}"
+   log_setting "ONESHOT_PREFIXLESS_NAME:       ${ONESHOT_PREFIXLESS_NAME}"
+   log_setting "ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER: ${ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER}"
 
    # hack!!
 
@@ -377,6 +414,7 @@ sde::project::export_oneshot_environment()
    fi
 
    export ONESHOT_FILENAME \
+          ONESHOT_BASENAME \
           ONESHOT_FILENAME_NO_EXT \
           ONESHOT_NAME \
           ONESHOT_IDENTIFIER \
@@ -384,7 +422,6 @@ sde::project::export_oneshot_environment()
           ONESHOT_UPCASE_IDENTIFIER \
           ONESHOT_UPCASE_C_IDENTIFIER \
           ONESHOT_DOWNCASE_C_IDENTIFIER \
-          ONESHOT_BASENAME \
           ONESHOT_PREFIXLESS_NAME \
           ONESHOT_PREFIXLESS_DOWNCASE_IDENTIFIER
 

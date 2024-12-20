@@ -1,3 +1,8 @@
+### 3.2.5
+
+* fix library marks command
+* build script can now accept a --cores parameter
+
 ### 3.2.4
 
 * mulle-sde fetch now always forces a refresh if successful, otherwise a add - fetch - craft would have wrong headers

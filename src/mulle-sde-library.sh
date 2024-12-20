@@ -563,7 +563,7 @@ sde::library::set_main()
    local marks
 
    if ! marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}"  \
-                              get --marks "${LIBRARY_MARKS}" none "${address}" marks`"
+                              get --marks "${LIBRARY_MARKS}" "${address}" marks`"
    then
       return 1
    fi

@@ -80,6 +80,7 @@ Commands:
    remove          : remove the craftinfo with all settings
    readd           : add the craftinfo dependency back
    set             : set a build setting of a dependency
+   script          : convenience for creating a build script
    show            : show craftinfos that are available online
    unset           : remove a build setting of a dependency
 

@@ -79,12 +79,12 @@ build_main()
    # case "${MULLE_UNAME}" in
    #    linux)
    #        logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
-   #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}" CFLAGS="-fPIC"
+   #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}" CFLAGS="-fPIC" -j ${CORES}
    #    ;;
    #
    #    *)
    #        logging_tee_eval_exekutor "${LOGFILE}" "${TEEFILE}" \
-   #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}"
+   #           make BUILD="${KITCHEN_DIR}" PREFIX="${PREFIX}" -j ${CORES}
    #    ;;
    # esac
 
@@ -150,6 +150,7 @@ main()
    local LOGFILE
    local TEEFILE
    local TARGET
+   local CORES
 
    while [ "$#" -ne 0 ]
    do
@@ -162,6 +163,13 @@ main()
       case "$1" in
          -h*|--help|help)
             usage
+         ;;
+
+         -j|--cores)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+
+            CORES="$1"
          ;;
 
          --logfile)
