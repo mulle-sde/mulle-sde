@@ -1,3 +1,7 @@
+### 3.2.6
+
+* workaround for zsh problem in mulle-sde-cd
+
 ### 3.2.5
 
 * fix library marks command
