@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.15)
 
-project( mulle-sde VERSION 3.2.7 LANGUAGES NONE)
+project( mulle-sde VERSION 3.2.8 LANGUAGES NONE)
 
 execute_process( COMMAND ./mulle-sde version
                  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -62,26 +62,26 @@ install( DIRECTORY ${EXTENSIONS}
 # probably useless. Also we don't use cmake in homebrew currently, everything
 # is running through bin/installer
 #
-IF( DEFINED ENV{HOMEBREW_CELLAR})
-   execute_process(
-     COMMAND brew --prefix
-     OUTPUT_VARIABLE MULLE_BREW_PREFIX
-     OUTPUT_STRIP_TRAILING_WHITESPACE
-   )
-endif()
-
-if( MULLE_BREW_PREFIX)
-   set( PLUGIN_INSTALL_DIR "${MULLE_BREW_PREFIX}/share/mulle-env/plugins")
-else()
-   set( PLUGIN_INSTALL_DIR "/usr/local/share/mulle-env/plugins")
-endif()
-
-install( FILES ${PLUGIN_SCRIPTS}
-         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-                    GROUP_EXECUTE GROUP_READ
-                    WORLD_EXECUTE WORLD_READ
-         DESTINATION "${PLUGIN_INSTALL_DIR}")
-
+#IF( DEFINED ENV{HOMEBREW_CELLAR})
+#   execute_process(
+#     COMMAND brew --prefix
+#     OUTPUT_VARIABLE MULLE_BREW_PREFIX
+#     OUTPUT_STRIP_TRAILING_WHITESPACE
+#   )
+#endif()
+#
+#if( MULLE_BREW_PREFIX)
+#   set( PLUGIN_INSTALL_DIR "${MULLE_BREW_PREFIX}/share/mulle-env/plugins")
+#else()
+#   set( PLUGIN_INSTALL_DIR "/usr/local/share/mulle-env/plugins")
+#endif()
+#
+#install( FILES ${PLUGIN_SCRIPTS}
+#         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+#                    GROUP_EXECUTE GROUP_READ
+#                    WORLD_EXECUTE WORLD_READ
+#         DESTINATION "${PLUGIN_INSTALL_DIR}")
+#
 ######
 #
 # must be after CPACK_PACKAGE_VERSION

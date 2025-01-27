@@ -1,3 +1,7 @@
+### 3.2.8
+
+* defeat: giving up on having the mulle plugin in the proper project mulle-sde, for install reasons, moved to mulle-env
+
 ### 3.2.7
 
 Various small improvements
