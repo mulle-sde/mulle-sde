@@ -1,3 +1,7 @@
+### 3.2.7
+
+Various small improvements
+
 ### 3.2.6
 
 * workaround for zsh problem in mulle-sde-cd

@@ -198,7 +198,10 @@ main()
    #    ;;
    # esac
 
-   share="${prefix}/share/mulle-env"
+   #
+   # install absolute here
+   #
+   share="/usr/local/share/mulle-env"
    PLUGIN_DIR="${share}/plugins"
    mkdir -p "${PLUGIN_DIR}" || exit 1
    for i in src/mulle-env/plugins/*.sh

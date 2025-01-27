@@ -51,25 +51,29 @@ install( DIRECTORY ${EXTENSIONS}
    PATTERN "*.ignore" EXCLUDE
 )
 
-#
-# this tries to fix the "mulle" plugin not properly added to mulle-env
-# looks hacky, but cody said:
-# The best practice for Homebrew packages is to use the Cellar path.
-# You can get the exact path of your installed mulle-env using:
-# brew --prefix mulle-env
+
+# mulle-env fatal error: No plugin "mulle" found in
+# "/opt/homebrew/Cellar/mulle-bashfunctions/6.5.1/share/mulle-env/plugins
+# /usr/local/share/mulle-env/plugins
+# /usr/share/mulle-env/plugins
+# /opt/homebrew/Cellar/mulle-env/5.3.3/libexec/mulle-env/plugins".
+
+# if we were to install under homebrew, get homebrew prefix, though quite frankly
+# probably useless. Also we don't use cmake in homebrew currently, everything
+# is running through bin/installer
 #
 IF( DEFINED ENV{HOMEBREW_CELLAR})
    execute_process(
-     COMMAND brew --prefix mulle-env
-     OUTPUT_VARIABLE MULLE_ENV_PREFIX
+     COMMAND brew --prefix
+     OUTPUT_VARIABLE MULLE_BREW_PREFIX
      OUTPUT_STRIP_TRAILING_WHITESPACE
    )
 endif()
 
-if( MULLE_ENV_PREFIX)
-   set( PLUGIN_INSTALL_DIR "${MULLE_ENV_PREFIX}/libexec/mulle-env/plugins")
+if( MULLE_BREW_PREFIX)
+   set( PLUGIN_INSTALL_DIR "${MULLE_BREW_PREFIX}/share/mulle-env/plugins")
 else()
-   set( PLUGIN_INSTALL_DIR "share/mulle-env/plugins")
+   set( PLUGIN_INSTALL_DIR "/usr/local/share/mulle-env/plugins")
 endif()
 
 install( FILES ${PLUGIN_SCRIPTS}
