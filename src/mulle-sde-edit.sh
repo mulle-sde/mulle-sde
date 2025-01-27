@@ -49,7 +49,7 @@ Options:
    --         : pass remaining arguments (if you need to pass --reselect)
 
 Environment:
-   MULLE_SDE_EDITORS : list of editor separated by ':' (${MULLE_SDE_EDITORS})
+   MULLE_SDE_EDITORS : list of editors separated by ':' (${MULLE_SDE_EDITORS})
 
 EOF
    exit 1
@@ -110,6 +110,21 @@ sde::edit::main()
    local OPTION_JSON_ENV
    local OPTION_SQUELCH='DEFAULT'
    local OPTION_EDITOR
+
+   # initial choice
+   case "${MULLE_UNAME}" in
+      windows)
+         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl.exe:clion.exe:vscode.exe:cursor.exe}"
+      ;;
+
+      macos)
+         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl:clion:lion:vscode:cursor}"
+      ;;
+
+      *)
+         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:codium:code:cursor:micro:emacs:vi}"
+      ;;
+   esac
 
    while :
    do
@@ -217,25 +232,10 @@ EOF
    if [ -z "${editor}" ]
    then
       local editors
-      local choices
 
-      case "${MULLE_UNAME}" in
-         windows)
-            choices="${MULLE_SDE_EDITORS:-subl.exe:clion.exe:vscode.exe:cursor.exe}"
-         ;;
-
-         macos)
-            choices="${MULLE_SDE_EDITORS:-subl:clion:lion:vscode:cursor.exe}"
-         ;;
-
-         *)
-            choices="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:codium:code:cursor:micro:emacs:vi}"
-         ;;
-      esac
-
-      if ! sde::edit::r_installed_editors "${choices}"
+      if ! sde::edit::r_installed_editors "${MULLE_SDE_EDITORS}"
       then
-         fail "No suitable editor found, please install one of: ${choices}"
+         fail "No suitable editor found, please install one of: ${MULLE_SDE_EDITORS}"
       fi
       editors="${RVAL}"
 

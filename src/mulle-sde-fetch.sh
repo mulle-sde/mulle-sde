@@ -86,13 +86,21 @@ sde::fetch::do_sync_sourcetree()
       flags="--serial"
    fi
 
+   local rc
+
    # we want to push --share and --recurse through, so "$@" is before sync
    eval_exekutor "'${MULLE_SOURCETREE:-mulle-sourcetree}'" \
                         "${MULLE_TECHNICAL_FLAGS:-}" \
                         "${MULLE_SOURCETREE_FLAGS:-}" \
                         "$@" \
                      "sync" \
-                         ${flags}  || fail "sync fail"
+                         ${flags}
+   rc="$?"
+
+   if [ $rc -ne 0 ]
+   then
+      fail "sync fail ($rc)"
+   fi
 
    #
    # run this quickly, because incomplete previous fetches trip me
