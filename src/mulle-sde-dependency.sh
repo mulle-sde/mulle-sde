@@ -350,7 +350,7 @@ sde::dependency::set_main()
    local OPTION_DIALECT=''
    local OPTION_ENHANCE='YES'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -a|--append)
@@ -645,7 +645,7 @@ sde::dependency::list_main()
    local OPTIONS
    local OPTION_JSON='DEFAULT'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1067,7 +1067,7 @@ sde::dependency::add_main()
    # grab options for mulle-sourcetree
    # interpret sde options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1790,7 +1790,7 @@ sde::dependency::source_dir_main()
 {
    log_entry "sde::dependency::source_dir_main" "$@"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -2047,7 +2047,7 @@ sde::dependency::main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -2183,7 +2183,7 @@ platform-excludes"
                            "$@"
       ;;
 
-      remove|rem)
+      remove|rm)
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
              exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \

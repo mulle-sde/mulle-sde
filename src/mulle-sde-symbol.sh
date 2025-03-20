@@ -47,6 +47,7 @@ sde::symbol::print_flags()
    echo "   --ctags-output <s>   : ctags output format (json)"
    echo "   --ctags-xformat <s>  : ctags xformat"
    echo "   --csv-separator <s>  : separator character for CSV ('${OPTION_SEPARATOR}')"
+   echo "   --keep-tmp           : keep temporary created files (for debugging)"
    ##
    ## ADD YOUR FLAGS DESCRIPTIONS HERE
    ##

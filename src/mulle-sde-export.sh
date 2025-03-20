@@ -64,7 +64,7 @@ sde::export::main()
    local OPTION_WRITE='NO'
    local OPTION_DIRECTORY="${HOME}/.mulle/etc/craftinfo"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

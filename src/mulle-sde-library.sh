@@ -383,6 +383,11 @@ sde::library::add_main()
             marks="${RVAL}"
          ;;
 
+         --no-header)
+            sourcetree::marks::r_add "${marks}" "no-header"
+            marks="${RVAL}"
+         ;;
+
          --required|--require)
             sourcetree::marks::r_add "${marks}" "require"
             marks="${RVAL}"
@@ -524,7 +529,7 @@ sde::library::set_main()
 
    local OPTION_APPEND='NO'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -602,7 +607,7 @@ sde::library::get_main()
 {
    log_entry "sde::library::get_main" "$@"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -685,7 +690,7 @@ sde::library::list_main()
    # with supermarks we don't filter stuff out anymore a priori
    no_marks=
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -783,7 +788,7 @@ sde::library::main()
    #
    local cmd
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -840,7 +845,8 @@ sde::library::main()
       ;;
 
 
-      mark|remove|unmark|rcopy)
+      mark|remove|unmark|rcopy|rm)
+         cmd="${cmd/#rm/remove}"
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
          exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            --virtual-root \

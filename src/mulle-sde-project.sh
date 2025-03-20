@@ -882,7 +882,7 @@ sde::project::rename_main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1048,7 +1048,7 @@ sde::project::remove_main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1084,7 +1084,7 @@ sde::project::main()
 {
    log_entry "sde::project::main" "$@"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1117,7 +1117,7 @@ sde::project::main()
          sde::project::rename_main "$@"
       ;;
 
-      remove)
+      remove|rm)
          shift
          sde::project::remove_main "$@"
       ;;

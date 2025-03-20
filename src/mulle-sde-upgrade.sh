@@ -169,7 +169,7 @@ sde::upgrade::main()
    local OPTION_TEST='YES'
    local OPTION_CLEAN='NO'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)

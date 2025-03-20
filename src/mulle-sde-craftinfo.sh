@@ -400,7 +400,7 @@ sde::craftinfo::readd_main()
 
    local extension="$1"; shift
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -608,7 +608,7 @@ sde::craftinfo::create_main()
 
    local extension="$1"; shift
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -680,7 +680,7 @@ sde::craftinfo::remove_main()
 
    local extension="$1"; shift
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -769,7 +769,7 @@ sde::craftinfo::script_main()
    local OPTION_CLEAN_CMD
    local OPTION_INSTALL_CMD
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -923,7 +923,7 @@ sde::craftinfo::set_main()
 
    local flags
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1009,7 +1009,7 @@ sde::craftinfo::unset_main()
 
    local extension="$1"; shift
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1077,7 +1077,7 @@ sde::craftinfo::get_main()
 
    local extension="$1"; shift
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1235,7 +1235,7 @@ sde::craftinfo::list_main()
    local extension="$1"; shift
    local url
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1488,7 +1488,7 @@ sde::craftinfo::export_main()
 
    local OPTION_EXPORT_SCRIPTS='YES'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1541,7 +1541,7 @@ sde::craftinfo::show_main()
 
    local url
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1583,7 +1583,7 @@ sde::craftinfo::main()
 
    extension="DEFAULT"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

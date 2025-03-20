@@ -56,7 +56,7 @@ sde::unveil::main()
    local OPTION_EXECUTABLES='DEFAULT'
    local OPTION_SYMLINKS='DEFAULT'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

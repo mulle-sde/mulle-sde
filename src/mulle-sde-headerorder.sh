@@ -561,7 +561,7 @@ sde::headerorder::main()
 
    local collect_libraries='YES'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

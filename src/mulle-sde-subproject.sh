@@ -188,7 +188,7 @@ sde::subproject::set_main()
 
    local OPTION_APPEND='NO'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -a|--append)
@@ -310,7 +310,7 @@ sde::subproject::init_main()
    local meta
    local style
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -617,7 +617,7 @@ sde::subproject::main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -s|--subproject)
@@ -770,7 +770,7 @@ $1"
          sde::common::exekutor_sourcetree_nofail move "$@"
       ;;
 
-      remove)
+      remove|rm)
          include "sde::common"
 
          sde::common::exekutor_sourcetree_nofail remove "$@" &&

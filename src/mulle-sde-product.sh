@@ -234,9 +234,9 @@ ${C_RESET_BOLD}${projectname}${C_ERROR} or ${C_RESET_BOLD}${projectname}.exe${C_
 }
 
 
-sde::product::r_preferred_executable()
+sde::product::r_preferred_executable_names()
 {
-   log_entry "sde::product::r_preferred_executable" "$@"
+   log_entry "sde::product::r_preferred_executable_names" "$@"
 
    local executables="$1"
    local preferredname="$2"
@@ -277,14 +277,13 @@ sde::product::r_user_choses_executable()
    local executables="$1"
    local preferredname="$2"
 
-   if sde::product::r_preferred_executable "${executables}" "${preferredname}"
+   local names
+
+   if sde::product::r_preferred_executable_names "${executables}" "${preferredname}"
    then
       return 0
    fi
-
-   local names
-
-   names="${RVAL}"
+   names=$( sort <<< "${RVAL}" )
 
    local row
 
@@ -294,8 +293,19 @@ sde::product::r_user_choses_executable()
    row=$?
    log_debug "row=${row}"
 
-   r_line_at_index "${executables}" $row
-   [ ! -z "${RVAL}" ]
+   local name 
+
+   r_line_at_index "${names}" $row
+   name="${RVAL}"
+
+   # gotta find it now
+   if sde::product::r_preferred_executable_names "${executables}" "${name}"
+   then
+      return 0 
+   fi
+
+   RVAL=
+   return 2
 }
 
 
@@ -411,6 +421,7 @@ sde::product::r_product_paths()
 
       none)
          log_info "Project type \"none\" builds no product"
+         RVAL=
          return
       ;;
 
@@ -451,7 +462,7 @@ sde::product::r_product_paths()
       sde::product::r_executables
       candidates="${RVAL}"
 
-      if sde::product::r_preferred_executable "${candidates}" "$@"
+      if sde::product::r_preferred_executable_names "${candidates}" "$@"
       then
          log_debug "returns preferred executable: ${RVAL}"
          return 0
@@ -477,7 +488,7 @@ sde::product::list_main()
 
    local OPTION_ALL='YES'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -510,6 +521,12 @@ sde::product::list_main()
       sde::product::r_least_recently_changed_file "${filepaths}"
       filepaths="${RVAL}"
    fi
+
+   if [ -z "${filepaths}" ]
+   then
+      return 0
+   fi
+
    printf "%s\n" "${filepaths}"
 }
 
@@ -518,7 +535,7 @@ sde::product::searchpath_main()
 {
    log_entry "sde::product::searchpath_main" "$@"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -596,14 +613,21 @@ sde::product::run_main()
 
          -e)
             MUDO_FLAGS="$1"
+            shift
          ;;
 
          -b|--background)
             OPTION_BACKGROUND='YES'
+            shift
          ;;
 
          --no-background|--foreground)
             OPTION_BACKGROUND='NO'
+            shift
+         ;;
+
+         --)
+            shift
          ;;
 
          -*)
@@ -690,7 +714,7 @@ sde::product::run_main()
 #
 sde::product::symlink_main()
 {
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -753,7 +777,7 @@ sde::product::main()
    local OPTION_SDE_RUN_ENV='YES'
    local MUDO_FLAGS="-e"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

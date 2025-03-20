@@ -54,9 +54,12 @@ Options:
    -h                  : show this usage
    --configuration <c> : set configuration, like "Debug"
    --debug             : shortcut for --configuration Debug
+   --leak              : trace mulle-objc leaks
    --release           : shortcut for --configuration Release
    --restrict          : run debug with restricted environment
    --sdk <sdk>         : set sdk
+   --unordered         : don't sort executable menu
+   --zombie            : trace mulle-objc zombies
 EOF
    exit 1
 }
@@ -177,13 +180,18 @@ sde::debug::run_main()
 
    include "sde::product"
 
-   local executable
+   local executable="${OPTION_EXECUTABLE}"
 
-   if ! sde::product::r_executable "$1"
+   if [ -z "${executable}" ]
    then
-      return 1
+      if ! sde::product::r_executable "$1"
+      then
+         return 1
+      fi
+      
+      executable="${RVAL}"
+      shift
    fi
-   executable="${RVAL}"
 
    if [ $# -ne 0 ]
    then
@@ -192,14 +200,13 @@ sde::debug::run_main()
             sde::product::debug_usage
          ;;
 
-         -e)
+         -e|-E)
             MUDO_FLAGS="$1"
+            shift
          ;;
 
-         -*)
-         ;;
 
-         *)
+         --)
             shift
          ;;
       esac
@@ -254,6 +261,9 @@ sde::debug::run_main()
       log_debug "read custom environment from: ${filename}"
       environment="`cat "${filename}" 2> /dev/null`"
 
+      r_concat "${environment}" "${OPTION_ENVIRONMENT}"
+      environment="${RVAL}"
+
       if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
       then
          ADDICTION_DIR="`mulle-craft addiction-dir`"
@@ -269,10 +279,10 @@ sde::debug::run_main()
       environment="${RVAL}"
 
       eval_exekutor mudo "${MUDO_FLAGS}" -f \
-                    "${environment}" \
-                    "'${debugger}${MULLE_EXE_EXTENSION}'" \
-                    "'${executable}'" \
-                    "${args}"
+                         "${environment}" \
+                         "'${debugger}${MULLE_EXE_EXTENSION}'" \
+                         "'${executable}'" \
+                         "${args}"
    )
 }
 
@@ -284,10 +294,12 @@ sde::debug::main()
    local OPTION_CONFIGURATION
    local OPTION_SDK
    local OPTION_EXISTS
-   local MUDO_FLAGS="-e"
+   local MUDO_FLAGS="-E"
    local OPTION_SELECT
+   local OPTION_ENVIRONMENT
+   local OPTION_EXECUTABLE
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -310,7 +322,7 @@ sde::debug::main()
             OPTION_SELECT='YES'
          ;;
 
-         --restrict)
+         --restrict|--restrict-environment)
             MUDO_FLAGS=""
          ;;
 
@@ -318,8 +330,27 @@ sde::debug::main()
             OPTION_CONFIGURATION="Release"
          ;;
 
+         --objc-trace-leak|--leak|--trace-leak)
+            r_concat "${OPTION_ENVIRONMENT}" "MULLE_TESTALLOCATOR='3'"
+            r_concat "${RVAL}"               "MULLE_OBJC_TRACE_LEAK='YES'"
+            OPTION_ENVIRONMENT="${RVAL}"
+         ;;
+
+         --objc-trace-zombie|--zombie|--trace-zombie)
+            r_concat "${OPTION_ENVIRONMENT}" "MULLE_OBJC_TRACE_ZOMBIE='YES'"
+            OPTION_ENVIRONMENT="${RVAL}"
+         ;;
+
          --debug)
             OPTION_CONFIGURATION="Debug"
+         ;;
+
+         --executable)
+            [ $# -eq 1 ] && sde::debug::usage "Missing argument to \"$1\""
+            shift
+
+            r_simplified_absolutepath "$1" "${MULLE_USER_PWD}"
+            OPTION_EXECUTABLE="${RVAL}"
          ;;
 
          --)
@@ -342,7 +373,6 @@ sde::debug::main()
    local cmd="${1:-}"
 
    [ $# -ne 0 ] && shift
-
 
    case "${cmd}" in
       sublime-debug)
@@ -444,13 +474,13 @@ EOF
          fi
       ;;
 
-      run)
+      run|'')
          shift
          sde::debug::run_main "$@"
       ;;
 
       *)
-         sde::debug::run_main "${cmd}"
+         sde::debug::run_main "${cmd}" "$@"
       ;;
    esac
 }

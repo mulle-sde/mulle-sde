@@ -186,7 +186,7 @@ sde::test::generate()
    local flags
    local OPTION_FULL_TEST='NO'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -692,7 +692,7 @@ sde::test::r_main()
 
    local rval
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

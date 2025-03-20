@@ -406,7 +406,7 @@ sde::status::main()
       indent="   "
    fi
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

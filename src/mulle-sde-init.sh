@@ -549,7 +549,7 @@ sde::init::read_template_expanded_file()
    # CLUMSY HACKS:
    # for the benefit of test we have to define some stuff now
    #
-   local PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY:-Foundation-startup}"
+   local PREFERRED_STARTUP_LIBRARY="${PREFERRED_STARTUP_LIBRARY:-MulleFoundation-startup}"
    local PREFERRED_STARTUP_LIBRARY_UPCASE_IDENTIFIER
 
    r_uppercase "${PREFERRED_STARTUP_LIBRARY}"
@@ -3619,7 +3619,7 @@ sde::init::_main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

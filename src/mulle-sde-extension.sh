@@ -785,7 +785,7 @@ sde::extension::vendors_main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -828,7 +828,7 @@ sde::extension::find_main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -1058,7 +1058,7 @@ sde::extension::show_main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -1246,7 +1246,7 @@ sde::extension::list_main()
 
    local OPTION_VERSION='YES'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
@@ -1608,7 +1608,7 @@ sde::extension::usage_main()
    local OPTION_USAGE_ONLY='NO'
    local OPTION_NO_USAGE='NO'
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -1802,7 +1802,7 @@ sde::extension::add_main()
 
    local args
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -1887,7 +1887,7 @@ sde::extension::freshen_main()
 
    local args
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -1946,7 +1946,7 @@ sde::extension::remove_main()
 {
    log_entry "sde::extension::remove_main" "$@"
 
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h*|--help|help)
@@ -2057,7 +2057,7 @@ sde::extension::main()
    #
    # handle options
    #
-   while :
+   while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)

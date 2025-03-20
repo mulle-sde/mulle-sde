@@ -1,3 +1,8 @@
+## 3.3.0
+
+* you can now use rm as an alias for remove
+
+
 ### 3.2.8
 
 * defeat: giving up on having the mulle plugin in the proper project mulle-sde, for install reasons, moved to mulle-env
