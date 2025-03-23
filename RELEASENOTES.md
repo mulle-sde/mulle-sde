@@ -1,5 +1,7 @@
 ## 3.3.0
 
+* fix a directory protecting / unprotecting ugliness
+
 * you can now use rm as an alias for remove
 
 

@@ -746,12 +746,17 @@ sde::init::_add_to_tools()
 
    log_verbose "Tools: \"${quoted_args}\" ${os:+ (}${os}${os:+)}"
 
+   # here we assume that we are adding an extension, and everything has been
+   # unprotected for us, so we can just write into /etc with no trouble
    (
       MULLE_VIRTUAL_ROOT="`pwd -P`" \
          eval_exekutor "'${MULLE_ENV:-mulle-env}'" \
                               --search-nearest \
                               "${MULLE_TECHNICAL_FLAGS}" \
                               -s \
+                              -vvv \
+                              -ld \
+                              -lx \
                               --no-protect \
                            tool \
                               --os "'${os:-DEFAULT}'" \
@@ -765,7 +770,7 @@ sde::init::_add_to_tools()
 
    if [ $? -eq 1 ] # only 1 is error, 2 is ok
    then
-      fail "Addition of tools \"${quoted_args}\" failed"
+      fail "Addition of tools ${quoted_args} failed"
    fi
 }
 
@@ -3495,6 +3500,16 @@ sde::init::protect_unprotect()
 
       # can only read protect files, because otherwise git freaks out
       exekutor find "${i}" -type f -exec chmod "${mode}" {} \;
+
+      # but unprotecting directories is fine, and needed for some tools
+      # -> mulle-env. Actually gotta revisit this some time. mulle-env seems
+      # to protect directories and where are the bad effects, as espoused
+      # above ?
+      case "${mode}" in
+         *'+'*)
+            exekutor find "${i}" -type d -exec chmod "${mode}" {} \;
+         ;;
+      esac
    .done
 }
 
@@ -4084,8 +4099,9 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done
 
+   set -x
    sde::init::protect_unprotect "Unprotect" "ug+w"
-
+   set +x
    ### BEGIN
       local tmp_file
 
