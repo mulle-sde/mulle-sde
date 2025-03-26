@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.3.0
+MULLE_EXECUTABLE_VERSION=3.4.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -1605,10 +1605,10 @@ view"
       ;;
 
       'run')
-         # shellcheck source=src/mulle-sde-product.sh
-         include "sde::product"
+         # shellcheck source=src/mulle-sde-run.sh
+         include "sde::run"
 
-         sde::product::run_main 'YES' "$@"
+         sde::run::main "$@"
       ;;
 
       # used by mulle-test

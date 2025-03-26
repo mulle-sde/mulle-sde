@@ -39,17 +39,16 @@ sde::product::usage()
 Usage:
    ${MULLE_USAGE_NAME} product [options] <command>
 
-   Find the product (library/executable) of \`mulle-sde craft\` and/or run it.
+   Find the product (library/executable) of \`mulle-sde craft\`.
    If there are  multiple products the most recently built one will be used.
    Searchpath shows the places products of a certain type are expected to
    show up. See \`${MULLE_USAGE_NAME} product searchpath help\` for more info.
 
-   \`${MULLE_USAGE_NAME} run\` is a shortcut for \`${MULLE_USAGE_NAME} product run\`
+   Use \`${MULLE_USAGE_NAME} run\` to run executable products.
 
 Commands:
    list                : list built products
    link                : symlink current product into ~/bin
-   run                 : run most recent product (if executable)
    searchpath          : show product places 
 
 Options:
@@ -73,33 +72,6 @@ Usage:
 
    Forceably symlink the main executable of the given project, into ~/bin.
    This can be dangerous and convenient at the same time.
-
-EOF
-   exit 1
-}
-
-
-sde::product::run_usage()
-{
-   [ "$#" -ne 0 ] && log_error "$1"
-
-   cat <<EOF >&2
-Usage:
-   ${MULLE_USAGE_NAME} run [options] [arguments] ...
-
-   Run the main executable of the given project, with the arguments given.
-   The executable will run within the mulle-sde environment unless -e is
-   given.
-
-Options:
-   --  : pass remaining options as arguments
-   -e  : run the main executable outside of the mulle-sde environment.
-   -b  : run the executable in the background (&)
-
-Environment:
-   MULLE_SDE_RUN      : command line to use, use \${EXECUTABLE} as variable
-   MULLE_SDE_PRE_RUN  : command line before executable starts
-   MULLE_SDE_POST_RUN : command line after executable has started, implies -b
 
 EOF
    exit 1
@@ -580,133 +552,6 @@ sde::product::r_executable()
    fi
 }
 
-
-sde::product::run_main()
-{
-   log_entry "sde::product::run_main" "$@"
-
-   local run_env="$1"; shift
-
-   local EXECUTABLE
-   local OPTION_BACKGROUND='DEFAULT'
-
-   if ! sde::product::r_executable "$@"
-   then
-      return 1
-   fi
-   EXECUTABLE="${RVAL}"
-
-   local preferredname
-   #
-   # so if we used first argument as preferred name, then
-   # remove it from arguments
-   #
-   r_extensionless_basename "${EXECUTABLE}"
-   preferredname="${RVAL}"
-
-   if [ $# -ne 0 ]
-   then
-      case "$1" in
-         -h|--help|help)
-            sde::product::run_usage
-         ;;
-
-         -e)
-            MUDO_FLAGS="$1"
-            shift
-         ;;
-
-         -b|--background)
-            OPTION_BACKGROUND='YES'
-            shift
-         ;;
-
-         --no-background|--foreground)
-            OPTION_BACKGROUND='NO'
-            shift
-         ;;
-
-         --)
-            shift
-         ;;
-
-         -*)
-         ;;
-
-         *)
-            if [ "${preferredname}" = "$1" ]
-            then
-               shift
-            fi
-         ;;
-      esac
-   fi
-
-   local commandline
-   local post_commandline
-   local pre_commandline
-
-   if [ "${run_env}" = 'YES' ]
-   then
-      commandline="`mulle-sde env get MULLE_SDE_RUN`"
-      pre_commandline="`mulle-sde env get MULLE_SDE_PRE_RUN`"
-      post_commandline="`mulle-sde env get MULLE_SDE_POST_RUN`"
-   fi
-
-
-   if [ ! -z "${post_commandline}" -a "${OPTION_BACKGROUND}" = 'DEFAULT' ]
-   then
-      OPTION_BACKGROUND='YES'
-   fi
-
-   log_setting "MULLE_SDE_RUN      : ${commandline}"
-   log_setting "MULLE_SDE_PRE_RUN  : ${pre_commandline}"
-   log_setting "MULLE_SDE_POST_RUN : ${post_commandline}"
-   log_setting "MULLE_VIRTUAL_ROOT : ${MULLE_VIRTUAL_ROOT}"
-
-   if [ ! -z "${pre_commandline}" ]
-   then
-      r_expanded_string "${pre_commandline}"
-      pre_commandline="${RVAL}"
-
-      # we don't push "$@" unto the post run though, if this is a problem
-      # pass it as an environment variable (and a wrapper shell script)
-      log_verbose "Use MULLE_SDE_PRE_RUN '${pre_commandline}' as command line"
-      eval_exekutor mudo ${MUDO_FLAGS} -f "${pre_commandline}"
-   fi
-
-   if [ ! -z "${commandline}" ]
-   then
-      r_expanded_string "${commandline}"
-      commandline="${RVAL}"
-
-      log_verbose "Use MULLE_SDE_RUN '${commandline}' as command line"
-      if [ "${OPTION_BACKGROUND}" = 'YES' ]
-      then
-         eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}" "$@" &
-      else
-         eval_exekutor mudo ${MUDO_FLAGS} -f "${commandline}" "$@"
-      fi
-   else
-      if [ "${OPTION_BACKGROUND}" = 'YES' ]
-      then
-         exekutor mudo ${MUDO_FLAGS} -f "${EXECUTABLE}" "$@" &
-      else
-         exekutor mudo ${MUDO_FLAGS} -f "${EXECUTABLE}" "$@"
-      fi
-   fi
-
-   if [ ! -z "${post_commandline}" ]
-   then
-      r_expanded_string "${post_commandline}"
-      post_commandline="${RVAL}"
-
-      # we don't push "$@" unto the post run though, if this is a problem
-      # pass it as an environment variable (and a wrapper shell script)
-      log_verbose "Use MULLE_SDE_POST_RUN '${post_commandline}' as command line"
-      eval_exekutor mudo ${MUDO_FLAGS} -f "${post_commandline}"
-   fi
-}
 
 
 #

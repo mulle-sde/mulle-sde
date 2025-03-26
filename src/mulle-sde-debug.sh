@@ -54,12 +54,15 @@ Options:
    -h                  : show this usage
    --configuration <c> : set configuration, like "Debug"
    --debug             : shortcut for --configuration Debug
+   --executable <exe>  : use <exe> as explicit executable path
    --leak              : trace mulle-objc leaks
    --release           : shortcut for --configuration Release
    --restrict          : run debug with restricted environment
    --sdk <sdk>         : set sdk
    --unordered         : don't sort executable menu
-   --zombie            : trace mulle-objc zombies
+   --zombie            : trace mulle-objc zombies (DEFAULT)
+   --no-zombie         : do not trace mulle-objc zombies
+
 EOF
    exit 1
 }
@@ -298,6 +301,8 @@ sde::debug::main()
    local OPTION_SELECT
    local OPTION_ENVIRONMENT
    local OPTION_EXECUTABLE
+   local OPTION_ZOMBIE='YES'
+   local OPTION_DEBUG_ENV='DEFAULT'
 
    while [ $# -ne 0 ]
    do
@@ -331,14 +336,15 @@ sde::debug::main()
          ;;
 
          --objc-trace-leak|--leak|--trace-leak)
-            r_concat "${OPTION_ENVIRONMENT}" "MULLE_TESTALLOCATOR='3'"
-            r_concat "${RVAL}"               "MULLE_OBJC_TRACE_LEAK='YES'"
-            OPTION_ENVIRONMENT="${RVAL}"
+            OPTION_DEBUG_ENV='LEAK'
          ;;
 
          --objc-trace-zombie|--zombie|--trace-zombie)
-            r_concat "${OPTION_ENVIRONMENT}" "MULLE_OBJC_TRACE_ZOMBIE='YES'"
-            OPTION_ENVIRONMENT="${RVAL}"
+            OPTION_DEBUG_ENV='ZOMBIE'
+         ;;
+
+         --no-objc-trace-zombie|--no-zombie|--no-trace-zombie)
+            OPTION_DEBUG_ENV='NONE'
          ;;
 
          --debug)
@@ -369,6 +375,25 @@ sde::debug::main()
 
       shift
    done
+
+   case "${OPTION_DEBUG_ENV}" in
+      'DEFAULT')
+         r_concat "${OPTION_ENVIRONMENT}" "NSZombieEnabled=YES"
+         r_concat "${RVAL}" "NSDeallocateZombies=YES"
+         OPTION_ENVIRONMENT="${RVAL}"
+      ;;
+
+      'ZOMBIE')
+         r_concat "${OPTION_ENVIRONMENT}" "MULLE_OBJC_TRACE_ZOMBIE='YES'"
+         OPTION_ENVIRONMENT="${RVAL}"
+      ;;
+
+      'LEAK')
+         r_concat "${OPTION_ENVIRONMENT}" "MULLE_TESTALLOCATOR='3'"
+         r_concat "${RVAL}" "MULLE_OBJC_TRACE_LEAK='YES'"
+         OPTION_ENVIRONMENT="${RVAL}"
+      ;;
+   esac
 
    local cmd="${1:-}"
 
