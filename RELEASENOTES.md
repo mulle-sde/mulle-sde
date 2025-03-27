@@ -1,3 +1,9 @@
+## 3.4.0
+
+
+* mulle-sde project run is now just mulle-sde run, mulle-sde project run is not there anymore
+
+
 ## 3.3.0
 
 * fix a directory protecting / unprotecting ugliness

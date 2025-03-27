@@ -754,9 +754,6 @@ sde::init::_add_to_tools()
                               --search-nearest \
                               "${MULLE_TECHNICAL_FLAGS}" \
                               -s \
-                              -vvv \
-                              -ld \
-                              -lx \
                               --no-protect \
                            tool \
                               --os "'${os:-DEFAULT}'" \
@@ -4099,9 +4096,8 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    # fake an environment so mulle-env gives us proper environment variables
    # remove temp file if done
 
-   set -x
    sde::init::protect_unprotect "Unprotect" "ug+w"
-   set +x
+
    ### BEGIN
       local tmp_file
 
