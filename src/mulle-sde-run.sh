@@ -69,7 +69,7 @@ sde::run::main()
    local OPTION_EXISTS
    local OPTION_NAME
    local OPTION_SDE_RUN_ENV='YES'
-   local MUDO_FLAGS="-e"
+   local MUDO_FLAGS="-E"
    local OPTION_BACKGROUND='DEFAULT'
    local OPTION_SDE_RUN_ENV='YES'
    local OPTION_DEBUG_ENV='DEFAULT'
@@ -101,10 +101,6 @@ sde::run::main()
             OPTION_SELECT='YES'
          ;;
 
-         --restrict)
-            MUDO_FLAGS=""
-         ;;
-
          --release)
             OPTION_CONFIGURATION="Release"
          ;;
@@ -117,9 +113,13 @@ sde::run::main()
             OPTION_SDE_RUN_ENV='NO'
          ;;
 
-         -e)
+         -e|-E)
             MUDO_FLAGS="$1"
             shift
+         ;;
+
+         --restrict|--restrict-environment)
+            MUDO_FLAGS=''
          ;;
 
          -b|--background)

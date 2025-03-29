@@ -328,11 +328,11 @@ sde::debug::main()
          ;;
 
          --restrict|--restrict-environment)
-            MUDO_FLAGS=""
+            MUDO_FLAGS=''
          ;;
 
          --release)
-            OPTION_CONFIGURATION="Release"
+            OPTION_CONFIGURATION='Release'
          ;;
 
          --objc-trace-leak|--leak|--trace-leak)

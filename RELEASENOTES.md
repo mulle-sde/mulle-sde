@@ -1,3 +1,7 @@
+### 3.4.1
+
+* make run command behave by default like debug with respect to how environment variables are merged
+
 ## 3.4.0
 
 
