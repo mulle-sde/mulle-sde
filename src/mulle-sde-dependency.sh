@@ -1312,7 +1312,7 @@ sde::dependency::add_main()
    local host
    local user
    local originalurl
-   local domain
+   # local domain
    local fetchoptions
 
    originalurl="${url}"
