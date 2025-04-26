@@ -114,15 +114,15 @@ sde::edit::main()
    # initial choice
    case "${MULLE_UNAME}" in
       windows)
-         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl.exe:clion.exe:vscode.exe:cursor.exe}"
+         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl.exe:clion.exe:cursor.exe:vscode.exe:windsurf.exe}"
       ;;
 
       macos)
-         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl:clion:lion:vscode:cursor}"
+         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl:clion:cursor:vscode:windsurf}"
       ;;
 
       *)
-         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:codium:code:cursor:micro:emacs:vi}"
+         MULLE_SDE_EDITORS="${MULLE_SDE_EDITORS:-subl:clion.sh:clion:code:codium:cursor:emacs:micro:vi:windsurf}"
       ;;
    esac
 

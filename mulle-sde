@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.4.1
+MULLE_EXECUTABLE_VERSION=3.4.2
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -113,6 +113,7 @@ function sde::print_commands()
    product        : location of main executable or library, heuristic
    project-dir    : print project root directory
    project        : rename a project and its files
+   recraft        : craft everything anew (cleans tidy)
    retest         : retest using mulle-test
    searchpath     : show search path for build products
    source-dir     : print project source directory
@@ -822,7 +823,7 @@ craft-status|definition|dep|dependency|doctor|donefile|export|fetch|\
 file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
 mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
-product|project|protect|reflect|searchpath|sourcetree|subproject|style|\
+product|project|protect|reflect|recraft|searchpath|sourcetree|subproject|style|\
 symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
 lib|pat|sub|unveil|view)
                if ! sde::is_non_environment_commandline "$@"
@@ -1054,6 +1055,7 @@ protect
 reinit
 reflect
 remove
+recraft
 retest
 run
 searchpath
@@ -1098,7 +1100,7 @@ view"
          sde::config::main "$@"
       ;;
 
-      'craft')
+      'craft'|'recraft')
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
@@ -1109,7 +1111,12 @@ view"
          # shellcheck source=src/mulle-sde-craft.sh
          include "sde::craft"
 
-         sde::craft::main "$@"
+         if [ "${cmd}" = 'recraft' ]
+         then
+            sde::craft::main --tidy "$@"
+         else
+            sde::craft::main "$@"
+         fi
       ;;
 
       'craftinfo'|'craftinfos')

@@ -3330,7 +3330,7 @@ sde::init::run()
          local dir
 
          dir="${PWD}"
-         cd /
+         cd "${MULLE_USER_PWD:-/}"
          rmdir_safer "${dir}"
       fi
    fi
@@ -3456,9 +3456,10 @@ sde::init::protect_unprotect()
    local title="$1"
    local mode="$2"
 
-   if ! MULLE_SDE_PROTECT_PATH="` "${MULLE_ENV:-mulle-env}" ${MULLE_ENV_FLAGS} \
+   if ! MULLE_SDE_PROTECT_PATH="` "${MULLE_ENV:-mulle-env}" -s ${MULLE_TECHNICAL_FLAGS} \
+                                    ${MULLE_ENV_FLAGS} \
                                  environment \
-                                    get MULLE_SDE_PROTECT_PATH 2> /dev/null `"
+                                    get MULLE_SDE_PROTECT_PATH`"
    then
       log_fluff "MULLE_SDE_PROTECT_PATH is empty" # tests have none for
    fi

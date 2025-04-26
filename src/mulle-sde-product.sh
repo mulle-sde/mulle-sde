@@ -48,7 +48,7 @@ Usage:
 
 Commands:
    list                : list built products
-   link                : symlink current product into ~/bin
+   symlink             : symlink current product into ~/bin
    searchpath          : show product places 
 
 Options:
@@ -62,16 +62,20 @@ EOF
    exit 1
 }
 
-sde::product::link_usage()
+sde::product::symlink_usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
 
    cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} link
+   ${MULLE_USAGE_NAME} symlink [options]
 
    Forceably symlink the main executable of the given project, into ~/bin.
    This can be dangerous and convenient at the same time.
+
+Options:
+   --hard    : create a hard link instead
+   --install : install (copy) instead of creating a link
 
 EOF
    exit 1
@@ -559,11 +563,25 @@ sde::product::r_executable()
 #
 sde::product::symlink_main()
 {
+   local OPTION_MODE='SYMLINK'
+
    while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
             sde::product::symlink_usage
+         ;;
+
+         --soft|--symlink|--symbolic)
+            OPTION_MODE='SYMLINK'
+         ;;
+
+         --copy|--install)
+            OPTION_MODE='COPY'
+         ;;
+
+         --hardlink|--hard|--hard-link)
+            OPTION_MODE='HARDLINK'
          ;;
 
          -*)
@@ -605,9 +623,30 @@ sde::product::symlink_main()
    r_filepath_concat "${dstdir}" "${name}"
    linkname="${RVAL}"
 
-   log_info "Create symlink for ${C_MAGENTA}${C_BOLD}${name}${C_INFO} in ${C_RESET_BOLD}${dstdir#${MULLE_USER_PWD}/}"
-   exekutor ln -s -f "${executable}" "${linkname}"
-   log_verbose "${linkname} -> ${executable}"
+   local ln_flags
+   local linktype
+
+   linktype="hard link"
+   ln_flags=
+   case "${OPTION_MODE}" in
+      'SYMLINK')
+            linktype="symlink"
+            ln_flags='-s'
+      ;;
+   esac
+
+   case "${OPTION_MODE}" in
+      *'LINK')
+         log_info "Create ${linktype} for ${C_MAGENTA}${C_BOLD}${name}${C_INFO} in ${C_RESET_BOLD}${dstdir#${MULLE_USER_PWD}/}"
+         exekutor ln ${ln_flags} -f "${executable}" "${linkname}"
+         log_verbose "${linkname} -> ${executable}"
+      ;;
+
+      *)
+         log_info "Install ${C_MAGENTA}${C_BOLD}${name}${C_INFO} in ${C_RESET_BOLD}${dstdir#${MULLE_USER_PWD}/}"
+         exekutor install -m 755 "${executable}" "${dstdir}"
+      ;;
+   esac
 }
 
 
@@ -700,6 +739,11 @@ sde::product::main()
    case "${cmd}" in
       list)
          sde::product::list_main "$@"
+      ;;
+
+
+      symlink|link|install)
+         fail "Use mulle-sde symlink instead, sorry for the inconvenience"
       ;;
 
       run)

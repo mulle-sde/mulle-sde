@@ -320,6 +320,11 @@ sde::craft::perform_clean_if_needed()
          cleandomain='all'
       ;;
 
+      'TIDY')
+         cleandomain='tidy'
+         dbrval=2
+      ;;
+
       'GRAVETIDY')
          cleandomain='gravetidy'
          dbrval=2
@@ -695,6 +700,10 @@ sde::craft::main()
             OPTION_CLEAN="$1"
          ;;
 
+         --tidy)
+            OPTION_CLEAN='TIDY'
+         ;;
+
          -g|--clean-gravetidy|--gravetidy)
             OPTION_CLEAN='GRAVETIDY'
          ;;
@@ -873,7 +882,7 @@ sde::craft::main()
       local statuses
 
       statuses=("\"ok\"" "\"missing\"" "\"dirty\"")
-      log_verbose "Sourcetree status is ${statuses[rc]:-$rc}"
+      log_verbose "Sourcetree status is ${statuses[dbrval]:-$dbrval}"
    fi
 
    # do the clean first as it wipes the database

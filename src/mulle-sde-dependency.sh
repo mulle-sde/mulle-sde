@@ -137,14 +137,14 @@ Usage:
 Examples:
    Add a github repository as a dependency:
       ${MULLE_USAGE_NAME} dependency add --github madler --scm git zlib
-
    Add a tar archive as a dependency:
       ${MULLE_USAGE_NAME} dependency add https://foo.com/whatever.2.11.tar.gz
-
+   Embed a clib project in your project (could be a tar archive as well):
+      ${MULLE_USAGE_NAME} dependency add --embedded \\
+                               --address src/fast-hash clib:mulle-c/fast-hash
    Add a remote hosted file to your project:
       ${MULLE_USAGE_NAME} dependency add --embedded --scm file \\
                                --address src/foo.c https://foo.com/foo_2.11.c
-
    Add an archive with flexible versioning to the project:
       ${MULLE_USAGE_NAME} dependency add --c --address postgres --tag 11.2 \\
                                --marks singlephase \\
@@ -1534,6 +1534,30 @@ sde::dependency::add_main()
       case "${nodetype}" in
          'comment'|'error'|'local'|'symlink'|'file')
             # no embellishment here
+         ;;
+
+         'clib')
+            sde::dependency::__enhance_url "${url}" \
+                                           "${tag}" \
+                                           "${branch}" \
+                                           "${nodetype}" \
+                                           "${address}" \
+                                           "${marks}"
+
+            url="${_url/\}/@\$\{MULLE_BRANCH\}}"
+            if [ "${OPTION_BRANCH_SET}" != 'YES' ]
+            then
+               branch="${_branch/\}/:-*\}}"
+            fi
+            if [ "${OPTION_TAG_SET}" != 'YES' ]
+            then
+               tag="${_tag}"
+            fi
+            nodetype="${_nodetype}"
+            address="${_address}"
+            fetchoptions='clibmode=hardlink'
+            # copied from an existing entry <ahem>
+            marks="${_marks},no-clobber,no-share-shirk"
          ;;
 
          *)
