@@ -1,3 +1,11 @@
+### 3.4.2
+
+* you can now say mulle-sde symlink --hard/--copy and install a copy or a hard link of your product instead of a symlink (UI needs tweaking in the future...)
+* the new command **recraft** now does a clean tidy instead of a gravetidy. gravetidy makes more sense for the retest as we assume we don't need graveyards there
+* fix harmless but confusing warnings when a mulle-sde init does not complete and tears down the freshly created subdirectory
+
+* squelch a zsh ugliness
+
 ### 3.4.1
 
 * make run command behave by default like debug with respect to how environment variables are merged
