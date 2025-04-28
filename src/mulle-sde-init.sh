@@ -3457,6 +3457,7 @@ sde::init::protect_unprotect()
    local mode="$2"
 
    if ! MULLE_SDE_PROTECT_PATH="` "${MULLE_ENV:-mulle-env}" -s ${MULLE_TECHNICAL_FLAGS} \
+                                    -e \
                                     ${MULLE_ENV_FLAGS} \
                                  environment \
                                     get MULLE_SDE_PROTECT_PATH`"
@@ -4113,13 +4114,13 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       fi
 
       # get environments for some tools we manage share files and want
-      # to upgrade
-      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` \
-      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env match` \
-      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env craft`  \
-      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env monitor`  \
-      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sourcetree`  \
-      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env env` \
+      # to upgrade. The -e  squelches an unwanted warning
+      eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" -e --search-as-is mulle-tool-env sde` \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" -e --search-as-is mulle-tool-env match` \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" -e --search-as-is mulle-tool-env craft`  \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" -e --search-as-is mulle-tool-env monitor`  \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" -e --search-as-is mulle-tool-env sourcetree`  \
+      && eval_rexekutor `rexekutor "${MULLE_ENV:-mulle-env}" -e --search-as-is mulle-tool-env env` \
       || exit $?
 
       if [ "${tmp_file}" = 'YES' ]

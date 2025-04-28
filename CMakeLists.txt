@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.15)
+cmake_minimum_required( VERSION 3.13...99.99)
 
 project( mulle-sde VERSION 3.4.2 LANGUAGES NONE)
 
