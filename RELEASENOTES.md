@@ -1,3 +1,7 @@
+### 3.4.3
+
+* install mulle-sde-sandbox.linux (and mulle-sde-cd with script)
+
 ### 3.4.2
 
 * you can now say mulle-sde symlink --hard/--copy and install a copy or a hard link of your product instead of a symlink (UI needs tweaking in the future...)

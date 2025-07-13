@@ -41,8 +41,10 @@ MULLE_SDE_SANDBOX_CACHE_DIR="${MULLE_SDE_SANDBOX_CACHE_DIR:-${home}/.cache}"
 # zfs="/mnt/zfs/nat"
 #
 # special needs stuff
-MULLE_SDE_SANDBOX_OTHER_DIR="${MULLE_SDE_SANDBOX_OTHER_DIR:-/home/src-old}"
+MULLE_SDE_SANDBOX_CODEBUFF_DIR="${MULLE_SDE_SANDBOX_PULSE_DIR:-${home}/.config/manicode}"
+MULLE_SDE_SANDBOX_DISTROBOX_DIR="${MULLE_SDE_SANDBOX_PULSE_DIR:-${home}/.distrobox}"
 MULLE_SDE_SANDBOX_MLTERM_DIR="${MULLE_SDE_SANDBOX_MLTERM_DIR:-${home}/.mlterm}"
+MULLE_SDE_SANDBOX_OTHER_DIR="${MULLE_SDE_SANDBOX_OTHER_DIR:-/home/src-old}"
 MULLE_SDE_SANDBOX_PULSE_DIR="${MULLE_SDE_SANDBOX_PULSE_DIR:-${home}/.config/pulse}"
 
 
@@ -74,8 +76,10 @@ lljail \
    -crwx "${MULLE_SDE_SANDBOX_OTHER_DIR}" \
    -crwx "${MULLE_SDE_SANDBOX_VAR_DIR}" \
    -crw "${MULLE_SDE_SANDBOX_CACHE_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_PULSE_DIR}" \
+   -crw "${MULLE_SDE_SANDBOX_CODEBUFF_DIR}" \
+   -crw "${MULLE_SDE_SANDBOX_DISTROBOX_DIR}" \
    -crw "${MULLE_SDE_SANDBOX_MLTERM_DIR}" \
+   -crw "${MULLE_SDE_SANDBOX_PULSE_DIR}" \
    -crw /dev \
    -rw /proc \
    -crwx /tmp \

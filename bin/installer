@@ -172,6 +172,10 @@ main()
 
    install -m "${mode}" "mulle-sde" "${bin}/mulle-sde" || exit 1
    printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde" >&2
+   install -m "${mode}" "mulle-sde-cd" "${bin}/mulle-sde-cd" || exit 1
+   printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde-cd" >&2
+   install -m "${mode}" "mulle-sde-sandbox.linux" "${bin}/mulle-sde-sandbox.linux" || exit 1
+   printf "install: ${C_MAGENTA}${C_BOLD}%s${C_RESET}\n" "${bin}/mulle-sde-sandbox.linux" >&2
 
    for i in src/mulle*.sh
    do
