@@ -248,7 +248,7 @@ EOF
       # don't save preference if we are not in sde
       if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
       then
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env --this-user set MULLE_SDE_EDITOR_CHOICE "${editor}"
+         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env --this-user-os set MULLE_SDE_EDITOR_CHOICE "${editor}"
       fi
    fi
 

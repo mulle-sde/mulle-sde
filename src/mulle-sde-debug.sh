@@ -77,12 +77,15 @@ Usage:
    ${MULLE_USAGE_NAME} debug [options] [arguments] ...
 
    Debug the main executable of the given project, with the arguments given.
-   The executable will be debigged within the mulle-sde environment unless -e
-   is given.
+   The executable will be debugged outside of the mulle-sde environment.
+   So unless --no-mudo is given, environment variables from \`mulle-sde env\`
+   are NOT available.
 
 Options:
-   --  : pass remaining options as arguments
-   -e  : debug the main executable outside of the mulle-sde environment.
+   --         : pass remaining options as arguments
+   -e         : mudo flag when debugging the main executable
+   -E         : mudo flag when debugging the main executable (default)
+   --no-mudo  : do not run mudo
 
 EOF
    exit 1
@@ -183,24 +186,13 @@ sde::debug::run_main()
 
    include "sde::product"
 
-   local executable="${OPTION_EXECUTABLE}"
-
-   if [ -z "${executable}" ]
-   then
-      if ! sde::product::r_executable "$1"
-      then
-         return 1
-      fi
-      
-      executable="${RVAL}"
-      shift
-   fi
+   local use_mudo='YES'
 
    if [ $# -ne 0 ]
    then
       case "$1" in
          -h|--help|help)
-            sde::product::debug_usage
+            sde::debug::debug_usage
          ;;
 
          -e|-E)
@@ -208,11 +200,35 @@ sde::debug::run_main()
             shift
          ;;
 
+         --no-mudo)
+            use_mudo='NO'
+            shift
+         ;;
 
          --)
             shift
          ;;
       esac
+   fi
+
+   local executable="${OPTION_EXECUTABLE}"
+
+   if [ -z "${executable}" ]
+   then
+      local preferredname
+
+      case "$1" in
+         [A-Za-z_]*)
+            preferredname="$1"
+            shift
+         ;;
+      esac
+
+      if ! sde::product::r_executable "${preferredname}"
+      then
+         return 1
+      fi
+      executable="${RVAL}"
    fi
 
    local debugger
@@ -243,6 +259,8 @@ sde::debug::run_main()
    # gather ADDICTION_DIR
    # and pass as environment
    #
+
+   log_debug "args: $*"
 
    local args
 
@@ -281,11 +299,18 @@ sde::debug::run_main()
       fi
       environment="${RVAL}"
 
-      eval_exekutor mudo "${MUDO_FLAGS}" -f \
-                         "${environment}" \
-                         "'${debugger}${MULLE_EXE_EXTENSION}'" \
-                         "'${executable}'" \
-                         "${args}"
+      if [ "${use_mudo}" = 'YES' ]
+      then
+         eval_exekutor mudo "${MUDO_FLAGS}" -f \
+                            "${environment}" \
+                            "'${debugger}${MULLE_EXE_EXTENSION}'" \
+                            "'${executable}'" \
+                            "${args}"
+      else
+         eval_exekutor "'${debugger}${MULLE_EXE_EXTENSION}'" \
+                       "'${executable}'" \
+                       "${args}"
+      fi
    )
 }
 
@@ -500,7 +525,6 @@ EOF
       ;;
 
       run|'')
-         shift
          sde::debug::run_main "$@"
       ;;
 

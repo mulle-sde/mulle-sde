@@ -644,6 +644,7 @@ sde::dependency::list_main()
    local OPTION_OUTPUT_COMMAND='NO'
    local OPTIONS
    local OPTION_JSON='DEFAULT'
+   local JSON_ARGS
 
    while [ $# -ne 0 ]
    do
@@ -658,12 +659,28 @@ sde::dependency::list_main()
          ;;
 
          --expand|--eval)
-            JSON_ARGS="--expand"
+            r_concat_unique "${JSON_ARGS}" '--expand'
+            JSON_ARGS="${RVAL}"
          ;;
 
          --json)
-            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't mix --json with \"$1\""
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't set $1 as previous options disabled JSON"
             OPTION_JSON='YES'
+         ;;
+
+         --raw)
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't set $1 as previous options disabled JSON"
+
+            r_concat_unique "${JSON_ARGS}" '--raw'
+            JSON_ARGS="${RVAL}"
+         ;;
+
+         --json-raw|--raw-json)
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't set $1 as previous options disabled JSON"
+            OPTION_JSON='YES'
+
+            r_concat_unique "${JSON_ARGS}" '--raw'
+            JSON_ARGS="${RVAL}"
          ;;
 
          --url)
@@ -1019,6 +1036,85 @@ sde::dependency::add_to_sourcetree()
                         eval-add --filename "${filename}" "${lines}" || exit 1
 }
 
+# parse into global
+#
+#   local branch
+#   local address
+#   local fetchoptions
+#   local marks
+#   local nodetype
+#   local tag
+#   local url
+#   local raw_userinfo
+#
+sde::dependency::__parse_json()
+{
+   log_entry "sde::dependency::__parse_json" "$@"
+
+  local key
+  local value
+  local line
+  local failed
+
+   # Use a while/read loop over the JSON content
+   while IFS= read -r line
+   do
+      # dont output errors multiple times
+      if [ "${failed}" = 'YES' ]
+      then
+         continue
+      fi
+
+      # Clean up whitespace and trailing commas
+      line="${line#"${line%%[![:space:]]*}"}" # Remove leading spaces
+      line="${line%"${line##*[![:space:]]}"}" # Remove trailing spaces
+      line="${line%,}"                        # Remove trailing commas
+
+      # Only process lines with a colon (key-value)
+      [[ "$line" == *:* ]] || continue
+
+      # Extract key and value
+      key="${line%%:*}"
+      key="${key//\"/}"
+      key="${key//[[:space:]]/}"
+      value="${line#*:}"
+      value="${value//\"/}"
+      value="${value//[[:space:]]/}"
+
+      # Assign to variable if key matches
+      case "$key" in
+         '['*|']'*|'{'*|'}'*)  : ;; # just skip
+         'address')      eval address="$value" ;;
+         'branch')       eval branch="$value" ;;
+         'fetchoptions') eval fetchoptions="$value" ;;
+         'marks')        eval marks="$value" ;;
+         'nodetype')     eval nodetype="$value" ;;
+         'tag')          eval tag="$value" ;;
+         'url')          eval url="$value" ;;
+         'raw_userinfo') eval raw_userinfo="${value}" ;;
+         'userinfo')
+            log_error "You need to use the --raw option to prepare the list JSON output
+${C_RESET_BOLD}Example: mulle-sde dep list --json --raw"
+            # but snarf up copy/paste info till the end
+            failed='YES'
+         ;;
+         'uuid')
+            log_fluff "Ignore UUID ${value} which must NOT be copied"
+         ;;
+         *)
+            log_warning "Unknown key \"${key}\" ignored"
+         ;;
+      esac
+   done
+
+   if [ "${failed}" = 'YES' ]
+   then
+      exit 1
+   fi
+}
+
+
+
 
 sde::dependency::add_main()
 {
@@ -1038,6 +1134,7 @@ sde::dependency::add_main()
    local OPTION_SHARE='YES'
    local OPTION_SINGLEPHASE=
    local OPTION_STARTUP='DEFAULT'
+   local OPTION_JSON='NO'
 
    local OPTION_ADDRESS
    local OPTION_BRANCH
@@ -1145,6 +1242,10 @@ sde::dependency::add_main()
             shift
 
             OPTION_FETCHOPTIONS="$1"
+         ;;
+
+         --json|--raw-json|--json-raw)
+            OPTION_JSON='YES'
          ;;
 
          --tag)
@@ -1260,7 +1361,7 @@ sde::dependency::add_main()
          ;;
 
          --*)
-            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to domain \"$1\" (or unknown option)"
 
             domain="${1#--}"
             shift
@@ -1289,301 +1390,312 @@ sde::dependency::add_main()
 
    local url="${1:-}"
 
-   if [ -z "${url}" ]
-   then
-      if [ -z "${OPTION_USER}" -o -z "${OPTION_REPO}" -o "${OPTION_DEMO}" ]
-      then
-         if [ -z "${OPTION_USER}" -a -z "${OPTION_REPO}" -a "${OPTION_DEMO}" ]
-         then
-            sde::dependency::add_usage "URL argument is missing ($*)"
-         else
-            sde::dependency::add_usage "URL argument is missing or incomplete options given"
-         fi
-      fi
-   else
-      shift
-      [ "$#" -eq 0 ] || sde::dependency::add_usage "Superflous arguments \"$*\""
-   fi
-
-   local options
    local nodetype
    local address
    local branch
-   local host
-   local user
-   local originalurl
+   local tag
    # local domain
    local fetchoptions
+   local raw_userinfo
+   local originalurl
 
-   originalurl="${url}"
-
-   nodetype="${OPTION_NODETYPE}"
-   user="${OPTION_USER}"
-   tag="${OPTION_TAG}"
-   branch="${OPTION_BRANCH}"
-   address="${OPTION_ADDRESS}"
-   options="${OPTION_OPTIONS}"
-   domain="${OPTION_DOMAIN}"
-   host="${OPTION_HOST}"
-   repo="${OPTION_REPO}"
-   fetchoptions="${OPTION_FETCHOPTIONS}"
-
-   case "${originalurl}" in
-      comment:*)
-         scm="comment"
-         url="${originalurl#*:}"
-      ;;
-
-      *:*)
-         eval `rexekutor mulle-domain parse-url "${originalurl}"`
-
-         # remap scm to nodetype, nodetype is misnomer through out this file
-         # it should be scm
-         nodetype="${nodetype:-${scm:-}}"
-      ;;
-   esac
-
-   local found_local
-
-   #
-   # Special case, if we just get a name, we check if this is a project
-   # which is in MULLE_FETCH_SEARCH_PATH. If yes we pick its location and
-   # use the name of the parent directory as the user.
-   #
-   if [ $argc -eq 1 ]  # but already consumed!
+   if [ "${OPTION_JSON}" = 'YES' ]
    then
-      local directory
-
-      log_debug "Single argument special case search of MULLE_FETCH_SEARCH_PATH"
-
-      include "path"
-
-      IFS=":"
-      for directory in ${MULLE_FETCH_SEARCH_PATH}
-      do
-         r_filepath_concat "${directory}" "${originalurl}"
-         if [ ! -d "${RVAL}" ]
+      sde::dependency::__parse_json
+   else
+      # huge else coming up
+      if [ -z "${url}" ]
+      then
+         if [ -z "${OPTION_USER}" -o -z "${OPTION_REPO}" -o "${OPTION_DEMO}" ]
          then
-            continue
+            if [ -z "${OPTION_USER}" -a -z "${OPTION_REPO}" -a "${OPTION_DEMO}" ]
+            then
+               sde::dependency::add_usage "URL argument is missing ($*)"
+            else
+               sde::dependency::add_usage "URL argument is missing or incomplete options given"
+            fi
          fi
-
-         log_verbose "Found local \"${RVAL}\", assume github tar project"
-         found_local='YES'
-
-         r_simplified_absolutepath "${directory}"
-#         r_dirname "${RVAL}"
-         r_basename "${RVAL}"
-         user="${RVAL}"
-
-         nodetype="tar"
-         tag="latest"
-         domain="${domain:-github}"
-
-         r_basename "${originalurl}"
-         repo="${repo:-${RVAL}}"
-         break
-      done
-      IFS="${DEFAULT_IFS}"
-   fi
-
-   local skip_this
-
-   if [ -z "${found_local}" -a "${OPTION_LATEST}" = 'YES' ]
-   then
-      if ! latest_url="`rexekutor mulle-domain resolve --latest "${url}" '*' `"
-      then
-         log_warning "Could not figure out latest tag for \"${url}\""
       else
-         # re-evaluate to fill values
-         eval `rexekutor mulle-domain parse-url "${latest_url}"`
-
-         # remap scm to nodetype, nodetype is misnomer through out this file
-         # it should be scm, here though nodetype must be available
-         nodetype="${scm}"
-         domain="${domain:-github}"
-      fi
-   fi
-
-   log_setting "address      : ${address}"
-   log_setting "branch       : ${branch}"
-   log_setting "domain       : ${domain}"
-   log_setting "fetchoptions : ${fetchoptions}"
-   log_setting "host         : ${host}"
-   log_setting "nodetype     : ${nodetype}"
-   log_setting "options      : ${options}"
-   log_setting "repo         : ${repo}"
-#   log_setting "scm          : ${scm}"
-   log_setting "tag          : ${tag}"
-   log_setting "url          : ${url}"
-   log_setting "user         : ${user}"
-
-   #
-   # if domain is given, we compose from what's on the command line
-   #
-   case "${domain}" in
-      "")
-      ;;
-
-      'generic')
-         # keep URL as is
-         url="${originalurl}"
-      ;;
-
-      *)
-         nodetype="${nodetype:-tar}"
-         url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  ${MULLE_DOMAIN_FLAGS} \
-               compose-url \
-                  --user "${user}" \
-                  --tag "${tag}" \
-                  --repo "${repo:-$url}" \
-                  --scm "${nodetype}" \
-                  "${domain}" `" || exit 1
-      ;;
-   esac
-
-   log_setting "url (now)    : ${url}"
-
-   #
-   # Lets mulle-domain guess us some of the stuff, if none were given
-   #
-   if [ -z "${tag}" -a -z "${branch}" ]
-   then
-      local guessed_scheme
-      local guessed_domain
-      local guessed_repo
-      local guessed_user
-      local guessed_branch
-      local guessed_scm
-      local guessed_tag
-
-      eval "`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-            ${MULLE_TECHNICAL_FLAGS} \
-            ${MULLE_DOMAIN_FLAGS} \
-            -s \
-          parse-url \
-            --prefix "guessed_" \
-            "${url}" `"
-
-      if [ ! -z "${guessed_repo}" -a -z "${address}" ]
-      then
-         log_debug "Address guessed as \"${guessed_repo}\""
-         address="${guessed_repo}"
+         shift
+         [ "$#" -eq 0 ] || sde::dependency::add_usage "Superflous arguments \"$*\""
       fi
 
-      if [ ! -z "${guessed_scm}" -a -z "${scm}" ]
-      then
-         log_debug "Nodetype guessed as \"${guessed_scm}\""
-         scm="${guessed_scm}"
-      fi
+      local host
+      local user
 
-      if [ ! -z "${guessed_tag}" ]
-      then
-         log_debug "Tag guessed as \"${guessed_tag}\""
-         tag="${guessed_tag}"
-      else
-         if [ ! -z "${guessed_branch}" ]
-         then
-            log_debug "Branch guessed as \"${guessed_branch}\""
-            branch="${guessed_branch}"
-         fi
-      fi
+      originalurl="${url}"
 
-      case "${guessed_user}" in
-         mulle*)
-            case "${scm}" in
-               tar|zip)
-                  tag="${tag:-latest}"
-               ;;
-            esac
+      nodetype="${OPTION_NODETYPE}"
+      tag="${OPTION_TAG}"
+      branch="${OPTION_BRANCH}"
+      address="${OPTION_ADDRESS}"
+      fetchoptions="${OPTION_FETCHOPTIONS}"
+
+      user="${OPTION_USER}"
+      domain="${OPTION_DOMAIN}"
+      host="${OPTION_HOST}"
+      repo="${OPTION_REPO}"
+
+      case "${originalurl}" in
+         comment:*)
+            scm="comment"
+            url="${originalurl#*:}"
+         ;;
+
+         *:*)
+            eval `rexekutor mulle-domain parse-url "${originalurl}"`
+
+            # remap scm to nodetype, nodetype is misnomer through out this file
+            # it should be scm
+            nodetype="${nodetype:-${scm:-}}"
          ;;
       esac
-   fi
 
-   if [ -z "${nodetype}" ]
-   then
-      nodetype="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-                                 ${MULLE_TECHNICAL_FLAGS} \
-                                 ${MULLE_DOMAIN_FLAGS} \
-                              typeguess "${url}"`" || exit 1
-
-      log_debug "Nodetype guessed as \"${nodetype}\""
+      local found_local
 
       #
-      # want to support just saying "add x" and it means a sister project in
-      # the same directory. So we make it a fake git project that will get
-      # symlinked.
+      # Special case, if we just get a name, we check if this is a project
+      # which is in MULLE_FETCH_SEARCH_PATH. If yes we pick its location and
+      # use the name of the parent directory as the user.
       #
-      if [ "${nodetype}" = "none" ]
+      if [ $argc -eq 1 ]  # but already consumed!
       then
-         nodetype="tar"  # nodetype none is only valid for libraries
-         address="${originalurl}"
-         tag="${latest:-latest}"
-         url="https://github.com/${user:-${MULLE_USERNAME}}/${originalurl}/archive/${tag}.tar.gz"
-         log_verbose "Adding this as a fake github project ${url} for symlink fetch"
+         local directory
+
+         log_debug "Single argument special case search of MULLE_FETCH_SEARCH_PATH"
+
+         include "path"
+
+         IFS=":"
+         for directory in ${MULLE_FETCH_SEARCH_PATH}
+         do
+            r_filepath_concat "${directory}" "${originalurl}"
+            if [ ! -d "${RVAL}" ]
+            then
+               continue
+            fi
+
+            log_verbose "Found local \"${RVAL}\", assume github tar project"
+            found_local='YES'
+
+            r_simplified_absolutepath "${directory}"
+   #         r_dirname "${RVAL}"
+            r_basename "${RVAL}"
+            user="${RVAL}"
+
+            nodetype="tar"
+            tag="latest"
+            domain="${domain:-github}"
+
+            r_basename "${originalurl}"
+            repo="${repo:-${RVAL}}"
+            break
+         done
+         IFS="${DEFAULT_IFS}"
       fi
-   fi
 
-   local marks
+      local skip_this
 
-   marks="${DEPENDENCY_MARKS}"
+      if [ -z "${found_local}" -a "${OPTION_LATEST}" = 'YES' ]
+      then
+         if ! latest_url="`rexekutor mulle-domain resolve --latest "${url}" '*' `"
+         then
+            log_warning "Could not figure out latest tag for \"${url}\""
+         else
+            # re-evaluate to fill values
+            eval `rexekutor mulle-domain parse-url "${latest_url}"`
 
-   if [ "${OPTION_ENHANCE}" = 'YES' ]
-   then
-      case "${nodetype}" in
-         'comment'|'error'|'local'|'symlink'|'file')
-            # no embellishment here
+            # remap scm to nodetype, nodetype is misnomer through out this file
+            # it should be scm, here though nodetype must be available
+            nodetype="${scm}"
+            domain="${domain:-github}"
+         fi
+      fi
+
+      log_setting "address      : ${address}"
+      log_setting "branch       : ${branch}"
+      log_setting "domain       : ${domain}"
+      log_setting "fetchoptions : ${fetchoptions}"
+      log_setting "host         : ${host}"
+      log_setting "nodetype     : ${nodetype}"
+      log_setting "repo         : ${repo}"
+   #   log_setting "scm          : ${scm}"
+      log_setting "tag          : ${tag}"
+      log_setting "url          : ${url}"
+      log_setting "user         : ${user}"
+
+      #
+      # if domain is given, we compose from what's on the command line
+      #
+      case "${domain}" in
+         "")
          ;;
 
-         'clib')
-            sde::dependency::__enhance_url "${url}" \
-                                           "${tag}" \
-                                           "${branch}" \
-                                           "${nodetype}" \
-                                           "${address}" \
-                                           "${marks}"
-
-            url="${_url/\}/@\$\{MULLE_BRANCH\}}"
-            if [ "${OPTION_BRANCH_SET}" != 'YES' ]
-            then
-               branch="${_branch/\}/:-*\}}"
-            fi
-            if [ "${OPTION_TAG_SET}" != 'YES' ]
-            then
-               tag="${_tag}"
-            fi
-            nodetype="${_nodetype}"
-            address="${_address}"
-            fetchoptions='clibmode=hardlink'
-            # copied from an existing entry <ahem>
-            marks="${_marks},no-clobber,no-share-shirk"
+         'generic')
+            # keep URL as is
+            url="${originalurl}"
          ;;
 
          *)
-            sde::dependency::__enhance_url "${url}" \
-                                           "${tag}" \
-                                           "${branch}" \
-                                           "${nodetype}" \
-                                           "${address}" \
-                                           "${marks}"
-
-            url="${_url}"
-            if [ "${OPTION_BRANCH_SET}" != 'YES' ]
-            then
-               branch="${_branch}"
-            fi
-            if [ "${OPTION_TAG_SET}" != 'YES' ]
-            then
-               tag="${_tag}"
-            fi
-            nodetype="${_nodetype}"
-            address="${_address}"
-            marks="${_marks}"
+            nodetype="${nodetype:-tar}"
+            url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_DOMAIN_FLAGS} \
+                  compose-url \
+                     --user "${user}" \
+                     --tag "${tag}" \
+                     --repo "${repo:-$url}" \
+                     --scm "${nodetype}" \
+                     "${domain}" `" || exit 1
          ;;
       esac
+
+      log_setting "url (now)    : ${url}"
+
+      #
+      # Lets mulle-domain guess us some of the stuff, if none were given
+      #
+      if [ -z "${tag}" -a -z "${branch}" ]
+      then
+         local guessed_scheme
+         local guessed_domain
+         local guessed_repo
+         local guessed_user
+         local guessed_branch
+         local guessed_scm
+         local guessed_tag
+
+         eval "`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               ${MULLE_DOMAIN_FLAGS} \
+               -s \
+             parse-url \
+               --prefix "guessed_" \
+               "${url}" `"
+
+         if [ ! -z "${guessed_repo}" -a -z "${address}" ]
+         then
+            log_debug "Address guessed as \"${guessed_repo}\""
+            address="${guessed_repo}"
+         fi
+
+         if [ ! -z "${guessed_scm}" -a -z "${scm}" ]
+         then
+            log_debug "Nodetype guessed as \"${guessed_scm}\""
+            scm="${guessed_scm}"
+         fi
+
+         if [ ! -z "${guessed_tag}" ]
+         then
+            log_debug "Tag guessed as \"${guessed_tag}\""
+            tag="${guessed_tag}"
+         else
+            if [ ! -z "${guessed_branch}" ]
+            then
+               log_debug "Branch guessed as \"${guessed_branch}\""
+               branch="${guessed_branch}"
+            fi
+         fi
+
+         case "${guessed_user}" in
+            mulle*)
+               case "${scm}" in
+                  tar|zip)
+                     tag="${tag:-latest}"
+                  ;;
+               esac
+            ;;
+         esac
+      fi
+
+      if [ -z "${nodetype}" ]
+      then
+         nodetype="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                                    ${MULLE_TECHNICAL_FLAGS} \
+                                    ${MULLE_DOMAIN_FLAGS} \
+                                 typeguess "${url}"`" || exit 1
+
+         log_debug "Nodetype guessed as \"${nodetype}\""
+
+         #
+         # want to support just saying "add x" and it means a sister project in
+         # the same directory. So we make it a fake git project that will get
+         # symlinked.
+         #
+         if [ "${nodetype}" = "none" ]
+         then
+            nodetype="tar"  # nodetype none is only valid for libraries
+            address="${originalurl}"
+            tag="${latest:-latest}"
+            url="https://github.com/${user:-${MULLE_USERNAME}}/${originalurl}/archive/${tag}.tar.gz"
+            log_verbose "Adding this as a fake github project ${url} for symlink fetch"
+         fi
+      fi
+
+      local marks
+
+      marks="${DEPENDENCY_MARKS}"
+
+      if [ "${OPTION_ENHANCE}" = 'YES' ]
+      then
+         case "${nodetype}" in
+            'comment'|'error'|'local'|'symlink'|'file')
+               # no embellishment here
+            ;;
+
+            'clib')
+               sde::dependency::__enhance_url "${url}" \
+                                              "${tag}" \
+                                              "${branch}" \
+                                              "${nodetype}" \
+                                              "${address}" \
+                                              "${marks}"
+
+               url="${_url/\}/@\$\{MULLE_BRANCH\}}"
+               if [ "${OPTION_BRANCH_SET}" != 'YES' ]
+               then
+                  branch="${_branch/\}/:-*\}}"
+               fi
+               if [ "${OPTION_TAG_SET}" != 'YES' ]
+               then
+                  tag="${_tag}"
+               fi
+               nodetype="${_nodetype}"
+               address="${_address}"
+               fetchoptions='clibmode=hardlink'
+               # copied from an existing entry <ahem>
+               marks="${_marks},no-clobber,no-share-shirk"
+            ;;
+
+            *)
+               sde::dependency::__enhance_url "${url}" \
+                                              "${tag}" \
+                                              "${branch}" \
+                                              "${nodetype}" \
+                                              "${address}" \
+                                              "${marks}"
+
+               url="${_url}"
+               if [ "${OPTION_BRANCH_SET}" != 'YES' ]
+               then
+                  branch="${_branch}"
+               fi
+               if [ "${OPTION_TAG_SET}" != 'YES' ]
+               then
+                  tag="${_tag}"
+               fi
+               nodetype="${_nodetype}"
+               address="${_address}"
+               marks="${_marks}"
+            ;;
+         esac
+      fi
    fi
 
+   local options
+
+   options="${OPTION_OPTIONS}"
+   log_setting "options      : ${options}"
 
    include "sde::library"
 
@@ -1751,6 +1863,11 @@ sde::dependency::add_main()
       options="${RVAL}"
    fi
 
+   if [ ! -z "${raw_userinfo}" ]
+   then
+      r_concat "${options}" "--raw-userinfo '${raw_userinfo}'"
+      options="${RVAL}"
+   fi
 
    if [ "${OPTION_CLEAN}" = 'YES' ]
    then
@@ -1769,8 +1886,11 @@ sde::dependency::add_main()
    fi
 
    local dependency
+   local name
 
    dependency="${address:-${originalurl}}"
+   r_extensionless_basename "${dependency}"
+   name="${address:-${RVAL}}"
 
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
    then
@@ -1778,9 +1898,9 @@ sde::dependency::add_main()
 ${C_RESET_BOLD}   mulle-sde ignore <gitignore-like-pattern>"
    else
       _log_info "${C_VERBOSE}You can change the library search names with:
-${C_RESET_BOLD}   mulle-sde dependency set ${address} aliases ${address#lib},${address#lib}2
+${C_RESET_BOLD}   mulle-sde dependency set ${name} aliases ${name#lib},${name#lib}2
 ${C_VERBOSE}You can change the header include with:
-${C_RESET_BOLD}   mulle-sde dependency set ${address} include ${address#lib}/${address#lib}.h"
+${C_RESET_BOLD}   mulle-sde dependency set ${name} include ${name#lib}/${name#lib}.h"
 
       case "${OPTION_DIALECT}" in
          c)

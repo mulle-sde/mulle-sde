@@ -763,21 +763,6 @@ sde::add::main()
    local scheme domain host user repo branch tag scm
    local flag
 
-   if [ $# -eq 1 -a "${OPTION_EXTERNAL_COMMAND}" = 'YES' ]
-   then
-      include "sde::common"
-
-      sde::common::update_git_if_needed "${HOME}/.mulle/share/craftinfo" \
-                                        "${MULLE_SDE_CRAFTINFO_URL:-https://github.com/craftinfo/craftinfo.git}" \
-                                        "${MULLE_SDE_CRAFTINFO_BRANCH}"
-
-      sde::common::maybe_exec_external_command 'add' \
-                                               "$1"  \
-                                               "${HOME}/.mulle/share/craftinfo" \
-                                               'YES'
-      # if no external command happened, just continue
-   fi
-
    for filename in "$@"
    do
       r_filepath_concat "${OPTION_DIRECTORY}" "${filename}"
@@ -830,6 +815,24 @@ sde::add::main()
                OPTION_IS_URL='YES'
             ;;
          esac
+      fi
+
+      if [ "${OPTION_IS_URL}" != 'YES' ]
+      then
+         if [ $# -eq 1 -a "${OPTION_EXTERNAL_COMMAND}" = 'YES' ]
+         then
+            include "sde::common"
+
+            sde::common::update_git_if_needed "${HOME}/.mulle/share/craftinfo" \
+                                              "${MULLE_SDE_CRAFTINFO_URL:-https://github.com/craftinfo/craftinfo.git}" \
+                                              "${MULLE_SDE_CRAFTINFO_BRANCH}"
+
+            sde::common::maybe_exec_external_command 'add' \
+                                                     "$1"  \
+                                                     "${HOME}/.mulle/share/craftinfo" \
+                                                     'YES'
+            # if no external command happened, just continue
+         fi
       fi
 
       #

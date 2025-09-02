@@ -288,9 +288,9 @@ sde::test::generate()
 #
 # Execute command in the test environment
 #
-sde::test::_run()
+sde::test::_forward()
 {
-   log_entry "sde::test::_run" "$@"
+   log_entry "sde::test::_forward" "$@"
 
    local directory="$1"
    local cmd="$2"
@@ -310,7 +310,7 @@ sde::test::_run()
 
       log_info "${RVAL}"
 
-      exekutor cd "${physdir}" || exit 1
+      exekutor cd "${physdir}" || fail "Could not get to ${physdir}"
 
       #
       # Case 1: we are outside the environment
@@ -319,9 +319,13 @@ sde::test::_run()
       #
       if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a "${MULLE_VIRTUAL_ROOT}" = "${physdir}" ]
       then
+         log_fluff "We are in the test environment"
+
          rexekutor "${MULLE_TEST:-mulle-test}" ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
          exit $?
       fi
+
+      log_fluff "Entering proper test environment"
 
       local cmdline
 
@@ -347,9 +351,9 @@ sde::test::_run()
 }
 
 
-sde::test::run()
+sde::test::forward()
 {
-   log_entry "sde::test::run" "$@"
+   log_entry "sde::test::forward" "$@"
 
    local harmless="$1"
    shift 1
@@ -379,7 +383,7 @@ sde::test::run()
 
       if sde::is_test_directory "."
       then
-         sde::test::_run "." "${cmd}" "$@"
+         sde::test::_forward "." "${cmd}" "$@"
          exit $?
       fi
 
@@ -403,11 +407,29 @@ sde::test::run()
             .continue
          fi
 
-         if ! sde::test::_run "${directory}" "${cmd}" "$@"
+         if ! sde::test::_forward "${directory}" "${cmd}" "$@"
          then
             exit 1
          fi
       .done
+   )
+}
+
+
+sde::test::forward_run()
+{
+   log_entry "sde::test::forward" "$@"
+
+   local directory="$1"
+   shift 1
+
+   include "path"
+   include "file"
+
+   (
+      sde::test::hack_environment
+
+      sde::test::_forward "${directory}" "$@"
    )
 }
 
@@ -517,7 +539,7 @@ sde::test::coverage()
          ;;
 
          -*)
-            sde::craft::usage "Unknown option \"$1\", use -- to pass arguments to mulle-test"
+            sde::test::usage "Unknown option \"$1\", use -- to pass arguments to mulle-test"
          ;;
 
          *)
@@ -561,27 +583,27 @@ sde::test::coverage()
       if [ "${OPTION_CLEAN}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Build dependencies without coverage"
-         sde::test::run 'YES' clean all   || exit 1
-         sde::test::run 'YES' craft       || exit 1
+         sde::test::forward 'YES' clean all   || exit 1
+         sde::test::forward 'YES' craft       || exit 1
       fi
 
       if [ "${OPTION_CRAFT}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Rebuild selected dependencies with coverage"
-         sde::test::run 'YES' --coverage craft ${CRAFT_RUN_FLAGS} || exit 1
+         sde::test::forward 'YES' --coverage craft ${CRAFT_RUN_FLAGS} || exit 1
       fi
       if [ "${OPTION_RUN}" = 'YES' ]
       then
          # must run tests serially, otherwise the coverage files may end up
          # inconsistent
          log_info "${C_BR_BLUE}${C_BOLD}* Run tests"
-         sde::test::run 'YES' --coverage "${RUN_CMD}" ${CRAFT_RUN_FLAGS} --serial || exit 1
+         sde::test::forward 'YES' --coverage "${RUN_CMD}" ${CRAFT_RUN_FLAGS} --serial || exit 1
       fi
 
       if [ "${OPTION_SHOW}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Produce coverage information"
-         sde::test::run 'YES' coverage "${OPTION_GCOV}" ${GCOV_FLAGS} "$@" || exit 1
+         sde::test::forward 'YES' coverage "${OPTION_GCOV}" ${GCOV_FLAGS} "$@" || exit 1
       fi
 
       if [ "${OPTION_JQ}" = 'YES' ]
@@ -673,6 +695,150 @@ MULLE_SOURCETREE_RESOLVE_TAG"
 }
 
 
+sde::test::get_test_dir()
+(
+   log_entry "sde::test::get_test_dir" "$@"
+
+   local filename="$1"
+
+   r_dirname "${filename}"
+   cd "${RVAL}"
+
+   rexekutor mulle-env project-dir
+)
+
+
+sde::test::r_validate_test_run_paths()
+{
+   log_entry "sde::test::r_validate_test_run_paths" "$@"
+
+   log_setting "MULLE_USER_PWD: ${MULLE_USER_PWD}"
+   log_setting "PWD:            ${PWD}"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+        --build-args)
+            # remove build-only flags, which must appear first
+            while [ $# -ne 0 ]
+            do
+               if [ "$1" = "--run-args" ]
+               then
+                  continue
+               fi
+               shift
+            done
+         ;;
+
+         --project-*|--path-*|-j|--jobs)
+            shift
+         ;;
+
+         --)
+            shift
+            break
+         ;;
+
+         -*)
+            shift
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   case "$1" in
+      *run*)
+         shift
+      ;;
+
+      *)
+         fail "missing command, why are we here ?"
+      ;;
+   esac
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+        --build-args)
+            # remove build-only flags, which must appear first
+            while [ $# -ne 0 ]
+            do
+               if [ "$1" = "--run-args" ]
+               then
+                  continue
+               fi
+               shift
+            done
+         ;;
+
+         --project-*|--path-*|-j|--jobs|--extensions)
+            shift
+         ;;
+
+         --)
+            shift
+            break
+         ;;
+
+         -*)
+            shift
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   local filename
+   local test_dir
+   local test_file
+   local test_env
+
+   while [ $# -ne 0 ]
+   do
+      filename="$1"
+
+      log_debug "${filename}"
+
+      if ! is_absolutepath "${filename}"
+      then
+         r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
+         filename="${RVAL}"
+      fi
+
+      log_debug "${filename}"
+
+      if [ ! -e "${filename}" ]
+      then
+         fail "Could not find \"$1\""
+      fi
+
+      test_dir=$(sde::test::get_test_dir "${filename}")
+      if [ -z "${test_env}" ]
+      then
+         test_env="$test_dir"
+         test_file="$1"
+      else
+         if [ "${test_env}" != "${test_dir}" ]
+         then
+            fail "Test \"$1\" is in a different test environment than \"$test_file\""
+         fi
+      fi
+
+      shift
+   done
+
+   RVAL="${test_env}"
+   [ ! -z "${RVAL}" ]
+}
+
+
 #
 # Problem: if you start mulle-sde test inside the project folder
 #          it will pickup the environment there including PATH and
@@ -725,11 +891,20 @@ sde::test::r_main()
          return 1
       ;;
 
+      # run commands with paths
+      'retest'|'recrun'|'run'|'crun'|'crerun'|'nrun'|'nrerun'|'rerun')         # check that paths are all in the same environment
+         # check that paths are all in the same environment
+         if ! sde::test::r_validate_test_run_paths "$@"
+         then
+            RVAL='DEFAULT'
+         fi
+         return 1
+      ;;
+
       # build commands
-      clean|crun|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft|\
-recrun|rerun|retest|run)
+      clean|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft)
          RVAL='DEFAULT'
-         return 1;
+         return 1
       ;;
 
       coverage)
@@ -743,7 +918,7 @@ recrun|rerun|retest|run)
       # introspection, no test dir needed
       env|test-dir)
          RVAL='HARMLESS'
-         return 1;
+         return 1
       ;;
 
       libexec-dir|version)
@@ -805,19 +980,25 @@ sde::test::main()
          ;;
 
          'DEFAULT')
-            sde::test::run 'NO' "$@"
+            sde::test::forward 'NO' "$@"
             rval=$?
          ;;
 
          'HARMLESS')
-            sde::test::run 'YES' "$@"
+            sde::test::forward 'YES' "$@"
             rval=$?
          ;;
 
          'RUN')
-            sde::test::run 'NO' run "$@"
+            sde::test::forward 'NO' run "$@"
             rval=$?
          ;;
+
+         *)
+            sde::test::forward_run "${RVAL}" "$@"
+            rval=$?
+         ;;
+
       esac
    fi
 

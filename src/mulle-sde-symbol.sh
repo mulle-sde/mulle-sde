@@ -46,6 +46,10 @@ sde::symbol::print_flags()
    echo "   --ctags-language <s> : ctags language to use"
    echo "   --ctags-output <s>   : ctags output format (json)"
    echo "   --ctags-xformat <s>  : ctags xformat"
+   echo "   --sources            : scan sources for ctags"
+   echo "   --headers            : scan all headers for ctags"
+   echo "   --public-headers     : scan public headers for ctags (default)"
+   echo "   --ctags-xformat <s>  : ctags xformat"
    echo "   --csv-separator <s>  : separator character for CSV ('${OPTION_SEPARATOR}')"
    echo "   --keep-tmp           : keep temporary created files (for debugging)"
    ##
@@ -73,7 +77,7 @@ Usage:
    All arguments after -- are passed to \`ctags\`.
 
    The ctags output formats are: u-ctags|e-ctags|etags|xref|json|csv. The
-   default output is JSON for languages other than Objective-C. The tags
+   default output is JSON for languages other than Objective-C and C. The tags
    formats will create a tags or TAGS file, instead of printing to standard
    output.
 
@@ -360,14 +364,16 @@ sde::symbol::ctags()
 {
    log_entry "sde::symbol::ctags" "$@"
 
-   local category="$1"
-   local language="$2"
-   local output_format="$3"
-   local kinds="$4"
-   local xformat="$5"
-   local keep_tmp="$6"
+   local type="$1"
+   local category="$2"
+   local language="$3"
+   local dialect="$4"
+   local output_format="$5"
+   local kinds="$6"
+   local xformat="$7"
+   local keep_tmp="$8"
 
-   shift 6
+   shift 8
 
    local directory
 
@@ -375,13 +381,25 @@ sde::symbol::ctags()
 
    local tmp_dir
 
-   case "${language}" in
-      C|ObjectiveC)
+   case "${dialect}" in
+      c|objc)
          r_make_tmp_directory || exit 1
          tmp_dir="${RVAL}"
 
+         local options
+
+         if [ ! -z "${type}" ]
+         then
+            options="--type-matches '${type}'"
+         fi
+         if [ ! -z "${category}" ]
+         then
+            r_concat "${options}" "--category-matches '${category}'"
+            options="${RVAL}"
+         fi
+
          sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
-            <( rexekutor mulle-match list --category-matches  "${category}" ) || exit 1
+            <( eval_rexekutor mulle-match list "${options}" ) || exit 1
          directory="${tmp_dir}"
       ;;
    esac
@@ -389,13 +407,20 @@ sde::symbol::ctags()
    local rval 
 
    (
+      if [ ! -z "${xformat}" ]
+      then
+         set -- --_xformat="${xformat}" "$@"
+      fi
+
       exekutor cd "${directory}"
-      find . -type f -print \
+
+#      tree >&2
+
+      rexekutor find . -type f -print \
       | rexekutor ctags --output-format="${output_format}" \
                         -L - \
                         "--languages=${language}" \
                         "--kinds-${language}=${kinds}" \
-                        --_xformat="${xformat}" \
                         "$@" \
       | (
            if [ "${language}" = "ObjectiveC" ]
@@ -516,6 +541,8 @@ sde::symbol::main()
    local OPTION_XFORMAT
    local OPTION_KEEP_TMP='NO'
    local OPTION_SEPARATOR='|'
+   local OPTION_CATEGORY
+   local OPTION_TYPE='header'
 
 #   local OPTION_CTAGS='YES'
 
@@ -542,6 +569,23 @@ sde::symbol::main()
 
             OPTION_CATEGORY="$1"
          ;;
+
+         # the default
+         --public-headers)
+            OPTION_CATEGORY='public*'
+            OPTION_TYPE='header'
+         ;;
+
+         --headers)
+            OPTION_TYPE='header'
+            OPTION_CATEGORY=''
+         ;;
+
+         --sources)
+            OPTION_TYPE='source'
+            OPTION_CATEGORY=''
+         ;;
+
 
 #         --clangd)
 #            OPTION_CTAGS='NO'
@@ -609,7 +653,7 @@ sde::symbol::main()
              OPTION_KINDS="${OPTION_KINDS}f"
          ;;
 
-         --headers)
+         --ctag-headers)
              OPTION_KINDS="${OPTION_KINDS}h"
          ;;
 
@@ -667,16 +711,8 @@ sde::symbol::main()
             OPTION_KINDS="${OPTION_KINDS}c"
          ;;
 
-         --enums)
-            OPTION_KINDS="${OPTION_KINDS}e"
-         ;;
-
          --fields)
             OPTION_KINDS="${OPTION_KINDS}E"
-         ;;
-
-         --functions)
-            OPTION_KINDS="${OPTION_KINDS}f"
          ;;
 
          --implementations)
@@ -691,10 +727,6 @@ sde::symbol::main()
             OPTION_KINDS="${OPTION_KINDS}i"
          ;;
 
-         --macros)
-            OPTION_KINDS="${OPTION_KINDS}M"
-         ;;
-
          --methods)
             OPTION_KINDS="${OPTION_KINDS}mc"
          ;;
@@ -706,19 +738,6 @@ sde::symbol::main()
          --protocols)
             OPTION_KINDS="${OPTION_KINDS}P"
          ;;
-
-         --structs)
-            OPTION_KINDS="${OPTION_KINDS}s"
-         ;;
-
-         --typedefs)
-            OPTION_KINDS="${OPTION_KINDS}t"
-         ;;
-
-         --variables|--global-variables)
-            OPTION_KINDS="${OPTION_KINDS}v"
-         ;;
-
          ##
 
          --dialect|--project-dialect)
@@ -768,14 +787,15 @@ sde::symbol::main()
 
    local language
    local try_language
-   local attempt
+   local dialect
 
+   dialect="${PROJECT_DIALECT:-${PROJECT_LANGUAGE:-c}}"
    language="${OPTION_LANGUAGE}"
+
    if [ -z "${language}" ]
    then
-      attempt="${PROJECT_DIALECT:-${PROJECT_LANGUAGE:-c}}"
-      r_find_best_language_matches "${attempt}"
-      r_select_best_candidate "${attempt}" "${RVAL}"
+      r_find_best_language_matches "${dialect}"
+      r_select_best_candidate "${dialect}" "${RVAL}"
       language="${RVAL}"
       if [ -z "${language}" ]
       then
@@ -797,9 +817,10 @@ sde::symbol::main()
    if [ -z "${OPTION_OUTPUT_FORMAT}" ]
    then
       case "${language}" in
-         ObjectiveC)
+         'ObjectiveC')
             OPTION_OUTPUT_FORMAT='xref'
             OPTION_KINDS="${OPTION_KINDS:-cm}"
+
             case "${OPTION_KINDS}" in
                cm|mc|c|m)
                   OPTION_XFORMAT="${OPTION_XFORMAT:-%K [%s %N] %F:%n}"
@@ -811,7 +832,23 @@ sde::symbol::main()
             esac
          ;;
 
+         #
+         # ctags just does not seem to work with C headers and --language C
+         # Exuberant Ctags 5.8, Copyright (C) 1996-2009 Darren Hiebert
+         # Compiled: Sep  3 2021, 18:12:18
+         # https://github.com/universal-ctags/ctags/issues/4290
+         #
+         'C')
+            OPTION_KINDS=${OPTION_KINDS:-'f+p'}
+            OPTION_OUTPUT_FORMAT='xref'
+            if [ "${OPTION_TYPE}" = 'header' ]
+            then
+               language="C++" # circumvents bug in ctags 5.9.0
+            fi
+         ;;
+
          *)
+            OPTION_KINDS="${OPTION_KINDS:-'*'}"
             OPTION_OUTPUT_FORMAT='json'
          ;;
       esac
@@ -821,15 +858,18 @@ sde::symbol::main()
    then
       OPTION_OUTPUT_FORMAT='xref'
       OPTION_XFORMAT="%F${OPTION_SEPARATOR}%n${OPTION_SEPARATOR}%l${OPTION_SEPARATOR}%k${OPTION_SEPARATOR}%N${OPTION_SEPARATOR}%s${OPTION_SEPARATOR}%t${OPTION_SEPARATOR}%S${OPTION_SEPARATOR}%p"
-      OPTION_KINDS="${OPTION_KINDS:-*}"
+      OPTION_KINDS="${OPTION_KINDS:-'*'}"
       printf "input${OPTION_SEPARATOR}line${OPTION_SEPARATOR}language${OPTION_SEPARATOR}kind${OPTION_SEPARATOR}name${OPTION_SEPARATOR}scope${OPTION_SEPARATOR}typeref${OPTION_SEPARATOR}signature${OPTION_SEPARATOR}pattern\n"
    fi
 
+   # too objc specific
    r_unique_chars "${OPTION_KINDS}"
    OPTION_KINDS="${RVAL:-N}"
 
-   sde::symbol::ctags "${OPTION_CATEGORY}"      \
+   sde::symbol::ctags "${OPTION_TYPE}"          \
+                      "${OPTION_CATEGORY}"      \
                       "${language}"             \
+                      "${dialect}"              \
                       "${OPTION_OUTPUT_FORMAT}" \
                       "${OPTION_KINDS}"         \
                       "${OPTION_XFORMAT}"       \

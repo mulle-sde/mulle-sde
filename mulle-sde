@@ -118,6 +118,7 @@ function sde::print_commands()
    searchpath     : show search path for build products
    source-dir     : print project source directory
    subproject     : manage local subprojects
+   symbol         : list C and Objective-C symbols of the project
    task           : manage reflection tasks
    test           : run tests using mulle-test
    treestatus     : show the sourcetree status
@@ -1595,22 +1596,6 @@ view"
          sde::remove::main "$@"
       ;;
 
-      'retest')
-         if ! sde::is_non_environment_commandline "$@"
-         then
-            if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
-            then
-               rexekutor cd "${MULLE_VIRTUAL_ROOT}" \
-               || fail "MULLE_VIRTUAL_ROOT \"${MULLE_VIRTUAL_ROOT}\" is missing"
-            fi
-         fi
-
-         # shellcheck source=src/mulle-sde-test.sh
-         include "sde::test"
-
-         sde::test::main retest "$@"
-      ;;
-
       'run')
          # shellcheck source=src/mulle-sde-run.sh
          include "sde::run"
@@ -1709,7 +1694,7 @@ view"
          sde::product::symlink_main "$@"
       ;;
 
-      'test')
+      'test'|'retest')
          if ! sde::is_non_environment_commandline "$@"
          then
             if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
