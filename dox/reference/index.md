@@ -16,6 +16,9 @@ Complete index of all mulle-sde commands organized by topic.
 | [kitchen-dir](kitchen-dir.md) | Get kitchen build directory |
 | [libexec-dir](libexec-dir.md) | Get libexec directory |
 | [stash-dir](stash-dir.md) | Get stash directory |
+| [addiction-dir](addiction-dir.md) | Get addiction directory |
+| [dependency-dir](dependency-dir.md) | Get dependency directory |
+| [craftorder-kitchen-dir](craftorder-kitchen-dir.md) | Get craftorder kitchen directory |
 
 ## Build & Compilation
 | Command | Description |
@@ -43,7 +46,6 @@ Complete index of all mulle-sde commands organized by topic.
 |---------|-------------|
 | [dependency](dependency.md) | Manage project dependencies |
 | [dependency-dir](dependency-dir.md) | Get dependency directory |
-| [addiction-dir](addiction-dir.md) | Get dependency directory path |
 | [fetch](fetch.md) | Fetch remote dependencies |
 | [move](move.md) | Move dependencies |
 | [steal](steal.md) | Import dependencies from other projects |
@@ -54,7 +56,6 @@ Complete index of all mulle-sde commands organized by topic.
 | [add](add.md) | Add files or dependencies to project |
 | [remove](remove.md) | Remove files or dependencies |
 | [file](file.md) | Manage project files |
-| [filename](filename.md) | Handle filename operations |
 | [patternfile](patternfile.md) | Manage pattern files |
 | [patterncheck](patterncheck.md) | Check file patterns |
 | [patternenv](patternenv.md) | Pattern environment utilities |
@@ -66,7 +67,6 @@ Complete index of all mulle-sde commands organized by topic.
 |---------|-------------|
 | [config](config.md) | Configure project settings |
 | [set](set.md) | Set configuration values |
-| [show](show.md) | Display configuration |
 | [tool](tool.md) | Configure build tools |
 | [style](style.md) | Manage code style settings |
 
@@ -80,8 +80,8 @@ Complete index of all mulle-sde commands organized by topic.
 | [find](find.md) | Search project files |
 | [get](get.md) | Retrieve configuration values |
 | [json](json.md) | Output JSON format data |
-| [versions](versions.md) | Display version information |
 | [commands](commands.md) | List all available commands |
+| [doctor](doctor.md) | Run diagnostic checks |
 
 ## Environment & System
 | Command | Description |
@@ -89,12 +89,12 @@ Complete index of all mulle-sde commands organized by topic.
 | [environment](environment.md) | Manage build environments |
 | [uname](uname.md) | Display system information |
 | [common-unames](common-unames.md) | Display platform uname info |
+| [version](version.md) | Display mulle-sde version |
 
 ## Utilities & Extensions
 | Command | Description |
 |---------|-------------|
 | [extension](extension.md) | Manage project extensions |
-| [supermarks](supermarks.md) | Manage supermarks |
 | [symbol](symbol.md) | Manage symbols and exports |
 | [symlink](symlink.md) | Manage symlinks |
 | [definition](definition.md) | Manage project definitions |
@@ -113,8 +113,6 @@ Complete index of all mulle-sde commands organized by topic.
 | Command | Description |
 |---------|-------------|
 | [monitor](monitor.md) | Monitor build processes |
-| [log](log.md) | View system logs |
-| [callback](callback.md) | Manage build system callbacks |
 
 ## Import/Export
 | Command | Description |
@@ -136,9 +134,3 @@ Complete index of all mulle-sde commands organized by topic.
 | Command | Description |
 |---------|-------------|
 | [subproject](subproject.md) | Manage subprojects |
-
-## Common Utilities
-| Command | Description |
-|---------|-------------|
-| [common](common.md) | Common utility functions |
-| [task](task.md) | Manage build tasks |
