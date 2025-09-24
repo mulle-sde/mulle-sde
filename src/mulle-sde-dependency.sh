@@ -93,6 +93,7 @@ Commands:
    craftinfo  : change build options for a dependency
    etcs       : list all etc files in the built dependencies folder
    export     : export dependency as script command
+   find       : find library or header of a given name
    fetch      : fetch dependencies (same as mulle-sde fetch)
    get        : retrieve a dependency settings from the sourcetree
    headers    : list all headers in the built dependencies folder
@@ -309,6 +310,44 @@ Options:
    --url            : show URL in columnar output
    --               : pass remaining arguments to mulle-sourcetree list
 
+
+EOF
+   exit 1
+}
+
+sde::dependency::find_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency find <type> <name>
+
+   Type can be 'api' or 'library', which corresponds to a header file or
+   a static/shared library file.
+
+      mulle-sde dependency find 'api' zlib.h
+
+   This will return the location of the zlib.h header if available. This
+   command will not work well if you have files of the same name.
+
+EOF
+   exit 1
+}
+
+
+sde::dependency::headers_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency headers [tree arguments]
+
+   Show the dependency headers using the "tree" command. The dependencies need
+   to be crafted before the headers can be show,
+   Use the "mulle-sde dependency find" to locate a header by name more
+   conveniently.
 
 EOF
    exit 1
@@ -1993,14 +2032,153 @@ sde::dependency::contains_numeric_arguments()
 }
 
 
-sde::dependency::headers_main()
+sde::dependency::find_main()
 {
-   log_entry "sde::dependency::headers_main" "$@"
+   log_entry "sde::dependency::source_dir_main" "$@"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::dependency::find_usage
+         ;;
+
+         -*)
+            sde::dependency::find_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+
+   [ $# -eq 0 ] && sde::dependency::find_usage "Missing type argument"
+
+   local type=$1
+
+   shift
+
+   [ $# -eq 0 ] && sde::dependency::find_usage "Missing name argument"
+
+   local name=$1
+
+   shift
+
+   [ $# -ne 0 ] && sde::dependency::find_usage "Superflous arguments $*"
+
+   [ -z "${MULLE_SOURCETREE_STASH_DIR}" ] && _internal_fail "MULLE_SOURCETREE_STASH_DIR empty ?"
+   [ -z "${DEPENDENCY_DIR}" ] && _internal_fail "DEPENDENCY_DIR empty ?"
 
 
    if [ ! -d "${DEPENDENCY_DIR}" ]
    then
-      fail "Need to build dependencies, to list available headers"
+      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft
+   fi
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to craft dependencies, to list available headers"
+   fi
+
+   (
+      eval `mulle-platform env`
+
+      # local suffixes
+      # local prefixes
+      local follow
+      local paths
+
+      case "${type}" in
+         'a'|'api')
+            prefixes=
+            suffixes=".h"
+            paths="${DEPENDENCY_DIR}/Debug/include:"${DEPENDENCY_DIR}/Release/include:"${DEPENDENCY_DIR}/include"
+         ;;
+
+#         'h'|'header')
+#            follow=-L
+#            prefixes=
+#            suffixes=".h"
+#            paths="${MULLE_SOURCETREE_STASH_DIR}"
+#         ;;
+#
+#         's'|'source')
+#            paths="${MULLE_SOURCETREE_STASH_DIR}"
+#         ;;
+
+         'l'|'library')
+            # prefixes="${MULLE_PLATFORM_LIBRARY_PREFIX}"
+            # suffixes="${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}:${MULLE_PLATFORM_LIBRARY_SUFFIX_DYNAMIC}"
+            paths="${DEPENDENCY_DIR}/Debug/lib:"${DEPENDENCY_DIR}/Release/lib:"${DEPENDENCY_DIR}/lib"
+         ;;
+
+         *)
+            sde::dependency::find_usage "Unknown type \"${type}\""
+         ;;
+      esac
+
+
+      local dir
+      local abs_dir
+
+      .foreachpath dir in ${paths}
+      .do
+         r_absolutepath "${dir}"
+         abs_dir="${RVAL}"
+
+         if [ ! -d "${abs_dir}" ]
+         then
+            .continue
+         fi
+
+         found="$(rexekutor find ${follow} "${abs_dir}" -name "${name}" -print 2> /dev/null)"
+         if [ ! -z "${found}" ]
+         then
+            printf "%s\n" "${found}"
+            return
+         fi
+      .done
+
+      log_warning "Nothing found"
+   )
+}
+
+
+sde::dependency::headers_main()
+{
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::dependency::headers_usage
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+
+   local type=$1
+
+   log_entry "sde::dependency::headers_main" "$@"
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft
+   fi
+
+   if [ ! -d "${DEPENDENCY_DIR}" ]
+   then
+      fail "Need to craft dependencies, to list available headers"
    fi
 
    local directories
@@ -2021,7 +2199,7 @@ sde::dependency::headers_main()
       return
    fi
 
-   eval_rexekutor tree  -I '*.cmake' --prune --noreport "${directories}"
+   eval_rexekutor tree -I '*.cmake' --prune --noreport "${directories}" "$@"
 }
 
 
@@ -2296,7 +2474,7 @@ unmark"
          return $?
       ;;
 
-      binaries|downloads|etcs|headers|libraries|shares|stashes)
+      binaries|downloads|etcs|find|headers|libraries|shares|stashes)
          sde::dependency::${cmd}_main "$@"
       ;;
 

@@ -306,9 +306,12 @@ sde::craft::perform_clean_if_needed()
    #
    case "${mode}" in
       'DEFAULT')
-         if [ "${dbrval}" -lt 2  ]
+         if [ "${MULLE_SDE_CLEAN_BEFORE_CRAFT}" != 'YES' ]
          then
-            return $dbrval
+            if [ "${dbrval}" -lt 2  ]
+            then
+               return $dbrval
+            fi
          fi
       ;;
 
@@ -331,7 +334,6 @@ sde::craft::perform_clean_if_needed()
       ;;
 
       'YES')
-         cleandomain=
       ;;
 
       *)
@@ -646,6 +648,22 @@ sde::craft::run_cppcheck()
    .done
 }
 
+
+sde::craft::run_tests()
+{
+   log_entry "sde::craft::run_tests" "$@"
+
+   local buildstyle="$1"
+
+   if [ ! -d test ]
+   then
+      return
+   fi
+
+   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test crun || exit 1
+}
+
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
@@ -657,6 +675,7 @@ sde::craft::main()
    local OPTION_REFLECT='YES'
    local OPTION_MOTD='YES'
    local OPTION_RUN='NO'
+   local OPTION_TEST='NO'
    local OPTION_CLEAN='DEFAULT'
    local OPTION_SYNCFLAGS=""
    local OPTION_ANALYZE=""
@@ -1181,6 +1200,12 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
                       "${craftorder_arguments}" || return 1
 
    log_verbose "Craft was successful"
+
+   if [ "${OPTION_TEST}" = 'DEFAULT' -a "${MULLE_SDE_TEST_AFTER_CRAFT}" = 'YES' ] \
+      || [ "${OPTION_TEST}" = 'YES' ]
+   then
+      sde::craft::run_tests
+   fi
 
    if [ "${OPTION_CPPCHECK}" = 'YES' ]
    then

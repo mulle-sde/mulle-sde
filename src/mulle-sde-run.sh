@@ -45,19 +45,40 @@ Usage:
    given.
 
 Options:
-   --  : pass remaining options as arguments
-   -e  : run the main executable outside of the mulle-sde environment.
-   -b  : run the executable in the background (&)
+   --     : pass remaining options as arguments
+   -e     : run the main executable outside of the mulle-sde environment.
+   -b     : run the executable in the background, ignores timeout (&)
+   -t <s> : run the executable within timeout, stopping after 's' seconds
 
 Environment:
-   MULLE_SDE_RUN      : command line to use, use \${EXECUTABLE} as variable
-   MULLE_SDE_PRE_RUN  : command line before executable starts
-   MULLE_SDE_POST_RUN : command line after executable has started, implies -b
+   MULLE_SDE_RUN         : command to use, use \${EXECUTABLE} as variable
+   MULLE_SDE_PRE_RUN     : command before executable starts
+   MULLE_SDE_POST_RUN    : command after executable has started, implies -b
+   MULLE_SDE_RUN_TIMEOUT : run the executable with a timeout value by default
+   MULLE_SDE_CRAFT_BEFORE_RUN : always do a \`mulle-sde craft\` before running if YES
 
 EOF
    exit 1
 }
 
+
+sde::run::vibecodehelp()
+{
+   local executablename="$1"
+
+   if [ ! -z $(dir_list_files demo/src 'main-executable.*' 'f')  ]
+   then
+      log_info "There is a demo of the same name though:
+${C_RESET_BOLD}cd demo && mulle-sde run ${executablename}"
+      return
+   fi
+
+   if [ ! -d test ]
+   then
+      log_info "Hint: to run tests use
+${C_RESET_BOLD}mulle-sde test run ${executablename}.${PROJECT_EXTENSIONS}"
+   fi
+}
 
 
 sde::run::main()
@@ -73,6 +94,9 @@ sde::run::main()
    local OPTION_BACKGROUND='DEFAULT'
    local OPTION_SDE_RUN_ENV='YES'
    local OPTION_DEBUG_ENV='DEFAULT'
+   local OPTION_TIMEOUT='DEFAULT'
+   local OPTION_CRAFT='DEFAULT'
+   local OPTION_STACKTRACE
 
    while [ $# -ne 0 ]
    do
@@ -89,6 +113,14 @@ sde::run::main()
             [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
             shift
             OPTION_CONFIGURATION="$1"
+         ;;
+
+         --craft)
+            OPTION_CRAFT='YES'
+         ;;
+
+         --no-craft)
+            OPTION_CRAFT='NO'
          ;;
 
          --sdk)
@@ -144,6 +176,21 @@ sde::run::main()
             OPTION_DEBUG_ENV='NONE'
          ;;
 
+         --objc-stacktrace)
+            OPTION_STACKTRACE='mulle-gdb'
+         ;;
+
+         --stacktrace)
+            OPTION_STACKTRACE='gdb'
+         ;;
+
+         -t|--timeout)
+            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_TIMEOUT="$1"
+         ;;
+
          --)
             shift
             break
@@ -162,6 +209,16 @@ sde::run::main()
 
       shift
    done
+
+   if [ "${OPTION_CRAFT}" = 'DEFAULT' ]
+   then
+      OPTION_CRAFT="${MULLE_SDE_CRAFT_BEFORE_RUN:-NO}"
+   fi
+
+   if [ "${OPTION_CRAFT}" = 'YES' ]
+   then
+      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft || exit 1
+   fi
 
    case "${OPTION_DEBUG_ENV}" in
       'DEFAULT')
@@ -182,11 +239,30 @@ sde::run::main()
       ;;
    esac
 
+   local debugger 
+
+   case "${OPTION_STACKTRACE}" in
+      'gdb'|'mulle-gdb')
+         if [ "${OPTION_BACKGROUND}" = 'YES' ]
+         then
+            fail "You can't mix --timout with --background"
+         fi
+
+         debugger="${OPTION_STACKTRACE} --batch \
+-ex run \
+-ex bt \
+-ex 'set confirm off' \
+-ex quit \
+--args "
+      ;;
+   esac
 
    local EXECUTABLE
 
    # shellcheck source=src/mulle-sde-product.sh
    include "sde::product"
+
+   local EXECUTABLE_NAME
 
    if [ -x "${OPTION_NAME}" ]
    then
@@ -194,10 +270,13 @@ sde::run::main()
    else
       if ! sde::product::r_executable "${OPTION_NAME}"
       then
+         sde::run::vibecodehelp "${OPTION_NAME}"
          return 1
       fi
       EXECUTABLE="${RVAL}"
    fi
+   r_basename "${EXECUTABLE}"
+   EXECUTABLE_NAME="${RVAL}"
 
    local commandline
    local post_commandline
@@ -225,6 +304,32 @@ sde::run::main()
    log_setting "MULLE_SDE_POST_RUN : ${post_commandline}"
    log_setting "MULLE_VIRTUAL_ROOT : ${MULLE_VIRTUAL_ROOT}"
 
+   if [ "${OPTION_TIMEOUT}" = 'DEFAULT' ]
+   then
+      OPTION_TIMEOUT="${MULLE_SDE_RUN_TIMEOUT}"
+   fi
+
+   log_setting "OPTION_TIMEOUT     : ${OPTION_TIMEOUT}"
+
+   local timeout
+
+   if [ "${OPTION_TIMEOUT:-0}" -gt 0 ]
+   then
+      local timeout_exe
+
+      if [ "${OPTION_BACKGROUND}" = 'YES' ]
+      then
+         fail "You can't mix --timeout with --background"
+      fi
+
+      if ! timeout_exe="`command -v 'mulle-timeout'`"
+      then
+         log_warning "mulle-timeout command not available"
+      else
+         timeout="mulle-timeout ${OPTION_TIMEOUT}"
+      fi
+   fi
+
    if [ ! -z "${pre_commandline}" ]
    then
       r_expanded_string "${pre_commandline}"
@@ -236,6 +341,8 @@ sde::run::main()
       eval_exekutor mudo ${MUDO_FLAGS} -f "${pre_commandline}"
    fi
 
+   local rval
+
    if [ ! -z "${commandline}" ]
    then
       r_expanded_string "${commandline}"
@@ -246,15 +353,24 @@ sde::run::main()
       then
          eval_exekutor mudo ${MUDO_FLAGS} -f ${environment} "${commandline}" "$@" &
       else
-         eval_exekutor mudo ${MUDO_FLAGS} -f ${environment} "${commandline}" "$@"
+         eval_exekutor ${timeout} mudo ${MUDO_FLAGS} -f ${environment} ${debugger} "${commandline}" "$@"
+         rval=$?
       fi
    else
       if [ "${OPTION_BACKGROUND}" = 'YES' ]
       then
          exekutor mudo ${MUDO_FLAGS} -f ${environment} "${EXECUTABLE}" "$@" &
       else
-         exekutor mudo ${MUDO_FLAGS} -f ${environment} "${EXECUTABLE}" "$@"
+         exekutor ${timeout} mudo ${MUDO_FLAGS} -f ${environment} ${debugger} "${EXECUTABLE}" "$@"
+         rval=$?
       fi
+   fi
+
+   if [ $rval -eq 124 -a ! -z "${timeout}" ]
+   then
+      _log_error "${C_RESET_BOLD}${EXECUTABLE_NAME}${C_ERROR} has reached the ${OPTION_TIMEOUT} second timeout
+${C_VERBOSE}To run indefinitely:
+${C_RESET_BOLD}mulle-sde run -t 0 ${EXECUTABLE_NAME}"
    fi
 
    if [ ! -z "${post_commandline}" ]

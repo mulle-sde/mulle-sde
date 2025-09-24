@@ -1068,7 +1068,7 @@ sde::init::_copy_extension_template_files()
    local subdirectory="$2"
    local projecttype="$3"
    local extension="$4"
-   local force="$5"
+   local mode="$5"   # used to be force (still used as such)
    local onlyfilename="$6"
 
    shift 6
@@ -1087,13 +1087,27 @@ sde::init::_copy_extension_template_files()
    arguments="write --embedded --without-template-dir --no-boring-environment"
    if [ ! -z "${onlyfilename}" ]
    then
-      arguments="${arguments} --file '${onlyfilename}'"
+      r_concat "${arguments}" "--file '${onlyfilename}'"
+      arguments="${RVAL}"
    fi
 
-   if [ "${force}" = 'YES' ]
-   then
-      arguments="${arguments} --overwrite"
-   fi
+   # 'YES' is the old 'force' flag
+   case "${mode}" in
+      'force'|'clobber'|'YES')
+         r_concat "${arguments}" "--overwrite"
+         arguments="${RVAL} "
+      ;;
+
+      'append')
+         r_concat "${arguments}" "--prepend"
+         arguments="${RVAL} "
+      ;;
+
+      'prepend')
+         r_concat "${arguments}" "--prepend"
+         arguments="${RVAL} "
+      ;;
+   esac
 
    if [ "${OPTION_COMMENT_FILES}" = 'YES' ]
    then
@@ -1104,10 +1118,13 @@ directory : ${subdirectory}/${projecttype}\\n\
 template  : .../<|TEMPLATE_FILE|>\\n\
 Suppress this comment with \`export MULLE_SDE_GENERATE_FILE_COMMENTS=NO\`"
 
-      arguments="${arguments} --comment '${comment}'"
+      r_concat "${arguments}" "--comment '${comment}'"
+      arguments="${RVAL}"
    fi
 
-   arguments="${arguments} '${sourcedir}' '${dstdir}'"
+   r_concat "${arguments}" "'${sourcedir}'"
+   r_concat "${RVAL}" "'${dstdir}'"
+   arguments="${RVAL}"
 
    #
    # Normally the base project files would be copied first. But then we can not
@@ -1117,15 +1134,17 @@ Suppress this comment with \`export MULLE_SDE_GENERATE_FILE_COMMENTS=NO\`"
    # If force is set, the last file file will win, in this case we use the
    # "natural" order
    #
-   if [ "${force}" = 'YES' ]
-   then
-      _TEMPLATE_DIRECTORIES="${_TEMPLATE_DIRECTORIES}
-${arguments}"
-      return
-   fi
+   case "${mode}" in
+      'force'|'clobber'|'YES')
+         r_add_line "${_TEMPLATE_DIRECTORIES}" "${arguments}"
+         _TEMPLATE_DIRECTORIES="${RVAL}"
+      ;;
 
-   _TEMPLATE_DIRECTORIES="${arguments}
-${_TEMPLATE_DIRECTORIES}"
+      *)
+         r_add_line "${arguments}" "${_TEMPLATE_DIRECTORIES}"
+         _TEMPLATE_DIRECTORIES="${RVAL}"
+      ;;
+   esac
 }
 
 
@@ -1689,6 +1708,42 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
                                                        "$@"
       fi
 
+
+      # this is an addition for AGENTS.md where we want to append to the
+      # AGENTS.md file from multiple extensions
+      #
+      # TODO: can this be less hack with <dir>
+      #                                  <dir>.delete
+      #                                  <dir>.clobber
+      #                                  <dir>.append ?
+      #
+      if ! sde::init::is_directory_disabled_by_marks "${marks}" \
+                                                     "${extensiondir}/demo.append" \
+                                                     "no-demo" \
+                                                     "no-demo/${vendor}/${extname}"
+      then
+         sde::init::_copy_extension_template_directory "${extensiondir}" \
+                                                       "demo.append" \
+                                                       "${projecttype}" \
+                                                       "${vendor}/${extname}" \
+                                                       'append' \
+                                                       "${onlyfilename}" \
+                                                       "$@"
+      fi
+
+      if ! sde::init::is_directory_disabled_by_marks "${marks}" \
+                                                     "${extensiondir}/demo.prepend" \
+                                                     "no-demo" \
+                                                     "no-demo/${vendor}/${extname}"
+      then
+         sde::init::_copy_extension_template_directory "${extensiondir}" \
+                                                       "demo.prepend" \
+                                                       "${projecttype}" \
+                                                       "${vendor}/${extname}" \
+                                                       'prepend' \
+                                                       "${onlyfilename}" \
+                                                       "$@"
+      fi
       local subdirectory
 
 
@@ -2696,8 +2751,8 @@ sde::init::run_user_post_init_script()
       fi
    fi
 
-   log_warning "Running post-init script \"${scriptfile}\""
-   log_info "You can suppress this behavior with --no-post-init"
+   log_info "Running post-init script \"${scriptfile}\""
+   log_verbose "You can suppress this behavior with --no-post-init"
 
    MULLE_TECHNICAL_FLAGS="${MULLE_TECHNICAL_FLAGS}" \
       exekutor "${scriptfile}" "$@" || exit $?
@@ -3455,6 +3510,12 @@ sde::init::protect_unprotect()
 
    local title="$1"
    local mode="$2"
+
+   # we could be deleted already, check against that
+   if [ ! -d "$PWD" ]
+   then
+      return
+   fi
 
    if ! MULLE_SDE_PROTECT_PATH="` "${MULLE_ENV:-mulle-env}" -s ${MULLE_TECHNICAL_FLAGS} \
                                     -e \

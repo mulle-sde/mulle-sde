@@ -121,16 +121,72 @@ sde::product::freshest_files()
 }
 
 
+sde::product::vibecodehelp()
+{
+   log_entry "sde::product::vibecodehelp" "$@"
+
+   local dir
+   local candidates
+   local candidate
+
+   if [ -z "$1" ]
+   then
+      return
+   fi
+
+   local ext
+   local sourcefile
+   local testfile
+
+   .foreachpath ext in ${PROJECT_EXTENSIONS}
+   .do
+      r_basename "$1"
+      sourcefile="main-${RVAL}.${ext}"
+
+      if [ -d demo ]
+      then
+         candidates="$(find demo -name "${sourcefile}" -print)"
+         .foreachline candidate in ${candidates}
+         .do
+            _log_info "There is a demo available though, maybe try:
+${C_RESET_BOLD}   ( cd 'demo' && mulle-sde run '$1')"
+         .done
+      fi
+
+      r_extensionless_basename "$1"
+      testfile="${RVAL}.${ext}"
+
+      .foreachpath dir in ${MULLE_SDE_TEST_PATH:-test}
+      .do
+         if [ -d "${dir}" ]
+         then
+            candidates="$(find "${dir}" -name "${testfile}" -print)"
+            .foreachline candidate in ${candidates}
+            .do
+               _log_info "In ${C_RESET_BOLD}${dir}${C_INFO} there is a test available though, maybe try:
+${C_RESET_BOLD}   (cd '${dir}' && mulle-sde test run '${candidate#./}')"
+            .done
+         fi
+      .done
+   .done
+}
+
+
 sde::product::r_executables()
 {
    log_entry "sde::product::r_executables" "$@"
 
+   # memo this test is possibly at the wrong place
    local projecttype
 
    projecttype="`rexekutor mulle-sde env get PROJECT_TYPE`"
    if [ "${projecttype}" != "executable" ]
    then
-      fail "\"mulle-sde run\" works only in executable projects"
+      log_error "\"mulle-sde run\" works only in executable projects"
+
+      sde::product::vibecodehelp "$1"
+
+      exit 1
    fi
 
    local kitchen_dir
@@ -435,7 +491,7 @@ sde::product::r_product_paths()
    # in "demos", where there are multiple candidates
    if [ -z "${candidates}" -a "${PROJECT_TYPE}" = 'executable' ]
    then
-      sde::product::r_executables
+      sde::product::r_executables "$1"
       candidates="${RVAL}"
 
       if sde::product::r_preferred_executable_names "${candidates}" "$@"
@@ -545,7 +601,7 @@ sde::product::r_executable()
 
    local executables
 
-   sde::product::r_executables
+   sde::product::r_executables "${preferredname}"
    executables="${RVAL}"
 
    local executable
@@ -602,7 +658,7 @@ sde::product::symlink_main()
 
    local executables
 
-   sde::product::r_executables
+   sde::product::r_executables ""  # unknown "${preferredname}"
    executables="${RVAL}"
 
    local executable

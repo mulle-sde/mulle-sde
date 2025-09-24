@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.4.3
+MULLE_EXECUTABLE_VERSION=3.5.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -825,8 +825,8 @@ file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
 mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
 product|project|protect|reflect|recraft|searchpath|sourcetree|subproject|style|\
-symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
-lib|pat|sub|unveil|view)
+sweatcoding|symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
+lib|pat|sub|unveil|view|vibecoding)
                if ! sde::is_non_environment_commandline "$@"
                then
                   sde::exec_command_in_subshell 'CD' "$@"
@@ -1094,6 +1094,7 @@ style
 sub
 subproject
 subprojects
+sweatcoding
 symbol
 symbols
 symlink
@@ -1109,6 +1110,7 @@ update
 upgrade
 username
 version
+vibecoding
 view"
          exit 0
       ;;
@@ -1809,6 +1811,13 @@ view"
       'version')
          rexekutor printf "%s\n" "${MULLE_EXECUTABLE_VERSION}"
          return 0
+      ;;
+
+      'vibecoding'|'sweatcoding')
+         # shellcheck source=src/mulle-sde-vibecoding.sh
+         include "sde::vibecoding"
+
+         sde::vibecoding::main "${cmd}" "$@"
       ;;
 
       'view')

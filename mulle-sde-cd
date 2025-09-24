@@ -90,7 +90,7 @@ EOF
             ;;
 
             # just get default error message
-            ''|*)
+            *)
                cd "$@" "${dir}"
                return $?
             ;;
