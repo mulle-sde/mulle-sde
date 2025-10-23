@@ -56,7 +56,7 @@ Environment:
    MULLE_SDE_CLEAN_BEFORE_CRAFT   : set to ON for vibecoding
    MULLE_SDE_REFLECT_BEFORE_CRAFT : set to ON for vibecoding
    MULLE_SDE_TEST_AFTER_CRAFT'    : set to ON with --test always
-   MULLE_TEST_CRAFT_BEFORE_RUN    : set to ON for vibecoding
+   MULLE_TEST_CLEAN_BEFORE_RUN    : set to ON for vibecoding
 EOF
    exit 1
 }
@@ -178,7 +178,7 @@ sde::vibecoding::main()
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     "${OPTION_TEST}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CRAFT_BEFORE_RUN'    "${flag}"
+   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    "${flag}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          "${timeout}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
 

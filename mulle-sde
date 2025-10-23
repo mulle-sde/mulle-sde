@@ -760,6 +760,19 @@ sde::main()
 
    local cmd
 
+   cmd="$1"
+
+   # alias step
+   case "${cmd}" in
+      'vibecode')
+         cmd='vibecoding'
+      ;;
+
+      'sweatcode')
+         cmd='sweatcoding'
+      ;;
+   esac
+
    if [ "${FLAG_OUTSIDE_ENV}" = 'YES' ]
    then
       MULLE_VIRTUAL_ROOT="`pwd -P`"
@@ -770,7 +783,6 @@ sde::main()
       # a "convenient" ? shortcut to do projects w/o having to enter
       # a subshell. Starts a subshell every time though....
       #
-      cmd="$1"
 
       if [ -z "${MULLE_VIRTUAL_ROOT:-}" ]
       then
@@ -859,7 +871,6 @@ lib|pat|sub|unveil|view|vibecoding)
       fi
    fi
 
-   cmd="$1"
    [ $# -ne 0 ] && shift
 
    #

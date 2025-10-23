@@ -54,14 +54,16 @@ Options:
    -h                  : show this usage
    --configuration <c> : set configuration, like "Debug"
    --debug             : shortcut for --configuration Debug
+   --debugger <exe>    : use <exe> as debugger path
    --executable <exe>  : use <exe> as explicit executable path
    --leak              : trace mulle-objc leaks
+   --no-zombie         : do not trace mulle-objc zombies
    --release           : shortcut for --configuration Release
    --restrict          : run debug with restricted environment
    --sdk <sdk>         : set sdk
+   --select            : select a debugger from interactive menu
    --unordered         : don't sort executable menu
    --zombie            : trace mulle-objc zombies (DEFAULT)
-   --no-zombie         : do not trace mulle-objc zombies
 
 EOF
    exit 1
@@ -140,7 +142,7 @@ sde::debug::r_user_debugger()
 
    local choices
 
-   choices="${MULLE_SDE_DEBUGGERS:-mulle-gdb:gdb:lldb}"
+   choices="${MULLE_SDE_DEBUGGERS:-mulle-gdb:seergdb:gdb:lldb:rr}"
    if ! sde::debug::r_installed_debuggers "${choices}"
    then
       fail "No suitable debugger found, please install one of: ${choices}"
@@ -252,6 +254,15 @@ sde::debug::run_main()
       rexekutor mulle-sde env --this-user set MULLE_SDE_DEBUGGER_CHOICE "${debugger}"
    fi
 
+   local debugger_preexe
+   local debugger_postexe
+
+   case "${debugger}" in
+      *'rr')
+         debugger_preexe='record'
+         debugger_postexe='--args'
+      ;;
+   esac
    #
    # gather KITCHEN_DIR
    # gather STASH_DIR
@@ -304,11 +315,15 @@ sde::debug::run_main()
          eval_exekutor mudo "${MUDO_FLAGS}" -f \
                             "${environment}" \
                             "'${debugger}${MULLE_EXE_EXTENSION}'" \
+                            "${debugger_preexe}" \
                             "'${executable}'" \
+                            "${debugger_postexe}" \
                             "${args}"
       else
          eval_exekutor "'${debugger}${MULLE_EXE_EXTENSION}'" \
+                       "${debugger_preexe}" \
                        "'${executable}'" \
+                       "${debugger_postexe}" \
                        "${args}"
       fi
    )
@@ -321,12 +336,10 @@ sde::debug::main()
 
    local OPTION_CONFIGURATION
    local OPTION_SDK
-   local OPTION_EXISTS
    local MUDO_FLAGS="-E"
    local OPTION_SELECT
    local OPTION_ENVIRONMENT
    local OPTION_EXECUTABLE
-   local OPTION_ZOMBIE='YES'
    local OPTION_DEBUG_ENV='DEFAULT'
 
    while [ $# -ne 0 ]
@@ -340,6 +353,13 @@ sde::debug::main()
             [ $# -eq 1 ] && sde::debug::usage "Missing argument to \"$1\""
             shift
             OPTION_CONFIGURATION="$1"
+         ;;
+
+         --debugger)
+            [ $# -eq 1 ] && sde::debug::usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_SDE_DEBUGGER_CHOICE="$1"
          ;;
 
          --sdk)
@@ -533,6 +553,3 @@ EOF
       ;;
    esac
 }
-
-
-

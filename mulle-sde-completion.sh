@@ -80,7 +80,7 @@ __mulle_sde_commands() {
     local out
     out="$(mulle-sde commands 2>/dev/null)"
     if [ -z "$out" ]; then
-      out="add clean craft craftinfo craftorder craftstatus crun debug definition dependency edit env-identifier environment exec export extension fetch file files get headerorder hostname ignore init init-and-enter install json library libexec-dir linkorder list log mark match migrate monitor move patterncheck patternenv patternfile patternfiles filename patternmatch pat product project project-dir protect recraft reflect reinit remove retest run searchpath set show source-dir sourcetree stash-dir status steal style sub subproject symlink task test tool tool-env treestatus uname unprotect unveil update upgrade username version view"
+      out="add addiction-dir bash-completion callback clean config craft craftinfo craftorder crun debug definition dependency dependency-dir doctor donefile edit enter env env-identifier environment exec execute export extension fetch file filename find get headerorder hostname ignore init init-and-enter install json kitchen-dir libexec-dir library library-path linkorder list log mark match migrate monitor move pat patterncheck patternenv patternfile patternmatch product project project-dir protect recraft reflect reinit remove retest run searchpath set show source-dir sourcetree stash-dir steal style sub subproject sweatcoding symbol symlink task test tool tool-env uname unprotect unveil update upgrade username version vibecoding view"
     fi
     __mulle_sde_cached_cmds="$out"
   fi
@@ -223,8 +223,36 @@ __mulle_sde_complete_value_for_opt() {
         headerorder) __mulle_sde_complete_enums "$cur" "c objc csv"; return;;
         dependency) __mulle_sde_complete_enums "$cur" "json cmd cmd2 raw csv"; return;;
         library) __mulle_sde_complete_enums "$cur" "json"; return;;
+        symbol) __mulle_sde_complete_enums "$cur" "u-ctags e-ctags etags xref json csv"; return;;
         *)
           __mulle_sde_complete_enums "$cur" "json csv raw"
+          return
+        ;;
+      esac
+    ;;
+    --ctags-output|--ctags-output-format)
+      __mulle_sde_complete_enums "$cur" "u-ctags e-ctags etags xref json csv"
+      return
+    ;;
+    --category)
+      case "$cmd" in
+        symbol) __mulle_sde_complete_enums "$cur" "public-headers headers sources"; return;;
+      esac
+    ;;
+    --csv-separator)
+      __mulle_sde_complete_enums "$cur" "|,;"
+      return
+    ;;
+    --ctags-language)
+      # Common ctags languages - could be dynamic but this covers most cases
+      __mulle_sde_complete_enums "$cur" "C C++ ObjectiveC Swift Rust Go Java Python JavaScript TypeScript"
+      return
+    ;;
+    --ctags-kinds)
+      case "$cmd" in
+        symbol) 
+          # Common kind combinations for C/C++/ObjC
+          __mulle_sde_complete_enums "$cur" "f+p c+d+e+f+g+m+n+p+s+t+u+v c+f+m+v f+p+m+c"
           return
         ;;
       esac
@@ -340,10 +368,27 @@ _mulle_sde_complete() {
         ;;
       esac
     ;;
+    vibecoding|sweatcoding)
+      # vibecoding [options] [on|off]
+      if [[ "$cur" != -* ]]; then
+        COMPREPLY=( $(compgen -W "on off yes no" -- "$cur") )
+        return 0
+      fi
+    ;;
+    symbol)
+      # symbol command takes many options, fallback to files for non-options
+      if [[ "$cur" != -* ]]; then
+        __mulle_sde_complete_files "$cur"; return 0
+      fi
+    ;;
     run|exec|execute|debug)
       __mulle_sde_complete_files "$cur"; return 0
     ;;
     add|remove|file|files|list|match|patternfile|patternfiles|filename|patternmatch)
+      __mulle_sde_complete_files "$cur"; return 0
+    ;;
+    recraft)
+      # recraft is same as craft, no special completion needed
       __mulle_sde_complete_files "$cur"; return 0
     ;;
   esac
