@@ -1,0 +1,680 @@
+# bash completion for mulle-sde
+
+_mulle_sde__safe_cmd()
+{
+   local out
+   out="$("$@" 2>/dev/null)"
+   printf "%s" "$out"
+}
+
+_mulle_sde__commands()
+{
+   local cmds
+   cmds="$(_mulle_sde__safe_cmd mulle-sde commands)"
+   if [ -z "$cmds" ]
+   then
+      cmds="add
+addiction-dir
+bash-completion
+callback
+clean
+commands
+common-unames
+config
+craft
+craftinfo
+craftinfos
+craftorder
+craftorders
+craftstatus
+craft-status
+crun
+debug
+definition
+definitions
+def
+dependency
+dep
+dependency-dir
+doctor
+donefile
+donefiles
+edit
+enter
+env
+env-identifier
+environment
+exec
+execute
+export
+extension
+ext
+fetch
+file
+files
+find
+get
+headerorder
+hostname
+ignore
+init
+init-and-enter
+install
+json
+kitchen-dir
+lib
+libexec-dir
+library
+libraries
+library-path
+linkorder
+list
+log
+mark
+match
+migrate
+monitor
+move
+patterncheck
+patternenv
+patternfile
+patternfiles
+filename
+patternmatch
+pat
+product
+project
+project-dir
+protect
+recraft
+reflect
+reinit
+remove
+retest
+run
+searchpath
+set
+show
+source-dir
+sourcetree
+stash-dir
+status
+steal
+style
+sub
+subproject
+subprojects
+symbol
+symbols
+symlink
+task
+test
+tool
+tool-env
+treestatus
+uname
+unprotect
+unveil
+update
+upgrade
+username
+version
+view"
+   fi
+   printf "%s\n" "$cmds"
+}
+
+_mulle_sde__global_opts()
+{
+   printf "%s\n" \
+      "-h" "--help" "help" \
+      "-e" "--environment-override" \
+      "--test-check" "--no-test-check" \
+      "-f" "--force" \
+      "-c" "-C" \
+      "--git-terminal-prompt" \
+      "--style" \
+      "--version" \
+      "-N" "--search-nearest" "--no-search" \
+      "--search-as-is" "--search-here" "--search-none" \
+      "--list-flags" \
+      "-d" \
+      "-D" \
+      "-s" "-v" "-n" "-lx"
+}
+
+_mulle_sde__clean_domains()
+{
+   local out
+   out="$(_mulle_sde__safe_cmd mulle-sde clean domains)"
+   if [ -z "$out" ]
+   then
+      out="all
+alltestall
+archive
+craftinfos
+craftorder
+cache
+default
+dependency
+fetch
+graveyard
+gravetidy
+mirror
+project
+subprojects
+tidy
+test"
+   fi
+   printf "%s\n" "$out"
+}
+
+_mulle_sde__dependency_names()
+{
+   _mulle_sde__safe_cmd mulle-sde dependency list --name-only 2>/dev/null
+}
+
+_mulle_sde__craft_targets()
+{
+   _mulle_sde__safe_cmd mulle-sde craftorder --names 2>/dev/null
+}
+
+_mulle_sde__patternfile_cmds()
+{
+   printf "%s\n" "patterncheck" "patternenv" "patternfile" "patternfiles" "filename" "patternmatch" "pat"
+}
+
+_mulle_sde__config_subcmds()
+{
+   printf "%s\n" "copy" "remove" "list" "show" "switch" "name" "get" "set"
+}
+
+_mulle_sde__dependency_subcmds()
+{
+   printf "%s\n" \
+      "add" "binaries" "craftinfo" "duplicate" "downloads" "etcs" \
+      "export" "fetch" "get" "headers" "libraries" "list" "mark" "move" \
+      "rcopy" "remove" "set" "shares" "source-dir" "unmark"
+}
+
+_mulle_sde__library_subcmds()
+{
+   printf "%s\n" "add" "export" "get" "list" "move" "remove" "mark" "set" "unmark"
+}
+
+_mulle_sde__product_subcmds()
+{
+   printf "%s\n" "list" "searchpath"
+}
+
+_mulle_sde__symbol_opts()
+{
+   printf "%s\n" \
+      "-f" "--force" \
+      "--category" "--ctags-kinds" "--ctags-language" "--ctags-output" "--ctags-xformat" \
+      "--sources" "--headers" "--public-headers" \
+      "--csv" "--json" "-F" "--csv-separator" \
+      "--keep-tmp"
+}
+
+_mulle_sde__debug_subcmds()
+{
+   printf "%s\n" "run" "sublime-debug" "vscode-debug"
+}
+
+_mulle_sde__edit_opts()
+{
+   printf "%s\n" "--select" "--json-env"
+}
+
+_mulle_sde__run_opts()
+{
+   printf "%s\n" "-e" "-E" "--restrict" "--no-run-env" "-b" "--background" "--no-background" \
+      "--debug" "--release" "--configuration" "--sdk" \
+      "--objc-trace-leak" "--leak" "--trace-leak" \
+      "--objc-trace-zombie" "--zombie" "--trace-zombie" \
+      "--no-objc-trace-zombie" "--no-zombie" "--no-trace-zombie"
+}
+
+_mulle_sde__project_subcmds()
+{
+   printf "%s\n" "rename" "remove" "variables" "list"
+}
+
+_mulle_sde__complete_dependency_add_opts()
+{
+   printf "%s\n" \
+      "--address" "--branch" "--clean" "-c" "--c" \
+      "--amalgamated" "--embedded" "--executable" \
+      "--domain" "--host" "--repo" "--filter" "--fetchoptions" \
+      "--json" "--tag" "--user" \
+      "--framework" "--headerless" "--header-less" "--headeronly" "--header-only" \
+      "--if-missing" "--latest" "--marks" "--startup" \
+      "--multiphase" "--no-singlephase" "--singlephase" \
+      "--mulle-c" "--mulle-objc" "--git" "--zip" "--tar" \
+      "--nodetype" "--scm" "--no-fetch" "--objc" "-m" \
+      "--optional" "--enhance" "--plain" "--private" "--public" "--url"
+}
+
+_mulle_sde__complete_library_add_opts()
+{
+   printf "%s\n" \
+      "--framework" "--objc" "--optional" "--private" "--required" "--no-header" \
+      "--reset-marks" "--marks" "--reset-options" "--unconditonally" "--if-missing" \
+      "-l" "-f" \
+      "--linux" "--darwin" "--windows" "--no-linux" "--no-darwin" "--no-windows"
+}
+
+_mulle_sde__complete_config_opts()
+{
+   printf "%s\n" "--config-name" "--config-scope"
+}
+
+_mulle_sde__complete_clean()
+{
+   local prev="$1" cur="$2"
+   case "$prev" in
+      --domain|--clean-domain|--from)
+         _mulle_sde__clean_domains | compgen -W "$(cat)" -- "$cur"
+         return
+      ;;
+      *)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "-a -C --all -c --domain --clean-domain --from -g --gravetidy -i --interactive --gui --lenient --no-graveyard --no-test --no-default -h --help" -- "$cur"
+         else
+            _mulle_sde__clean_domains | compgen -W "$(cat)" -- "$cur"
+         fi
+      ;;
+   esac
+}
+
+_mulle_sde__complete_craft()
+{
+   local prev="$1" cur="$2"
+   case "$prev" in
+      --clean-domain|--from|--build-type|--build-style|--c-build-type|--c-build-style|--craftorder-build-type|--craftorder-build-style|--analyze-dir)
+         compgen -f -- "$cur"
+         return
+      ;;
+   esac
+   if [[ "$cur" == -* ]]; then
+      compgen -W "\
+-c --clean -a -C --all --clean-all --clean-domain --from --tidy -g --clean-gravetidy --gravetidy \
+--no-clean --analyze --analyze-dir --build-type --build-style --c-build-type --c-build-style \
+--craftorder-build-type --craftorder-build-style --debug --release --cppcheck --no-motd \
+-q --quick no-update no-reflect --run --sync-flags --parallel --serial --no-parallel -h --help --dump-env" -- "$cur"
+   else
+      local targets
+      targets="$(_mulle_sde__craft_targets)"
+      if [ -z "$targets" ]; then
+         compgen -W "all craftorder project" -- "$cur"
+      else
+         compgen -W "all craftorder project $targets" -- "$cur"
+      fi
+   fi
+}
+
+_mulle_sde__complete_dependency()
+{
+   local i sub prev cur
+   prev="$1"; cur="$2"; sub="$3"
+   case "$sub" in
+      "" )
+         _mulle_sde__dependency_subcmds | compgen -W "$(cat)" -- "$cur"
+      ;;
+      add)
+         case "$prev" in
+            --address|--branch|--domain|--host|--repo|--filter|--fetchoptions|--tag|--user|--nodetype|--scm|--marks)
+               compgen -W "" -- "$cur"
+               ;;
+            *)
+               if [[ "$cur" == -* ]]; then
+                  _mulle_sde__complete_dependency_add_opts | compgen -W "$(cat)" -- "$cur"
+               else
+                  compgen -W "" -- "$cur"
+               fi
+               ;;
+         esac
+      ;;
+      remove|get|set|export|move|mark|unmark|source-dir)
+         if [[ "$prev" == -* ]]; then
+            compgen -W "" -- "$cur"
+         else
+            _mulle_sde__dependency_names | compgen -W "$(cat)" -- "$cur"
+         fi
+      ;;
+      craftinfo)
+         compgen -W "create set get list export exists readd remove script show unset" -- "$cur"
+      ;;
+      list)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "-c --columnar --no-json --eval --json --raw --json-raw --url -m --no-mark --no-marks --name-only --qualifier -r -l -ll -g -u -G -U --" -- "$cur"
+         fi
+      ;;
+      *)
+         compgen -W "" -- "$cur"
+      ;;
+   esac
+}
+
+_mulle_sde__complete_library()
+{
+   local sub="$3" prev="$1" cur="$2"
+   case "$sub" in
+      "" ) _mulle_sde__library_subcmds | compgen -W "$(cat)" -- "$cur" ;;
+      add)
+         if [[ "$cur" == -* ]]; then
+            _mulle_sde__complete_library_add_opts | compgen -W "$(cat)" -- "$cur"
+         else
+            compgen -W "" -- "$cur"
+         fi
+      ;;
+      get|set|remove|move|mark|unmark|export)
+         compgen -W "" -- "$cur"
+      ;;
+      list)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "-c --json --" -- "$cur"
+         fi
+      ;;
+   esac
+}
+
+_mulle_sde__complete_config()
+{
+   local sub="$3" prev="$1" cur="$2"
+   case "$sub" in
+      "" ) _mulle_sde__config_subcmds | compgen -W "$(cat)" -- "$cur" ;;
+      switch)
+         case "$prev" in
+            -d|--dependency)
+               _mulle_sde__dependency_names | compgen -W "$(cat)" -- "$cur"
+            ;;
+            --scope)
+               compgen -W "host os this-host this-os" -- "$cur"
+            ;;
+            *)
+               if [[ "$cur" == -* ]]; then
+                  compgen -W "-d --dependency -p --print --scope --host --this-host --os --this-os" -- "$cur"
+               fi
+            ;;
+         esac
+      ;;
+      list|show)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "--ignore-default --no-ignore-default --name --names -h --help" -- "$cur"
+         fi
+      ;;
+      copy|remove|get|set|name)
+         compgen -W "" -- "$cur"
+      ;;
+      *)
+         compgen -W "" -- "$cur"
+      ;;
+   esac
+}
+
+_mulle_sde__complete_add()
+{
+   local prev="$1" cur="$2"
+   case "$prev" in
+      -d|--directory|-t|--type|-e|--file-extension|-fe|-o|--oneshot-extension|--extension|-n|--name|--project-type|--project-dialect|-v|--vendor)
+         compgen -W "" -- "$cur"
+      ;;
+      *)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "\
+--debug --release --amalgamated --embedded -d --directory -t --type -e -fe --file-extension \
+-o --oneshot-extension --extension -n --name --project-type --project-dialect -q --quick \
+--is-url --no-is-url --no-url --is-no-url --no-post-init --no-external-command -v --vendor -h --help" -- "$cur"
+         else
+            compgen -f -- "$cur"
+         fi
+      ;;
+   esac
+}
+
+_mulle_sde__complete_init()
+{
+   local prev="$1" cur="$2"
+   case "$prev" in
+      -d|--directory|-D|--definition|--style|-m|--meta|-n|--name|--project-name|--project-file|--project-dialect|--project-language|--project-extensions|--project-type|--project-source-dir|--template-header-file|--template-footer-file)
+         compgen -W "" -- "$cur"
+      ;;
+      *)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "\
+-D -d --directory -m --meta -n --name --project-name --style -i --init-flags --if-missing \
+--project-file --project-dialect --project-language --project-extensions --project-type --project-source-dir \
+--template-header-file --template-footer-file --existing --clean --no-clean --no-env --no-post-init --subproject \
+--reinit --upgrade -h --help" -- "$cur"
+         else
+            compgen -W "library executable none" -- "$cur"
+         fi
+      ;;
+   esac
+}
+
+_mulle_sde__complete_upgrade()
+{
+   local prev="$1" cur="$2"
+   if [[ "$cur" == -* ]]; then
+      compgen -W "--clean --no-parallel --serial --no-project --no-subprojects --no-test -h --help --project-file" -- "$cur"
+   else
+      compgen -f -- "$cur"
+   fi
+}
+
+_mulle_sde__complete_remove()
+{
+   local prev="$1" cur="$2"
+   if [[ "$cur" == -* ]]; then
+      compgen -W "--is-url --no-is-url --is-no-url --no-url --is-env --no-env --no-external-command -q --quick -h --help" -- "$cur"
+   else
+      compgen -f -- "$cur"
+   fi
+}
+
+_mulle_sde__complete_run()
+{
+   local prev="$1" cur="$2"
+   if [[ "$cur" == -* ]]; then
+      _mulle_sde__run_opts | compgen -W "$(cat)" -- "$cur"
+   else
+      compgen -f -- "$cur"
+   fi
+}
+
+_mulle_sde__complete_product()
+{
+   local sub="$3" prev="$1" cur="$2"
+   case "$sub" in
+      "" ) _mulle_sde__product_subcmds | compgen -W "$(cat)" -- "$cur" ;;
+      searchpath)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "--if-exists --configuration --sdk --select --restrict --debug --release" -- "$cur"
+         fi
+      ;;
+      list)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "--if-exists --configuration --sdk --select --restrict --debug --release -first-only --1" -- "$cur"
+         fi
+      ;;
+   esac
+}
+
+_mulle_sde__complete_debug()
+{
+   local sub="$3" prev="$1" cur="$2"
+   case "$sub" in
+      "" ) _mulle_sde__debug_subcmds | compgen -W "$(cat)" -- "$cur" ;;
+      run)
+         if [[ "$cur" == -* ]]; then
+            compgen -W "--configuration --debug --release --sdk --select --restrict --restrict-environment --no-mudo -e -E --executable -- -h --help --zombie --no-zombie --leak" -- "$cur"
+         fi
+      ;;
+      sublime-debug|vscode-debug)
+         compgen -W "" -- "$cur"
+      ;;
+   esac
+}
+
+_mulle_sde__complete_symbol()
+{
+   local prev="$1" cur="$2"
+   if [[ "$cur" == -* ]]; then
+      _mulle_sde__symbol_opts | compgen -W "$(cat)" -- "$cur"
+   fi
+}
+
+_mulle_sde__complete_edit()
+{
+   local cur="$2"
+   if [[ "$cur" == -* ]]; then
+      _mulle_sde__edit_opts | compgen -W "$(cat)" -- "$cur"
+   fi
+}
+
+_mulle_sde__complete_simple_opts()
+{
+   local cur="$2" opts="$3"
+   if [[ "$cur" == -* ]]; then
+      compgen -W "$opts" -- "$cur"
+   fi
+}
+
+_mulle_sde_complete()
+{
+   local cur prev words cword
+   COMPREPLY=()
+   _get_comp_words_by_ref -n : cur prev words cword 2>/dev/null || {
+      cur="${COMP_WORDS[COMP_CWORD]}"
+      prev="${COMP_WORDS[COMP_CWORD-1]}"
+      words=("${COMP_WORDS[@]}")
+      cword=$COMP_CWORD
+   }
+
+   local i
+   local cmd=""
+   local first_nonopt_index=-1
+
+   for ((i=1; i<cword; i++)); do
+      case "${words[i]}" in
+         -D*|-h|--help|help|-e|--environment-override|--test-check|--no-test-check|-f|--force|-c|-C|--git-terminal-prompt|--style|--version|-N|--search-nearest|--no-search|--search-as-is|--search-here|--search-none|--list-flags|-d)
+            if [[ "${words[i]}" == "-d" || "${words[i]}" == "--style" || "${words[i]}" == "--git-terminal-prompt" ]]; then
+               ((i++))
+            fi
+            ;;
+         --)
+            ((i++))
+            break
+            ;;
+         -*)
+            ;;
+         *)
+            cmd="${words[i]}"
+            first_nonopt_index="$i"
+            break
+            ;;
+      esac
+   done
+
+   if [ -z "$cmd" ]; then
+      if [[ "$cur" == -* ]]; then
+         COMPREPLY=( $(compgen -W "$(_mulle_sde__global_opts)" -- "$cur") )
+      else
+         COMPREPLY=( $(compgen -W "$(_mulle_sde__commands)" -- "$cur") )
+      fi
+      return 0
+   fi
+
+   case "$cmd" in
+      clean)
+         _mulle_sde__complete_clean "$prev" "$cur"
+      ;;
+      craft|recraft|crun|craftstatus|craft-status)
+         _mulle_sde__complete_craft "$prev" "$cur"
+      ;;
+      craftorder|craftorders)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--create --cached --names --uncached --uncached-if-needed --no-uncached --remove-cached --remaining --print-craftorder-file"
+      ;;
+      add)
+         _mulle_sde__complete_add "$prev" "$cur"
+      ;;
+      init|init-and-enter|reinit|upgrade)
+         if [ "$cmd" = "upgrade" ]; then
+            _mulle_sde__complete_upgrade "$prev" "$cur"
+         else
+            _mulle_sde__complete_init "$prev" "$cur"
+         fi
+      ;;
+      dependency|dep)
+         local sub="${words[first_nonopt_index+1]}"
+         _mulle_sde__complete_dependency "$prev" "$cur" "$sub"
+      ;;
+      library|lib|libraries)
+         local sub="${words[first_nonopt_index+1]}"
+         _mulle_sde__complete_library "$prev" "$cur" "$sub"
+      ;;
+      config|sourcetree)
+         local sub="${words[first_nonopt_index+1]}"
+         _mulle_sde__complete_config "$prev" "$cur" "$sub"
+      ;;
+      run)
+         _mulle_sde__complete_run "$prev" "$cur"
+      ;;
+      product|symlink)
+         local sub="${words[first_nonopt_index+1]}"
+         _mulle_sde__complete_product "$prev" "$cur" "$sub"
+      ;;
+      debug)
+         local sub="${words[first_nonopt_index+1]}"
+         _mulle_sde__complete_debug "$prev" "$cur" "$sub"
+      ;;
+      symbol|symbols)
+         _mulle_sde__complete_symbol "$prev" "$cur"
+      ;;
+      patterncheck|patternenv|patternfile|patternfiles|filename|patternmatch|pat)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--list --info --recurse --name-only --ignore-default --no-ignore-default --"
+      ;;
+      fetch)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--serial --no-reflect -- --"
+      ;;
+      reflect|update)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--if-needed --optimistic --no-recurse --serial --no-parallel"
+      ;;
+      remove)
+         _mulle_sde__complete_remove "$prev" "$cur"
+      ;;
+      list|file|files)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--all --dependencies --definitions --environment --files --no-dependencies --no-definitions --no-environment --no-files"
+      ;;
+      headerorder|linkorder)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--output-format --output-omit --recursive --reverse --bequeath --no-bequeath --no-recursive --preferred-library-style --dynamic --static --standalone --no-startup --startup"
+      ;;
+      extension|ext)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "add find list meta pimp freshen remove searchpath show usage vendors"
+      ;;
+      status)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "--all --clear --config --craftstatus --database --graveyard --project --quickstatus --sourcetree --stash --tool --treestatus"
+      ;;
+      test|retest)
+         _mulle_sde__complete_simple_opts "$prev" "$cur" "clean craft craftorder coverage crun generate init linkorder recraft rerun retest run test-dir"
+      ;;
+      edit)
+         _mulle_sde__complete_edit "$prev" "$cur"
+      ;;
+      environment|env|get|set|export|json|ignore|monitor|match|project|subproject|tool|unveil|view|doctor|log)
+         compgen -f -- "$cur"
+      ;;
+      *)
+         if [[ "$cur" == -* ]]; then
+            COMPREPLY=( $(compgen -W "$(_mulle_sde__global_opts)" -- "$cur") )
+         else
+            COMPREPLY=( $(compgen -W "" -- "$cur") )
+         fi
+      ;;
+   esac
+}
+
+complete -F _mulle_sde_complete mulle-sde

@@ -609,6 +609,37 @@ sde::product::searchpath_main()
 }
 
 
+sde::product::r_platform_from_executable_path()
+{
+   log_entry "sde::product::r_platform_from_executable_path" "$@"
+
+   local executable="$1"
+   
+   # Extract platform from path like kitchen/<platform>/<config>/executable
+   # If no platform subdir, assume native
+   case "${executable}" in
+      */kitchen/*/*)
+         # Extract the part after kitchen/
+         local after_kitchen="${executable#*/kitchen/}"
+         # Get first path component
+         local platform="${after_kitchen%%/*}"
+         # Check if it's a config name (Debug, Release, etc.) - if so, it's native
+         case "${platform}" in
+            Debug|Release|Test|RelWithDebInfo)
+               RVAL="${MULLE_UNAME}"
+            ;;
+            *)
+               RVAL="${platform}"
+            ;;
+         esac
+      ;;
+      *)
+         RVAL="${MULLE_UNAME}"
+      ;;
+   esac
+}
+
+
 sde::product::r_executable()
 {
    log_entry "sde::product::r_executable" "$@"

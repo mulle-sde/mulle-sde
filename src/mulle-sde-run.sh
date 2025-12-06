@@ -32,6 +32,47 @@
 MULLE_SDE_RUN_SH='included'
 
 
+sde::run::r_emulator_for_platform()
+{
+   log_entry "sde::run::r_emulator_for_platform" "$@"
+
+   local platform="$1"
+   
+   # Native platform needs no emulator
+   if [ "${platform}" = "${MULLE_UNAME}" ]
+   then
+      RVAL=""
+      return 0
+   fi
+   
+   # Look up MULLE_EMULATOR_<PLATFORM> (uppercase)
+   local varname
+   
+   r_uppercase "${platform}"
+   varname="MULLE_EMULATOR_${RVAL}"
+   
+   RVAL="${!varname}"
+   
+   if [ -z "${RVAL}" ]
+   then
+      log_warning "Executable is for ${platform} but no emulator configured (set ${varname})"
+      return 1
+   fi
+   
+   # Check if emulator command exists
+   local emulator_cmd="${RVAL%% *}"  # Get first word
+   
+   if ! command -v "${emulator_cmd}" >/dev/null 2>&1
+   then
+      log_warning "Emulator '${emulator_cmd}' not found in PATH"
+      return 1
+   fi
+   
+   log_verbose "Using emulator '${RVAL}' for ${platform} executable"
+   return 0
+}
+
+
 sde::run::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -58,6 +99,8 @@ Environment:
    MULLE_SDE_POST_RUN    : command after executable has started, implies -b
    MULLE_SDE_RUN_TIMEOUT : run the executable with a timeout value by default
    MULLE_SDE_CRAFT_BEFORE_RUN : \`mulle-sde craft\` before running, if YES
+   MULLE_EMULATOR_<PLATFORM> : emulator for cross-platform executables
+                               (e.g. MULLE_EMULATOR_WINDOWS=wine)
    MULLEUI_VIBECODE      : YES sets --mulleui-frames 1 and --mulleui-trace-draw
 EOF
    exit 1
@@ -426,6 +469,22 @@ sde::run::main()
       eval_exekutor mudo ${MUDO_FLAGS} -f "${pre_commandline}"
    fi
 
+   # Detect platform and get emulator if needed
+   local platform
+   local emulator
+
+   sde::product::r_platform_from_executable_path "${EXECUTABLE}"
+   platform="${RVAL}"
+   
+   log_setting "EXECUTABLE_PLATFORM: ${platform}"
+   
+   if sde::run::r_emulator_for_platform "${platform}"
+   then
+      emulator="${RVAL}"
+   else
+      emulator=""
+   fi
+
    local rval
 
    if [ ! -z "${commandline}" ]
@@ -444,9 +503,9 @@ sde::run::main()
    else
       if [ "${OPTION_BACKGROUND}" = 'YES' ]
       then
-         exekutor mudo ${MUDO_FLAGS} -f ${environment} "${EXECUTABLE}" "$@" &
+         exekutor mudo ${MUDO_FLAGS} -f ${environment} ${emulator} "${EXECUTABLE}" "$@" &
       else
-         exekutor ${timeout} mudo ${MUDO_FLAGS} -f ${environment} ${debugger} "${EXECUTABLE}" "$@"
+         exekutor ${timeout} mudo ${MUDO_FLAGS} -f ${environment} ${debugger} ${emulator} "${EXECUTABLE}" "$@"
          rval=$?
       fi
    fi
