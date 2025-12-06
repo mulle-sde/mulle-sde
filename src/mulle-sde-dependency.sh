@@ -34,7 +34,7 @@ MULLE_SDE_DEPENDENCY_SH='included'
 
 DEPENDENCY_MARKS='dependency,delete'  # with delete we filter out subprojects
 DEPENDENCY_LIST_MARKS='dependency'
-DEPENDENCY_LIST_NODETYPES='ALL'
+DEPENDENCY_LIST_NODETYPES='ALL,no-comment'
 
 #
 # no-cmake-loader     : C code needs no ObjCLoader (if all-load is set)
@@ -93,7 +93,7 @@ Commands:
    craftinfo  : change build options for a dependency
    etcs       : list all etc files in the built dependencies folder
    export     : export dependency as script command
-   find       : find library or header of a given name
+   find       : find library or header or symbol of a given name
    fetch      : fetch dependencies (same as mulle-sde fetch)
    get        : retrieve a dependency settings from the sourcetree
    headers    : list all headers in the built dependencies folder
@@ -107,6 +107,7 @@ Commands:
    set        : change a dependency settings in the sourcetree
    shares     : list all share files in the built dependencies folder
    stashes    : list downloaded dependencies
+   toc        : read table of contents for vibecoding
    source-dir : find the source location of a dependency
    unmark     : remove marks from a dependency in the sourcetree
          (use <command> -h for more help about commands)
@@ -323,14 +324,15 @@ sde::dependency::find_usage()
 Usage:
    ${MULLE_USAGE_NAME} dependency find <type> <name>
 
-   Type can be 'api' or 'library', which corresponds to a header file or
-   a static/shared library file.
+   Type can be one of 'api','library','symbol' which corresponds to a
+   header file or a static/shared library file.
 
       mulle-sde dependency find 'api' zlib.h
 
    This will return the location of the zlib.h header if available. This
    command will not work well if you have files of the same name.
 
+   The symbol finder is just a quick hack, and does not work well.
 EOF
    exit 1
 }
@@ -368,6 +370,29 @@ Usage:
 EOF
    exit 1
 }
+
+
+
+sde::dependency::toc_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency toc <dep>
+
+   At the moment this merely searches for a TOC.md file in the "dox" folder of
+   the "share" folder of the dependency or the "share" folder itself and prints
+   it to stdout. This can be useful for AIs to quickly get a gist of whats
+   available.
+
+   E.g.
+      mulle-sde dependency toc mulle-core
+
+EOF
+   exit 1
+}
+
 
 
 sde::dependency::r_upcaseid()
@@ -1576,16 +1601,24 @@ sde::dependency::add_main()
          ;;
 
          *)
-            nodetype="${nodetype:-tar}"
-            url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                     ${MULLE_DOMAIN_FLAGS} \
-                  compose-url \
-                     --user "${user}" \
-                     --tag "${tag}" \
-                     --repo "${repo:-$url}" \
-                     --scm "${nodetype}" \
-                     "${domain}" `" || exit 1
+            case "${nodetype}" in
+               'file')
+                  url="${originalurl}"
+               ;;
+
+               *)
+                  nodetype="${nodetype:-tar}"
+                  url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_DOMAIN_FLAGS} \
+                        compose-url \
+                           --user "${user}" \
+                           --tag "${tag}" \
+                           --repo "${repo:-$url}" \
+                           --scm "${nodetype}" \
+                           "${domain}" `" || exit 1
+               ;;
+            esac
          ;;
       esac
 
@@ -1969,6 +2002,29 @@ ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
 }
 
 
+sde::dependency::get_sourcetree_node_value()
+{
+   log_entry "sde::dependency::get_node_value" "$@"
+
+   local address="$1"
+   local key="$2"
+
+   local escaped
+
+   r_escaped_shell_string "${address}"
+   escaped="${RVAL}"
+
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_SOURCETREE_FLAGS:-} \
+                  walk \
+                     --lenient \
+                     --qualifier 'MATCHES dependency' \
+                     --verbatim \
+                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && printf "%s\n" "${'${key}'}"'
+}
+
+
 sde::dependency::source_dir_main()
 {
    log_entry "sde::dependency::source_dir_main" "$@"
@@ -1998,22 +2054,91 @@ sde::dependency::source_dir_main()
    shift
    [ $# -ne 0 ]        && sde::dependency::source_dir_usage "Superflous arguments \"$*\""
 
-   local escaped
-
-   r_escaped_shell_string "${address}"
-   escaped="${RVAL}"
-
-   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_SOURCETREE_FLAGS:-} \
-                  walk \
-                     --lenient \
-                     --qualifier 'MATCHES dependency' \
-                     --verbatim \
-                     '[ "${NODE_ADDRESS}" = "'${escaped}'" ] && printf "%s\n" "${NODE_FILENAME}"'
-
+   sde::dependency::get_sourcetree_node_value "${address}" NODE_FILENAME
 }
 
+
+sde::dependency::toc_main()
+{
+   log_entry "sde::dependency::toc_main" "$@"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::dependency::toc_usage
+         ;;
+
+         -*)
+            sde::dependency::toc_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local address=$1
+
+   [ -z "${address}" ] && sde::dependency::toc_usage "Missing argument"
+   shift
+   [ $# -ne 0 ]        && sde::dependency::toc_usage "Superflous arguments \"$*\""
+
+   local url
+   local repo
+
+   url="$(sde::dependency::get_sourcetree_node_value "${address}" NODE_EVALED_URL)"
+   if [ ! -z "${url}" ]
+   then
+      local scheme domain host scm user branch tag
+      local remote
+
+      eval "`rexekutor mulle-domain -s parse-url "${url}"`"
+   else
+      repo="${address}"
+   fi
+
+
+   if [ -z "${repo}" ]
+   then
+      fail "Unknown dependency \"${address}\""
+   fi
+
+
+   local dependency_dir
+
+   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir)"
+
+   log_setting "url            : ${url}"
+   log_setting "repo           : ${repo}"
+   log_setting "dependency_dir : ${dependency_dir}"
+
+   local subdir
+   # Shitty code
+   local searchpath=':Release:Debug:RelDebug'
+
+   .foreachpath subdir in ${searchpath}
+   .do
+      log_setting "subdir         : ${dependency_dir}"
+
+      r_filepath_concat "${dependency_dir}" "${subdir}" 'share' "${repo}" 'dox' 'TOC.md'
+      log_setting "TOC path       : ${RVAL}"
+      if exekutor cat "${RVAL}" 2> /dev/null
+      then
+         .break
+      fi
+
+      r_filepath_concat "${dependency_dir}" "${subdir}" 'share' "${repo}" 'TOC.md'
+      log_setting "TOC path       : ${RVAL}"
+      if exekutor cat "${RVAL}" 2> /dev/null
+      then
+         .break
+      fi
+   .done
+}
 
 sde::dependency::contains_numeric_arguments()
 {
@@ -2028,6 +2153,76 @@ sde::dependency::contains_numeric_arguments()
       esac
       shift
    done
+   return 1
+}
+
+
+# ------------------------------------------------------------
+# find-symbol.sh
+#   Search C/Objective-C headers for a symbol (macro, var, func,
+#   or Obj-C method).
+#
+# Usage:
+#   ./find-symbol.sh <symbol> [path]
+#   <symbol>  – the identifier you are looking for (case-sensitive)
+#   [path]    – optional root directory (default: current dir)
+#
+# Example:
+#   ./find-symbol.sh myFunction src/
+# ------------------------------------------------------------
+sde::dependency::r_find_symbol()
+{
+   log_entry "sde::dependency::r_find_symbol" "$@"
+   local dir="$1"
+   local symbol="$2"
+   local follow="${3:-}"
+
+   # Escape for regex
+   local SYM_REGEX=$(printf '%s' "$symbol" | sed 's/[][\.|$(){}?+*^]/\\&/g')
+
+   # Patterns ----------------------------------------------------
+   # 1) Macro definition
+   local MACRO_PAT="^[ \t]*#define[ \t]+${SYM_REGEX}[ \t]*(\(|[^)]|$)"
+   # 2) Global variable / extern (your strict rule)
+   local VAR_PAT="^[ \t]*(const[ \t]+)?((struct|union|enum)[ \t]+)?[A-Za-z_][A-Za-z0-9_]*[ \t]*\*+[ \t]*${SYM_REGEX}\b([ \t]*\[.*\])?[ \t]*;"
+   # 3) C function prototype – '(' at end of line
+   local FUNC_PAT="^[ \t]*[^#;{}]*\b${SYM_REGEX}\b[ \t]*\("
+   # 4) Obj-C method (class or instance)
+   local OBJC_PAT="^[ \t]*[-+][ \t]*\([^)]*\)[ \t]*${SYM_REGEX}\b"
+
+   # Combine all patterns (grep -E extended regex)
+   local ALL_PAT="${MACRO_PAT}|${VAR_PAT}|${FUNC_PAT}|${OBJC_PAT}"
+
+   log_debug "ALL_PAT=\"$(printf %q "${ALL_PAT}")\""
+
+   local match
+   local file
+
+   # Find only header files
+   while IFS= read -r file
+   do
+       # ---- NEW PIPELINE -------------------------------------------------
+       # 1. cat the file
+       # 2. awk removes /* … */, // … and lone * lines
+       # 3. grep the symbol patterns (with line numbers, file name, colour)
+       match=$(cat "$file" |
+               awk '
+                   # skip /* … */ (anywhere) and // … (anywhere)
+                   /^\s*\/\*/ || /\*\// || /^\s*\/\// { next }
+                   # skip middle-of-block-comment lines that are just *
+                   /^\s*\*\s*$/ { next }
+                   { print }
+               ' |
+               grep -E -n -H "$ALL_PAT")
+       # ------------------------------------------------------------------
+
+       if [[ -n "$match" ]]; then
+           RVAL="${file}"
+           return 0
+       fi
+   done < <(rexekutor find ${follow} "$dir" -type f \( -name "*.h" \) -print)
+
+   RVAL=
    return 1
 }
 
@@ -2093,7 +2288,7 @@ sde::dependency::find_main()
       local paths
 
       case "${type}" in
-         'a'|'api')
+         'a'|'api'|'s'|'symbol')
             prefixes=
             suffixes=".h"
             paths="${DEPENDENCY_DIR}/Debug/include:"${DEPENDENCY_DIR}/Release/include:"${DEPENDENCY_DIR}/include"
@@ -2135,7 +2330,17 @@ sde::dependency::find_main()
             .continue
          fi
 
-         found="$(rexekutor find ${follow} "${abs_dir}" -name "${name}" -print 2> /dev/null)"
+         case "${type}" in
+            's'|'symbol')
+               sde::dependency::r_find_symbol  "${abs_dir}" "${name}" ${follow}
+               found="${RVAL}"
+            ;;
+
+            *)
+               found="$(rexekutor find ${follow} "${abs_dir}" -name "${name}" -print 2> /dev/null)"
+            ;;
+         esac
+
          if [ ! -z "${found}" ]
          then
             printf "%s\n" "${found}"
@@ -2537,6 +2742,10 @@ platform-excludes"
 
       source-dir)
          sde::dependency::source_dir_main "$@"
+      ;;
+
+      toc)
+         sde::dependency::toc_main "$@"
       ;;
 
       "")

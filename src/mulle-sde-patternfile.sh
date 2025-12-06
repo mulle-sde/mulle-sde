@@ -149,16 +149,25 @@ sde::patternfile::main()
 
    local cmd="$1" ; shift
 
-   local before
    local sayok
 
-   before="`mulle-sde env get MULLE_MATCH_FILENAMES \
-            | sde::patternfile::sorted_colons`"
-
    local rval
+   local name
 
    rval=-1
    case "${cmd}" in
+      patternfile-editor)
+         name="${MULLE_PATTERNFILE_EDITOR:-mulle-patternfile-editor}"
+         if ! MULLE_PATTERNFILE_EDITOR=$(command  -v "${name}")
+         then
+            fail "\"${name}\" not installed.
+${C_INFO}You can get ${C_RESET_BOLD}mulle-patternfile-editor${C_INFO} from
+${C_RESET}   https://github.com/mulle-sde/mulle-patternfile-editor"
+         fi
+         rexekutor "${MULLE_PATTERNFILE_EDITOR}" "$@"
+      ;;
+
+
       patterncheck)
          sayok='YES'
       ;;
@@ -188,6 +197,12 @@ sde::patternfile::main()
          rval=$?
       ;;
    esac
+
+   local before
+
+   before="`mulle-sde env get MULLE_MATCH_FILENAMES \
+            | sde::patternfile::sorted_colons`"
+
 
    sde::patternfile::r_searchnames
    sde::patternfile::r_environment_filter "${RVAL}"

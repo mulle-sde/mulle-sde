@@ -84,6 +84,12 @@ sde::edit::r_user_choses_editor()
 
    local editors="$1"
 
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      RVAL=
+      return 1
+   fi
+
    local row
 
    rexekutor mudo -f mulle-menu --title "Choose editor:" \

@@ -114,7 +114,7 @@ sde::fetch::do_sync_sourcetree()
                  -s \
                dbstatus
    then
-      _internal_fail "Database not clean after sync"
+      _internal_fail "Database status not as clean as hoped"
    fi
 
    log_verbose "Run sourcetree complete"

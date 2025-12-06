@@ -194,7 +194,7 @@ sde::definition::_keys()
          _internal_fail "keys can not use --all"
       ;;
 
-      "DEFAULT")
+      'DEFAULT')
          if ! sde::definition::call_if_dir_exists "keys" "${flags}" "${etcdir}.${MULLE_UNAME}"
          then
             if sde::definition::call_if_dir_exists "keys" "${flags}" "${sharedir}.${MULLE_UNAME}"
@@ -656,7 +656,7 @@ sde::definition::main()
    local flags
    local searchflags
    local terse="${MULLE_FLAG_LOG_TERSE}"
-   local scope="DEFAULT"
+   local scope='DEFAULT'
    local OPTION_ADDITIVE='YES'  # TODO: why is this not in flags ?
 
    while [ $# -ne 0 ]

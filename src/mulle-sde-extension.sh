@@ -1847,6 +1847,11 @@ sde::extension::add_main()
          fail "No extra extensions installed"
       fi
 
+      if [ "${MULLE_VIBECODING}" = 'YES' ]
+      then
+         fail "Specify extension"
+      fi
+
       rexekutor mudo -f mulle-menu --title "Choose extension:" \
                                    --final-title "" \
                                    --options "${options}"

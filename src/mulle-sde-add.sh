@@ -725,7 +725,7 @@ sde::add::main()
 
    local filename
 
-   if [ $# -eq 0 ]
+   if [ $# -eq 0 -a "${MULLE_VIBECODING}" != 'YES' ]
    then
       local vendors
       local row

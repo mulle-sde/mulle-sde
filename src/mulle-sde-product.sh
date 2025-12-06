@@ -129,11 +129,6 @@ sde::product::vibecodehelp()
    local candidates
    local candidate
 
-   if [ -z "$1" ]
-   then
-      return
-   fi
-
    local ext
    local sourcefile
    local testfile
@@ -145,6 +140,13 @@ sde::product::vibecodehelp()
 
       if [ -d demo ]
       then
+         if [ -z "$1" ]
+         then
+            _log_info "There is a demo available though, maybe try:
+${C_RESET_BOLD}   ( cd 'demo' && mulle-sde run)"
+             return
+         fi
+
          candidates="$(find demo -name "${sourcefile}" -print)"
          .foreachline candidate in ${candidates}
          .do
@@ -316,6 +318,20 @@ sde::product::r_user_choses_executable()
       return 0
    fi
    names=$( sort <<< "${RVAL}" )
+
+   # special case only one exectable ? then pick it if preferred name is empty
+   r_count_lines "${names}"
+   if [ ${RVAL} -eq 1 -a -z "${preferredname}" ]
+   then
+      RVAL="${executables}"
+      return 0
+   fi
+
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      RVAL=
+      return 1
+   fi
 
    local row
 

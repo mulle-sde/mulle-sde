@@ -26,6 +26,7 @@ set( CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/mulle-sde/${PROJECT_NAME}
 
 #
 # mulle-test is optional
+# mulle-todo is optional
 #
 set( CPACK_DEBIAN_PACKAGE_DEPENDS "mulle-env, mulle-monitor, mulle-craft, mulle-sourcetree")
 

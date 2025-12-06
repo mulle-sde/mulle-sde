@@ -60,7 +60,9 @@ function sde::print_commands()
    then
       SHOWN_COMMANDS="\
    add            : create a source file from templates
+   api            : show API documentation from dependencies
    extension      : manage language and buildtool extensions
+   howto          : show list of development topics for more extensive help
    init           : create a new project
    install        : install a remote mulle-sde project, like make install
    show           : show available meta extensions"
@@ -74,13 +76,16 @@ function sde::print_commands()
    else
       SHOWN_COMMANDS="\
    add            : create a source file from templates
+   api            : show API documentation from dependencies
    clean          : clean various parts of the project
    craft          : craft the project using mulle-craft
    craftinfo      : show build flags of dependencies
    definition     : change projects craft options like CFLAGS
    dependency     : manage third party components (like GitHub projects)
+   editors        : run various GUI tools (needs node.js)
    environment    : manage environment variables (project settings)
    exec           : run a command in a subshell
+   howto          : show list of development topics for more extensive help
    ignore         : block files from being crafted
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
@@ -175,14 +180,19 @@ Usage:
    * Reflect  mulle-sde creates the necessary make files
    * Craft    mulle-sde builds the dependencies and the project
 
+   ⚠️ ${MULLE_USAGE_NAME} is AI and noob friendly! Use:
+      \`${MULLE_USAGE_NAME} commands\` to see all commands with descriptions
+      \`${MULLE_USAGE_NAME} <cmd> help\` for detailed help (if marked help: yes)
+      \`${MULLE_USAGE_NAME} howto help\` for development topics
+
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       cat <<EOF
    Start a project with \`mulle-sde init\` or enter an existing mulle-sde
-   project with \`mulle-sde <directory>\`. Download and craft dependencies
-   or embed remote sources with \`mulle-sde add\`. Get more help with
-   \`mulle-sde init help\` or  \`mulle-sde add help\`.
+   project with \`mulle-sde <directory>\`. Get a quick view over the
+   project with \`mulle-sde view\` and \`mulle-sde files\`. Manage external
+   dependencies or add files with \`mulle-sde add\`.
 
 EOF
    else
@@ -196,7 +206,7 @@ EOF
    fi
 
    cat <<EOF
-   See the Wiki for more information:
+   See also the Wiki for more information:
       https://github.com/mulle-sde/mulle-sde/wiki
 
 Flags:
@@ -281,7 +291,7 @@ sde::r_determine_project_dir()
 {
    local directory="$1"
 
-   RVAL="`( cd "${directory}" && sde::run_mulle_env --search-nearest project-dir )`"
+   RVAL="`( cd "${directory:-$PWD}" && sde::run_mulle_env --search-nearest project-dir )`"
 }
 
 
@@ -329,6 +339,12 @@ sde::assert_test_environment()
       fi
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
+         return
+      fi
+      # For clean operations, just warn instead of failing
+      if [ "${cmd}" = 'clean' ]
+      then
+         log_fluff "Not inside the test environment, but continuing with clean"
          return
       fi
       fail "Not inside the test environment. Have you initialized it yet ?!?"
@@ -383,6 +399,9 @@ sde::exec_mulle_env()
 {
    log_entry "sde::exec_mulle_env" "$@"
 
+   log_setting "MULLE_TECHNICAL_FLAGS : ${MULLE_TECHNICAL_FLAGS}"
+   log_setting "MULLE_ENV_FLAGS       : ${MULLE_ENV_FLAGS}"
+   log_setting "MULLE_FWD_FLAGS       : ${MULLE_FWD_FLAGS}"
    #
    # possibly wrap mulle-env call into a sandbox (like lljail)
    #
@@ -688,10 +707,13 @@ sde::main()
 
          --style)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+
+            # add --style
             r_concat "${MULLE_ENV_FLAGS}" "$1"
             MULLE_ENV_FLAGS="${RVAL}"
             shift
 
+            # add --argument
             r_concat "${MULLE_ENV_FLAGS}" "$1"
             MULLE_ENV_FLAGS="${RVAL}"
             export MULLE_ENV_FLAGS
@@ -740,6 +762,7 @@ sde::main()
          -d)
             [ $# -eq 1 ] && fail "Missing argument to \"$1\""
             shift
+
             exekutor cd "$1" || exit 1
          ;;
 
@@ -788,16 +811,17 @@ sde::main()
       then
          case "${cmd}" in
             # commands that do not need a subshell (immediately)
-            add|bash-completion|commands|common-unames|env|environment|\
+            add|api|bash-completion|commands|common-unames|env|environment|\
 env-identifier|edit|ext|extension|get|init|init-and-enter|install|reinit|\
-status|hostname|remove|uname|show|version|libexec-dir|library-path|project-dir|\
+status|hostname|howto|remove|uname|show|version|libexec-dir|library-path|project-dir|\
 retest|set|source-dir|steal|symlink|test|upgrade|username|source-tree|\
 project-tree)
             ;;
 
             # commands where we want to start a subshell and these don't have
             # any help text
-            addiction-dir|craftorder-kitchen-dir|dependency-dir|kitchen-dir|tool-env|stash-dir|*-tree)
+            editor|addiction-dir|craftorder-kitchen-dir|dependency-dir|\
+kitchen-dir|tool-env|stash-dir|*-tree|*-open|todo)
                sde::exec_command_in_subshell 'CD' "$@"
             ;;
 
@@ -832,11 +856,12 @@ project-tree)
             # if there is no environment around
             #
             callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|definition|dep|dependency|doctor|donefile|export|fetch|\
-file|files|filename|find|headerorder|ignore|json|library|linkorder|list|log|\
-mark|match|migrate|monitor|move|\
+craft-status|definition|dep|dependency|doctor|donefile|export|\
+fetch|file|files|filename|find|headerorder|ignore|json|library|\
+linkorder|list|log|mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
-product|project|protect|reflect|recraft|searchpath|sourcetree|subproject|style|\
+product|project|protect|reflect|recraft|searchpath|sourcetree|\
+subproject|style|\
 sweatcoding|symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
 lib|pat|sub|unveil|view|vibecoding)
                if ! sde::is_non_environment_commandline "$@"
@@ -941,6 +966,37 @@ lib|pat|sub|unveil|view|vibecoding)
    log_setting "MULLE_SDE_SHARE_DIR   = \"${MULLE_SDE_SHARE_DIR}\""
 
    case "${cmd}" in
+      *-open)
+         case "${MULLE_UNAME}" in
+            linux)
+               if ! OPEN="${OPEN:-`command -v xdg-open`}"
+               then
+                  fail "Need \"xdg-open\" command in PATH"
+               fi
+            ;;
+
+            macos)
+               if ! OPEN="${OPEN:-`command -v open`}"
+               then
+                  fail "Need \"open\" command in PATH"
+               fi
+            ;;
+
+            *)
+               fail "Open is not supported on \"${MULLE_UNAME}\""
+            ;;
+         esac
+
+         local directory
+
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%-open}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+
+         rexekutor "${OPEN}" "${directory}"
+      ;;
+
       *-tree)
          if ! TREE="${TREE:-`command -v tree`}"
          then
@@ -1002,7 +1058,7 @@ lib|pat|sub|unveil|view|vibecoding)
       'clean')
          if ! sde::is_non_environment_commandline "$@"
          then
-            sde::cd_virtual_root_assert_mulle_sde "${cmd}"
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'YES' 'NO'
             sde::assert_test_environment "${cmd}"
          fi
 
@@ -1013,116 +1069,121 @@ lib|pat|sub|unveil|view|vibecoding)
       ;;
 
       'commands')
-         echo "
-add
-addiction-dir
-bash-completion
-callback
-clean
-commands
-common-unames
-config
-craft
-craftinfo
-craftinfos
-craftorder
-craftorders
-craftstatus
-craft-status
-crun
-debug
-definition
-definitions
-def
-dependency
-dep
-dependency-dir
-doctor
-donefile
-donefiles
-edit
-enter
-env
-env-identifier
-environment
-exec
-execute
-export
-extension
-ext
-fetch
-file
-files
-find
-get
-headerorder
-hostname
-ignore
-init
-init-and-enter
-install
-json
-kitchen-dir
-lib
-libexec-dir
-library
-libraries
-library-path
-linkorder
-list
-log
-mark
-match
-migrate
-monitor
-move
-patterncheck
-patternenv
-patternfile
-patternfiles
-filename
-patternmatch
-pat
-product
-project
-project-dir
-protect
-recraft
-reflect
-reinit
-remove
-retest
-run
-searchpath
-set
-show
-source-dir
-sourcetree
-stash-dir
-status
-steal
-style
-sub
-subproject
-subprojects
-sweatcoding
-symbol
-symbols
-symlink
-task
-test
-tool
-tool-env
-treestatus
-uname
-unprotect
-unveil
-update
-upgrade
-username
-version
-vibecoding
-view"
+         cat <<EOF
+add - create a source file from templates (help: yes)
+addiction-dir - print path to addiction/dependency build directory (help: no)
+api - show API documentation from dependencies (help: yes)
+bash-completion - deprecated, bash completion no longer supported (help: no)
+callback - manage reflection callbacks (help: yes)
+clean - clean various parts of the project (help: yes)
+commands - list of all available commands (some undocumented) (help: no)
+common-unames - list supported platform names (help: yes)
+config - show multiple sourcetree configurations (help: yes)
+craft - craft the project using mulle-craft (help: yes)
+craftinfo - show build flags of dependencies (help: yes)
+craftinfos - alias for craftinfo (help: yes)
+craftorder - show craftorder of dependencies (help: yes)
+craftorders - alias for craftorder (help: yes)
+craftstatus - show the craft status of the dependencies (help: yes)
+craft-status - alias for craftstatus (help: yes)
+crun - craft and run if project is an executable (help: yes)
+debug - run executable product in debugger (help: yes)
+def - alias for definition (help: yes)
+definition - change projects craft options like CFLAGS (help: yes)
+definitions - alias for definition (help: yes)
+dep - alias for dependency (help: yes)
+dependency - manage third party components (like GitHub projects) (help: yes)
+dependency-dir - print path to dependency directory (help: no)
+doctor - diagnose project issues (help: yes)
+donefile - show contents of donefiles (help: yes)
+donefiles - alias for donefile (help: yes)
+edit - open project in editor (help: yes)
+editor - alias for edit (help: yes)
+enter - enter mulle-sde subshell environment (help: yes)
+env - alias for environment (help: yes)
+env-identifier - get variable name MULLE_UIOS for a name like MulleUIOS (help: yes)
+environment - manage environment variables (project settings) (help: yes)
+exec - run a command in a subshell (help: yes)
+execute - alias for exec (help: yes)
+export - export a dependency or library as mulle-sde commands (help: yes)
+ext - alias for extension (help: yes)
+extension - manage language and buildtool extensions (help: yes)
+fetch - fetch the sourcetree (help: yes)
+file - alias for files (help: yes)
+files - alias for list (help: yes)
+find - find files in project (help: yes)
+get - get environment variable value (help: yes)
+headerorder - show header includes for dependencies and libraries (help: yes)
+hostname - print hostname (help: no)
+howto - show list of development topics for more extensive help (help: yes)
+ignore - block files from being crafted (help: yes)
+init - create a new project (help: yes)
+init-and-enter - create a new project then immediately start a subshell (help: yes)
+install - install a remote mulle-sde project, like make install (help: yes)
+json - show dependencies and libraries as JSON (help: yes)
+kitchen-dir - print path to kitchen build directory (help: no)
+lib - alias for library (help: yes)
+libexec-dir - print path to mulle-sde libexec (help: no)
+libraries - alias for library (help: yes)
+library - manage second party (OS) libraries (like pthread) (help: yes)
+library-path - show library search paths (help: yes)
+linkorder - show linkorder of dependencies and libraries (help: yes)
+list - list project files (files matching patternfiles) (help: yes)
+log - show craft results (help: yes)
+mark - mark files with attributes (help: yes)
+match - experiment with patternfiles (help: yes)
+migrate - migrate project to newer mulle-sde version (help: yes)
+monitor - monitor project files, run reflect and craft (help: yes)
+move - move/rename files in project (help: yes)
+pat - alias for patternfile (help: yes)
+patterncheck - check pattern matching (help: yes)
+patternenv - show pattern environment variables (help: yes)
+patternfile - manage patternfiles (help: yes)
+patternfiles - alias for patternfile (help: yes)
+filename - check if filename matches patterns (help: yes)
+patternmatch - alias for match (help: yes)
+product - location of main executable or library, heuristic (help: yes)
+project - rename a project and its files (help: yes)
+project-dir - print project root directory (help: no)
+protect - protect files from deletion (help: yes)
+recraft - craft everything anew (cleans tidy) (help: yes)
+reflect - update project makefiles and sources (help: yes)
+reinit - reinitialize project (help: yes)
+remove - remove files from project (help: yes)
+retest - retest using mulle-test (help: yes)
+run - run executable product (help: yes)
+searchpath - show search path for build products (help: yes)
+set - set environment variable value (help: yes)
+show - show available meta extensions (help: yes)
+source-dir - print project source directory (help: no)
+sourcetree - alias for config (help: yes)
+stash-dir - print path to stash directory (help: no)
+status - show information about the current project state (help: yes)
+steal - steal/copy files from another project (help: yes)
+style - show or set project style (help: yes)
+sub - alias for subproject (help: yes)
+subproject - manage local subprojects (help: yes)
+subprojects - alias for subproject (help: yes)
+sweatcoding - enable sweat coding mode (help: yes)
+symbol - list C and Objective-C symbols of the project (help: yes)
+symbols - alias for symbol (help: yes)
+symlink - create symlinks in project (help: yes)
+task - manage reflection tasks (help: yes)
+test - run tests using mulle-test (help: yes)
+todo - show TODO items in project (help: yes)
+tool - manage build tools (help: yes)
+tool-env - show tool environment variables (help: yes)
+treestatus - show the sourcetree status (help: yes)
+uname - the simplified uname(1) (help: no)
+unprotect - unprotect files (help: yes)
+unveil - produce sandbox CSV (help: yes)
+update - update dependencies (help: yes)
+upgrade - upgrade mulle-sde project (help: yes)
+username - print username (help: no)
+version - show mulle-sde version (help: no)
+vibecoding - enable vibe coding mode (help: yes)
+view - give an overview over the project settings (help: yes)
+EOF
          exit 0
       ;;
 
@@ -1255,6 +1316,7 @@ view"
          sde::dependency::main "$@"
       ;;
 
+
       'donefile'|'donefiles')
          exekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
@@ -1266,6 +1328,37 @@ view"
          include "sde::edit"
 
          sde::edit::main "$@"
+      ;;
+
+      'editor')
+         local editors
+         local row
+
+         editors="\
+definition  - set compiler and linker flags and more
+environment - view and set environment of the mulle-sde subshell
+monitor     - manage the reflection mechanism
+patternfile - matching and categorizing project files
+sourcetree  - dependencies and libraries
+tool        - available binaries in mulle-sde subshell"
+         rexekutor mudo -f mulle-menu --title "Choose mulle-sde topic:" \
+                                      --final-title '' \
+                                      --options "${editors}"
+         row=$?
+
+         r_line_at_index "${editors}" $row
+         [ -z "${RVAL}" ] && return 1
+
+         local executable
+         local executable_name
+
+         executable_name="mulle-${RVAL%% *}-editor"
+         if executable= $(mudo which "${executable_name}")
+         then
+            exekutor mudo -f "${executable}"
+            return $?
+         fi
+         exekutor mudo -f npx mulle-sde/mulle-${RVAL%% *}-editor
       ;;
 
       'enter')
@@ -1379,6 +1472,20 @@ view"
 
       'hostname')
          rexekutor printf "%s\n" "${MULLE_HOSTNAME}"
+      ;;
+
+      'howto')
+         # shellcheck source=src/mulle-sde-howto.sh
+         include "sde::howto"
+
+         sde::howto::main "$@"
+      ;;
+
+      'api')
+         # shellcheck source=src/mulle-sde-api.sh
+         include "sde::api"
+
+         sde::api::main "$@"
       ;;
 
       'ignore')
@@ -1750,6 +1857,16 @@ view"
          include "sde::test"
 
          sde::test::main "$@"
+      ;;
+
+      'todo')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root "${cmd}"
+         fi
+         exekutor "${MULLE_TODO:-mulle-todo}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                     "$@"
       ;;
 
       'tool')

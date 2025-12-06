@@ -103,12 +103,12 @@ sde::test::coverage_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} coverage [options] ...
+   ${MULLE_USAGE_NAME} test coverage [options] ...
 
    Generate coverage output. By default gcovr is used. Unknown options and all
    remaining arguments are forwarded to the coverage tool.
 
-  The coverage command performs four steps in sequence:
+   The coverage command performs four steps in sequence:
 
       * clean   rebuild dependencies (without coverage information)
       * craft   rebuild library with coverage information
@@ -231,11 +231,8 @@ sde::test::generate()
 
    local rval
 
-   IFS=':'
-   for directory in ${MULLE_SDE_TEST_PATH}
-   do
-      IFS="${DEFAULT_IFS}"
-
+   .foreachpath directory in ${MULLE_SDE_TEST_PATH}
+   .do
       mkdir_if_missing "${directory}"
 
       exekutor "${MULLE_TESTGEN}" \
@@ -280,8 +277,7 @@ sde::test::generate()
       then
          return $rval
       fi
-   done
-   IFS="${DEFAULT_IFS}"
+   .done
 }
 
 
@@ -345,6 +341,7 @@ sde::test::_forward()
          cmdline="${RVAL}"
          shift
       done
+
 
       sde::run_mulle_env -C "${cmdline}"
    )
@@ -728,10 +725,10 @@ sde::test::r_validate_test_run_paths()
                fi
                shift
             done
+            continue
          ;;
 
          --project-*|--path-*|-j|--jobs)
-            shift
          ;;
 
          --)
@@ -740,7 +737,6 @@ sde::test::r_validate_test_run_paths()
          ;;
 
          -*)
-            shift
          ;;
 
          *)
@@ -751,7 +747,7 @@ sde::test::r_validate_test_run_paths()
    done
 
    case "$1" in
-      *run*)
+      'run'|'retest'|'recrun'|'crun'|'crerun'|'nrun'|'nrerun'|'rerun')         # check that paths are all in the same environment
          shift
       ;;
 
@@ -773,10 +769,10 @@ sde::test::r_validate_test_run_paths()
                fi
                shift
             done
+            continue
          ;;
 
          --project-*|--path-*|-j|--jobs|--extensions)
-            shift
          ;;
 
          --)
@@ -785,7 +781,6 @@ sde::test::r_validate_test_run_paths()
          ;;
 
          -*)
-            shift
          ;;
 
          *)
@@ -816,7 +811,7 @@ sde::test::r_validate_test_run_paths()
 
       if [ ! -e "${filename}" ]
       then
-         fail "Could not find \"$1\""
+         fail "Could not find test file \"${filename}\" ($PWD)"
       fi
 
       test_dir=$(sde::test::get_test_dir "${filename}")
@@ -827,7 +822,7 @@ sde::test::r_validate_test_run_paths()
       else
          if [ "${test_env}" != "${test_dir}" ]
          then
-            fail "Test \"$1\" is in a different test environment than \"$test_file\""
+            fail "Test \"${filename}\" is in a different test environment than \"$test_file\""
          fi
       fi
 
@@ -881,18 +876,17 @@ sde::test::r_main()
    RVAL=""
 
    case "${1}" in
-      "")
-         RVAL='DEFAULT'
-         return 1
-      ;;
-
-      /*|.*)
-         RVAL='RUN'
+      'run')
+         # check that paths are all in the same environment
+         if ! sde::test::r_validate_test_run_paths "$@"
+         then
+            RVAL='DEFAULT'
+         fi
          return 1
       ;;
 
       # run commands with paths
-      'retest'|'recrun'|'run'|'crun'|'crerun'|'nrun'|'nrerun'|'rerun')         # check that paths are all in the same environment
+      'retest'|'recrun'|'crun'|'crerun'|'nrun'|'nrerun'|'rerun')         # check that paths are all in the same environment
          # check that paths are all in the same environment
          if ! sde::test::r_validate_test_run_paths "$@"
          then
@@ -956,6 +950,11 @@ sde::test::r_main()
          return $?
       ;;
 
+      "")
+         RVAL='DEFAULT'
+         return 1
+      ;;
+
       *)
          RVAL='RUN'
          return 1
@@ -972,6 +971,8 @@ sde::test::main()
 
    sde::test::r_main "$@"
    rval=$?
+
+   log_debug="rval=$rval RVAL=$RVAL"
 
    if [ $rval -eq 1 ]
    then

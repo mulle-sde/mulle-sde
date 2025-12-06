@@ -76,7 +76,7 @@ Targets:
    <name>                  : name of a single entry in the craftorder
    project                 : build the project
 
-Environment:
+Environment: (see \`mulle-craft build -h\` for more)
    CPPCHECKAUXFLAGS               : pass additional flags to cppcheck
    CPPCHECKPLATFORMS              : use "all" for multiple platforms (native)
    MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
@@ -382,9 +382,9 @@ sde::craft::create_craftorder_if_needed()
 }
 
 
-sde::craft::target()
+sde::craft::_target()
 {
-   log_entry "sde::craft::target" "$@"
+   log_entry "sde::craft::_target" "$@"
 
    local target="$1"
    local project_cmdline="$2"
@@ -457,6 +457,29 @@ sde::craft::target()
             eval_rexekutor "${project_cmdline}" project "${project_arguments}"  || return 1
       ;;
    esac
+
+}
+
+
+sde::craft::target()
+{
+   log_entry "sde::craft::target" "$@"
+
+   local old
+
+   old="${MULLE_FLAG_LOG_EXEKUTOR}"
+   if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
+   then
+      MULLE_FLAG_LOG_EXEKUTOR='YES'
+   fi
+
+   local rval 
+
+   sde::craft::_target "$@"
+   rval=$?
+
+   MULLE_FLAG_LOG_EXEKUTOR="${old}"
+   return $rval
 }
 
 
@@ -559,9 +582,9 @@ sde::craft::r_buildstyle_option()
 }
 
 
-sde::craft::run_cppcheck()
+sde::craft::_run_cppcheck()
 {
-   log_entry "sde::craft::run_cppcheck" "$@"
+   log_entry "sde::craft::_run_cppcheck" "$@"
 
    local buildstyle="$1"
 
@@ -646,6 +669,27 @@ sde::craft::run_cppcheck()
                     --project="'`mulle-sde kitchen-dir`/${buildstyle:-Debug}/compile_commands.json'"
       echo
    .done
+}
+
+sde::craft::run_cppcheck()
+{
+   log_entry "sde::craft::run_cppcheck" "$@"
+
+   local old
+
+   old="${MULLE_FLAG_LOG_EXEKUTOR}"
+   if [ "${MULLE_FLAG_LOG_VERBOSE}" = 'YES' ]
+   then
+      MULLE_FLAG_LOG_EXEKUTOR='YES'
+   fi
+
+   local rval 
+
+   sde::craft::_run_cppcheck "$@"
+   rval=$?
+
+   MULLE_FLAG_LOG_EXEKUTOR="${old}"
+   return $rval
 }
 
 
@@ -856,9 +900,7 @@ sde::craft::main()
       fi
    fi
 
-
    target="${target:-all}"
-
 
    #
    # our craftorder is specific to a host

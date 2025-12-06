@@ -135,8 +135,11 @@ EOF
 
    alias mulle-sde-cd=mulle_sde_cd
 else
-   printf "%s\n" "mulle-sde-cd must be sourced by the shell. Use:\n
-. \`which mulle-sde-cd\`\n" >&2
+   cat <<EOF >&2
+mulle-sde-cd must be sourced by the shell.
+Use:
+   . \`which mulle-sde-cd\`
+EOF
 fi
 
 

@@ -41,29 +41,38 @@ Usage:
 
    Debug support. The debugger is usually gdb or lldb or some variation.
    This command can start a debugger of your choice with the project
-   executable. It can also provide helpful output for IDEs.
+   executable. It can also provide helpful output for IDE
+   For AI: you can get a stacktrace with the stacktrace command for known
+   crashing executables. This requires 'gdb'.
+   You can specify an arbitrary executable (needs to have a / in the filename):
+
+      ${MULLE_USAGE_NAME} debug stacktrace ./my.exe
 
    The debugger is run in the mulle-sde environment.
 
 Commands:
-   run                 : debug most recent executable
-   sublime-debug       : emit debug settings to place in your .sublime-project
-   vscode-debug        : emit debug settings to place in your launch.json
+   run                  : debug most recent executable
+   stacktrace           : get stacktrace from most recent executable
+   sublime-debug        : emit debug settings to place in your .sublime-project
+   vscode-debug         : emit debug settings to place in your launch.json
 
 Options:
-   -h                  : show this usage
-   --configuration <c> : set configuration, like "Debug"
-   --debug             : shortcut for --configuration Debug
-   --debugger <exe>    : use <exe> as debugger path
-   --executable <exe>  : use <exe> as explicit executable path
-   --leak              : trace mulle-objc leaks
-   --no-zombie         : do not trace mulle-objc zombies
-   --release           : shortcut for --configuration Release
-   --restrict          : run debug with restricted environment
-   --sdk <sdk>         : set sdk
-   --select            : select a debugger from interactive menu
-   --unordered         : don't sort executable menu
-   --zombie            : trace mulle-objc zombies (DEFAULT)
+   -h                   : show this usage
+   --configuration <c>  : set configuration, like "Debug"
+   --debug              : shortcut for --configuration Debug
+   --debugger <exe>     : use <exe> as debugger path
+   --executable <exe>   : use <exe> as explicit executable path
+   --leak               : trace mulle-objc leaks
+   --no-zombie          : do not trace mulle-objc zombies
+   --release            : shortcut for --configuration Release
+   --restrict           : run debug with restricted environment
+   --sdk <sdk>          : set sdk
+   --select             : select a debugger from interactive menu
+   --stacktrace         : same as the stacktrace command
+   --unordered          : don't sort executable menu
+   --zombie             : trace mulle-objc zombies (DEFAULT)
+   --mulleui-frames <n> : run mulleui executable for <n> frames from start (0)
+   --mulleui-trace <nr> : trace drawing calls starting at frame <nr>
 
 EOF
    exit 1
@@ -103,10 +112,15 @@ sde::debug::r_user_choses_debugger()
 
    local row
 
-   rexekutor mudo -f mulle-menu --title "Choose debugger:" \
-                                --final-title "" \
-                                --options "${debuggers}"
-   row=$?
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      row=0
+   else
+      rexekutor mudo -f mulle-menu --title "Choose debugger:" \
+                                   --final-title "" \
+                                   --options "${debuggers}"
+      row=$?
+   fi
    log_debug "row=${row}"
 
    r_line_at_index "${debuggers}" $row
@@ -163,11 +177,13 @@ sde::debug::r_debugger()
 {
    log_entry "sde::debug::r_debugger" "$@"
 
-   local debugger="$1"
+   local preference="$1"
 
-   if [ ! -z "${debugger}" ]
+   local debugger
+
+   if [ ! -z "${preference}" ]
    then
-      debugger="`command -v "${debugger}"`"
+      debugger="`command -v "${preference}"`"
    fi
 
    if [ -z "${debugger}" ]
@@ -186,12 +202,10 @@ sde::debug::run_main()
 {
    log_entry "sde::debug::run_main" "$@"
 
-   include "sde::product"
-
    local use_mudo='YES'
 
-   if [ $# -ne 0 ]
-   then
+   while [ $# -ne 0 ]
+   do
       case "$1" in
          -h|--help|help)
             sde::debug::debug_usage
@@ -199,70 +213,106 @@ sde::debug::run_main()
 
          -e|-E)
             MUDO_FLAGS="$1"
-            shift
+         ;;
+
+         --stacktrace)
+            stacktrace='YES'
          ;;
 
          --no-mudo)
             use_mudo='NO'
-            shift
+         ;;
+
+         *)
+            break
          ;;
 
          --)
             shift
+            break
          ;;
       esac
-   fi
+      shift
+   done
 
    local executable="${OPTION_EXECUTABLE}"
 
    if [ -z "${executable}" ]
    then
-      local preferredname
-
       case "$1" in
-         [A-Za-z_]*)
-            preferredname="$1"
+         */*|/*)
+            executable="$1"
             shift
          ;;
-      esac
 
-      if ! sde::product::r_executable "${preferredname}"
-      then
-         return 1
-      fi
-      executable="${RVAL}"
+         *)
+            local preferredname
+
+            case "$1" in
+               [A-Za-z_]*)
+                  preferredname="$1"
+                  shift
+               ;;
+            esac
+
+            include "sde::product"
+
+            if ! sde::product::r_executable "${preferredname}"
+            then
+               return 1
+            fi
+
+            # stupid hack for when kitchen is relative, and the user
+            # is not in the project root and RVAL is realtive, not 100%
+            # correct..
+            if [ ! -x "${RVAL}" ]
+            then
+               r_filepath_concat "${MULLE_VIRTUAL_ROOT}" "${RVAL}"
+            fi
+            r_absolutepath "${RVAL}"
+            executable="${RVAL}"
+         ;;
+      esac
    fi
 
    local debugger
    local preference
-
-   if [ "${OPTION_SELECT}" != 'YES' ]
-   then
-      preference="`rexekutor mulle-sde env --this-user get MULLE_SDE_DEBUGGER_CHOICE 2> /dev/null`"
-      log_fluff "Retrieved debugger preference: ${preference}"
-   fi
-
-   if ! sde::debug::r_debugger "${preference}"
-   then
-      return 1
-   fi
-   debugger="${RVAL}"
-
-   if [ "${debugger}" != "${preference}" ]
-   then
-      log_verbose "Saving debugger preference: ${debugger}"
-      rexekutor mulle-sde env --this-user set MULLE_SDE_DEBUGGER_CHOICE "${debugger}"
-   fi
-
    local debugger_preexe
    local debugger_postexe
 
-   case "${debugger}" in
-      *'rr')
-         debugger_preexe='record'
-         debugger_postexe='--args'
-      ;;
-   esac
+   if [ "${stacktrace}" = 'YES' ]
+   then
+      debugger='gdb'
+      debugger_preexe="--batch -ex 'run' -ex 'bt' -ex 'set confirm off' -ex 'quit' --args"
+   else
+      if [ "${OPTION_SELECT}" != 'YES' ]
+      then
+         preference="`rexekutor mulle-sde env --this-user get MULLE_SDE_DEBUGGER_CHOICE 2> /dev/null`"
+         log_fluff "Retrieved debugger preference: ${preference}"
+      fi
+
+      if ! sde::debug::r_debugger "${preference}"
+      then
+         log_verbose "No debugger selected"
+         return 1
+      fi
+      debugger="${RVAL}"
+
+      if [ "${debugger}" != "${preference}" ]
+      then
+         log_verbose "Saving debugger preference: ${debugger}"
+         rexekutor mulle-sde env --this-user set MULLE_SDE_DEBUGGER_CHOICE "${debugger}"
+      fi
+
+
+      case "${debugger}" in
+         *'rr')
+            debugger_preexe='record'
+            debugger_postexe='--args'
+         ;;
+      esac
+   fi
+
    #
    # gather KITCHEN_DIR
    # gather STASH_DIR
@@ -280,6 +330,7 @@ sde::debug::run_main()
    do
       r_concat "${RVAL}" "'${arg}'"
    done
+
    args="${RVAL}"
 
    (
@@ -309,6 +360,8 @@ sde::debug::run_main()
          r_concat "${RVAL}" "STASH_DIR='${STASH_DIR}'"
       fi
       environment="${RVAL}"
+
+      log_debug "PWD='${PWD}'"
 
       if [ "${use_mudo}" = 'YES' ]
       then
@@ -341,6 +394,16 @@ sde::debug::main()
    local OPTION_ENVIRONMENT
    local OPTION_EXECUTABLE
    local OPTION_DEBUG_ENV='DEFAULT'
+   local OPTION_MULLEUI_FRAMES
+   local OPTION_MULLEUI_START
+
+   if [ "${MULLEUI_VIBECODE}" = 'YES' ]
+   then
+      log_verbose "MULLEUI_VIBECODE enabled draw tracing and exit after single frame"
+
+      OPTION_MULLEUI_FRAMES=1
+      OPTION_MULLEUI_TRACE=0
+   fi
 
    while [ $# -ne 0 ]
    do
@@ -378,6 +441,18 @@ sde::debug::main()
 
          --release)
             OPTION_CONFIGURATION='Release'
+         ;;
+
+         --mulleui-frames|--mulle-ui-frames)
+            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
+            shift
+            OPTION_MULLEUI_FRAMES="$1"
+         ;;
+
+         --mulleui-trace|--mulle-ui-trace)
+            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
+            shift
+            OPTION_MULLEUI_START="$1"
          ;;
 
          --objc-trace-leak|--leak|--trace-leak)
@@ -439,6 +514,25 @@ sde::debug::main()
          OPTION_ENVIRONMENT="${RVAL}"
       ;;
    esac
+
+   if [ ! -z "${OPTION_MULLEUI_FRAMES}" ]
+   then
+      r_concat "${OPTION_ENVIRONMENT}" "UIPureWindowMaxRenderedFrames=${OPTION_MULLEUI_FRAMES}"
+      OPTION_ENVIRONMENT="${RVAL}"
+   fi
+
+   if [ ! -z "${OPTION_MULLEUI_START}" ]
+   then
+      r_concat "${OPTION_ENVIRONMENT}" "UIPureWindowStartTraceAtFrame=${OPTION_MULLEUI_START}"
+      OPTION_ENVIRONMENT="${RVAL}"
+   fi
+
+   if [ "${OPTION_MULLEUI_DEBUG}" = 'YES' ]
+   then
+      r_concat "${OPTION_ENVIRONMENT}" "UIWindowDebuggingFlags=0x8008"
+      r_concat "${RVAL}" "CGContextDebuggingFlags=08008"
+      OPTION_ENVIRONMENT="${RVAL}"
+   fi
 
    local cmd="${1:-}"
 
@@ -542,6 +636,12 @@ if .settings == null then .settings = {} else . end \
 }
 EOF
          fi
+      ;;
+
+      stacktrace)
+         # here we change back to MULLE_USER_PWD
+         rexekutor cd "${MULLE_USER_PWD}" || exit 1
+         sde::debug::run_main --stacktrace "$@"
       ;;
 
       run|'')

@@ -50,6 +50,7 @@ Tip:
 
 Options:
    --all               : list dependencies, definitions, environment, files
+   --raw-files         : list only unadorned filenames
    --[no-]dependencies : list dependencies
    --[no-]definitions  : list definitions
    --[no-]environment  : list environmnt
@@ -67,13 +68,21 @@ sde::list::files()
 
    local mode="${1:-cmake}"
 
+   if [ "${mode}" = 'raw' ]
+   then
+      MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
+         exekutor "${MULLE_MATCH:-mulle-match}" \
+                     list \
+                        --format "%f\\n" "$@"
+      return $?
+   fi
+
    local text
 
    text="`
    # MULLE_TECHNICAL_FLAGS on match is just too much
    MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
       exekutor "${MULLE_MATCH:-mulle-match}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
                   list \
                      --format "%t/%c: %f\\n" "$@"
 
@@ -251,6 +260,8 @@ sde::list::main()
    local OPTION_LIST_ENVIRONMENT='DEFAULT'
    local OPTION_LIST_FILES='DEFAULT'
    local OPTION_LIST_LIBRARIES='DEFAULT'
+   local OPTION_RAW_FILES=''
+
    local spacer
 
    spacer=":"  # nop
@@ -268,6 +279,10 @@ sde::list::main()
             OPTION_LIST_ENVIRONMENT='YES'
             OPTION_LIST_FILES='YES'
             OPTION_LIST_LIBRARIES='YES'
+         ;;
+
+         --raw-files)
+            OPTION_RAW_FILES='raw'
          ;;
 
          --dependencies)
@@ -338,7 +353,7 @@ sde::list::main()
    then
       if [ "${PROJECT_TYPE}" != 'none' -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         sde::list::files
+         sde::list::files "${OPTION_RAW_FILES}"
          spacer="echo"
       else
          log_warning "No files listed in \"none\" projects.

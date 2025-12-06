@@ -112,6 +112,9 @@ Usage:
    This command will automatically create a proper "craftinfo" subproject,
    if there is none yet.
 
+   Use the special dependency name '*' to set flags for all dependencies.
+   These values can be overridden by a specific dependency still.
+
 Examples:
    Set preprocessor flag -DX=0 for all platforms on dependency "nng":
 
@@ -431,7 +434,9 @@ sde::craftinfo::readd_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir  
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    "${OPTION_LENIENT}" \
@@ -460,7 +465,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
 
    if [ -d "${subprojectdir}" ]
    then
-      if [ "${clobber}" = "DEFAULT" ]
+      if [ "${clobber}" = 'DEFAULT' ]
       then
          return 2
       fi
@@ -514,6 +519,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
 # local _address
 # local _name
 # local _subprojectdir
+# local _craftinfodir
 # local _folder
 # local _config
 #
@@ -524,6 +530,25 @@ sde::craftinfo::__vars_with_url_or_address()
    local url="$1"
    local emptyok="${2:-YES}"
    local configname="${3:-config}"
+
+   _config=""
+
+   if [ "${url}" = '*' ]
+   then
+      _address='__ALL__'
+      _name='__ALL__'
+      _subprojectdir="craftinfo-all"
+      _folder="${_subprojectdir}/definition"
+      _craftinfodir="${_subprojectdir}"
+
+      log_setting "_name:          ${_name}"
+      log_setting "_address:       ${_address}"
+      log_setting "_subprojectdir: ${_subprojectdir}"
+      log_setting "_folder:        ${_folder}"
+      log_setting "_craftinfodir:  ${_craftinfodir}"
+      log_setting "_config:        ${_config}"
+      return
+   fi
 
    _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               --virtual-root \
@@ -558,7 +583,6 @@ sde::craftinfo::__vars_with_url_or_address()
          return 1
       ;;
    esac
-
    #
    # The -craftinfo suffix to the name is there to disambiguate in cmake
    # target names
@@ -567,6 +591,8 @@ sde::craftinfo::__vars_with_url_or_address()
    _name="${RVAL}"
    _subprojectdir="craftinfo/${_name}-craftinfo"
 
+   # this is for cases where we have x11 or wayland different sourcetree
+   # config files
    local key
    local config
 
@@ -577,7 +603,6 @@ sde::craftinfo::__vars_with_url_or_address()
 
    r_shell_indirect_expand "${key}"
    config="${RVAL:-${configname}}"
-   _config=""
 
    if [ ! -z "${config}" ]
    then
@@ -591,11 +616,14 @@ sde::craftinfo::__vars_with_url_or_address()
    fi
 
    _folder="${_folder:-"${_subprojectdir}/definition"}"
+   _craftinfodir="craftinfo/craftinfo-${_name}"
 
    log_setting "_name:          ${_name}"
    log_setting "_address:       ${_address}"
    log_setting "_subprojectdir: ${_subprojectdir}"
    log_setting "_folder:        ${_folder}"
+   log_setting "_craftinfodir:  ${_craftinfodir}"
+   log_setting "_config:        ${_config}"
 }
 
 
@@ -644,7 +672,7 @@ sde::craftinfo::create_main()
 
    local url="$1"
 
-   if [ "${extension}" = "DEFAULT" ]
+   if [ "${extension}" = 'DEFAULT' ]
    then
       extension=""
    fi
@@ -652,7 +680,9 @@ sde::craftinfo::create_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir  
    local _folder
+   local _config
 
    if ! sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                    "${OPTION_LENIENT}" \
@@ -705,7 +735,7 @@ sde::craftinfo::remove_main()
 
    local url="$1"
 
-   if [ "${extension}" = "DEFAULT" ]
+   if [ "${extension}" = 'DEFAULT' ]
    then
       extension=""
    fi
@@ -713,6 +743,7 @@ sde::craftinfo::remove_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir
    local _folder
    local _config
 
@@ -728,7 +759,7 @@ sde::craftinfo::remove_main()
                   ${MULLE_TECHNICAL_FLAGS} \
                   ${MULLE_SOURCETREE_FLAGS:-} \
                remove \
-                  "craftinfo/${_name}-craftinfo"  || return 1
+                  "${_craftinfodir}"  || return 1
    rmdir_safer "${_subprojectdir}"
 }
 
@@ -834,6 +865,7 @@ sde::craftinfo::script_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir  
    local _folder
    local _config
 
@@ -847,7 +879,7 @@ sde::craftinfo::script_main()
    sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                                       "${_name}" \
                                                       "${OPTION_COPY}" \
-                                                      "DEFAULT"
+                                                      'DEFAULT'
    case "$?" in
       0|2)
       ;;
@@ -901,7 +933,7 @@ sde::craftinfo::script_main()
 
    log_info "Generated ${C_RESET_BOLD}${script#${MULLE_USER_PWD}/}${C_INFO} script"
 
-   if [ "${extension}" = "DEFAULT" ]
+   if [ "${extension}" = 'DEFAULT' ]
    then
       extension=""
    fi
@@ -963,7 +995,7 @@ sde::craftinfo::set_main()
    [ "$#" -eq 1 ] && sde::craftinfo::set_usage "Missing value"
    [ "$#" -gt 2 ] && sde::craftinfo::set_usage "Superflous arguments \"$*\""
 
-   if [ "${extension}" = "DEFAULT" ]
+   if [ "${extension}" = 'DEFAULT' ]
    then
       extension=""
    fi
@@ -971,6 +1003,7 @@ sde::craftinfo::set_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir  
    local _folder
    local _config
 
@@ -984,7 +1017,7 @@ sde::craftinfo::set_main()
    sde::craftinfo::add_craftinfo_subproject_if_needed "${_subprojectdir}" \
                                                       "${_name}" \
                                                       "${OPTION_COPY}" \
-                                                      "DEFAULT"
+                                                      'DEFAULT'
    case "$?" in
       0|2)
       ;;
@@ -1044,7 +1077,7 @@ sde::craftinfo::unset_main()
    [ "$#" -eq 0 ] && sde::craftinfo::unset_usage "Missing key"
    [ "$#" -gt 1 ] && shift && sde::craftinfo::unset_usage "Superflous arguments \"$*\""
 
-   if [ "${extension}" = "DEFAULT" ]
+   if [ "${extension}" = 'DEFAULT' ]
    then
       extension=""
    fi
@@ -1114,10 +1147,11 @@ sde::craftinfo::get_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir
    local _folder
    local _config
 
-   if [ "${extension}" = "DEFAULT" ]
+   if [ "${extension}" = 'DEFAULT' ]
    then
       sde::craftinfo::__vars_with_url_or_address "${url}" \
                                                  'YES' \
@@ -1173,6 +1207,7 @@ sde::craftinfo::_list_main()
    local _address
    local _name
    local _subprojectdir
+   local _craftinfodir
    local _folder
    local _config
 
@@ -1185,7 +1220,7 @@ sde::craftinfo::_list_main()
 
    log_info "${url}"
 
-   if [ "${extension}" != "DEFAULT" ]
+   if [ "${extension}" != 'DEFAULT' ]
    then
       log_info "${url}${extension}"
 
@@ -1581,7 +1616,7 @@ sde::craftinfo::main()
    local extension
    local OPTION_CONFIG_NAME
 
-   extension="DEFAULT"
+   extension='DEFAULT'
 
    while [ $# -ne 0 ]
    do

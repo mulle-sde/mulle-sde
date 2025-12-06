@@ -2813,6 +2813,11 @@ sde::init::validate_projecttype()
                fail "No meta extensions installed"
             fi
 
+            if [ "${MULLE_VIBECODING}" = 'YES' ]
+            then
+               fail "Specify meta extension with -m first"
+            fi
+
             rexekutor mudo -f mulle-menu --title "Choose language and library set:" \
                                          --final-title "" \
                                          --options "${options}"
@@ -3117,6 +3122,11 @@ sde::init::_run_common()
 
    if [ -z "${projecttype}" ]
    then
+      if [ "${MULLE_VIBECODING}" = 'YES' ]
+      then
+         fail "Specify project type"
+      fi
+
       rexekutor mudo -f mulle-menu --title "Choose a project type:" \
                                    --final-title "" \
                                    "executable" \
@@ -3748,6 +3758,7 @@ sde::init::_main()
             [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
             shift
 
+            [ ! -z "${OPTION_DIRECTORY}" ] && fail "-d already specified once"
             OPTION_DIRECTORY="$1"
             PURGE_PWD_ON_ERROR='YES'
          ;;

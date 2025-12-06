@@ -62,17 +62,20 @@ EOF
 }
 
 
+# additional arguments are alias args
 sde::linkorder::r_locate_library()
 {
    log_entry "sde::linkorder::r_locate_library" "$@"
 
    local searchpath="$1"
-   local libstyle="$2"
-   local require="$3"
+   local platform="$2"
+   local libstyle="$3"
+   local require="$4"
 
-   shift 3
+   shift 4
 
    platform::search::r_platform_search "${searchpath}" \
+                                       "${platform}" \
                                        "${libstyle}" \
                                        "static" \
                                        "${require}" \
@@ -85,10 +88,12 @@ sde::linkorder::r_locate_framework()
    log_entry "sde::linkorder::r_locate_framework" "$@"
 
    local searchpath="$1"
+   local platform="$2"
 
-   shift 1
+   shift 2
 
    platform::search::r_platform_search "${searchpath}" \
+                                       "${platform}" \
                                        "framework" \
                                        "" \
                                        "" \
@@ -431,7 +436,12 @@ sde::linkorder::r_search_os_library()
 
    .foreachitem alias in ${aliases}
    .do
-      if platform::search::r_platform_search "" library "" "" "${alias}"
+      if platform::search::r_platform_search "" \
+                                             "" \
+                                             library \
+                                             "" \
+                                             "" \
+                                             "${alias}"
       then
          return 0
       fi
@@ -455,7 +465,8 @@ sde::linkorder::r_collect()
    local aliases="$3"
    local library_searchpath="$4"
    local framework_searchpath="$5"
-   local collect_libraries="$6"
+   local platform="$6"
+   local collect_libraries="$7"
 
    local name
 
@@ -545,6 +556,7 @@ sde::linkorder::r_collect()
    # TODO: libraries are preferred over frameworks, which is arbitrary
 
    eval sde::linkorder::r_locate_library "'${library_searchpath}'" \
+                                         "'${platform}'" \
                                          "'${librarytype}'" \
                                          "'${requirement}'" \
                                          "${aliasargs}"
@@ -554,7 +566,7 @@ sde::linkorder::r_collect()
    then
       if [ ! -z "${framework_searchpath}" ]
       then
-         eval sde::linkorder::r_locate_framework "'${framework_searchpath}'"  "${aliasargs}"
+         eval sde::linkorder::r_locate_framework "'${framework_searchpath}'" "${aliasargs}"
          libpath="${RVAL}"
       fi
 
@@ -680,7 +692,8 @@ sde::linkorder::r_get_emission_lib()
    local raw_userinfo="$3"
    local library_searchpath="$4"
    local framework_searchpath="$5"
-   local collect_libraries="$6"
+   local platform="$6"
+   local collect_libraries="$7"
 
    local aliases
    local userinfo
@@ -707,6 +720,7 @@ sde::linkorder::r_get_emission_lib()
                              "${aliases}" \
                              "${library_searchpath}" \
                              "${framework_searchpath}" \
+                             "${platform}" \
                              "${collect_libraries}"
 }
 
@@ -759,8 +773,9 @@ sde::linkorder::r_collect_emission_libs()
    local nodes="$1"
    local library_searchpath="$2"
    local framework_searchpath="$3"
-   local collect_libraries="$4"
-   local omit="$5"
+   local platform="$4"
+   local collect_libraries="$5"
+   local omit="$6"
 
    local dependency_libs
    local address
@@ -790,6 +805,7 @@ sde::linkorder::r_collect_emission_libs()
                                             "${raw_userinfo}" \
                                             "${library_searchpath}" \
                                             "${framework_searchpath}" \
+                                            "${platform}" \
                                             "${collect_libraries}"
          rval=$?
          if [ $rval = 4 ]
@@ -847,6 +863,7 @@ sde::linkorder::main()
    local OPTION_STARTUP='YES'           # default executable link
    local OPTION_OUTPUT_FINAL_LF='YES'
    local OPTION_PREFERRED_LIBRARY_STYLE='static'
+   local OPTION_PLATFORM
 
    local collect_libraries='YES'
 
@@ -862,6 +879,13 @@ sde::linkorder::main()
             shift
 
             OPTION_CONFIGURATION="$1"
+         ;;
+
+         --platform)
+           [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_PLATFORM="$1"
          ;;
 
          --preferred-library-style)
@@ -1028,6 +1052,13 @@ sde::linkorder::main()
 
 
    include "path"
+
+   local platform 
+
+   platform="${OPTION_PLATFORM}"
+   platform="${platform:-${MULLE_CRAFT_PLATFORMS%%:*}}"
+   platform="${platform:-${MULLE_UNAME}}"
+
    #
    # load mulle-platform as library, since we dont want to call the executable
    # repeatedly
@@ -1054,6 +1085,7 @@ sde::linkorder::main()
    sde::linkorder::r_collect_emission_libs "${nodes}" \
                                            "${library_searchpath}" \
                                            "${framework_searchpath}" \
+                                           "${platform}" \
                                            "${collect_libraries}" \
                                            "${OPTION_OUTPUT_OMIT}"
    dependency_libs="${RVAL}"

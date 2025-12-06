@@ -50,14 +50,15 @@ MULLE_SDE_SANDBOX_PULSE_DIR="${MULLE_SDE_SANDBOX_PULSE_DIR:-${home}/.config/puls
 
 # motherfucking claude needs to write into home, fing assholes
 MULLE_SDE_SANDBOX_CLAUDE_DIR="${MULLE_SDE_SANDBOX_CLAUDE_DIR:-${home}}"
-
+MULLE_SDE_SANDBOX_NPM_DIR="${MULLE_SDE_SANDBOX_NPM_DIR:-${home}/.nvm}"
 MULLE_SDE_SANDBOX_OTHER_DIR="${MULLE_SDE_SANDBOX_OTHER_DIR:-/home/src-old}"
+MULLE_SDE_SANDBOX_EMSCRIPTEN_DIR="${MULLE_SDE_SANDBOX_EMSCRIPTEN_DIR:-/opt/emsdk}"
 
 
 if [ "${MULLE_SDE_SANDBOX_RUNNING}" = 'YES' ]
 then
    "$@"
-   return $?
+   exit $?
 fi
 
 #
@@ -75,21 +76,79 @@ fi
 # w : write
 # x : execute (also needed for shared libraries)
 #
-MULLE_SDE_SANDBOX_RUNNING='YES' \
-lljail \
-   -rx / \
-   -crwx "${MULLE_SDE_SANDBOX_SRC_DIR}" \
-   -crwx "${MULLE_SDE_SANDBOX_OTHER_DIR}" \
-   -crwx "${MULLE_SDE_SANDBOX_VAR_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_CACHE_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_CODEBUFF_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_DISTROBOX_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_MLTERM_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_PULSE_DIR}" \
-   -crw "${MULLE_SDE_SANDBOX_CLAUDE_DIR}" \
-   -crw /dev \
-   -rw /proc \
-   -crwx /tmp \
-   -crw /run/user \
-   -- \
-   "$@"
+
+# build up from the back
+
+set -- '--' "$@"
+set -- -rx /usr \
+       -rx /bin \
+       -rx /etc \
+       -rx /opt \
+       -rw /proc \
+       -rx /sbin \
+       -rx "${home}/bin" \
+       -rx "${home}/.mulle/bin" \
+       -crw /dev \
+       -crwx /var \
+       -crwx /tmp \
+       -crw /run/user "$@"
+
+if [ -d "${MULLE_SDE_SANDBOX_CLAUDE_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_CLAUDE_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_PULSE_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_PULSE_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_MLTERM_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_MLTERM_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_DISTROBOX_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_DISTROBOX_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_NPM_DIR}" ]
+then
+   set -- -crwx "${MULLE_SDE_SANDBOX_NPM_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_EMSCRIPTEN_DIR}" ]
+then
+   set -- -crwx "${MULLE_SDE_SANDBOX_EMSCRIPTEN_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_CODEBUFF_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_CODEBUFF_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_CACHE_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_CACHE_DIR}" "$@"
+fi
+
+# -crwx flag
+
+if [ -d "${MULLE_SDE_SANDBOX_VAR_DIR}" ]
+then
+   set -- -crwx "${MULLE_SDE_SANDBOX_VAR_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_OTHER_DIR}" ]
+then
+   set -- -crwx "${MULLE_SDE_SANDBOX_OTHER_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_SRC_DIR}" ]
+then
+   set -- -crwx "${MULLE_SDE_SANDBOX_SRC_DIR}" "$@"
+fi
+
+
+MULLE_SDE_SANDBOX_RUNNING='YES' lljail "$@"

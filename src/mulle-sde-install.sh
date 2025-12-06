@@ -588,8 +588,6 @@ pass through)"
       done
    fi
 
-
-
    #
    # What we want to achieve is running in a "clean" room environment
    #
@@ -689,6 +687,7 @@ pass through)"
       fi
 
       log_info "Installing to ${C_RESET_BOLD}${PREFIX_DIR}"
+      DEPENDENCY_DIR="${PREFIX_DIR}"
 
       #
       # MEMO: one problem we have when using DEPENDENCY_DIR as the install
@@ -697,9 +696,14 @@ pass through)"
       #
       log_verbose "Temporary build directory is ${C_RESET_BOLD}${PROJECT_DIR}"
 
-      DEPENDENCY_DIR="${PREFIX_DIR}"
       KITCHEN_DIR="${KITCHEN_DIR:-${BUILD_DIR}}"
       KITCHEN_DIR="${KITCHEN_DIR:-${PROJECT_DIR}/kitchen}"
+
+      if [ "${KITCHEN_DIR#${DEPENDENCY_DIR}}" != "${KITCHEN_DIR}" -o \
+           "${DEPENDENCY_DIR#${KITCHEN_DIR}}" != "${DEPENDENCY_DIR}" ]
+      then
+         fail "When installing to \"${DEPENDENCY_DIR}\" you need to specify a temporary --kitchen-dir <dir> with a directory outside of it. Currently its \"${KITCHEN_DIR}\"."
+      fi
 
       local environment
 

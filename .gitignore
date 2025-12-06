@@ -19,3 +19,8 @@ build-*/
 mulle-csv-to-sandbox
 .mulle/etc/project/publisher-info.sh
 .mulle/etc/make
+dox/reference/common-unames.html
+dox/reference/index.html
+dox/reference/patternenv.html
+dox/reference/reinit.html
+dox/reference/*.html

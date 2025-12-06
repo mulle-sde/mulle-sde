@@ -73,11 +73,71 @@ sde::vibecoding::env_set()
                            set "${variable}" "${flag}"
 }
 
+
+sde::vibecoding::list_info()
+{
+   log_entry "sde::vibecoding::list_info" "$@"
+
+   local here
+
+   r_basename "${PWD}"
+   here="${RVAL}"
+
+   local flag
+
+   flag=$(rexekutor mulle-env --search-here get MULLE_VIBECODING)
+   if [ "${flag}" = 'YES' ]
+   then
+      log_info "Vibecoding is enabled in ${C_RESET_BOLD}${here}"
+   else
+      log_info "Vibecoding is disabled in ${C_RESET_BOLD}${here}"
+   fi
+
+}
+
+
+sde::vibecoding::list()
+{
+   log_entry "sde::vibecoding::list" "$@"
+
+   sde::vibecoding::list_info
+
+   local dir
+
+   .foreachpath dir in ${MULLE_SDE_DEMO_PATH:-demo}
+   .do
+      if [ -d "${dir}" ]
+      then
+      (
+         printf " ${C_INFO}* "
+         cd "${dir}" &&
+         sde::vibecoding::list_info
+      )
+      fi
+   .done
+
+   MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
+
+   .foreachpath dir in ${MULLE_SDE_TEST_PATH}
+   .do
+      if [ -d "${dir}" ]
+      then
+      (
+         printf " ${C_INFO}* "
+         cd "${dir}" &&
+         sde::vibecoding::list_info
+      )
+      fi
+   .done
+}
+
+
+
 sde::vibecoding::main()
 {
    log_entry "sde::vibecoding::main" "$@"
 
-   local cmd="$1"
+   local cmd="$1" # vibecoding or sweatcoding
 
    local OPTION_SCOPE="user-${MULLE_USERNAME}"
    local OPTION_TEST='NO'
@@ -123,6 +183,8 @@ sde::vibecoding::main()
    flag='YES'
    case $# in 
       0) 
+         sde::vibecoding::list
+         return
       ;;
 
       1)
@@ -132,6 +194,11 @@ sde::vibecoding::main()
 
             'n'*|'N'*|off|OFF)
                flag='NO'
+            ;;
+
+            'list')
+               sde::vibecoding::list
+               return
             ;;
 
             *)
@@ -172,15 +239,23 @@ sde::vibecoding::main()
       ;;
    esac
 
+   r_basename "${PWD}"
+   case "${RVAL}" in
+      test|demo)
+         log_warning "vibecoding should be enabled from the project root, for least hassle"
+      ;;
+   esac
 
    log_info "Set ${C_RESET_BOLD}${PROJECT_NAME}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
 
+   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
+   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
+   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          "${timeout}"
+
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     "${OPTION_TEST}"
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    "${flag}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          "${timeout}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
 
    local dir
 
@@ -191,14 +266,19 @@ sde::vibecoding::main()
       if [ -d "${dir}" ]
       then
       (
-         cd "${dir}"
+         rexekutor cd "${dir}"
 
 
-         log_verbose "Set ${C_RESET_BOLD}$dir${C_VERBOSE} to ${C_MAGENTA}${C_BOLD}${verb}"
+         log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'           "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          "${timeout}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
+
+         # ok demos have no tests
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     'NO'
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    'NO'
       )
       fi
    .done
@@ -210,9 +290,20 @@ sde::vibecoding::main()
       if [ -d "${dir}" ]
       then
       (
-         log_verbose "Set ${C_RESET_BOLD}$dir${C_VERBOSE} to ${C_MAGENTA}${C_BOLD}${verb}"
+         rexekutor cd "${dir}"
+
+         log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'           "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
+         # test does this differently
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     'NO'
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
+         # test does this differently too,
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          '0'
+
+         # tests have no tests
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     'NO'
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    "${flag}"
       )
       fi
    .done

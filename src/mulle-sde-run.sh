@@ -45,18 +45,20 @@ Usage:
    given.
 
 Options:
-   --     : pass remaining options as arguments
-   -e     : run the main executable outside of the mulle-sde environment.
-   -b     : run the executable in the background, ignores timeout (&)
-   -t <s> : run the executable within timeout, stopping after 's' seconds
+   --                   : pass remaining options as arguments
+   -e                   : run executable outside of the mulle-sde environment.
+   -b                   : run executable in the background, ignore timeout (&)
+   -t <s>               : run executable but stop after 's' seconds
+   --mulleui-frames <n> : run mulleui executable for <n> frames from start (0)
+   --mulleui-trace <nr> : trace drawing calls starting at frame <nr>
 
 Environment:
-   MULLE_SDE_RUN         : command to use, use \${EXECUTABLE} as variable
+   MULLE_SDE_RUN         : command to run: use \${EXECUTABLE} as variable
    MULLE_SDE_PRE_RUN     : command before executable starts
    MULLE_SDE_POST_RUN    : command after executable has started, implies -b
    MULLE_SDE_RUN_TIMEOUT : run the executable with a timeout value by default
-   MULLE_SDE_CRAFT_BEFORE_RUN : always do a \`mulle-sde craft\` before running if YES
-
+   MULLE_SDE_CRAFT_BEFORE_RUN : \`mulle-sde craft\` before running, if YES
+   MULLEUI_VIBECODE      : YES sets --mulleui-frames 1 and --mulleui-trace-draw
 EOF
    exit 1
 }
@@ -64,19 +66,37 @@ EOF
 
 sde::run::vibecodehelp()
 {
+   log_entry "sde::run::vibecodehelp" "$@"
+
    local executablename="$1"
 
-   if [ ! -z $(dir_list_files demo/src 'main-executable.*' 'f')  ]
+   r_extensionless_basename "${executablename#main-}"
+   executablename="${RVAL}"
+
+   local directory
+
+   r_basename "${MULLE_USER_PWD}"
+   directory="${RVAL}"
+
+   if [ "${RVAL}" = 'demo' ]
    then
-      log_info "There is a demo of the same name though:
-${C_RESET_BOLD}cd demo && mulle-sde run ${executablename}"
+      directory="${MULLE_USER_PWD}/src"
+   else
+      directory="${MULLE_USER_PWD}/demo/src"
+   fi
+
+   if [ ! -z "$(dir_list_files "${directory}"  "main-${executablename}.*" 'f' 2> /dev/null)"  ]
+   then
+      r_dirname "${directory}"
+      log_info "Did you mean ${C_RESET_BOLD}${executablename}${C_INFO} ? Run this instead:
+${C_RESET_BOLD}   (cd \"${RVAL}\" && mulle-sde run ${executablename})"
       return
    fi
 
    if [ ! -d test ]
    then
       log_info "Hint: to run tests use
-${C_RESET_BOLD}mulle-sde test run ${executablename}.${PROJECT_EXTENSIONS}"
+${C_RESET_BOLD}mulle-sde test run ${executablename}.${PROJECT_EXTENSIONS%%:*}"
    fi
 }
 
@@ -97,6 +117,17 @@ sde::run::main()
    local OPTION_TIMEOUT='DEFAULT'
    local OPTION_CRAFT='DEFAULT'
    local OPTION_STACKTRACE
+   local OPTION_MULLEUI_FRAMES
+   local OPTION_MULLEUI_START
+   local OPTION_MULLEUI_DEBUG
+
+   if [ "${MULLEUI_VIBECODE}" = 'YES' ]
+   then
+      log_verbose "MULLEUI_VIBECODE enabled draw tracing and exit after single frame"
+
+      OPTION_MULLEUI_FRAMES=1
+      OPTION_MULLEUI_TRACE=0
+   fi
 
    while [ $# -ne 0 ]
    do
@@ -162,6 +193,24 @@ sde::run::main()
          --no-background|--foreground)
             OPTION_BACKGROUND='NO'
             shift
+         ;;
+
+         --mulleui-frames|--mulle-ui-frames)
+            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
+            shift
+            OPTION_MULLEUI_FRAMES="$1"
+         ;;
+
+         --mulleui-trace|--mulle-ui-trace)
+            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
+            shift
+            OPTION_MULLEUI_START="$1"
+         ;;
+
+         --mulleui-debug|--mulle-ui-debug)
+            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
+            shift
+            OPTION_MULLEUI_DEBUG="$1"
          ;;
 
          --objc-trace-leak|--leak|--trace-leak)
@@ -239,6 +288,26 @@ sde::run::main()
       ;;
    esac
 
+   if [ ! -z "${OPTION_MULLEUI_FRAMES}" ]
+   then
+      r_concat "${OPTION_ENVIRONMENT}" "UIPureWindowMaxRenderedFrames=${OPTION_MULLEUI_FRAMES}"
+      OPTION_ENVIRONMENT="${RVAL}"
+   fi
+
+   if [ ! -z "${OPTION_MULLEUI_START}" ]
+   then
+      r_concat "${OPTION_ENVIRONMENT}" "UIPureWindowStartTraceAtFrame=${OPTION_MULLEUI_START}"
+      OPTION_ENVIRONMENT="${RVAL}"
+   fi
+
+   if [ "${OPTION_MULLEUI_DEBUG}" = 'YES' ]
+   then
+      r_concat "${OPTION_ENVIRONMENT}" "UIWindowDebuggingFlags=0x8008"
+      r_concat "${RVAL}" "CGContextDebuggingFlags=08008"
+      OPTION_ENVIRONMENT="${RVAL}"
+   fi
+
+
    local debugger 
 
    case "${OPTION_STACKTRACE}" in
@@ -270,6 +339,13 @@ sde::run::main()
    else
       if ! sde::product::r_executable "${OPTION_NAME}"
       then
+         if [ -z "${OPTION_NAME}" ]
+         then
+            log_error "Could not find an executable product"
+            return 1
+         fi
+
+         log_error "Could not find a product named \"${OPTION_NAME}\""
          sde::run::vibecodehelp "${OPTION_NAME}"
          return 1
       fi
@@ -307,6 +383,10 @@ sde::run::main()
    if [ "${OPTION_TIMEOUT}" = 'DEFAULT' ]
    then
       OPTION_TIMEOUT="${MULLE_SDE_RUN_TIMEOUT}"
+      if [ ! -z "${OPTION_TIMEOUT}" ]
+      then
+         log_vibe "Timeout set to ${OPTION_TIMEOUT} seconds from MULLE_SDE_RUN_TIMEOUT"
+      fi
    fi
 
    log_setting "OPTION_TIMEOUT     : ${OPTION_TIMEOUT}"
@@ -326,7 +406,12 @@ sde::run::main()
       then
          log_warning "mulle-timeout command not available"
       else
-         timeout="mulle-timeout ${OPTION_TIMEOUT}"
+         if [ "${MULLE_FLAG_LOG_VERBOSE:-}" = 'YES' ]
+         then
+            timeout="mulle-timeout -v ${OPTION_TIMEOUT}"
+         else
+            timeout="mulle-timeout ${OPTION_TIMEOUT}"
+         fi
       fi
    fi
 
