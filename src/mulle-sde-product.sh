@@ -223,12 +223,20 @@ sde::product::r_executables()
 
    if [ ! -z "${motd_files}" ]
    then
-      r_line_at_index "${motd_files}" 0
-      filename="${RVAL}"
-
-      executables="`sed -n -e "s/"$'\033'"[^"$'\033'"]*$//g" \
-                           -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
-                           "${filename}" `"
+      # Parse all motd files for multi-platform builds
+      local filename
+      
+      .foreachline filename in ${motd_files}
+      .do
+         local motd_executables
+         
+         motd_executables="`sed -n -e "s/"$'\033'"[^"$'\033'"]*$//g" \
+                              -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
+                              "${filename}" `"
+         
+         r_add_line "${executables}" "${motd_executables}"
+         executables="${RVAL}"
+      .done
    fi
 
 
