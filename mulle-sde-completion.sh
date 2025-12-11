@@ -78,9 +78,9 @@ __mulle_sde_flags() {
 __mulle_sde_commands() {
   if [ -z "$__mulle_sde_cached_cmds" ]; then
     local out
-    out="$(mulle-sde commands 2>/dev/null)"
+    out="$(mulle-sde commands 2>/dev/null | awk '{print $1}' | grep -v '^-' | tr '\n' ' ')"
     if [ -z "$out" ]; then
-      out="add addiction-dir bash-completion callback clean config craft craftinfo craftorder crun debug definition dependency dependency-dir doctor donefile edit enter env env-identifier environment exec execute export extension fetch file filename find get headerorder hostname ignore init init-and-enter install json kitchen-dir libexec-dir library library-path linkorder list log mark match migrate monitor move pat patterncheck patternenv patternfile patternmatch product project project-dir protect recraft reflect reinit remove retest run searchpath set show source-dir sourcetree stash-dir steal style sub subproject sweatcoding symbol symlink task test tool tool-env uname unprotect unveil update upgrade username version vibecoding view"
+      out="add addiction-dir api bash-completion callback clean commands common-unames config craft craftinfo craftinfos craftorder craftorders craft-status craftstatus crun debug def definition definitions dep dependency dependency-dir doctor donefile donefiles edit editor enter env env-identifier environment exec execute export ext extension fetch file filename files find get headerorder hostname howto ignore init init-and-enter install json kitchen-dir lib libexec-dir libraries library library-path linkorder list log mark match migrate monitor move pat patterncheck patternenv patternfile patternfiles patternmatch product project project-dir protect recraft reflect reinit remove retest run searchpath set show source-dir sourcetree stash-dir status steal style sub subproject subprojects sweatcoding symbol symbols symlink task test todo tool tool-env treestatus uname unprotect unveil update upgrade username version vibecoding view"
     fi
     __mulle_sde_cached_cmds="$out"
   fi
@@ -91,32 +91,44 @@ __mulle_sde_subcommands_from_cmd() {
   # tries dynamic 'mulle-sde <cmd> commands' then static fallbacks
   local cmd="$1"
   local out
-  out="$(mulle-sde "$cmd" commands 2>/dev/null)"
+  out="$(mulle-sde "$cmd" commands 2>/dev/null | awk '{print $1}' | grep -v '^-' | tr '\n' ' ')"
   if [ -n "$out" ]; then
     printf '%s\n' "$out"
     return
   fi
   case "$cmd" in
-    dependency)
+    dependency|dep)
       printf '%s\n' "add binaries craftinfo duplicate downloads etcs export fetch get headers libraries list help info map mark move rcopy remove set shares source-dir unmark"
     ;;
-    library)
-      printf '%s\n' "add export get list set mark move remove unmark"
+    library|lib|libraries)
+      printf '%s\n' "add export get list set move mark remove unmark rcopy"
     ;;
-    subproject)
-      printf '%s\n' "add enter get init list makeinfo map mark move remove set unmark update-patternfile commands subcommands"
+    subproject|sub|subprojects)
+      printf '%s\n' "add enter get init list makeinfo map mark move remove set unmark"
     ;;
-    config)
+    config|sourcetree)
       printf '%s\n' "copy list name switch remove show get set"
     ;;
     product)
-      printf '%s\n' "list symlink run searchpath"
+      printf '%s\n' "list symlink searchpath"
     ;;
-    extension)
-      printf '%s\n' "add find list meta pimp freshen remove searchpath show usage vendors meta runtime buildtool metas runtimes buildtools vendorpath"
+    extension|ext)
+      printf '%s\n' "add remove freshen pimp find show usage vendors list meta runtime buildtool metas runtimes buildtools searchpath vendorpath"
     ;;
     tool)
-      printf '%s\n' "list add remove get set link unlink path"
+      printf '%s\n' "add compile doctor editor get link list remove status"
+    ;;
+    callback)
+      printf '%s\n' "add cat create list remove run"
+    ;;
+    task)
+      printf '%s\n' "add create kill list ps remove run"
+    ;;
+    environment|env)
+      printf '%s\n' "editor get list remove scope set"
+    ;;
+    patternfile|pat|patternfiles)
+      printf '%s\n' "add cat copy edit editor ignore match list path remove rename repair status"
     ;;
     *)
       printf '%s\n' ""
