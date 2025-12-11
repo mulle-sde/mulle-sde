@@ -86,6 +86,7 @@ sde::edit::r_user_choses_editor()
 
    if [ "${MULLE_VIBECODING}" = 'YES' ]
    then
+      log_warning "Not choosing an editor because ${C_RESET_BOLD}vibecoding${C_WARNING} is enabled (MULLE_VIBECODING)"
       RVAL=
       return 1
    fi

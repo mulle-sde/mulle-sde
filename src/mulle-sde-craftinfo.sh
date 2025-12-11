@@ -1418,6 +1418,82 @@ sde::craftinfo::export_scripts()
 }
 
 
+sde::craftinfo::export_other_files()
+{
+   log_entry "sde::craftinfo::export_other_files" "$@"
+
+   local config_dir="$1"
+
+   if [ ! -d "${config_dir}" ]
+   then
+      return
+   fi
+
+   local files
+   local file
+   local relpath
+   local has_files
+
+   # Find all non-definition, non-bin files
+   shell_enable_nullglob
+   for file in "${config_dir}"/*
+   do
+      r_basename "${file}"
+      case "${RVAL}" in
+         definition|definition.*|bin)
+            continue
+         ;;
+      esac
+
+      if [ -f "${file}" ]
+      then
+         if [ -z "${has_files}" ]
+         then
+            printf "#\n"
+            printf "# Other files\n"
+            printf "#\n\n"
+            has_files='YES'
+         fi
+
+         r_basename "${file}"
+         relpath="${RVAL}"
+
+         printf "cat > \"${config_dir}/${relpath}\" <<'MULLE_SDE_CRAFTINFO_EOF'\n"
+         cat "${file}"
+         printf "MULLE_SDE_CRAFTINFO_EOF\n\n"
+      elif [ -d "${file}" ]
+      then
+         files="`find "${file}" -type f 2>/dev/null`"
+         if [ ! -z "${files}" ]
+         then
+            if [ -z "${has_files}" ]
+            then
+               printf "#\n"
+               printf "# Other files\n"
+               printf "#\n\n"
+               has_files='YES'
+            fi
+
+            local f
+            local subpath
+
+            .foreachline f in ${files}
+            .do
+               # Get relative path from config_dir
+               subpath="${f#${config_dir}/}"
+               
+               printf "mkdir -p \"${config_dir}/`dirname "${subpath}"`\"\n"
+               printf "cat > \"${config_dir}/${subpath}\" <<'MULLE_SDE_CRAFTINFO_EOF'\n"
+               cat "${f}"
+               printf "MULLE_SDE_CRAFTINFO_EOF\n\n"
+            .done
+         fi
+      fi
+   done
+   shell_disable_nullglob
+}
+
+
 sde::craftinfo::_export_main()
 {
    log_entry "sde::craftinfo::_export_main" "$@"
@@ -1509,6 +1585,7 @@ sde::craftinfo::_export_main()
          fi
 
          sde::craftinfo::export_scripts "${config_dir}"
+         sde::craftinfo::export_other_files "${config_dir}"
       fi
    .done
 }

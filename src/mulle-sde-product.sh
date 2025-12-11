@@ -624,13 +624,19 @@ sde::product::r_platform_from_executable_path()
    local executable="$1"
    
    # Extract platform from path like kitchen/<platform>/<config>/executable
-   # If no platform subdir, assume native
+   # If no platform subdir, assume native. Is this actually "styled" by
+   # mulle-craft ? in which case we can't do it like this
+   # Also need to check because of sdk
    case "${executable}" in
-      */kitchen/*/*)
+      */kitchen/*/*|kitchen/*/*)
          # Extract the part after kitchen/
-         local after_kitchen="${executable#*/kitchen/}"
+         local after_kitchen="${executable#*kitchen/}"
          # Get first path component
-         local platform="${after_kitchen%%/*}"
+         local sdk_platform="${after_kitchen%%/*}"
+
+         # strip SDK if any
+         local platform="${sdk_platform#*-}"
+
          # Check if it's a config name (Debug, Release, etc.) - if so, it's native
          case "${platform}" in
             Debug|Release|Test|RelWithDebInfo)

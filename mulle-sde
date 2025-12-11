@@ -180,7 +180,10 @@ Usage:
    * Reflect  mulle-sde creates the necessary make files
    * Craft    mulle-sde builds the dependencies and the project
 
-   ⚠️ ${MULLE_USAGE_NAME} is AI and noob friendly! Use:
+   Read the "De Re mulle-sde" guide:
+      https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
+
+   ⚠️  ${MULLE_USAGE_NAME} is AI and noob friendly! Use:
       \`${MULLE_USAGE_NAME} commands\` to see all commands with descriptions
       \`${MULLE_USAGE_NAME} <cmd> help\` for detailed help (if marked help: yes)
       \`${MULLE_USAGE_NAME} howto help\` for development topics
@@ -193,7 +196,6 @@ EOF
    project with \`mulle-sde <directory>\`. Get a quick view over the
    project with \`mulle-sde view\` and \`mulle-sde files\`. Manage external
    dependencies or add files with \`mulle-sde add\`.
-
 EOF
    else
       cat <<EOF
@@ -201,13 +203,10 @@ EOF
    source files run \`mulle-sde reflect\`. Use \`mulle-sde craft\` to craft your
    project. Add system libraries with \`mulle-sde library\` and other
    dependencies with \`mulle-sde dependency\`.
-
 EOF
    fi
 
    cat <<EOF
-   See also the Wiki for more information:
-      https://github.com/mulle-sde/mulle-sde/wiki
 
 Flags:
 EOF

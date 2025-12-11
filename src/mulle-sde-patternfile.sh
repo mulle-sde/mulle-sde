@@ -200,23 +200,51 @@ ${C_RESET}   https://github.com/mulle-sde/mulle-patternfile-editor"
 
    local before
 
-   before="`mulle-sde env get MULLE_MATCH_FILENAMES \
-            | sde::patternfile::sorted_colons`"
-
+   before="`mulle-sde env get MULLE_MATCH_FILENAMES`"
 
    sde::patternfile::r_searchnames
    sde::patternfile::r_environment_filter "${RVAL}"
-   after="`sde::patternfile::sorted_colons <<< "${RVAL}"`"
+   after="${RVAL}"
 
    if [ "${before}" != "${after}" ]
    then
-      r_escaped_doublequotes "${after}"
-      after="${RVAL}"
+      local missing
+      local pattern
+      local found
+      
+      .foreachpath pattern in ${after}
+      .do
+         found='NO'
+         .foreachpath existing in ${before}
+         .do
+            if [ "${pattern}" = "${existing}" ]
+            then
+               found='YES'
+               .break
+            fi
+         .done
+         
+         if [ "${found}" = 'NO' ]
+         then
+            r_colon_concat "${missing}" "${pattern}"
+            missing="${RVAL}"
+         fi
+      .done
+      
+      if [ ! -z "${missing}" ]
+      then
+         r_colon_concat "${before}" "${missing}"
+         local suggested="${RVAL}"
+         
+         r_escaped_doublequotes "${suggested}"
+         suggested="${RVAL}"
 
-      _log_warning "Environment variable ${C_RESET}MULLE_MATCH_FILENAMES${C_WARNING} seems out of date.
-${C_INFO}Current contents: ${C_RESET_BOLD}$before${C_INFO}.
+         _log_warning "Environment variable ${C_RESET}MULLE_MATCH_FILENAMES${C_WARNING} is missing patterns from patternfiles.
+${C_INFO}Current contents: ${C_RESET_BOLD}${before}${C_INFO}.
+Missing patterns: ${C_RESET_BOLD}${missing}${C_INFO}.
 Suggested command:
-${C_RESET_BOLD}   mulle-sde env --global set MULLE_MATCH_FILENAMES=\"${after}\""
+${C_RESET_BOLD}   mulle-sde env --global set MULLE_MATCH_FILENAMES=\"${suggested}\""
+      fi
    else
       if [ "${sayok}" = 'YES' ]
       then

@@ -494,7 +494,7 @@ sde::linkorder::r_collect()
 
    case ",${marks}," in
       *,no-actual-link,*)
-         log_fluff "Headerless library ${name} with dependencies not linked"
+         log_fluff "Header-only library ${name} with dependencies not linked"
          return 4
       ;;
 

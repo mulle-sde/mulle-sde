@@ -106,6 +106,24 @@ sde::install::do_update_sourcetree()
                         "$@"
 }
 
+
+sde::install::is_git_clean()
+{
+   log_entry "sde::install::is_git_clean" "$@"
+
+   local directory="$1"
+
+   if [ ! -d "${directory}/.git" ]
+   then
+      return 0  # Not a git repo, consider it "clean"
+   fi
+
+   local clean
+
+   clean="`( cd "${directory}" && rexekutor git status -s --untracked-files=no )`"
+   [ -z "${clean}" ]
+}
+
 #
 # This method create a new custom project adds everything as dependencies
 # and installs all of them by setting DEPENDENCY_DIR to --prefix
@@ -193,6 +211,14 @@ Use -f flag to clobber."
       r_simplified_absolutepath "${url}" "${MULLE_EXECUTABLE_PWD}"
       if [ -d "${RVAL}" ]
       then
+         #
+         # Check if local git repository is clean
+         #
+         if ! sde::install::is_git_clean "${RVAL}"
+         then
+            log_warning "Local repository \"${RVAL}\" has uncommitted changes"
+         fi
+
          #
          # here we are building a local repository, so we'd prefer to
          # also use local repositories

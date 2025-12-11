@@ -183,8 +183,11 @@ sde::vibecoding::main()
    flag='YES'
    case $# in 
       0) 
-         sde::vibecoding::list
-         return
+         if [ "${cmd}" != 'sweatcoding' ]
+         then
+            sde::vibecoding::list
+            return
+         fi
       ;;
 
       1)

@@ -64,6 +64,7 @@ Options:
 
 Commands:
    cat    : show definition file contents, similiar to list
+   export : export definition as shell script to recreate it
    get    : get value of a definition
    keys   : get a list of known keys, unknown keys are possible too
    list   : list current definitions
@@ -641,6 +642,118 @@ sde::definition::cat()
 }
 
 
+sde::definition::export_definition_dir()
+{
+   log_entry "sde::definition::export_definition_dir" "$@"
+
+   local directory="$1"
+   local prefix="$2"
+
+   if [ ! -d "${directory}" ]
+   then
+      return
+   fi
+
+   MULLE_USAGE_NAME="mulle-sde" \
+   MULLE_USAGE_COMMAND="definition" \
+      exekutor "${MULLE_MAKE:-mulle-make}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                  "definition" \
+                     --definition-dir "${directory}" \
+                     "export" \
+                     --export-command "${prefix}"
+}
+
+
+sde::definition::export()
+{
+   log_entry "sde::definition::export" "$@"
+
+   local scope="$1"
+   local flags="$2"
+   local etcdir="$3"
+   local sharedir="$4"
+   local prefix="$5"
+
+   shift 5
+
+   local directory
+   local scopes
+
+   case "${scope}" in
+      ALL)
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
+         directory="${RVAL}"
+         if [ -d "${directory}" ]
+         then
+            printf "# Global scope\n"
+            sde::definition::export_definition_dir "${directory}" "${prefix}"
+            printf "\n"
+         fi
+
+         sde::definition::r_scopes "${etcdir}" "${sharedir}" "no-global"
+         scopes="${RVAL}"
+
+         local i
+
+         .foreachline i in ${scopes}
+         .do
+            sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${i}"
+            directory="${RVAL}"
+            if [ -d "${directory}" ]
+            then
+               printf "# Scope: %s\n" "${i}"
+               sde::definition::export_definition_dir "${directory}" "${prefix} --platform ${i}"
+               printf "\n"
+            fi
+         .done
+         return
+      ;;
+
+      DEFAULT)
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${MULLE_UNAME}"
+         directory="${RVAL}"
+         if [ -d "${directory}" ]
+         then
+            printf "# Platform-specific scope: %s\n" "${MULLE_UNAME}"
+            sde::definition::export_definition_dir "${directory}" "${prefix} --platform ${MULLE_UNAME}"
+            printf "\n"
+         fi
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
+         directory="${RVAL}"
+         if [ -d "${directory}" ]
+         then
+            printf "# Global scope\n"
+            sde::definition::export_definition_dir "${directory}" "${prefix}"
+            printf "\n"
+         fi
+      ;;
+
+      global)
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}"
+         directory="${RVAL}"
+         if [ -d "${directory}" ]
+         then
+            printf "# Global scope\n"
+            sde::definition::export_definition_dir "${directory}" "${prefix}"
+            printf "\n"
+         fi
+      ;;
+
+      *)
+         sde::definition::r_pick_dir "${etcdir}" "${sharedir}" ".${scope}"
+         directory="${RVAL}"
+         if [ -d "${directory}" ]
+         then
+            printf "# Scope: %s\n" "${scope}"
+            sde::definition::export_definition_dir "${directory}" "${prefix} --platform ${scope}"
+            printf "\n"
+         fi
+      ;;
+   esac
+}
+
+
 sde::definition::main()
 {
    log_entry "sde::definition::main" "$@"
@@ -758,6 +871,17 @@ sde::definition::main()
                                  "$@"
       ;;
 
+      export)
+         local prefix="mulle-sde definition"
+         
+         MULLE_FLAG_LOG_TERSE="${terse}" \
+            sde::definition::export "${scope}" \
+                                    "${flags}" \
+                                    "${OPTION_ETC_DEFINITION_DIR}" \
+                                    "${OPTION_SHARE_DEFINITION_DIR}" \
+                                    "${prefix}" \
+                                    "$@"
+      ;;
 
       cat|get|keys|list|remove|set|unset)
          MULLE_FLAG_LOG_TERSE="${terse}" \

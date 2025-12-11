@@ -443,6 +443,12 @@ sde::library::add_main()
                macos)
                   platform="${platform}"
                ;;
+
+            'platform'|'os')
+               [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+               shift
+               platform="$1"
+            ;;
             esac
 
             if ! find_line "${known_platforms}" "${platform}"
@@ -459,8 +465,14 @@ sde::library::add_main()
          --*)
             platform="${1:2}"
             case "${platform}" in
-               macos)
+               'macos')
                   platform="${platform}"
+               ;;
+
+               'platform'|'os')
+                  [ "$#" -eq 1 ] && sde::library::add_usage "Missing argument to \"$1\""
+                  shift
+                  platform="$1"
                ;;
             esac
 

@@ -3200,6 +3200,8 @@ sde::init::_run_reinit()
 {
    log_entry "sde::init::_run_reinit" "$@"
 
+   local new_project_type="$1"
+
    if [ ! -d "${MULLE_SDE_SHARE_DIR}" -a ! -d "${MULLE_SDE_SHARE_DIR}.old" ]
    then
       fail "\"${PWD}\" is not a mulle-sde project (${MULLE_SDE_SHARE_DIR} is missing)"
@@ -3207,7 +3209,7 @@ sde::init::_run_reinit()
 
    sde::init::read_project_environment
 
-   sde::init::_run_common "${PROJECT_NAME}" "${PROJECT_TYPE}"
+   sde::init::_run_common "${PROJECT_NAME}" "${new_project_type}"
 }
 
 
@@ -3414,6 +3416,8 @@ sde::init::run_reinit()
    # reinit, save the old
    log_entry "sde::init::run_reinit" "$@"
 
+   local new_project_type="$1"
+
    log_verbose "Reinit start"
 
    sde::init::check_dot_init
@@ -3424,7 +3428,7 @@ sde::init::run_reinit()
 
    local rval
    (
-      sde::init::_run_reinit
+      sde::init::_run_reinit "${new_project_type}"
    )
    rval="$?"
 
@@ -4239,16 +4243,21 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
                   sde::init::run_upgrade_projectfile "$@" || exit $?
                fi
             else
+               if [ $# -ne 0 ]
+               then
+                  PROJECT_TYPE="$1"
+                  shift
+               fi
+
+               if [ $# -ne 0 ]
+               then
+                  fail "Superflous arguments \"$*\""
+               fi
 
                if [ "${OPTION_REINIT}" = 'YES' ]
                then
-                  sde::init::run_reinit || exit $?
+                  sde::init::run_reinit "${PROJECT_TYPE}" || exit $?
                else
-                  if [ $# -ne 0 ]
-                  then
-                     PROJECT_TYPE="$1"
-                     shift
-                  fi
                   sde::init::run "${PROJECT_NAME}" "${PROJECT_TYPE}" || exit $?
                fi
             fi
