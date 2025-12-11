@@ -1,0 +1,180 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   #
+   # Create a test project with a craftinfo
+   #
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable || exit 1
+
+   [ ! -d "${directory}/.mulle" ] && fail ".mulle directory failed"
+
+   #
+   # Create a craftinfo directory structure manually
+   #
+   (
+      cd "${directory}" || exit 1
+      
+      mkdir -p "craftinfo/test-craftinfo/definition/set" || exit 1
+      mkdir -p "craftinfo/test-craftinfo/bin" || exit 1
+      
+      # Add some definition files
+      echo "mulle-clang" > "craftinfo/test-craftinfo/definition/set/CC" || exit 1
+      echo "-O2 -Wall" > "craftinfo/test-craftinfo/definition/set/CFLAGS" || exit 1
+      
+      # Add a CMakeLists.txt
+      cat > "craftinfo/test-craftinfo/CMakeLists.txt" <<'EOF'
+cmake_minimum_required( VERSION 3.15)
+project( test-craftinfo NONE)
+EOF
+      
+      # Add a README
+      cat > "craftinfo/test-craftinfo/README.md" <<'EOF'
+# Test Craftinfo
+
+This is a test craftinfo for export testing.
+EOF
+      
+      # Add a LICENSE
+      cat > "craftinfo/test-craftinfo/LICENSE" <<'EOF'
+MIT License
+Copyright (c) 2024 Test
+EOF
+      
+      # Add an executable script
+      cat > "craftinfo/test-craftinfo/bin/build.sh" <<'EOF'
+#!/bin/bash
+echo "Building..."
+EOF
+      chmod +x "craftinfo/test-craftinfo/bin/build.sh" || exit 1
+      
+   ) || exit 1
+
+   log_verbose "----- #1 Setup PASSED -----"
+
+   #
+   # Export craftinfo to a script
+   #
+   (
+      cd "${directory}" || exit 1
+      run_mulle_sde craftinfo export test > "${directory}/export.sh" || exit 1
+   ) || exit 1
+
+   [ ! -f "${directory}/export.sh" ] && fail "export.sh not created"
+
+   log_verbose "----- #2 Export PASSED -----"
+
+   #
+   # Verify export contains definition commands
+   #
+   if ! grep -q "mulle-sde craftinfo.*set.*CC.*mulle-clang" "${directory}/export.sh"
+   then
+      fail "Export does not contain CC definition command"
+   fi
+
+   if ! grep -q "mulle-sde craftinfo.*set.*CFLAGS" "${directory}/export.sh"
+   then
+      fail "Export does not contain CFLAGS definition command"
+   fi
+
+   log_verbose "----- #3 Definition Commands PASSED -----"
+
+   #
+   # Verify export contains CMakeLists.txt
+   #
+   if ! grep -q "cmake_minimum_required" "${directory}/export.sh"
+   then
+      fail "Export does not contain CMakeLists.txt content"
+   fi
+
+   log_verbose "----- #4 CMakeLists.txt PASSED -----"
+
+   #
+   # Verify export contains README.md
+   #
+   if ! grep -q "Test Craftinfo" "${directory}/export.sh"
+   then
+      fail "Export does not contain README.md content"
+   fi
+
+   log_verbose "----- #5 README.md PASSED -----"
+
+   #
+   # Verify export contains LICENSE
+   #
+   if ! grep -q "MIT License" "${directory}/export.sh"
+   then
+      fail "Export does not contain LICENSE content"
+   fi
+
+   log_verbose "----- #6 LICENSE PASSED -----"
+
+   #
+   # Verify export contains executable script
+   #
+   if ! grep -q "bin/build.sh" "${directory}/export.sh"
+   then
+      fail "Export does not contain bin/build.sh"
+   fi
+
+   if ! grep -q "chmod 755.*bin/build.sh" "${directory}/export.sh"
+   then
+      fail "Export does not chmod the script"
+   fi
+
+   log_verbose "----- #7 Script Export PASSED -----"
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "file" || exit 1
+
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

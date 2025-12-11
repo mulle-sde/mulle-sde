@@ -1,0 +1,200 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local original
+   local mirror
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   original="${directory}/original"
+   mirror="${directory}/mirror"
+
+   #
+   # Create a test project with some definitions
+   #
+   run_mulle_sde -s init -d "${original}" -m mulle-sde/c-developer executable || exit 1
+
+   [ ! -d "${original}/.mulle" ] && fail ".mulle directory failed"
+
+   #
+   # Set some definitions with different scopes
+   #
+   (
+      cd "${original}" || exit 1
+      
+      # Global definition
+      run_mulle_sde definition set CC "mulle-clang" || exit 1
+      run_mulle_sde definition set CFLAGS "-O2" || exit 1
+      
+      # Platform-specific definition
+      run_mulle_sde definition --platform linux set LDFLAGS "-lpthread" || exit 1
+      
+   ) || exit 1
+
+   log_verbose "----- #1 Setup PASSED -----"
+
+   #
+   # Export definitions to a script
+   #
+   (
+      cd "${original}" || exit 1
+      run_mulle_sde definition export --all > "${directory}/export.sh" || exit 1
+   ) || exit 1
+
+   [ ! -f "${directory}/export.sh" ] && fail "export.sh not created"
+
+   log_verbose "----- #2 Export PASSED -----"
+
+   #
+   # Create mirror project and import definitions
+   #
+   run_mulle_sde -s init -d "${mirror}" -m mulle-sde/c-developer executable || exit 1
+
+   (
+      cd "${mirror}" || exit 1
+      # Execute the commands from the export script
+      bash "${directory}/export.sh" || exit 1
+   ) || exit 1
+
+   log_verbose "----- #3 Import PASSED -----"
+
+   #
+   # Compare the definition directories
+   #
+   local original_def_base="${original}/.mulle/etc/craft/definition"
+   local mirror_def_base="${mirror}/.mulle/etc/craft/definition"
+   local original_def
+   local mirror_def
+
+   # Check what form the original definitions take
+   if [ -d "${original_def_base}.${MULLE_UNAME}" ]
+   then
+      # Platform-specific in etc
+      original_def="${original_def_base}.${MULLE_UNAME}"
+      mirror_def="${mirror_def_base}.${MULLE_UNAME}"
+   elif [ -d "${original_def_base}" ]
+   then
+      # Global in etc
+      original_def="${original_def_base}"
+      mirror_def="${mirror_def_base}"
+   elif [ -d "${original}/.mulle/share/craft/definition.${MULLE_UNAME}" ]
+   then
+      # Platform-specific in share
+      original_def="${original}/.mulle/share/craft/definition.${MULLE_UNAME}"
+      mirror_def="${mirror_def_base}.${MULLE_UNAME}"
+   elif [ -d "${original}/.mulle/share/craft/definition" ]
+   then
+      # Global in share
+      original_def="${original}/.mulle/share/craft/definition"
+      mirror_def="${mirror_def_base}"
+   else
+      fail "Could not find original definition directory"
+   fi
+
+   if [ ! -d "${mirror_def}" ]
+   then
+      fail "Mirror definition directory not created (looked in ${mirror_def})"
+   fi
+
+   # Compare all definition files recursively
+   local diff_output
+
+   diff_output="`diff -r "${original_def}" "${mirror_def}" 2>&1`"
+   case $? in
+      0)
+         log_verbose "Definitions match"
+      ;;
+
+      1)
+         fail "Definition directories differ:
+${diff_output}"
+      ;;
+
+      *)
+         fail "diff failed"
+      ;;
+   esac
+
+   log_verbose "----- #4 Comparison PASSED -----"
+
+   #
+   # Test platform-specific export
+   #
+   if [ -d "${original_def}.linux" ]
+   then
+      if [ ! -d "${mirror_def}.linux" ]
+      then
+         fail "Mirror linux definition directory not created"
+      fi
+
+      diff_output="`diff -r "${original_def}.linux" "${mirror_def}.linux" 2>&1`"
+      case $? in
+         0)
+            log_verbose "Linux definitions match"
+         ;;
+
+         1)
+            fail "Linux definition directories differ:
+${diff_output}"
+         ;;
+
+         *)
+            fail "diff failed"
+         ;;
+      esac
+
+      log_verbose "----- #5 Platform-specific PASSED -----"
+   fi
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+
+   . "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" "file" || exit 1
+
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
