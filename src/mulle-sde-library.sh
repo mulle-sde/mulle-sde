@@ -168,15 +168,28 @@ sde::library::list_usage()
 Usage:
    ${MULLE_USAGE_NAME} library list [options]
 
-   List libraries of this project.
+   List the libraries of this project in (quasi) JSON format.
+   Use \`${MULLE_USAGE_NAME} library list --eval\` to expand value variables.
 
-   Use \`mulle-sde library list -- --output-format cmd\` for copying
+   Use \`${MULLE_USAGE_NAME} library list -c\` for less detail and
+   columnar output.
+
+   Use \`${MULLE_USAGE_NAME} library list -- --output-format cmd\` for copying
    single entries between projects.
 
 Options:
-   -c       : use columnar output
-   --json   : output in JSON format (default)
-   --       : pass remaining arguments to mulle-sourcetree list
+   -c               : columnar output (overwrites other flags)
+   -l               : columnar output with more information
+   -ll              : columnar output full information
+   -m               : columnar show marks output (overwrites other flags)
+   -r               : columnar recursive list
+   -g               : columnar output branch/tag information (use -G for raw)
+   -u               : columnar output URL information  (use -U for raw output)
+   --eval           : expand variables in JSON format
+   --json           : output true JSON format, precludes other flags (default)
+   --no-mark <mark> : remove mark from columnar output
+   --raw            : output raw JSON format
+   --               : pass remaining arguments to mulle-sourcetree list
 
 EOF
   exit 1
@@ -696,7 +709,8 @@ sde::library::list_main()
    local qualifier
    local OPTIONS
    local formatstring
-   local OPTION_JSON
+   local OPTION_JSON='DEFAULT'
+   local JSON_ARGS
 
    formatstring="%v={NODE_INDEX,#,-};%a;%s;%i={aliases,,-------};%i={include,,-------}"
    # with supermarks we don't filter stuff out anymore a priori
@@ -709,7 +723,39 @@ sde::library::list_main()
             sde::library::list_usage
          ;;
 
+         -c|--columnar|--no-json)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
+         ;;
+
+         --expand|--eval)
+            r_concat_unique "${JSON_ARGS}" '--expand'
+            JSON_ARGS="${RVAL}"
+         ;;
+
+         --json)
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't set $1 as previous options disabled JSON"
+            OPTION_JSON='YES'
+         ;;
+
+         --raw)
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't set $1 as previous options disabled JSON"
+
+            r_concat_unique "${JSON_ARGS}" '--raw'
+            JSON_ARGS="${RVAL}"
+         ;;
+
+         --json-raw|--raw-json)
+            [ "${OPTION_JSON}" = 'NO' ] && fail "You can't set $1 as previous options disabled JSON"
+            OPTION_JSON='YES'
+
+            r_concat_unique "${JSON_ARGS}" '--raw'
+            JSON_ARGS="${RVAL}"
+         ;;
+
          -m)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             formatstring="%v={NODE_INDEX,#,-};%a;%m;%i={aliases,,-------};%i={include,,-------}"
          ;;
 
@@ -725,19 +771,19 @@ sde::library::list_main()
             [ "$#" -eq 1 ] && sde::library::list_usage "Missing argument to \"$1\""
             shift
 
-            qualifier="${RVAL}"
+            qualifier="$1"
          ;;
 
          -l|-ll|-r|-g|-u|-G|-U)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             r_concat "${OPTIONS}" "$1"
             OPTIONS="${RVAL}"
          ;;
 
-         --json)
-            OPTION_JSON='YES'
-         ;;
-
          --)
+            [ "${OPTION_JSON}" = 'YES' ] && fail "You can't mix --json with \"$1\""
+            OPTION_JSON='NO'
             # pass rest to mulle-sourcetree
             shift
             break
@@ -755,20 +801,24 @@ sde::library::list_main()
       shift
    done
 
-   log_fluff "Just pass through to mulle-sourcetree"
-
-   if [ "${OPTION_JSON}" = 'YES' ]
+   if [ "${OPTION_JSON}" != 'NO' ]
    then
-      rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                  --virtual-root \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                   --silent-but-warn \
-               json \
-                  --marks "${LIBRARY_LIST_MARKS}" \
-                  --nodetypes "${LIBRARY_LIST_NODETYPES}" \
-                  --qualifier "${qualifier}" \
-               "$@"
-      return $?
+      local text
+
+      if ! text="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root \
+               ${MULLE_TECHNICAL_FLAGS} \
+                --silent-but-warn \
+            json \
+               --marks "${LIBRARY_LIST_MARKS}" \
+               --nodetypes "${LIBRARY_LIST_NODETYPES}" \
+               --qualifier "${qualifier}" \
+               ${JSON_ARGS} | sde::common::json_filter "${OPTION_JSON}" `"
+      then
+         return $?
+      fi
+      sde::common::pretty_filtered_json "${text}"
+      return
    fi
 
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \

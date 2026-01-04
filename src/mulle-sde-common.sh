@@ -720,3 +720,53 @@ sde::common::export_sourcetree_node()
       printf "mulle-sde ${type} set '${_address}' '${field}' '${RVAL}'\n"
    .done
 }
+
+
+sde::common::json_filter()
+{
+   local mode="$1"
+
+   # in default mode we use ' for easier copy/paste into sde env set
+   # remove address and make it a "banner"
+   case "${mode}" in
+      DEFAULT)
+         tr '"' $'\'' \
+         | cut -c 7- \
+         | sed -e '1,2d' \
+               -e '/^$/N;/\n$/D' \
+               -e "s/'\([a-z0-9A-Z_]*\)': /\1:/" \
+               -e "s/,\$//" \
+         | sed -e "/^address:/s/^address:[^']*'\\([^']*\\)'.*/\\1/;t next" \
+               -e "s/^\([a-z]\)/   \1/" \
+               -e ":next"
+      ;;
+
+      *)
+         cat
+      ;;
+   esac
+}
+
+
+sde::common::pretty_filtered_json()
+{
+   log_entry "sde::common::pretty_filtered_json" "$@"
+
+   local text="$1"
+   local sep 
+
+   sep=""
+   .foreachline line in ${text}
+   .do
+      case "${line}" in
+         '   '*)
+            printf "%s\n" "${line}"
+         ;;
+
+         *)
+            printf "%s${C_CYAN}${C_BOLD}%s${C_RESET}\n" "${sep}" "${line}"
+            sep=$'\n'
+         ;;
+      esac
+   .done
+}
