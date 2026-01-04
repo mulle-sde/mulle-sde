@@ -88,8 +88,8 @@ Usage:
 Options:
    --                   : pass remaining options as arguments
    -e                   : run executable outside of the mulle-sde environment.
-   -b                   : run executable in the background, ignore timeout (&)
-   -t <s>               : run executable but stop after 's' seconds
+   --background         : run executable in the background, ignore timeout (&)
+   --timeout <s>        : run executable but stop after 's' seconds
    --mulleui-frames <n> : run mulleui executable for <n> frames from start (0)
    --mulleui-trace <nr> : trace drawing calls starting at frame <nr>
 

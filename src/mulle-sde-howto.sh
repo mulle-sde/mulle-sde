@@ -267,6 +267,8 @@ sde::howto::r_collect_howtos()
    local keywords_str
    local use_etc='NO'
    local global_use_etc='NO'
+
+   shell_enable_nullglob
    
    # Collect from global ~/.mulle/etc/howto (global user overrides)
    log_debug "Checking ~/.mulle/etc/howto"
@@ -481,6 +483,7 @@ sde::howto::r_collect_howtos()
    else
       log_debug "assets/howto does not exist"
    fi
+
    
    # Collect from dependencies
    log_debug "Getting dependency-dir"
@@ -551,6 +554,8 @@ sde::howto::r_collect_howtos()
    else
       log_debug "No dependency_dir or doesn't exist"
    fi
+
+   shell_disable_nullglob
    
    log_debug "Total count: ${count}"
    log_debug "Collected howtos: ${howtos}"
@@ -650,7 +655,7 @@ sde::howto::list()
       echo "⚠️⚠️⚠️  IMPORTANT: Subdirectories have their own howtos! ⚠️⚠️⚠️"
       echo ""
       echo "The above list is ONLY for '${pwd_basename}' directory."
-      echo "If your problem is in one of these subdirectories, you MUST cd there first:"
+      echo "If your problem is in a subdirectory, cd there first:"
       echo ""
       local hint_dir
       .foreachitem hint_dir in ${subdir_hints}
@@ -659,6 +664,7 @@ sde::howto::list()
       .done
       echo ""
       echo "🔴 Don't waste time looking at wrong howtos!"
+      echo "Use parent directory howtos only as a fallback."
       echo ""
    fi
    

@@ -470,7 +470,7 @@ sde::clean::demo()
 {
    log_entry "sde::clean::demo" "$@"
 
-   if [ -d 'demo' ]
+   if [ -d 'demo/.mulle/share/sde' ]
    then
    (
       log_verbose "Cleaning demo"
@@ -488,7 +488,7 @@ sde::clean::demoall()
 {
    log_entry "sde::clean::demoall" "$@"
 
-   if [ -d 'demo' ]
+   if [ -d 'demo/.mulle/share/sde' ]
    then
    (
       log_verbose "Cleaning all demo"
@@ -506,7 +506,7 @@ sde::clean::demotidy()
 {
    log_entry "sde::clean::demotidy" "$@"
 
-   if [ -d 'demo' ]
+   if [ -d 'demo/.mulle/share/sde' ]
    then
    (
       log_verbose "Cleaning tidy demo"
@@ -524,7 +524,7 @@ sde::clean::demogravetidy()
 {
    log_entry "sde::clean::demogravetidy" "$@"
 
-   if [ -d 'demo' ]
+   if [ -d 'demo/.mulle/share/sde' ]
    then
    (
       log_verbose "Cleaning gravetidy demo"
@@ -551,14 +551,10 @@ sde::clean::test()
 
    .foreachpath testdir in ${testdirs}
    .do
-      if [ -d "${testdir}" ]
+      if [ -d "${testdir}/.mulle/share/test" ] || [ -d "${testdir}/.mulle/share/sde" ]
       then
-         # Check if it's a valid mulle-test project
-         if [ -d "${testdir}/.mulle/share/test" ] || [ -d "${testdir}/.mulle/share/sde" ]
-         then
-            found='YES'
-            .break
-         fi
+         found='YES'
+         .break
       fi
    .done
 

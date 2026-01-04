@@ -66,15 +66,19 @@ sde::init::usage()
 
    cat <<EOF >&2
 Usage:
-   ${INIT_USAGE_NAME} [options] [type]
+   ${INIT_USAGE_NAME} [options] <type>
 
-   Initializes a mulle-sde project in the current directory. This will create a
-   ".mulle" folder if no 'type' is given and nothing else. Or choose a
-   directory to create and install into with the '-d' option.
+   Initializes a mulle-sde project. Choose a directory to create and install
+   into with the '-d' option. Or use the current directory without specifing
+   '-d' option. AI MUST USE THE -d OPTION. Use -d . for current directory.
+
+   You should specify a <type>.
 
    If you choose a 'type' like "library" or "executable", you would typically
    also specifiy a meta-extension with the -m option to set the desired project
    language and build system.
+   If you chose 'none' ${INIT_USAGE_NAME} will create a ".mulle" folder and
+   nothing else.
 
    Extensions are plugins that contain scripts and files to setup the project.
    A meta-extension combines multiple extensions.
@@ -2820,6 +2824,7 @@ sde::init::validate_projecttype()
 
             rexekutor mudo -f mulle-menu --title "Choose language and library set:" \
                                          --final-title "" \
+                                         --timeout 10 \
                                          --options "${options}"
             row=$?
             r_line_at_index "${options}" "${row}"
@@ -3129,6 +3134,7 @@ sde::init::_run_common()
 
       rexekutor mudo -f mulle-menu --title "Choose a project type:" \
                                    --final-title "" \
+                                   --timeout 10 \
                                    "executable" \
                                    "library" \
                                    "none (choose for existing projects)"
@@ -3645,6 +3651,7 @@ sde::init::include()
 }
 
 
+
 ###
 ### parameters and environment variables
 ###
@@ -4110,6 +4117,12 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
 
+   if [ "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_ADD}" != 'YES' ]
+   then
+      printf "%s\n" "🚨 AI MUST NOT proceed with any mulle-sde operations before reading \`mulle-sde help\` 🚨"
+      printf "%s\n" "🤖 AI MUST read AGENTS.md if present after init 🤖"
+   fi
+
    local create_dir
 
    create_dir='NO'
@@ -4120,18 +4133,21 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
       if [ -z "${OPTION_DIRECTORY}" ]
       then
-         local input
+         local seconds
 
-         printf "If you specify a project name, a new project will be created in \"${PWD#${MULLE_USER_PWD}/}/<project name>\"\n"
-         printf "or leave empty to initialize for the existing directory \"${PWD#${MULLE_USER_PWD}/}\"\n"
-         printf "Project name > "
-         read -r input
+         # AI needs a timeout to not get stuck and reading input for a project name would be sticky again
+         log_info "You did not specify a project name with ${C_RESET_BOLD}-d <projectname>${C_INFO}"
+         log_info "So mulle-sde will initialize the current directory."
+         log_warning "If you don't want your project in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_WARNING}, you have 10s timeout to hit CTRL-C and bail out."
+         seconds=10
 
-         if [ ! -z "${input}" ]
-         then
-            PROJECT_NAME="${input}"
-            OPTION_DIRECTORY="${input}"
-         fi
+         while (( seconds > 0 ))
+         do
+             printf "." >&2
+             (( seconds = seconds - 1 ))
+             sleep 1
+         done
+         printf "\n" >&2
       fi
    fi
 
@@ -4311,6 +4327,11 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
                         ${MULLE_TECHNICAL_FLAGS} \
                         -N \
                      reflect || exit $?
+         fi
+
+         if [ -f AGENTS.md ]
+         then
+            log_info "There is an ${C_RESET_BOLD}AGENTS.md${C_INFO} in the project."
          fi
       )
       fi

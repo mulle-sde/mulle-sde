@@ -78,16 +78,25 @@ fi
 #
 
 # build up from the back
+# use strace to figure out what a binary needs
+if [ "${MULLE_SDE_SANDBOX_STRACE}" = 'YES' ]
+then
+   set -- '--' strace "$@"
+else
+   set -- '--' "$@"
+fi
 
-set -- '--' "$@"
 set -- -rx /usr \
        -rx /bin \
        -rx /etc \
+       -rx /lib \
+       -rx /lib64 \
        -rx /opt \
        -rw /proc \
        -rx /sbin \
        -rx "${home}/bin" \
        -rx "${home}/.mulle/bin" \
+       -rx "${home}/.local/bin" \
        -crw /dev \
        -crwx /var \
        -crwx /tmp \
@@ -149,6 +158,5 @@ if [ -d "${MULLE_SDE_SANDBOX_SRC_DIR}" ]
 then
    set -- -crwx "${MULLE_SDE_SANDBOX_SRC_DIR}" "$@"
 fi
-
 
 MULLE_SDE_SANDBOX_RUNNING='YES' lljail "$@"

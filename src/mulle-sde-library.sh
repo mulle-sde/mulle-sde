@@ -251,7 +251,7 @@ ${C_RESET_BOLD}   mulle-sde library set ${libname} include ${libname#lib}/${libn
 
    sde::common::_set_userinfo_field "${libname}" \
                                       'include' \
-                                      "<${libname}/${libname}.h>" \
+                                      "${libname}/${libname}.h" \
                                       'NO'
 }
 

@@ -432,6 +432,7 @@ sde::debug::main()
          ;;
 
          --select|--reselect)
+            [ "${MULLE_VIBECODING}" = 'YES' ] && fail "$1 not available with ${C_RESET_BOLD}vibecoding${C_ERROR} enabled"
             OPTION_SELECT='YES'
          ;;
 

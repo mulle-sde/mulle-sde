@@ -963,6 +963,7 @@ lib|pat|sub|unveil|view|vibecoding)
    log_setting "MULLE_SDE_VAR_DIR     = \"${MULLE_SDE_VAR_DIR}\""
    log_setting "MULLE_SDE_ETC_DIR     = \"${MULLE_SDE_ETC_DIR}\""
    log_setting "MULLE_SDE_SHARE_DIR   = \"${MULLE_SDE_SHARE_DIR}\""
+   log_setting "MULLE_VIBECODING      = ${MULLE_VIBECODING:-NO}"
 
    case "${cmd}" in
       *-open)
@@ -1323,6 +1324,7 @@ EOF
       ;;
 
       'edit')
+         [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ] && fail "${cmd} not available with ${C_RESET_BOLD}vibecoding${C_ERROR} enabled"
          # shellcheck source=src/mulle-sde-edit.sh
          include "sde::edit"
 
@@ -1330,6 +1332,8 @@ EOF
       ;;
 
       'editor')
+         [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ] && fail "${cmd} not available with ${C_RESET_BOLD}vibecoding${C_ERROR} enabled"
+
          local editors
          local row
 
@@ -1855,6 +1859,10 @@ tool        - available binaries in mulle-sde subshell"
          # shellcheck source=src/mulle-sde-test.sh
          include "sde::test"
 
+         if [ "${cmd}" = 'retest' ]
+         then
+            set -- retest "$@"
+         fi
          sde::test::main "$@"
       ;;
 

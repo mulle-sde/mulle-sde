@@ -811,7 +811,38 @@ sde::test::r_validate_test_run_paths()
 
       if [ ! -e "${filename}" ]
       then
-         fail "Could not find test file \"${filename}\" ($PWD)"
+         # Try adding extensions from PROJECT_EXTENSIONS before failing
+         local ext
+         local extensions="${PROJECT_EXTENSIONS:-c}"
+         local found='NO'
+         
+         case "${extensions}" in
+            *:*)
+               # Handle colon-separated extensions
+               local IFS=':'
+               for ext in ${extensions}
+               do
+                  if [ -e "${filename}.${ext}" ]
+                  then
+                     found='YES'
+                     break
+                  fi
+               done
+            ;;
+            
+            *)
+               # Single extension
+               if [ -e "${filename}.${extensions}" ]
+               then
+                  found='YES'
+               fi
+            ;;
+         esac
+         
+         if [ "${found}" = 'NO' ]
+         then
+            fail "Could not find test file \"${filename}\" ($PWD)"
+         fi
       fi
 
       test_dir=$(sde::test::get_test_dir "${filename}")

@@ -161,15 +161,31 @@ sde::api::r_collect_apis()
 sde::api::list()
 {
    log_entry "sde::api::list" "$@"
+
+   local count
    
    sde::api::r_collect_apis 'YES'
-   local count=$?
+   count=$?  # up to 126..
    
-   if [ ${count} -eq 0 ]
+   if [ ${count} -ne 0 ]
+   then
+      return 0
+   fi
+
+   if [ "${MULLE_VIBECODING}" != 'YES' ]
    then
       log_info "No API documentation found (dependencies not yet crafted?)"
       return 1
    fi
+
+   rexekutor mulle-sde craft craftorder || fail "Could not build dependencies yet, so no APIs available"
+   sde::api::r_collect_apis 'YES'
+   if [ ${count} -ne 0 ]
+   then
+      return 0
+   fi
+
+   log_info "No API documentation available for dependencies"
    
    return 0
 }

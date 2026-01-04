@@ -495,10 +495,11 @@ sde::common::update_git_if_needed()
       return
    fi
 
+   # use an AI timeout of 10s
    log_info "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
    (
       exekutor cd "${directory}" \
-      && exekutor git pull \
+      && exekutor mulle-timeout 10 git pull \
       && exekutor touch "${git_dir}"
    )
 }
