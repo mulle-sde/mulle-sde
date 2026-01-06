@@ -42,28 +42,8 @@ sde::howto::usage()
 Usage:
    ${MULLE_USAGE_NAME} howto [cmd]
 
-   Show HOWTOs for developent topics. AI friendy!
-
-   ⚠️⚠️⚠️  STOP! READ THIS FIRST! ⚠️⚠️⚠️
-   
-   HOWTOS ARE CONTEXT-SPECIFIC TO YOUR CURRENT DIRECTORY!
-   
-   🚫 WRONG: Running 'mulle-sde howto' from project root when problem is in test/
-   ✅ RIGHT: cd to the directory where your problem is, THEN run 'mulle-sde howto list'
-   
-   Directory-specific howtos:
-   📁 Project root:  General project howtos
-   🧪 test/:         Test-specific howtos (leak debugging, test fixtures, etc.)
-   🎯 demo/:         Demo-specific howtos (if exists)
-
-   🔴 MANDATORY: Before running ANY howto command, ask yourself:
-      "Am I in the right directory for my problem?"
-      
-   💡 Problem with TESTS? → cd test/ FIRST, then: mulle-sde howto list
-   💡 Problem with DEMOS? → cd demo/ FIRST, then: mulle-sde howto list
-   💡 General problem?    → Stay in root, then: mulle-sde howto list
-
-   NOTE: HOWTOs for dependencies appear only after successful craft.
+   Show HOWTOs for developent topics. AI friendly! HOWTOs for dependencies
+   appear only after a successful \`mulle-sde craft\`.
 
    See also: mulle-sde api for API docs
 
@@ -444,6 +424,7 @@ sde::howto::r_collect_howtos()
    
    # Collect from assets/howto/ (local project)
    log_debug "Checking assets/howto"
+   local seen_basenames=""
    if [ -d "assets/howto" ]
    then
       log_debug "Found assets/howto"
@@ -452,15 +433,18 @@ sde::howto::r_collect_howtos()
          log_debug "Checking file: ${howto}"
          if [ -f "${howto}" ]
          then
+            # Track basename for deduplication
+            r_basename "${howto}"
+            r_extensionless_basename "${RVAL}"
+            name="${RVAL}"
+            r_add_line "${seen_basenames}" "${name}"
+            seen_basenames="${RVAL}"
+
             count=$((count + 1))
             log_debug "File exists, count=${count}"
-            
+
             if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
             then
-               r_basename "${howto}"
-               r_extensionless_basename "${RVAL}"
-               name="${RVAL}"
-               
                if [ "${show_keywords}" = 'YES' ]
                then
                   sde::howto::r_extract_keywords "${howto}"
@@ -483,6 +467,81 @@ sde::howto::r_collect_howtos()
    else
       log_debug "assets/howto does not exist"
    fi
+
+   # Build seen_basenames from all collected howtos so far
+   local howto
+   .foreachpath howto in ${howtos}
+   .do
+      r_basename "${howto}"
+      r_extensionless_basename "${RVAL}"
+      local basename="${RVAL}"
+      if ! find_line "${seen_basenames}" "${basename}"
+      then
+         r_add_line "${seen_basenames}" "${basename}"
+         seen_basenames="${RVAL}"
+      fi
+   .done
+
+   # Collect from subdirectories (demo, test, and MULLE_SDE_TEST_PATH)
+   log_debug "Checking subdirectories for howtos"
+   local subdirs="demo:test"
+   if [ ! -z "${MULLE_SDE_TEST_PATH}" ]
+   then
+      r_colon_concat "${subdirs}" "${MULLE_SDE_TEST_PATH}"
+      subdirs="${RVAL}"
+   fi
+
+   local subdir
+   .foreachpath subdir in ${subdirs}
+   .do
+      log_debug "Checking subdir: ${subdir}"
+      if [ -d "${subdir}" ]
+      then
+         log_debug "Found ${subdir}"
+         for howto in "${subdir}"/.mulle/share/howto/*.md "${subdir}"/.mulle/etc/howto/*.md
+         do
+            log_debug "Checking file: ${howto}"
+            if [ -f "${howto}" ]
+            then
+               r_basename "${howto}"
+               r_extensionless_basename "${RVAL}"
+               local basename="${RVAL}"
+
+               # Skip if we already have this basename
+               if ! find_line "${seen_basenames}" "${basename}"
+               then
+                  count=$((count + 1))
+                  log_debug "File exists, count=${count}"
+                  r_add_line "${seen_basenames}" "${basename}"
+                  seen_basenames="${RVAL}"
+
+                  if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
+                  then
+                     r_basename "${subdir}"
+                     local subdir_name="${RVAL}"
+
+                     if [ "${show_keywords}" = 'YES' ]
+                     then
+                        sde::howto::r_extract_keywords "${howto}"
+                        keywords_str="${RVAL}"
+                        if [ ! -z "${keywords_str}" ]
+                        then
+                           printf "%2d. %-30s [%s]\n" "${count}" "${subdir_name}/${basename}" "${keywords_str}"
+                        else
+                           printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
+                        fi
+                     else
+                        printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
+                     fi
+                  fi
+
+                  r_colon_concat "${howtos}" "${howto}"
+                  howtos="${RVAL}"
+               fi
+            fi
+         done
+      fi
+   .done
 
    
    # Collect from dependencies
@@ -560,7 +619,17 @@ sde::howto::r_collect_howtos()
    log_debug "Total count: ${count}"
    log_debug "Collected howtos: ${howtos}"
    
-   RVAL="${howtos}"
+   # Sort howtos for consistent ordering
+   local sorted_howtos
+   if [ ! -z "${howtos}" ]
+   then
+      # Convert colon-separated to newline-separated, sort, then back to colon-separated
+      sorted_howtos="$(echo "${howtos}" | tr ':' '\n' | sort | tr '\n' ':')"
+      # Remove trailing colon
+      sorted_howtos="${sorted_howtos%:}"
+   fi
+   
+   RVAL="${sorted_howtos}"
    return ${count}
 }
 
@@ -600,8 +669,7 @@ sde::howto::list()
    r_basename "${PWD}"
    pwd_basename="${RVAL}"
    
-   echo "📂 Showing howtos for directory: ${pwd_basename}"
-   echo ""
+   log_info "Howtos"
    
    # as we are not immediately running in a subshell
    # DEPENDENCY_DIR might not be available though, so that's not an error
@@ -625,48 +693,13 @@ sde::howto::list()
    
    if [ ${count} -eq 0 ]
    then
-      if [ -z "${keyword}" ]
+      if [ ! -z "${keyword}" ]
       then
-         log_info "No howto files found"
-      else
-         log_info "No howto files found matching '${keyword}'"
+         fail "No howto files found matching '${keyword}'"
       fi
-      return 1
+      log_info "No howto files found"
    fi
-   
-   echo ""
-   
-   # Check for subdirectories that might have their own howtos
-   local subdir_hints=""
-   local dir
-   
-   for dir in test demo example tests demos examples
-   do
-      if [ -d "${dir}" ]
-      then
-         r_concat "${subdir_hints}" "${dir}"
-         subdir_hints="${RVAL}"
-      fi
-   done
-   
-   if [ ! -z "${subdir_hints}" ]
-   then
-      echo ""
-      echo "⚠️⚠️⚠️  IMPORTANT: Subdirectories have their own howtos! ⚠️⚠️⚠️"
-      echo ""
-      echo "The above list is ONLY for '${pwd_basename}' directory."
-      echo "If your problem is in a subdirectory, cd there first:"
-      echo ""
-      local hint_dir
-      .foreachitem hint_dir in ${subdir_hints}
-      .do
-         echo "   ➜  cd ${hint_dir}/ && mulle-sde howto list"
-      .done
-      echo ""
-      echo "🔴 Don't waste time looking at wrong howtos!"
-      echo "Use parent directory howtos only as a fallback."
-      echo ""
-   fi
+
    
    return 0
 }
@@ -928,39 +961,69 @@ sde::howto::show()
       
       *)
          # It's a filename - try exact match first, then fuzzy match
-         .foreachpath howto in ${howtos}
-         .do
-            r_basename "${howto}"
-            r_extensionless_basename "${RVAL}"
-            local name="${RVAL}"
+         # Check if it's in subdir/name format
+         case "${identifier}" in
+            */*)
+               # Has slash - look for specific subdir/name
+               local subdir_part="${identifier%/*}"
+               local name_part="${identifier#*/}"
+
+               .foreachpath howto in ${howtos}
+               .do
+                  # Check if this howto is from the specified subdir and has the right name
+                  if [[ "${howto}" == "${subdir_part}/"* ]]
+                  then
+                     r_basename "${howto}"
+                     r_extensionless_basename "${RVAL}"
+                     local name="${RVAL}"
+
+                     if [ "${name}" = "${name_part}" ]
+                     then
+                        rexekutor grep -v '^<!--' "${howto}"
+                        found='YES'
+                        .break
+                     fi
+                  fi
+               .done
+            ;;
             
-            # Try exact match first
-            if [ "${name}" = "${identifier}" ]
-            then
-               rexekutor grep -v '^<!--' "${howto}"
-               found='YES'
-               .break
-            fi
-         .done
-         
-         # If no exact match, try fuzzy match (substring)
-         if [ "${found}" = 'NO' ]
-         then
-            .foreachpath howto in ${howtos}
-            .do
-               r_basename "${howto}"
-               r_extensionless_basename "${RVAL}"
-               local name="${RVAL}"
+            *)
+               # No slash - try exact match on basename first
+               .foreachpath howto in ${howtos}
+               .do
+                  r_basename "${howto}"
+                  r_extensionless_basename "${RVAL}"
+                  local name="${RVAL}"
+
+                  # Try exact match first
+                  if [ "${name}" = "${identifier}" ]
+                  then
+                     rexekutor grep -v '^<!--' "${howto}"
+                     found='YES'
+                     .break
+                  fi
+               .done
                
-               # Check if identifier is contained in filename
-               if grep -q -i "${identifier}" <<< "${name}"
+               # If no exact match, try fuzzy match (substring)
+               if [ "${found}" = 'NO' ]
                then
-                  rexekutor grep -v '^<!--' "${howto}"
-                  found='YES'
-                  .break
+                  .foreachpath howto in ${howtos}
+                  .do
+                     r_basename "${howto}"
+                     r_extensionless_basename "${RVAL}"
+                     local name="${RVAL}"
+
+                     # Check if identifier is contained in filename
+                     if grep -q -i "${identifier}" <<< "${name}"
+                     then
+                        rexekutor grep -v '^<!--' "${howto}"
+                        found='YES'
+                        .break
+                     fi
+                  .done
                fi
-            .done
-         fi
+            ;;
+         esac
       ;;
    esac
    

@@ -444,6 +444,12 @@ ${C_INFO}It should be upgradable with:
 ${C_RESET_BOLD}   mulle-sde upgrade
 ${C_RESET_BOLD}   mulle-sde clean tidy"
       fi
+
+      # for scripts fail silently here
+      if [ "${MULLE_FLAG_LOG_TERSE}" = 'YES' ]
+      then
+         exit 1
+      fi
       fail "There is no mulle-sde project in (${current#"${MULLE_USER_PWD}/"}).
 ${C_INFO}Create an initial empty one with:
 ${C_RESET_BOLD}   mulle-sde init"
