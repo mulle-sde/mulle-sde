@@ -2658,7 +2658,7 @@ platform-excludes"
          sde::dependency::list_main "$@"
       ;;
 
-      move)
+      move|mv)
          if sde::dependency::contains_numeric_arguments "$@"
          then
             fail "Only move dependencies by name, as the sourcetree is shared with libraries"

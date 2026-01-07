@@ -185,6 +185,9 @@ Usage:
 
    Use \`mulle-sde -f clean ...\` to force the issue.
 
+   mulle-sde clean will not completely wipe the .mulle/var folders though as
+   this would be out of scope.
+   
 Options:
    --gui          : on participating platforms use a GUI menu
    --interactive  : choose dependency to clean from a menu

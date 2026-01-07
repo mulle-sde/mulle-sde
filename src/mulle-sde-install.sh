@@ -65,7 +65,7 @@ Example:
       install --symlink --prefix /tmp/xxx .
 
 Options:
-   --branch <name>   : branch to checkout
+   --branch <name>   : branch of root project to checkout 
    --c               : project is C
    --debug           : install as debug instead of release
    --keep-tmp        : don't delete temporary directory
@@ -77,7 +77,7 @@ Options:
    --standalone      : create a whole-archive shared library if supported
    --static          : produce shared libraries
    --symlink         : allow symlinks for dependency fetches
-   --tag <name>      : tag to checkout
+   --tag <name>      : tag of root project to checkout
    -d <dir>          : directory to fetch into (/tmp/...)
    -k <dir>          : kitchen directory (\$PWD/kitchen)
 
@@ -238,6 +238,8 @@ Use -f flag to clobber."
                          --no-defer \
                          -s \
                      add --nodetype git \
+                         --tag "${tag}" \
+                         --branch "${branch}" \
                          --marks "${marks}" \
                          "${url}"  || return 1
 
@@ -647,12 +649,10 @@ pass through)"
       ;;
    esac
 
-
    local rval
 
    if [ "${OPTION_ONLY_PROJECT}" = 'YES' ]
    then
-
       log_info "Installing project only to ${C_RESET_BOLD}${PREFIX_DIR}"
 
       if [ -z "${OPTION_PROJECT_DIR}" ]
@@ -748,17 +748,17 @@ pass through)"
       fi
 
       sde::install::in_tmp "${URL}" \
-                     "${PROJECT_DIR}" \
-                     "${OPTION_MARKS}" \
-                     "${OPTION_CONFIGURATION}" \
-                     "${OPTION_SERIAL}" \
-                     "${OPTION_SYMLINK}" \
-                     "${OPTION_PREFERRED_LIBRARY_STYLE}" \
-                     "${OPTION_BRANCH}" \
-                     "${OPTION_TAG}" \
-                     "${OPTION_POST_INIT}" \
-                     "${arguments}" \
-                     "${environment}" 
+                           "${PROJECT_DIR}" \
+                           "${OPTION_MARKS}" \
+                           "${OPTION_CONFIGURATION}" \
+                           "${OPTION_SERIAL}" \
+                           "${OPTION_SYMLINK}" \
+                           "${OPTION_PREFERRED_LIBRARY_STYLE}" \
+                           "${OPTION_BRANCH}" \
+                           "${OPTION_TAG}" \
+                           "${OPTION_POST_INIT}" \
+                           "${arguments}" \
+                           "${environment}" 
    fi
 
    rval=$?

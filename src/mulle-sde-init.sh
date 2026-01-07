@@ -3711,6 +3711,8 @@ sde::init::_main()
 
    sde::project::clear_oneshot_variables
 
+   # make it the default
+
    OPTION_META="${MULLE_SDE_DEFAULT_META_EXTENSION}"
    #
    # handle options
@@ -3751,6 +3753,10 @@ sde::init::_main()
 
          -c)
             OPTION_META="mulle-c/c-developer"
+         ;;
+
+         --no-vibecoding)
+            MULLE_VIBECODING='NO'
          ;;
 
          --clean)
@@ -4117,12 +4123,6 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
    [ "${OPTION_REINIT}" = 'YES' -a "${OPTION_UPGRADE}" = 'YES' ] && \
       fail "--reinit and --upgrade exclude each other"
 
-   if [ "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_ADD}" != 'YES' ]
-   then
-      printf "%s\n" "🚨 AI MUST NOT proceed with any mulle-sde operations before reading \`mulle-sde help\` 🚨"
-      printf "%s\n" "🤖 AI MUST read AGENTS.md if present after init 🤖"
-   fi
-
    local create_dir
 
    create_dir='NO'
@@ -4311,6 +4311,12 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
             sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit $?
          fi
 
+         if [ "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_ADD}" != 'YES' ]
+         then
+            printf "%s\n" "🚨 AI MUST NOT proceed with any mulle-sde operations before reading \`mulle-sde help\` 🚨"
+            printf "%s\n" "🤖 AI MUST read AGENTS.md if present after init 🤖"
+         fi
+
          # need -f option to clean "test" without warning
          if [ "${OPTION_CLEAN}" != 'NO' ]
          then
@@ -4332,6 +4338,16 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
          if [ -f AGENTS.md ]
          then
             log_info "There is an ${C_RESET_BOLD}AGENTS.md${C_INFO} in the project."
+         fi
+
+         # easier for AIs and noobs
+         if [ "${MULLE_VIBECODING}" != 'NO' ]
+         then
+            exekutor "${MULLE_SDE:-mulle-sde}" \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        -N \
+                     vibecoding on || exit $?
+            log_verbose "Use ${C_RESET_BOLD}mulle-sde vibecoding off${C_VERBOSE} to disable"
          fi
       )
       fi

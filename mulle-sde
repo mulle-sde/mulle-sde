@@ -187,6 +187,7 @@ Usage:
       \`${MULLE_USAGE_NAME} commands\` to see all commands with descriptions
       \`${MULLE_USAGE_NAME} <cmd> help\` for detailed help (if marked help: yes)
       \`${MULLE_USAGE_NAME} howto help\` for development topics
+      \`${MULLE_USAGE_NAME} api help\` for API info
 
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]

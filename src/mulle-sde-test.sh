@@ -390,7 +390,7 @@ sde::test::forward()
          then
             if [ "${harmless}" = 'NO' ]
             then
-               fail "Test directory \"${directory}\" is missing"
+               fail "Test directory \"${directory}\" is missing."$'\n'"${LOG_INFO}Create one with"$'\n'"${C_RESET_BOLD}   ${MULLE_USAGE_NAME} test init"
             fi
             .continue
          fi
@@ -399,7 +399,7 @@ sde::test::forward()
          then
             if [ "${harmless}" = 'NO' ]
             then
-               fail "Directory \"${directory}\" is not a test directory"
+               fail "Directory \"${directory}\" is not a mulle-test test directory."$'\n'"${LOG_INFO}Check that this directory is intended for mulle-sde test and then do."$'\n'"${C_RESET_BOLD}   ${MULLE_USAGE_NAME} test init"
             fi
             .continue
          fi
@@ -661,10 +661,8 @@ sde::test::r_init()
    keys="MULLE_SOURCETREE_USE_PLATFORM_MARKS_FOR_FETCH:\
 MULLE_SOURCETREE_RESOLVE_TAG"
 
-   IFS=":"
-   for key in ${keys}
-   do
-      IFS="${DEFAULT_IFS}"
+   .foreachpath key in ${keys}
+   .do
       # copy some basic settings if init was successful
       value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get ${key}`"
       # load current project settings
@@ -676,8 +674,7 @@ MULLE_SOURCETREE_RESOLVE_TAG"
                         -d test \
                      environment set ${key} "${value}"
       fi
-   done
-   IFS="${DEFAULT_IFS}"
+   .done
 
    #
    # disable graveyards on tests
@@ -687,6 +684,8 @@ MULLE_SOURCETREE_RESOLVE_TAG"
                   ${MULLE_ENV_FLAGS} \
                   -d test \
                environment set MULLE_SOURCETREE_GRAVEYARD_ENABLED NO
+   # memo: not running in environment there fore no log_vibe
+   log_info "Run ${C_RESET_BOLD}mulle-sde howto show testing${C_INFO} for more info (if available)"
 
    RVAL='DONE'
 }

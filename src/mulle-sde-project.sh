@@ -774,6 +774,17 @@ sde::project::r_rename_current_project()
       OLD_PROJECT_UPCASE_IDENTIFIER="${RVAL}"
    fi
 
+   # Generate additional modern C naming patterns
+   OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO="${OLD_PROJECT_NAME//-/__}"
+   r_uppercase "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}"
+   OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO="${RVAL}"
+   
+   OLD_PROJECT_HEADER_GUARD="${OLD_PROJECT_NAME//-/__}"
+   r_lowercase "${OLD_PROJECT_HEADER_GUARD}"
+   OLD_PROJECT_HEADER_GUARD="${RVAL}"
+   
+   OLD_PROJECT_FUNCTION_PREFIX="${OLD_PROJECT_IDENTIFIER}_"
+
    unset PROJECT_UPCASE_IDENTIFIER
    unset PROJECT_DOWNCASE_IDENTIFIER
    unset PROJECT_IDENTIFIER
@@ -784,6 +795,18 @@ sde::project::r_rename_current_project()
    fi
 
    sde::project::set_name_variables "${newname}"
+   
+   # Generate new modern C naming patterns
+   NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO="${PROJECT_NAME//-/__}"
+   r_uppercase "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}"
+   NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO="${RVAL}"
+   
+   NEW_PROJECT_HEADER_GUARD="${PROJECT_NAME//-/__}"
+   r_lowercase "${NEW_PROJECT_HEADER_GUARD}"
+   NEW_PROJECT_HEADER_GUARD="${RVAL}"
+   
+   NEW_PROJECT_FUNCTION_PREFIX="${PROJECT_IDENTIFIER}_"
+   
    if [ "${OPTION_SAVE_ENV}" != 'NO' ]
    then
       log_verbose "Changing Environment variables"
@@ -818,6 +841,11 @@ sde::project::r_rename_current_project()
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "d"
       sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
 
+      # Handle modern C naming patterns in filenames
+      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "f"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "d"
+
       changes="${changes}changes"
    fi
 
@@ -846,6 +874,12 @@ sde::project::r_rename_current_project()
          sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_UPCASE_IDENTIFIER}/${PROJECT_UPCASE_IDENTIFIER}/g'"
       fi
 
+      # Add modern C naming pattern replacements - ORDER MATTERS!
+      # Replace longer patterns first to avoid partial matches
+      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_FUNCTION_PREFIX}/${NEW_PROJECT_FUNCTION_PREFIX}/g'"
+      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}/${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}/g'"
+      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_HEADER_GUARD}/${NEW_PROJECT_HEADER_GUARD}/g'"
+
       local grep_cmdline
 
       grep_cmdline="grep -q -s -n"
@@ -853,6 +887,9 @@ sde::project::r_rename_current_project()
       grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_IDENTIFIER}'"
       grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_DOWNCASE_IDENTIFIER}'"
       grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_UPCASE_IDENTIFIER}'"
+      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}'"
+      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_HEADER_GUARD}'"
+      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_FUNCTION_PREFIX}'"
 
       sde::project::_local_search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
