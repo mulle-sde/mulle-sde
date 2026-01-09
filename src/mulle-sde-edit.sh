@@ -84,7 +84,7 @@ sde::edit::r_user_choses_editor()
 
    local editors="$1"
 
-   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   if [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       log_warning "Not choosing an editor because ${C_RESET_BOLD}vibecoding${C_WARNING} is enabled (MULLE_VIBECODING)"
       RVAL=

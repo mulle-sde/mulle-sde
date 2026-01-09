@@ -570,11 +570,27 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
          then
             local upcaseid
 
-            sde::dependency::r_upcaseid "${address}" || return 1
+            local address_for_id="${address}"
+            if [[ "${_marks}" == *"no-share-shirk"* ]]
+            then
+               r_basename "${address}"
+               address_for_id="${RVAL}"
+            fi
+
+            sde::dependency::r_upcaseid "${address_for_id}" || return 1
             upcaseid="${RVAL}"
 
             r_uppercase "${field}"
-            value="\${${upcaseid}_${RVAL}:-${value}}"
+            
+            # Don't wrap if already wrapped
+            case "${value}" in
+               \$\{*\})
+                  # Already wrapped, use as-is
+               ;;
+               *)
+                  value="\${${upcaseid}_${RVAL}:-${value}}"
+               ;;
+            esac
          fi
       ;;
    esac
@@ -912,7 +928,14 @@ sde::dependency::__enhance_url()
    #
    local upcaseid
 
-   sde::dependency::r_upcaseid "${address}" || return 1
+   local address_for_id="${address}"
+   if [[ "${marks}" == *"no-share-shirk"* ]]
+   then
+      r_basename "${address}"
+      address_for_id="${RVAL}"
+   fi
+
+   sde::dependency::r_upcaseid "${address_for_id}" || return 1
    upcaseid="${RVAL}"
 
    if [ -z "${tag}" ]
@@ -1473,7 +1496,11 @@ sde::dependency::add_main()
 
             # remap scm to nodetype, nodetype is misnomer through out this file
             # it should be scm
-            nodetype="${nodetype:-${scm:-}}"
+            # Don't override nodetype if it's already set for mulle organizations
+            if [ -z "${nodetype}" ]
+            then
+               nodetype="${scm:-}"
+            fi
          ;;
       esac
 
@@ -1533,7 +1560,11 @@ sde::dependency::add_main()
 
             # remap scm to nodetype, nodetype is misnomer through out this file
             # it should be scm, here though nodetype must be available
-            nodetype="${scm}"
+            # Don't override nodetype if it's already set for mulle organizations
+            if [ -z "${nodetype}" ]
+            then
+               nodetype="${scm}"
+            fi
             domain="${domain:-github}"
          fi
       fi
@@ -1569,16 +1600,27 @@ sde::dependency::add_main()
                ;;
 
                *)
-                  nodetype="${nodetype:-tar}"
-                  url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_DOMAIN_FLAGS} \
-                        compose-url \
-                           --user "${user}" \
-                           --tag "${tag}" \
-                           --repo "${repo:-$url}" \
-                           --scm "${nodetype}" \
-                           "${domain}" `" || exit 1
+                  # Force mulle organizations to use tar with archive URLs
+                  case "${user}" in
+                     mulle-c|mulle-cc|mulle-gfx|mulle-objc|mulle-core|\
+mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
+                        nodetype="tar"
+                        tag="${tag:-latest}"
+                        url="https://github.com/${user}/${repo:-$url}/archive/\${MULLE_TAG}.tar.gz"
+                     ;;
+                     *)
+                        nodetype="${nodetype:-tar}"
+                        url="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_DOMAIN_FLAGS} \
+                              compose-url \
+                                 --user "${user}" \
+                                 --tag "${tag}" \
+                                 --repo "${repo:-$url}" \
+                                 --scm "${nodetype}" \
+                                 "${domain}" `" || exit 1
+                     ;;
+                  esac
                ;;
             esac
          ;;
@@ -1616,7 +1658,22 @@ sde::dependency::add_main()
          if [ ! -z "${guessed_scm}" -a -z "${scm}" ]
          then
             log_debug "Nodetype guessed as \"${guessed_scm}\""
-            scm="${guessed_scm}"
+            # Don't override nodetype for mulle organizations that should use tar
+            case "${guessed_user}" in
+               mulle-c|mulle-cc|mulle-gfx|mulle-objc|mulle-core|\
+mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
+                  if [ "${nodetype}" = "tar" ]
+                  then
+                     log_debug "Preserving tar nodetype for mulle organization \"${guessed_user}\""
+                     scm="${nodetype}"
+                  else
+                     scm="${guessed_scm}"
+                  fi
+               ;;
+               *)
+                  scm="${guessed_scm}"
+               ;;
+            esac
          fi
 
          if [ ! -z "${guessed_tag}" ]
