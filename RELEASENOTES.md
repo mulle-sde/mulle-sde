@@ -1,3 +1,86 @@
+## 3.5.0
+
+feature: improve shell completion and documentation
+
+* enhanced bash completion with smart subcommand and argument detection
+* improved completion for dependencies, libraries, and config entities
+* expanded ignore command documentation with comprehensive usage guide
+
+
+
+
+* vibecoding on is now the default with mulle-sde init!
+* improved project rename subcommand now replaces more and better
+
+
+* library list commands now also outputs JSON like for consistency
+
+* mulle-sde test run `<test>` now adds `PROJECT_EXTENSIONS` as a fallback to find the right test file
+
+feat: add definition export and improve installation checks
+
+* definition export command generates shell scripts to recreate definitions
+* craftinfo export now includes additional configuration files beyond scripts
+* library add command supports custom platform specification via --platform
+* warn when installing from local git repository with uncommitted changes
+* improved pattern file environment validation with missing pattern detection
+
+
+
+
+
+
+
+
+
+* Previously only parsed the first (newest) .motd file
+* Now parses all .motd files to collect executables from all platforms
+* Fixes 'mulle-sde product' to show both native and cross-platform builds
+* Example: now shows both kitchen/Debug/foo and kitchen/windows/Debug/foo.exe
+
+
+* Detect target platform from executable path (kitchen/`<platform>`/`<config>`)
+* Support `MULLE_EMULATOR_`<PLATFORM>`` environment variables
+  - Example: `MULLE_EMULATOR_WINDOWS=wine`
+  - Automatically prefix non-native executables with emulator
+* Add `sde::product::r_platform_from_executable_path()` to extract platform
+* Add `sde::run::r_emulator_for_platform()` to resolve emulator command
+* Emulator is inserted after mudo/debugger but before executable
+* Warn if emulator needed but not configured or not found in PATH
+* Update usage documentation with emulator environment variables
+
+feat: add AI assistance and improve command usability
+
+* Add new AI integration features
+  - New mulle-sde-api.sh for LLM command execution
+  - New mulle-sde-howto.sh with interactive help system
+  - Enhanced vibecoding support for AI-assisted development
+
+* Improve command functionality
+  - Enhanced clean command with better target selection
+  - Improved debug command with better environment handling
+  - Enhanced run command with more flexible execution options
+  - Better craft command with improved status reporting
+
+* Dependency and build improvements
+  - Enhanced dependency command with better filtering
+  - Improved craftinfo command output
+  - Better linkorder handling and display
+
+* Other improvements
+  - Enhanced sandbox support for Linux
+  - Improved mulle-sde-cd shell integration
+  - Better error messages and logging throughout
+  - Updated .gitignore for development files
+
+* added support for rr in debug command
+* aliases sweatcode/vibecode because i seem to prefer them
+
+* new vibecoding support command
+* extensions can now use demo.append to build up AGENTS.md info
+* completion script added
+
+
 ### 3.4.3
 
 * install mulle-sde-sandbox.linux (and mulle-sde-cd with script)

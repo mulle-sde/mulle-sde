@@ -153,13 +153,19 @@ Usage:
    * Reflect  mulle-sde creates the necessary make files
    * Craft    mulle-sde builds the dependencies and the project
 
-   Start a project with `mulle-sde init` or enter an existing mulle-sde
-   project with `mulle-sde <directory>`. Download and craft dependencies
-   or embed remote sources with `mulle-sde add`. Get more help with
-   `mulle-sde init help` or  `mulle-sde add help`.
+   Read the "De Re mulle-sde" guide:
+      https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
 
-   See the Wiki for more information:
-      https://github.com/mulle-sde/mulle-sde/wiki
+   ⚠️  mulle-sde is AI and noob friendly! Use:
+      `mulle-sde commands` to see all commands with descriptions
+      `mulle-sde <cmd> help` for detailed help (if marked help: yes)
+      `mulle-sde howto help` for development topics
+      `mulle-sde api help` for API info
+
+   Start a project with `mulle-sde init` or enter an existing mulle-sde
+   project with `mulle-sde <directory>`. Get a quick view over the
+   project with `mulle-sde view` and `mulle-sde files`. Manage external
+   dependencies or add files with `mulle-sde add`.
 
 Flags:
    --style <val>  : see `mulle-env help` for style description
@@ -174,8 +180,10 @@ Flags:
 
 Commands:
    add            : create a source file from templates
+   api            : show API documentation from dependencies
    commands       : list of all available commands (some undocumented)
    extension      : manage language and buildtool extensions
+   howto          : show list of development topics for more extensive help
    init           : create a new project
    init-and-enter : create a new project then immediately start a subshell
    install        : install a remote mulle-sde project, like make install
@@ -198,13 +206,19 @@ Usage:
    * Reflect  mulle-sde creates the necessary make files
    * Craft    mulle-sde builds the dependencies and the project
 
+   Read the "De Re mulle-sde" guide:
+      https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
+
+   ⚠️  mulle-sde is AI and noob friendly! Use:
+      `mulle-sde commands` to see all commands with descriptions
+      `mulle-sde <cmd> help` for detailed help (if marked help: yes)
+      `mulle-sde howto help` for development topics
+      `mulle-sde api help` for API info
+
    Edit source files in 'src'. If you add, delete, rename or move
    source files run `mulle-sde reflect`. Use `mulle-sde craft` to craft your
    project. Add system libraries with `mulle-sde library` and other
    dependencies with `mulle-sde dependency`.
-
-   See the Wiki for more information:
-      https://github.com/mulle-sde/mulle-sde/wiki
 
 Flags:
    -DKEY=VALUE    : define one-time environment variable
@@ -218,6 +232,7 @@ Flags:
 
 Commands:
    add            : create a source file from templates
+   api            : show API documentation from dependencies
    callback       : manage reflection callbacks
    cd             : change directory to dependency,kitchen et al.
    clean          : clean various parts of the project
@@ -231,6 +246,7 @@ Commands:
    definition     : change projects craft options like CFLAGS
    dependency     : manage third party components (like GitHub projects)
    donefile       : show contents of donefiles
+   editors        : run various GUI tools (needs node.js)
    env-identifier : get variable name MULLE_UIOS for a name like MulleUIOS
    environment    : manage environment variables (project settings)
    exec           : run a command in a subshell
@@ -238,6 +254,7 @@ Commands:
    extension      : manage language and buildtool extensions
    fetch          : fetch the sourcetree
    headerorder    : show header includes for dependencies and libraries
+   howto          : show list of development topics for more extensive help
    ignore         : block files from being crafted
    init           : create a new project
    json           : show dependencies and libraries as JSON
@@ -251,6 +268,7 @@ Commands:
    product        : location of main executable or library, heuristic
    project        : rename a project and its files
    project-dir    : print project root directory
+   recraft        : craft everything anew (cleans tidy)
    reflect        : update project makefiles and sources
    retest         : retest using mulle-test
    run            : run executable product
@@ -258,6 +276,7 @@ Commands:
    source-dir     : print project source directory
    status         : show information about the current project state
    subproject     : manage local subprojects
+   symbol         : list C and Objective-C symbols of the project
    task           : manage reflection tasks
    test           : run tests using mulle-test
    treestatus     : show the sourcetree status

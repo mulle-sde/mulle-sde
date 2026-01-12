@@ -24,3 +24,7 @@ dox/reference/index.html
 dox/reference/patternenv.html
 dox/reference/reinit.html
 dox/reference/*.html
+.graveyard
+dox.unreleased
+__pycache__
+.graveyard.old
