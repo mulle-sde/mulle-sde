@@ -1017,7 +1017,7 @@ lib|pat|sub|unveil|view|vibecoding)
                                              "${cmd%-tree}-dir" `"
          [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
 
-         local treeflags case
+         local treeflags
 
          case "${cmd}" in
             kitchen-tree)
