@@ -428,8 +428,13 @@ sde::howto::r_collect_howtos()
    if [ -d "assets/howto" ]
    then
       log_debug "Found assets/howto"
+      local xtrace_was_set='NO'
+      case $- in
+         *x*) xtrace_was_set='YES' ; set +x ;;
+      esac
       for howto in assets/howto/*.md
       do
+         [ "${xtrace_was_set}" = 'YES' ] && set -x
          log_debug "Checking file: ${howto}"
          if [ -f "${howto}" ]
          then
@@ -463,7 +468,9 @@ sde::howto::r_collect_howtos()
             r_colon_concat "${howtos}" "${howto}"
             howtos="${RVAL}"
          fi
+         [ "${xtrace_was_set}" = 'YES' ] && set +x
       done
+      [ "${xtrace_was_set}" = 'YES' ] && set -x
    else
       log_debug "assets/howto does not exist"
    fi
@@ -498,11 +505,14 @@ sde::howto::r_collect_howtos()
       if [ -d "${subdir}" ]
       then
          log_debug "Found ${subdir}"
-         for howto in "${subdir}"/.mulle/share/howto/*.md "${subdir}"/.mulle/etc/howto/*.md
-         do
-            log_debug "Checking file: ${howto}"
-            if [ -f "${howto}" ]
-            then
+         # Check if either directory exists before globbing to avoid zsh errors
+         if [ -d "${subdir}/.mulle/share/howto" ] || [ -d "${subdir}/.mulle/etc/howto" ]
+         then
+            for howto in "${subdir}"/.mulle/share/howto/*.md "${subdir}"/.mulle/etc/howto/*.md
+            do
+               log_debug "Checking file: ${howto}"
+               if [ -f "${howto}" ]
+               then
                r_basename "${howto}"
                r_extensionless_basename "${RVAL}"
                local basename="${RVAL}"

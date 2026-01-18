@@ -200,7 +200,8 @@ sde::product::r_executables()
    if ! [ -d "${kitchen_dir}" ]
    then
       log_info "Running ${C_MAGENTA}${C_BOLD}craft${C_INFO} first to produce product"
-      rexekutor mulle-sde craft || exit 1
+      # we dont want this possible producing stdout
+      rexekutor mulle-sde craft >& 2|| exit 1
    fi
 
    if ! [ -d "${kitchen_dir}" ]

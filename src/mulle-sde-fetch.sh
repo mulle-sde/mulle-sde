@@ -107,14 +107,18 @@ sde::fetch::do_sync_sourcetree()
    # up too often
    # exekutor mulle-sde status --stash-only
    #
-   if ! rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+   rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
                    ${MULLE_TECHNICAL_FLAGS:-} \
                    ${MULLE_SOURCETREE_FLAGS:-} \
                  -s \
                dbstatus
+   rc=$?
+   if [ $rc -ne 0 ]
    then
-      _internal_fail "Database status not as clean as hoped"
+      local dbpath
+      dbpath="${MULLE_VIRTUAL_ROOT}/.mulle/var/${MULLE_HOSTNAME}/${MULLE_USERNAME}/sourcetree/db"
+      _internal_fail "Database status not clean after sync (status=${rc}, db=${dbpath})"
    fi
 
    log_verbose "Run sourcetree complete"
@@ -167,20 +171,31 @@ sde::fetch::main()
       rval=$?
       log_fluff "Sourcetree status --is-uptodate returned with $rval"
 
-      if [ ${rval} -ne 0 ]
+      if [ ${rval} -eq 0 ]
+      then
+         return 0  # Quick exit, everything is uptodate
+      fi
+      
+      # Not uptodate, check dbstatus to see what needs to be done
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     --virtual-root \
+                     -s \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                    dbstatus
+      rval=$?
+      log_fluff "Sourcetree dbstatus returned with $rval"
+      
+      if [ $rval -ge 2 ]
       then
          do_update='YES'
-      else
-         exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-                        --virtual-root \
-                        -s \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                       dbstatus
-         rval=$?
-         log_fluff "Sourcetree dbstatus returned with $rval"
-         if [ $rval -eq 2 ]
+         
+         # If stash directory changed (rval=3), clean database first
+         if [ $rval -eq 3 ]
          then
-            do_update='YES'
+            include "sde::clean"
+            
+            log_info "Stash directory changed, cleaning database"
+            sde::clean::db
          fi
       fi
    fi

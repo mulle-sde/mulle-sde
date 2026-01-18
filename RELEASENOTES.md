@@ -1,3 +1,8 @@
+### 3.5.1
+
+* fix mulle-sde product running craft and polluting stdout (thx autoconf!)
+* fix bug where an old stash directory was used, and the environment `MULLE_SOURCETREE_STASH_DIR` was overridden, leading to peculiar effects
+
 ## 3.5.0
 
 feature: improve shell completion and documentation

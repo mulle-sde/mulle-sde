@@ -123,6 +123,11 @@ sde::craftorder::create_file()
    # remove old file, so if we get CTRL-Ced the state is more reasonable
    remove_file_if_present "${craftorderfile}"
 
+   log_setting "SOURCETREE_MODE=${SOURCETREE_MODE}"
+   log_setting "OPTION_PRINT_ENV=${OPTION_PRINT_ENV}"
+   log_setting "MULLE_SOURCETREE_STASH_DIR=${MULLE_SOURCETREE_STASH_DIR}"
+   log_setting "MULLE_VIRTUAL_ROOT=${MULLE_VIRTUAL_ROOT}"
+
    if text="`
       "${MULLE_SOURCETREE:-mulle-sourcetree}" \
             --virtual-root \

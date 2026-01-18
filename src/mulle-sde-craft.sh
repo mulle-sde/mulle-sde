@@ -101,7 +101,16 @@ sde::craft::perform_fetch_if_needed()
    #
    # This could fetch dependencies if required.
    # A 1 here means we have no sourcetree.
+   # A 3 means the stash directory changed, so we need to clean the database first.
    #
+   if [ ${dbrval} -eq 3 ]
+   then
+      include "sde::clean"
+
+      log_info "Stash directory changed, cleaning database"
+      sde::clean::db
+   fi
+
    if [ ${dbrval} -ge 2 ]
    then
       include "sde::fetch"
@@ -325,12 +334,12 @@ sde::craft::perform_clean_if_needed()
 
       'TIDY')
          cleandomain='tidy'
-         dbrval=2
+         dbrval=3
       ;;
 
       'GRAVETIDY')
          cleandomain='gravetidy'
-         dbrval=2
+         dbrval=3
       ;;
 
       'YES')
