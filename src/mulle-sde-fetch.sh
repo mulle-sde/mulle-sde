@@ -114,14 +114,19 @@ sde::fetch::do_sync_sourcetree()
                  -s \
                dbstatus
    rc=$?
-   if [ $rc -ne 0 ]
+   if [ $rc -ge 2 ]
    then
       local dbpath
       dbpath="${MULLE_VIRTUAL_ROOT}/.mulle/var/${MULLE_HOSTNAME}/${MULLE_USERNAME}/sourcetree/db"
       _internal_fail "Database status not clean after sync (status=${rc}, db=${dbpath})"
    fi
 
-   log_verbose "Run sourcetree complete"
+   if [ $rc = 1 ]
+   then
+      log_verbose "No sourcetree here, that's OK"
+   else
+      log_verbose "Run sourcetree complete"
+   fi
 }
 
 

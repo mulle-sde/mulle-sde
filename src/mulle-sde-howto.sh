@@ -247,6 +247,7 @@ sde::howto::r_collect_howtos()
    local keywords_str
    local use_etc='NO'
    local global_use_etc='NO'
+   local reponame
 
    shell_enable_nullglob
    
@@ -424,7 +425,9 @@ sde::howto::r_collect_howtos()
    
    # Collect from assets/howto/ (local project)
    log_debug "Checking assets/howto"
+
    local seen_basenames=""
+
    if [ -d "assets/howto" ]
    then
       log_debug "Found assets/howto"
@@ -432,6 +435,7 @@ sde::howto::r_collect_howtos()
       case $- in
          *x*) xtrace_was_set='YES' ; set +x ;;
       esac
+
       for howto in assets/howto/*.md
       do
          [ "${xtrace_was_set}" = 'YES' ] && set -x
@@ -476,12 +480,14 @@ sde::howto::r_collect_howtos()
    fi
 
    # Build seen_basenames from all collected howtos so far
-   local howto
+   local basename
+
    .foreachpath howto in ${howtos}
    .do
       r_basename "${howto}"
       r_extensionless_basename "${RVAL}"
-      local basename="${RVAL}"
+      basename="${RVAL}"
+
       if ! find_line "${seen_basenames}" "${basename}"
       then
          r_add_line "${seen_basenames}" "${basename}"
@@ -491,7 +497,9 @@ sde::howto::r_collect_howtos()
 
    # Collect from subdirectories (demo, test, and MULLE_SDE_TEST_PATH)
    log_debug "Checking subdirectories for howtos"
+
    local subdirs="demo:test"
+
    if [ ! -z "${MULLE_SDE_TEST_PATH}" ]
    then
       r_colon_concat "${subdirs}" "${MULLE_SDE_TEST_PATH}"
@@ -499,6 +507,8 @@ sde::howto::r_collect_howtos()
    fi
 
    local subdir
+   local subdir_name
+
    .foreachpath subdir in ${subdirs}
    .do
       log_debug "Checking subdir: ${subdir}"
@@ -513,43 +523,44 @@ sde::howto::r_collect_howtos()
                log_debug "Checking file: ${howto}"
                if [ -f "${howto}" ]
                then
-               r_basename "${howto}"
-               r_extensionless_basename "${RVAL}"
-               local basename="${RVAL}"
+                  r_basename "${howto}"
+                  r_extensionless_basename "${RVAL}"
+                  basename="${RVAL}"
 
-               # Skip if we already have this basename
-               if ! find_line "${seen_basenames}" "${basename}"
-               then
-                  count=$((count + 1))
-                  log_debug "File exists, count=${count}"
-                  r_add_line "${seen_basenames}" "${basename}"
-                  seen_basenames="${RVAL}"
-
-                  if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
+                  # Skip if we already have this basename
+                  if ! find_line "${seen_basenames}" "${basename}"
                   then
-                     r_basename "${subdir}"
-                     local subdir_name="${RVAL}"
+                     count=$((count + 1))
+                     log_debug "File exists, count=${count}"
+                     r_add_line "${seen_basenames}" "${basename}"
+                     seen_basenames="${RVAL}"
 
-                     if [ "${show_keywords}" = 'YES' ]
+                     if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
                      then
-                        sde::howto::r_extract_keywords "${howto}"
-                        keywords_str="${RVAL}"
-                        if [ ! -z "${keywords_str}" ]
+                        r_basename "${subdir}"
+                        subdir_name="${RVAL}"
+
+                        if [ "${show_keywords}" = 'YES' ]
                         then
-                           printf "%2d. %-30s [%s]\n" "${count}" "${subdir_name}/${basename}" "${keywords_str}"
+                           sde::howto::r_extract_keywords "${howto}"
+                           keywords_str="${RVAL}"
+                           if [ ! -z "${keywords_str}" ]
+                           then
+                              printf "%2d. %-30s [%s]\n" "${count}" "${subdir_name}/${basename}" "${keywords_str}"
+                           else
+                              printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
+                           fi
                         else
                            printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
                         fi
-                     else
-                        printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
                      fi
-                  fi
 
-                  r_colon_concat "${howtos}" "${howto}"
-                  howtos="${RVAL}"
+                     r_colon_concat "${howtos}" "${howto}"
+                     howtos="${RVAL}"
+                  fi
                fi
-            fi
-         done
+            done
+         fi
       fi
    .done
 
@@ -566,7 +577,6 @@ sde::howto::r_collect_howtos()
    then
       log_debug "Searching dependencies in ${dependency_dir}"
       local searchpath=':Release:Debug:RelDebug'
-      local subdir
       local repo
       
       .foreachpath subdir in ${searchpath}
@@ -595,7 +605,7 @@ sde::howto::r_collect_howtos()
                            name="${RVAL}"
                            
                            r_basename "${repo}"
-                           local reponame="${RVAL}"
+                           reponame="${RVAL}"
                            
                            if [ "${show_keywords}" = 'YES' ]
                            then

@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.5.1
+MULLE_EXECUTABLE_VERSION=3.5.2
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -185,9 +185,10 @@ Usage:
 
    ⚠️  ${MULLE_USAGE_NAME} is AI and noob friendly! Use:
       \`${MULLE_USAGE_NAME} commands\` to see all commands with descriptions
-      \`${MULLE_USAGE_NAME} <cmd> help\` for detailed help (if marked help: yes)
-      \`${MULLE_USAGE_NAME} howto help\` for development topics
+      \`${MULLE_USAGE_NAME} <cmd> help\` for detailed help
+      \`${MULLE_USAGE_NAME} howto help\` for development topics ‼️
       \`${MULLE_USAGE_NAME} api help\` for API info
+      \`mulle-bashfunctions help\` for tracing mulle-sde itself
 
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]

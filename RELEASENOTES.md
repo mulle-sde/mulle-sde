@@ -1,3 +1,7 @@
+### 3.5.2
+
+Various small improvements
+
 ### 3.5.1
 
 * fix mulle-sde product running craft and polluting stdout (thx autoconf!)
