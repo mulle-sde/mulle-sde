@@ -952,7 +952,7 @@ sde::howto::show()
       
       if [ "${found}" = 'NO' ]
       then
-         fail "No howto matching all keywords found"
+         fail "No howto matching all keywords ${OPTION_KEYWORDS:-\(\)} found"
       fi
       
       return 0

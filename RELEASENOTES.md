@@ -1,3 +1,7 @@
+### 3.6.1
+
+Various small improvements
+
 ## 3.6.0
 
 * vibecoding helper added to suggest remedies on failure
