@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.5.2
+MULLE_EXECUTABLE_VERSION=3.6.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -653,12 +653,35 @@ sde::is_non_environment_commandline()
 }
 
 
+sde::vibecoding_help_on_exit()
+{
+   local exit_code="$1"
+   local cmd="$2"
+   
+   # Only show help on failure
+   [ "${exit_code}" -eq 0 ] && return 0
+   
+   # Skip for help/usage commands
+   case "${cmd}" in
+      help|usage|commands|version|"")
+         return 0
+      ;;
+   esac
+   
+   include "sde::vibecoding-help"
+   sde::vibecoding_help::on_failure "${cmd}" "${exit_code}"
+}
+
+
 sde::main()
 {
    local FLAG_TEST_CHECK="${MULLE_SDE_TEST_CHECK:-YES}"
    local FLAG_OUTSIDE_ENV='NO'
 
    local defines
+   
+   # Track current command for vibecoding help
+   local MULLE_SDE_CURRENT_CMD=""
 
    #
    # simple option handling
@@ -802,6 +825,16 @@ sde::main()
          cmd='sweatcoding'
       ;;
    esac
+   
+   # Set current command for vibecoding help on failure
+   MULLE_SDE_CURRENT_CMD="${cmd}"
+   export MULLE_SDE_CURRENT_CMD
+   
+   # Set up EXIT trap for vibecoding help
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      trap 'sde::vibecoding_help_on_exit "$?" "${MULLE_SDE_CURRENT_CMD}"' EXIT
+   fi
 
    if [ "${FLAG_OUTSIDE_ENV}" = 'YES' ]
    then
@@ -1953,7 +1986,6 @@ tool        - available binaries in mulle-sde subshell"
 
       'version')
          rexekutor printf "%s\n" "${MULLE_EXECUTABLE_VERSION}"
-         return 0
       ;;
 
       'vibecoding'|'sweatcoding')
@@ -2008,6 +2040,15 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
    esac
 
    rval=$?
+
+   # Vibecoding help on failure - show before user hooks
+   if [ $rval -ne 0 ] && [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      include "sde::vibecoding-help"
+      sde::vibecoding_help::on_failure "${cmd}" "${rval}"
+   fi
+
+   # User hooks run after vibecoding help
    if [ ! -z "${cmdidentifier}" ]
    then
       if [ $rval -eq 0 ]

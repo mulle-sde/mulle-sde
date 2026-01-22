@@ -203,7 +203,7 @@ sde::howto::r_matches_keyword()
    
    # Check filename
    r_basename "${file}"
-   if grep -q -i "${keyword}" <<< "${RVAL}"
+   if rexekutor grep -q -i "${keyword}" <<< "${RVAL}"
    then
       return 0
    fi
@@ -212,7 +212,7 @@ sde::howto::r_matches_keyword()
    local first_two_lines
    first_two_lines="$(head -n 2 "${file}" 2>/dev/null)"
    
-   if grep -q -i "${keyword}" <<< "${first_two_lines}"
+   if rexekutor grep -q -i "${keyword}" <<< "${first_two_lines}"
    then
       return 0
    fi
