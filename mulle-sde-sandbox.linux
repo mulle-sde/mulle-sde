@@ -95,6 +95,7 @@ set -- -rx /usr \
        -rw /proc \
        -rx /sbin \
        -rx "${home}/bin" \
+       -rx "${home}/go/bin" \
        -rx "${home}/.mulle/bin" \
        -rx "${home}/.local/bin" \
        -crw /dev \

@@ -155,7 +155,7 @@ EOF
 
 #
 # Howtos are installed by extensions into share/howto/
-# local howtos are created in assets/howto/
+# local howtos are created in asset/howto/
 # howtos are also available via dependencies as ${DEPENDENCY_DIR}/.../share/${name}/howto
 # similiar to how dependency toc works
 #
@@ -423,20 +423,20 @@ sde::howto::r_collect_howtos()
       log_debug ".mulle/share/howto does not exist or use_etc='YES'"
    fi
    
-   # Collect from assets/howto/ (local project)
-   log_debug "Checking assets/howto"
+   # Collect from asset/howto/ (local project)
+   log_debug "Checking asset/howto"
 
    local seen_basenames=""
 
-   if [ -d "assets/howto" ]
+   if [ -d "asset/howto" ]
    then
-      log_debug "Found assets/howto"
+      log_debug "Found asset/howto"
       local xtrace_was_set='NO'
       case $- in
          *x*) xtrace_was_set='YES' ; set +x ;;
       esac
 
-      for howto in assets/howto/*.md
+      for howto in asset/howto/*.md
       do
          [ "${xtrace_was_set}" = 'YES' ] && set -x
          log_debug "Checking file: ${howto}"
@@ -476,7 +476,7 @@ sde::howto::r_collect_howtos()
       done
       [ "${xtrace_was_set}" = 'YES' ] && set -x
    else
-      log_debug "assets/howto does not exist"
+      log_debug "asset/howto does not exist"
    fi
 
    # Build seen_basenames from all collected howtos so far

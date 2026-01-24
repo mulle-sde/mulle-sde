@@ -42,12 +42,13 @@ Usage:
 
    Fetch all dependencies and ensure the already fetched dependencies are the
    the correct versions (else refetch them).
-   This is the like calling \`mulle-sourcetree sync\`, with a quick check
-   if a sync is required.
+   This is the like calling \`mulle-sourcetree sync\`, with an
+   optional quick check if a sync is required.
 
    Options are passed through to \`mulle-sourcetree sync\`.
 
 Options:
+   --quick-check                : make a quick check if a sync seems needed
    --serial                     : don't fetch dependencies in parallel
    --no-reflect                 : does not run a reflect after a sync
 
@@ -135,6 +136,7 @@ sde::fetch::main()
    log_entry "sde::fetch::main" "$@"
 
    local OPTION_SERIAL='NO'
+   local OPTION_QUICK_CHECK='NO'
 
    while [ $# -ne 0 ]
    do
@@ -145,6 +147,14 @@ sde::fetch::main()
 
          --serial)
             OPTION_SERIAL='YES'
+         ;;
+
+         --quick-check)
+            OPTION_QUICK_CHECK='YES'
+         ;;
+
+         --no-quick-check)
+            OPTION_QUICK_CHECK='NO'
          ;;
 
          --)
@@ -164,9 +174,9 @@ sde::fetch::main()
    local rval
    local dbstatus
 
-   do_update="${MULLE_FLAG_MAGNUM_FORCE}"
-   if [ "${do_update}" != 'YES' ]
+   if [ "${OPTION_QUICK_CHECK}" = 'YES'  ]
    then
+      do_update='NO'
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      --virtual-root \
                      -s \
@@ -203,6 +213,8 @@ sde::fetch::main()
             sde::clean::db
          fi
       fi
+   else
+      do_update='YES'
    fi
 
    local rc
