@@ -242,13 +242,6 @@ sde::vibecoding::main()
       ;;
    esac
 
-   r_basename "${PWD}"
-   case "${RVAL}" in
-      test|demo)
-         log_warning "vibecoding should be enabled from the project root, for least hassle"
-      ;;
-   esac
-
    log_info "Set ${C_RESET_BOLD}${PROJECT_NAME}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
 
    sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"

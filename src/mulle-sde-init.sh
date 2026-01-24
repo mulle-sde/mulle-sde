@@ -52,6 +52,7 @@ sde::init::usage()
    HIDDEN_OPTIONS="\
    --addiction-dir <dir>  : specify addiction directory (addiction)
    --allow-<name>         : reenable specific initializations (see source)
+   --asset-dir <dir>      : specify source directory location (asset)
    --dependency-dir <dir> : specify dependency directory (dependency)
    --kitchen-dir <dir>    : specify kitchen directory (kitchen)
    --no-<name>            : turn off specific initializations (see source)
@@ -2368,8 +2369,11 @@ sde::init::install_project()
    log_entry "sde::init::install_project" "$@"
 
    local projectname="$1"
-   local projecttype="$2"
-   local projectsourcedir="$3"
+   shift
+
+   local projecttype="$1"
+   local projectsourcedir="$2"
+   local projectassetdir="$3"
    local marks="$4"
    local onlyfilename="$5"
    local force="$6"
@@ -2382,6 +2386,7 @@ sde::init::install_project()
    local PROJECT_EXTENSIONS
    local PROJECT_DIALECT      # for objc
    local PROJECT_SOURCE_DIR
+   local PROJECT_ASSET_DIR
    local PROJECT_TYPE
    local LANGUAGE_SET
 
@@ -2409,6 +2414,7 @@ sde::init::install_project()
 
    PROJECT_TYPE="${projecttype}"
    PROJECT_SOURCE_DIR="${projectsourcedir}"
+   PROJECT_ASSET_DIR="${projectassetdir}"
 
    sde::init::set_environment_var PROJECT_TYPE "${PROJECT_TYPE}" "project"
    if [ ! -z "${PROJECT_SOURCE_DIR}" ]
@@ -2418,8 +2424,15 @@ sde::init::install_project()
       #
       sde::init::set_environment_var PROJECT_SOURCE_DIR "${PROJECT_SOURCE_DIR}" "project"
    fi
-
+   if [ ! -z "${PROJECT_ASSET_DIR}" ]
+   then
+      #
+      # For projects that are not "none", we use save PROJECT_ASSET_DIR
+      #
+      sde::init::set_environment_var PROJECT_ASSET_DIR "${PROJECT_ASSET_DIR}" "project"
+   fi
    export PROJECT_SOURCE_DIR
+   export PROJECT_ASSET_DIR
    export PROJECT_TYPE
 
    local _MOTD
@@ -2727,6 +2740,7 @@ If you reinited the environment. Try:
    log_setting "PROJECT_LANGUAGE=\"${PROJECT_LANGUAGE}\""
    log_setting "PROJECT_NAME=\"${PROJECT_NAME}\""
    log_setting "PROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\""
+   log_setting "PROJECT_ASSET_DIR=\"${PROJECT_ASSET_DIR}\""
    log_setting "PROJECT_TYPE=\"${PROJECT_TYPE}\""
    log_setting "TEST_PROJECT_NAME=\"${TEST_PROJECT_NAME}\""
 }
@@ -3172,12 +3186,24 @@ sde::init::_run_common()
       ;;
    esac
 
+   case "${OPTION_PROJECT_ASSET_DIR}" in
+      DEFAULT)
+         if [ "${projecttype}" != "none" ]
+         then
+            OPTION_PROJECT_ASSET_DIR="${OPTION_PROJECT_ASSET_DIR:-asset}"
+         else
+            OPTION_PROJECT_ASSET_DIR=""
+         fi
+      ;;
+   esac
+
 
    sde::init::add_environment_variables "${OPTION_DEFINES}"
 
    if ! sde::init::install_project "${projectname}" \
                                    "${projecttype}" \
                                    "${OPTION_PROJECT_SOURCE_DIR}" \
+                                   "${OPTION_PROJECT_ASSET_DIR}" \
                                    "${OPTION_MARKS}" \
                                    "${OPTION_PROJECT_FILE}" \
                                    "${MULLE_FLAG_MAGNUM_FORCE}" \
@@ -3450,7 +3476,7 @@ sde::init::run_reinit()
 
    sde::init::end
 
-   log_verbose "Reinit end"
+   log_verbose "Reinit end ($rval)"
 
    return $rval
 }
@@ -3681,6 +3707,7 @@ sde::init::_main()
    local OPTION_POST_INIT='YES'
    local OPTION_PROJECT_FILE
    local OPTION_PROJECT_SOURCE_DIR='DEFAULT'
+   local OPTION_PROJECT_ASSET_DIR='DEFAULT'
    local OPTION_REFLECT='YES'
    local OPTION_CLEAN='DEFAULT'
    local OPTION_REINIT
@@ -3936,6 +3963,16 @@ sde::init::_main()
 
             PROJECT_TYPE="$1"
             export PROJECT_TYPE
+         ;;
+
+         --project-asset-dir|--asset-dir)
+            [ $# -eq 1 ] && sde::init::usage "Missing argument to \"$1\""
+            shift
+
+            [ "$1" = 'DEFAULT' ] && fail "DEFAULT is not a usable \
+PROJECT_ASSET_DIR value during init (rename to it later)"
+
+            OPTION_PROJECT_ASSET_DIR="$1"
          ;;
 
          --project-source-dir|--source-dir)
@@ -4308,7 +4345,7 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
             _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
-            sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit $?
+            sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 22
          fi
 
          if [ "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_ADD}" != 'YES' ]
@@ -4350,8 +4387,8 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
             log_verbose "Use ${C_RESET_BOLD}mulle-sde vibecoding off${C_VERBOSE} to disable"
          fi
       )
-      fi
       rval=$?
+      fi
    ### END
 
    sde::init::protect_unprotect "Protect" "a-w"
@@ -4369,10 +4406,13 @@ sde::init::main()
    sde::init::_main "$@"
    rval="$?"
 
-   if [ "${RERUN}" = 'YES' ]
+   if [ "${RERUN}" != 'YES' ]
    then
-      sde::exec_command_in_subshell "CD" init "$@"
+      return $rval
    fi
+
+   sde::exec_command_in_subshell "CD" init "$@"
+   rval=$?
 
    return $rval
 }

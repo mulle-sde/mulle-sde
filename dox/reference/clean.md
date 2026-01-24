@@ -204,7 +204,7 @@ mulle-sde clean dependency                  # Clean custom dependency dir
 mulle-sde clean gravetidy                   # Everything including graveyard
 
 # Clean for dependency updates
-mulle-sde clean fetch                       # Force refetch from remotes
+mulle-sde clean tidy                        # Force refetch from remotes
 
 # Clean for CI/CD
 mulle-sde clean alltestall                  # Clean all including tests

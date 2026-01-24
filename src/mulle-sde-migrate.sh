@@ -163,9 +163,9 @@ sde::migrate::from_v1_14_to_v2_2()
 }
 
 
-sde::migrate::from_v2_2_to_v3_2()
+sde::migrate::from_v2_2_to_v3_3()
 {
-   log_entry "sde::migrate::from_v2_2_to_v3_2" "$@"
+   log_entry "sde::migrate::from_v2_2_to_v3_3" "$@"
 
    local files
    local old_craft_dir
@@ -223,6 +223,35 @@ sde::migrate::from_v2_2_to_v3_2()
    .done
 }
 
+
+sde::migrate::from_v3_3_to_v3_7()
+{
+   log_entry "sde::migrate::from_v3_3_to_v3_7" "$@"
+
+   local files
+   local old_craft_dir
+   local craft_dir
+
+   local sourcetree_name
+   local sourcetree
+   local name
+
+   if [ -z "${PROJECT_ASSET_DIR}" -a "${PROJECT_TYPE}" != 'none' ]
+   then
+      PROJECT_ASSET_DIR='asset'
+      #
+      # For projects that are not "none", we use save PROJECT_ASSET_DIR
+      #
+      sde::init::set_environment_var PROJECT_ASSET_DIR "${PROJECT_ASSET_DIR}" "project"
+      export PROJECT_ASSET_DIR
+
+      if [ ! -d "${PROJECT_ASSET_DIR}" -a -d assets ]
+      then
+         exekutor mv assets "${PROJECT_ASSET_DIR}"
+         log_warning "Renamed your ${C_RESET_BOLD}assets${C_WARNING} folder to ${C_RESET_BOLD}${PROJECT_ASSET_DIR}"
+      fi
+   fi
+}
 
 
 sde::migrate::do()
@@ -290,14 +319,23 @@ sde::migrate::do()
       oldminor=2
    fi
 
-   # for debugging run this always before release...
    if [ "${oldmajor}" -lt 3 ] || [ "${oldmajor}" -eq 3 -a "${oldminor}" -lt 3 ]
    then
       (
-         sde::migrate::from_v2_2_to_v3_2
+         sde::migrate::from_v2_2_to_v3_3
       ) || exit 1
       oldmajor=3
       oldminor=3
+   fi
+
+   # for debugging run this always before release...
+   if [ "${oldmajor}" -lt 3 ] || [ "${oldmajor}" -eq 3 -a "${oldminor}" -lt 7 ]
+   then
+      (
+         sde::migrate::from_v3_3_to_v3_7
+      ) || exit 1
+      oldmajor=3
+      oldminor=7
    fi
 
    #
