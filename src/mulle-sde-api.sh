@@ -69,6 +69,28 @@ EOF
 # API docs are in share/<name>/dox/TOC.md or share/<name>/TOC.md
 # Returns list of paths in RVAL and count as return code
 #
+sde::api::r_extract_keywords()
+{
+   local file="$1"
+   
+   RVAL=""
+   
+   # Look for keywords comment line: <!-- keywords: word1, word2, word3 -->
+   local keywords_line
+   keywords_line="$(grep -i '^<!--[[:space:]]*[Kk]eywords:' "${file}" 2>/dev/null | head -n 1)"
+   
+   if [ ! -z "${keywords_line}" ]
+   then
+      # Extract keywords between "keywords:" and "-->"
+      keywords_line="${keywords_line#*eywords:}"
+      keywords_line="${keywords_line%-->*}"
+      
+      # Trim whitespace
+      RVAL="$(echo "${keywords_line}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+   fi
+}
+
+
 sde::api::r_collect_apis()
 {
    log_entry "sde::api::r_collect_apis" "$@"
@@ -96,6 +118,7 @@ sde::api::r_collect_apis()
    local subdir
    local repo
    local api
+   local keywords_str
    
    .foreachpath subdir in ${searchpath}
    .do
@@ -119,7 +142,14 @@ sde::api::r_collect_apis()
                   
                   if [ "${display}" = 'YES' ]
                   then
-                     printf "%2d. %-30s\n" "${count}" "${reponame}"
+                     sde::api::r_extract_keywords "${api}"
+                     keywords_str="${RVAL}"
+                     if [ ! -z "${keywords_str}" ]
+                     then
+                        printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
+                     else
+                        printf "%2d. %-30s\n" "${count}" "${reponame}"
+                     fi
                   fi
                   
                   r_colon_concat "${apis}" "${api}"
@@ -136,7 +166,14 @@ sde::api::r_collect_apis()
                   
                   if [ "${display}" = 'YES' ]
                   then
-                     printf "%2d. %-30s\n" "${count}" "${reponame}"
+                     sde::api::r_extract_keywords "${api}"
+                     keywords_str="${RVAL}"
+                     if [ ! -z "${keywords_str}" ]
+                     then
+                        printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
+                     else
+                        printf "%2d. %-30s\n" "${count}" "${reponame}"
+                     fi
                   fi
                   
                   r_colon_concat "${apis}" "${api}"
@@ -162,30 +199,103 @@ sde::api::list()
 {
    log_entry "sde::api::list" "$@"
 
+   local OPTION_FULL='NO'
+   
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         --full)
+            OPTION_FULL='YES'
+         ;;
+         
+         *)
+            sde::api::usage "Unknown option $1"
+         ;;
+      esac
+      shift
+   done
+
    local count
+   local apis
+   local toplevel_deps
+   local state
    
-   sde::api::r_collect_apis 'YES'
-   count=$?  # up to 126..
+   # Check if we need to craft
+   state="$(mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
+   if [ "${state}" != "complete" ]
+   then
+      log_info "Crafting dependencies to get API information..."
+      rexekutor mulle-sde craft craftorder
+   fi
    
-   if [ ${count} -ne 0 ]
+   # Collect all APIs
+   sde::api::r_collect_apis 'NO'
+   count=$?
+   apis="${RVAL}"
+   
+   if [ ${count} -eq 0 ]
    then
-      return 0
-   fi
+      if [ "${MULLE_VIBECODING}" != 'YES' ]
+      then
+         log_info "No API documentation found (dependencies not yet crafted?)"
+         return 1
+      fi
 
-   if [ "${MULLE_VIBECODING}" != 'YES' ]
+      rexekutor mulle-sde craft craftorder || fail "Could not build dependencies yet, so no APIs available"
+      sde::api::r_collect_apis 'NO'
+      count=$?
+      apis="${RVAL}"
+      
+      if [ ${count} -eq 0 ]
+      then
+         log_info "No API documentation available for dependencies"
+         return 0
+      fi
+   fi
+   
+   # Get top-level dependencies if not --full
+   if [ "${OPTION_FULL}" = 'NO' ]
    then
-      log_info "No API documentation found (dependencies not yet crafted?)"
-      return 1
+      toplevel_deps="$(mulle-sourcetree -s list 2>/dev/null | tail -n +3)" || toplevel_deps=""
    fi
-
-   rexekutor mulle-sde craft craftorder || fail "Could not build dependencies yet, so no APIs available"
-   sde::api::r_collect_apis 'YES'
-   if [ ${count} -ne 0 ]
+   
+   # Display APIs
+   local api
+   local reponame
+   local keywords_str
+   local display_count=0
+   
+   .foreachpath api in ${apis}
+   .do
+      # Extract repo name from path
+      r_basename "$(dirname "$(dirname "${api}")")"
+      reponame="${RVAL}"
+      
+      # Filter by top-level if needed
+      if [ "${OPTION_FULL}" = 'NO' ]
+      then
+         if ! echo "${toplevel_deps}" | grep -q "^${reponame}$"
+         then
+            .continue
+         fi
+      fi
+      
+      display_count=$((display_count + 1))
+      
+      sde::api::r_extract_keywords "${api}"
+      keywords_str="${RVAL}"
+      if [ ! -z "${keywords_str}" ]
+      then
+         printf "%-30s [%s]\n" "${reponame}" "${keywords_str}"
+      else
+         printf "%-30s\n" "${reponame}"
+      fi
+   .done
+   
+   if [ ${display_count} -eq 0 ]
    then
-      return 0
+      log_info "No API documentation available for top-level dependencies (use --full to see all)"
    fi
-
-   log_info "No API documentation available for dependencies"
    
    return 0
 }
@@ -275,9 +385,8 @@ sde::api::r_find_symbol()
    local name="$2"
    local follow="$3"
    
-   local found
-   
-   found="$(rexekutor find ${follow} "${dir}" -name "*.h" -exec grep -l "${name}" {} \; 2> /dev/null)"
+   # some sort of fuzzy search would not be bad
+   found="$(rexekutor find ${follow} "${dir}" -name "*.h" -exec grep -i -l "${name}" {} \; 2> /dev/null)"
    
    RVAL="${found}"
 }

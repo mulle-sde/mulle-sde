@@ -4378,7 +4378,7 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
          fi
 
          # easier for AIs and noobs
-         if [ "${MULLE_VIBECODING}" != 'NO' ]
+         if [ "${MULLE_VIBECODING}" != 'NO' -a "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_ADD}" != 'YES' ]
          then
             exekutor "${MULLE_SDE:-mulle-sde}" \
                         ${MULLE_TECHNICAL_FLAGS} \

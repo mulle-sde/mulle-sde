@@ -839,7 +839,7 @@ sde::clean::main()
 
          -a|-C|--all)
             OPTION_DOMAIN_DEFAULT="all"
-            log_vibe "Clean all will also clean 'test' and 'demo' for you if present. Use individual \`mulle-sde claen gravetidy\` clean in demo and test folders to refetch."
+            log_vibe "Clean all will also clean 'test' and 'demo' for you if present. Use individual \`mulle-sde clean gravetidy\` clean in demo and test folders to refetch."
          ;;
 
          -c)
