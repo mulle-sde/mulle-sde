@@ -152,38 +152,38 @@ sde::reflect::task()
    local statusfile="$3"
 
    local task
-   local rval
+   local rc
 
    task="`sde::reflect::callback_run "${name}"`"
-   rval=$?
+   rc=$?
 
-   if [ $rval -ne 0 ]
+   if [ $rc -ne 0 ]
    then
-      log_fluff "Callback \"${name}\" returned error: $rval"
+      log_fluff "Callback \"${name}\" returned error: $rc"
       if [ ! -z "${statusfile}" ]
       then
-         redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
+         redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rc"
       fi
-      return $rval
+      return $rc
    fi
 
    if [ ! -z "${task}" ]
    then
       "${runner}" "${task}"
-      rval=$?
+      rc=$?
 
-      if [ $rval -ne 0 ]
+      if [ $rc -ne 0 ]
       then
-         log_fluff "Task \"${task}\" returned error: $rval"
+         log_fluff "Task \"${task}\" returned error: $rc"
          if [ ! -z "${statusfile}" ]
          then
-            redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rval"
+            redirect_append_exekutor "${statusfile}" printf "%s\n" "${name};$rc"
          fi
-         return $rval
+         return $rc
       fi
    fi
 
-   return $rval
+   return $rc
 }
 
 
@@ -441,7 +441,7 @@ sde::reflect::main()
 {
    log_entry "sde::reflect::main" "$@"
 
-   local OPTION_RECURSE='YES'
+   local OPTION_RECURSIVE='YES'
    local OPTION_PARALLEL='YES'
    local OPTION_IF_NEEDED='NO'
 
@@ -466,8 +466,8 @@ sde::reflect::main()
             runner="sde::reflect::task_run_if_needed"
          ;;
 
-         --no-recurse)
-            OPTION_RECURSE='NO'
+         --no-recursive|--no-recurse)
+            OPTION_RECURSIVE='NO'
          ;;
 
          --no-parallel|--serial)
@@ -496,7 +496,7 @@ sde::reflect::main()
 
    if [ $# -ne 0 ]
    then
-      sde::reflect::worker "${OPTION_RECURSE}" \
+      sde::reflect::worker "${OPTION_RECURSIVE}" \
                            "${OPTION_IF_NEEDED}" \
                            "${OPTION_PARALLEL}" \
                            "${runner}" \
@@ -516,7 +516,7 @@ sde::reflect::main()
 
    log_fluff "Running tasks: ${tasks}"
 
-   eval sde::reflect::worker "'${OPTION_RECURSE}'" \
+   eval sde::reflect::worker "'${OPTION_RECURSIVE}'" \
                              "'${OPTION_IF_NEEDED}'" \
                              "'${OPTION_PARALLEL}'" \
                              "'${runner}'" \

@@ -32,6 +32,7 @@
 MULLE_SDE_TEST_SH='included'
 
 
+
 sde::test::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -61,14 +62,18 @@ Command:
    craft      : craft library
    craftorder : show order of dependencies being crafted
    coverage   : do a coverage run
-   crun       : craft and run
+   crun       : craft and run tests
+   crerun     : craft and rerun failed tests
    generate   : generate some simple test files (Objective-C only)
    init       : initialize a test directory
    linkorder  : show library command for linking test executable
+   nrun       : run tests without crafting
+   nrerun     : rerun failed tests without crafting
    recraft    : re-craft library and dependencies
+   recrun     : clean all, craft and run tests
    rerun      : rerun failed tests
    retest     : clean gravetidy and then craft and run tests once more
-   run        : run tests only
+   run        : run tests (crafts if MULLE_VIBECODING=YES)
    test-dir   : list test directories
 
 Environment:
@@ -137,47 +142,6 @@ EOF
 }
 
 
-sde::test::hack_environment()
-{
-   log_entry "sde::test::hack_environment" "$@"
-
-   #
-   # hackish undo some stuff, because we are probably entering a
-   # wild environment
-   #
-   local pattern
-
-   r_escaped_grep_pattern "${MULLE_VIRTUAL_ROOT}"
-   pattern="${MULLE_VIRTUAL_ROOT}"
-
-   unset ADDICTION_DIR
-   unset DEPENDENCY_DIR
-   unset KITCHEN_DIR
-   unset MULLE_FETCH_SEARCH_PATH
-   unset MULLE_VIRTUAL_ROOT
-   #  unset MULLE_TECHNICAL_FLAGS
-
-   #
-   # if terse, we don't get the warning and just the printf and it's
-   # confusing
-   #
-   if [ ! -z "${pattern}" -a "${MULLE_FLAG_LOG_TERSE}" != 'YES' ]
-   then
-      local problems
-
-      problems="`env \
-                 | grep -E -v '^PATH=|^MULLE_USER_PWD=|^PWD=|^OLDPWD=' \
-                 | grep -e "${pattern}" `"
-      if [ ! -z "${problems}" ]
-      then
-         _log_warning "These environment variables may or may not be \
-problematic, as this is a \"wild\" environment."
-         printf "%s\n" "${problems}" >&2
-      fi
-   fi
-}
-
-
 sde::test::generate()
 {
    log_entry "sde::test::generate" "$@"
@@ -210,7 +174,6 @@ sde::test::generate()
       flags="-f"
    fi
 
-
    log_info "Ensure mulle-testgen is accessible in environment"
 
    if ! rexekutor mulle-env ${MULLE_TECHNICAL_FLAGS} tool get mulle-testgen > /dev/null
@@ -229,7 +192,7 @@ sde::test::generate()
 
    exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft || exit 1
 
-   local rval
+   local rc
 
    .foreachpath directory in ${MULLE_SDE_TEST_PATH}
    .do
@@ -242,9 +205,9 @@ sde::test::generate()
                      generate \
                      -d "${directory}/00_noleak" \
                      "$@"
-      rval=$?
+      rc=$?
 
-      if [ $rval -eq 0 -a "${OPTION_FULL_TEST}" = 'YES' ]
+      if [ $rc -eq 0 -a "${OPTION_FULL_TEST}" = 'YES' ]
       then
          exekutor "${MULLE_TESTGEN}" \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -270,164 +233,14 @@ sde::test::generate()
                         -d "${directory}/20_method" \
                         -1 \
                         -m
-         rval=$?
+         rc=$?
       fi
 
-      if [ rval != 0 ]
+      if [ rc != 0 ]
       then
-         return $rval
+         return $rc
       fi
    .done
-}
-
-
-#
-# Execute command in the test environment
-#
-sde::test::_forward()
-{
-   log_entry "sde::test::_forward" "$@"
-
-   local directory="$1"
-   local cmd="$2"
-
-   shift 2
-
-   r_physicalpath "${directory}"
-   physdir="${RVAL}"
-
-   #
-   # We need to pass -Ddefine variables to mulle-test
-   #
-   (
-      r_concat "${cmd}" "$*"
-      r_concat "Tests" "${RVAL}"
-      r_concat "${RVAL}" "(${C_RESET_BOLD}${directory#"${MULLE_USER_PWD}/"}${C_INFO})"
-
-      log_info "${RVAL}"
-
-      exekutor cd "${physdir}" || fail "Could not get to ${physdir}"
-
-      #
-      # Case 1: we are outside the environment
-      # Case 2: we are in the wrong environment
-      # Case 3: we are in the right environment
-      #
-      if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a "${MULLE_VIRTUAL_ROOT}" = "${physdir}" ]
-      then
-         log_fluff "We are in the test environment"
-
-         rexekutor "${MULLE_TEST:-mulle-test}" ${MULLE_TECHNICAL_FLAGS} "${cmd}" "$@"
-         exit $?
-      fi
-
-      log_fluff "Entering proper test environment"
-
-      local cmdline
-
-      cmdline="mulle-test"
-      for arg in ${MULLE_TECHNICAL_FLAGS}
-      do
-         r_add_line "${cmdline}" "${arg}"
-         cmdline="${RVAL}"
-      done
-
-      r_add_line "${cmdline}" "${cmd}"
-      cmdline="${RVAL}"
-
-      while [ $# -ne 0 ]
-      do
-         r_add_line "${cmdline}" "$1"
-         cmdline="${RVAL}"
-         shift
-      done
-
-
-      sde::run_mulle_env -C "${cmdline}"
-   )
-}
-
-
-sde::test::forward()
-{
-   log_entry "sde::test::forward" "$@"
-
-   local harmless="$1"
-   shift 1
-
-   local cmd
-
-   if [ $# -ne 0 ]
-   then
-      cmd="$1"
-      shift
-   fi
-
-   local defaultpath
-   local projectdir
-
-   projectdir="`"${MULLE_SDE:-mulle-sde}" project-dir 2> /dev/null`"
-   if [ ! -z "${projectdir}" ]
-   then
-      exekutor cd "${projectdir}"
-   fi
-
-   include "path"
-   include "file"
-
-   (
-      sde::test::hack_environment
-
-      if sde::is_test_directory "."
-      then
-         sde::test::_forward "." "${cmd}" "$@"
-         exit $?
-      fi
-
-      .foreachpath directory in ${MULLE_SDE_TEST_PATH}
-      .do
-         if [ ! -d "${directory}" ]
-         then
-            if [ "${harmless}" = 'NO' ]
-            then
-               fail "Test directory \"${directory}\" is missing."$'\n'"${LOG_INFO}Create one with"$'\n'"${C_RESET_BOLD}   ${MULLE_USAGE_NAME} test init"
-            fi
-            .continue
-         fi
-
-         if ! sde::is_test_directory "${directory}"
-         then
-            if [ "${harmless}" = 'NO' ]
-            then
-               fail "Directory \"${directory}\" is not a mulle-test test directory."$'\n'"${LOG_INFO}Check that this directory is intended for mulle-sde test and then do."$'\n'"${C_RESET_BOLD}   ${MULLE_USAGE_NAME} test init"
-            fi
-            .continue
-         fi
-
-         if ! sde::test::_forward "${directory}" "${cmd}" "$@"
-         then
-            exit 1
-         fi
-      .done
-   )
-}
-
-
-sde::test::forward_run()
-{
-   log_entry "sde::test::forward" "$@"
-
-   local directory="$1"
-   shift 1
-
-   include "path"
-   include "file"
-
-   (
-      sde::test::hack_environment
-
-      sde::test::_forward "${directory}" "$@"
-   )
 }
 
 
@@ -479,14 +292,6 @@ sde::test::coverage()
          --serial|--no-parallel|--parallel)
             r_concat "${CRAFT_RUN_FLAGS}" "$1"
             CRAFT_RUN_FLAGS="${RVAL}"
-         ;;
-
-         --no-clean)
-            OPTION_CLEAN='NO'
-         ;;
-
-         --no-craft)
-            OPTION_CRAFT='NO'
          ;;
 
          --no-run)
@@ -581,7 +386,7 @@ sde::test::coverage()
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Build dependencies without coverage"
          sde::test::forward 'YES' clean all   || exit 1
-         sde::test::forward 'YES' craft       || exit 1
+         OPTION_CRAFT='YES'
       fi
 
       if [ "${OPTION_CRAFT}" = 'YES' ]
@@ -611,22 +416,6 @@ sde::test::coverage()
 }
 
 
-sde::test::path_environment()
-{
-   log_entry "sde::test::path_environment" "$@"
-
-   MULLE_SDE_TEST_PATH="`rexekutor mulle-env -s environment get --lenient MULLE_SDE_TEST_PATH`" || exit 1
-   if sde::is_test_directory "."
-   then
-      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-.}"
-   else
-      MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
-   fi
-
-   log_setting "MULLE_SDE_TEST_PATH=${MULLE_SDE_TEST_PATH}"
-}
-
-
 sde::test::r_init()
 {
    log_entry "sde::test::r_init" "$@"
@@ -634,7 +423,7 @@ sde::test::r_init()
    local projecttype
    local options
 
-   projecttype="`rexekutor "${MULLE_ENV:-mulle-env}" environment get PROJECT_TYPE`" || exit 1
+   projecttype="`rexekutor "${MULLE_ENV:-mulle-env}" get --output-eval PROJECT_TYPE`" || exit 1
    case "${projecttype}" in
       executable)
          options="--executable"
@@ -659,7 +448,9 @@ sde::test::r_init()
    local key 
    
    keys="MULLE_SOURCETREE_USE_PLATFORM_MARKS_FOR_FETCH:\
-MULLE_SOURCETREE_RESOLVE_TAG"
+MULLE_SOURCETREE_RESOLVE_TAG:\
+MULLE_CRAFT_PLATFORMS:\
+MULLE_SOURCETREE_PLATFORMS"
 
    .foreachpath key in ${keys}
    .do
@@ -676,6 +467,81 @@ MULLE_SOURCETREE_RESOLVE_TAG"
       fi
    .done
 
+   # Move platform loop settings into test environment
+   value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get --lenient MULLE_SDE_TEST_PLATFORMS 2>/dev/null`"
+   value="${value:-`rexekutor "${MULLE_ENV:-mulle-env}" environment get --lenient MULLE_CRAFT_PLATFORMS 2>/dev/null`}"
+   if [ ! -z "${value}" ]
+   then
+      rexekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} \
+                     -d test \
+                  environment set MULLE_TEST_PLATFORMS "${value}"
+   fi
+
+   # Copy platform-specific variables (toolchain, compiler root, emulator)
+   local platforms
+   local platform
+   local varname
+
+   platforms="`rexekutor "${MULLE_ENV:-mulle-env}" environment get MULLE_CRAFT_PLATFORMS`"
+
+   if [ ! -z "${platforms}" ]
+   then
+      .foreachpath platform in ${platforms}
+      .do
+         r_uppercase "${platform}"
+
+         # Copy toolchain variable
+         varname="MULLE_CRAFT_TOOLCHAIN__${RVAL}"
+         value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get ${varname}`"
+         toolchain_file="${value}"  # Save for later
+         if [ ! -z "${value}" ]
+         then
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                           -d test \
+                        environment set ${varname} "${value}"
+         fi
+
+         # Copy compiler root variable
+         varname="MULLE_CRAFT_CROSS_COMPILER_ROOT__${RVAL}"
+         value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get ${varname}`"
+         if [ ! -z "${value}" ]
+         then
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                           -d test \
+                        environment set ${varname} "${value}"
+         fi
+
+         # Copy emulator variable
+         varname="MULLE_EMULATOR__${RVAL}"
+         value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get ${varname}`"
+         if [ ! -z "${value}" ]
+         then
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                           -d test \
+                        environment set ${varname} "${value}"
+         fi
+
+         # Copy toolchain file if it exists
+         if [ ! -z "${toolchain_file}" ]
+         then
+            if [ -f "cmake/${toolchain_file}.cmake" ]
+            then
+               mkdir -p test/cmake
+               cp "cmake/${toolchain_file}.cmake" test/cmake/
+               log_verbose "Copied toolchain file ${toolchain_file}.cmake to test/cmake/"
+            fi
+         fi
+      .done
+   fi
+
    #
    # disable graveyards on tests
    #
@@ -691,19 +557,11 @@ MULLE_SOURCETREE_RESOLVE_TAG"
 }
 
 
-sde::test::get_test_dir()
-(
-   log_entry "sde::test::get_test_dir" "$@"
-
-   local filename="$1"
-
-   r_dirname "${filename}"
-   cd "${RVAL}"
-
-   rexekutor mulle-env project-dir
-)
 
 
+#
+# this returns the test directory to use for the given test files
+#
 sde::test::r_validate_test_run_paths()
 {
    log_entry "sde::test::r_validate_test_run_paths" "$@"
@@ -711,157 +569,568 @@ sde::test::r_validate_test_run_paths()
    log_setting "MULLE_USER_PWD: ${MULLE_USER_PWD}"
    log_setting "PWD:            ${PWD}"
 
-   while [ $# -ne 0 ]
-   do
-      case "$1" in
-        --build-args)
-            # remove build-only flags, which must appear first
-            while [ $# -ne 0 ]
-            do
-               if [ "$1" = "--run-args" ]
-               then
-                  continue
-               fi
-               shift
-            done
-            continue
-         ;;
-
-         --project-*|--path-*|-j|--jobs)
-         ;;
-
-         --)
-            shift
-            break
-         ;;
-
-         -*)
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-      shift
-   done
-
-   case "$1" in
-      'run'|'retest'|'recrun'|'crun'|'crerun'|'nrun'|'nrerun'|'rerun')         # check that paths are all in the same environment
-         shift
-      ;;
-
-      *)
-         fail "missing command, why are we here ?"
-      ;;
-   esac
-
-   while [ $# -ne 0 ]
-   do
-      case "$1" in
-        --build-args)
-            # remove build-only flags, which must appear first
-            while [ $# -ne 0 ]
-            do
-               if [ "$1" = "--run-args" ]
-               then
-                  continue
-               fi
-               shift
-            done
-            continue
-         ;;
-
-         --project-*|--path-*|-j|--jobs|--extensions)
-         ;;
-
-         --)
-            shift
-            break
-         ;;
-
-         -*)
-         ;;
-
-         *)
-            break
-         ;;
-      esac
-      shift
-   done
-
-   local filename
-   local test_dir
-   local test_file
    local test_env
 
-   while [ $# -ne 0 ]
-   do
-      filename="$1"
+   test_env=$(
+      # Now parse flags
+      local OPTION_CONFIGURATION='Debug'
+      local OPTION_PLATFORM=''
+      local OPTION_PARALLEL=''
+      local OPTION_COVERAGE='NO'
+      local OPTION_VALGRIND='NO'
+      local OPTION_SANITIZER=''
+      local OPTION_CLEAN='DEFAULT'
 
-      log_debug "${filename}"
+      local shifts
+      local remainder
 
-      if ! is_absolutepath "${filename}"
+      test::options::r_parse "$@"
+      shifts="${RVAL}"
+
+      # Shift away all flags
+      shift ${shifts}
+
+      local filename
+      local test_dir
+      local test_file
+      local test_env
+
+      if [ $# -eq  0 ]
       then
-         r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
-         filename="${RVAL}"
+         log_debug "No testfiles to run provided"
+         RVAL=
+         return 0 # is ok
       fi
 
-      log_debug "${filename}"
+      while [ $# -ne 0 ]
+      do
+         filename="$1"
 
-      if [ ! -e "${filename}" ]
-      then
-         # Try adding extensions from PROJECT_EXTENSIONS before failing
-         local ext
-         local extensions="${PROJECT_EXTENSIONS:-c}"
-         local found='NO'
-         
-         case "${extensions}" in
-            *:*)
-               # Handle colon-separated extensions
-               local IFS=':'
-               for ext in ${extensions}
-               do
-                  if [ -e "${filename}.${ext}" ]
+         log_debug "${filename}"
+
+         if ! is_absolutepath "${filename}"
+         then
+            r_filepath_concat "${MULLE_USER_PWD}" "${filename}"
+            filename="${RVAL}"
+         fi
+
+         log_debug "${filename}"
+
+         if [ ! -e "${filename}" ]
+         then
+            # Try adding extensions from PROJECT_EXTENSIONS before failing
+            local ext
+            local extensions
+
+            sde::test::r_get_test_project_extensions
+            extensions="${RVAL}"
+
+            local found='NO'
+
+            case "${extensions}" in
+               *:*)
+                  # Handle colon-separated extensions
+                  local IFS=':'
+                  for ext in ${extensions}
+                  do
+                     if [ -e "${filename}.${ext}" ]
+                     then
+                        filename="${filename}.${ext}"
+                        found='YES'
+                        break
+                     fi
+                  done
+               ;;
+
+               *)
+                  # Single extension
+                  if [ -e "${filename}.${extensions}" ]
                   then
+                     filename="${filename}.${extensions}"
                      found='YES'
-                     break
                   fi
-               done
-            ;;
-            
-            *)
-               # Single extension
-               if [ -e "${filename}.${extensions}" ]
-               then
-                  found='YES'
-               fi
-            ;;
-         esac
-         
-         if [ "${found}" = 'NO' ]
-         then
-            fail "Could not find test file \"${filename}\" ($PWD)"
+               ;;
+            esac
+
+            if [ "${found}" = 'NO' ]
+            then
+               fail "Could not find test file \"${filename}\" ($PWD)"
+            fi
          fi
-      fi
 
-      test_dir=$(sde::test::get_test_dir "${filename}")
-      if [ -z "${test_env}" ]
-      then
-         test_env="$test_dir"
-         test_file="$1"
-      else
-         if [ "${test_env}" != "${test_dir}" ]
+         test_dir=$(sde::test::get_test_dir "${filename}")
+         if [ -z "${test_env}" ]
          then
-            fail "Test \"${filename}\" is in a different test environment than \"$test_file\""
+            test_env="$test_dir"
+            test_file="$1"
+         else
+            if [ "${test_env}" != "${test_dir}" ]
+            then
+               fail "Test \"${filename}\" is in a different test environment than \"$test_file\""
+            fi
          fi
-      fi
 
-      shift
-   done
+         shift
+      done
 
+      printf "%s\n" "${test_env}"
+   )  || exit 1
+
+   # Empty test_env is OK - means no specific test files, run all tests
+   # test_env now contains the output from the subshell
    RVAL="${test_env}"
+   return 0
+}
+
+
+
+sde::test::r_test_directories()
+{
+   log_entry "sde::test::r_test_directories" "$@"
+
+   local directory="${1:-}"
+
+   local directories
+
+   directories="$(mulle-env -d "${directory}" get --output-eval MULLE_SDE_TEST_PATH)"
+   directories="${directories:-test}"
+
+   local dir
+
+   .foreachpath dir in ${directories}
+   .do
+      if [ ! -d "${dir}" ]
+      then
+         fail "Test directory ${C_RESET_BOLD}${dir}${C_ERROR} is missing ($PWD)"
+      fi
+   .done
+
+   RVAL="${directories}"
+}
+
+
+sde::test::r_test_platforms()
+{
+   log_entry "sde::test::r_test_platforms" "$@"
+
+   local directory="${1:-}"
+
+   platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_TEST_PLATFORMS)"
+   log_setting "MULLE_TEST_PLATFORMS: ${platforms}"
+   platforms="${platforms:-${MULLE_UNAME}}"
+
+   RVAL="${platforms}"
+}
+
+
+sde::test::get_test_dir()
+(
+   log_entry "sde::test::get_test_dir" "$@"
+
+   local filename="$1"
+
+   r_dirname "${filename}"
+   rexekutor mulle-env -s -d "${RVAL}" project-dir
+)
+
+
+sde::test::r_get_test_project_extensions()
+(
+   log_entry "sde::test::r_get_test_project_extensions" "$@"
+
+   local extensions="$1"
+
+   extensions="${PROJECT_EXTENSIONS}"
+   if [ -z  "${extensions}" ]
+   then
+      extensions=$(rexekutor mulle-env --style mulle/wild -E -s get --output-eval --lenient PROJECT_EXTENSIONS)
+   fi
+   extensions="${extensions:-c}"
+
+   log_setting "extensions: ${extensions}"
+
+   RVAL="${extensions}"
+)
+
+
+sde::test::r_determine_project_dir()
+{
+   local directory="${1:-}"
+
+   # empty dir is ok
+   RVAL="$(mulle-env -s -d "${directory}" project-dir)"
+
    [ ! -z "${RVAL}" ]
 }
+
+
+sde::test::r_is_test_directory()
+{
+   log_entry "sde::test::r_is_test_directory" "$@"
+
+   local directory="$1"
+
+
+   if ! sde::test::r_determine_project_dir "${directory}"
+   then
+      return 1
+   fi
+
+   local projectdir
+
+   projectdir="${RVAL}"
+
+   if ! rexekutor [ -d "${projectdir}/.mulle/share/test" ]
+   then
+      RVAL=
+      return 1
+   fi
+
+   RVAL="${projectdir}"
+   return 0
+}
+
+
+exekutor_mulle_env()
+{
+   local directory="$1"
+   shift
+
+   exekutor "${MULLE_ENV:-mulle-env}" \
+                  --style 'mulle/inherit' \
+                  -d "${directory}" \
+                  -E \
+                  ${MULLE_ENV_FLAGS:-} \
+                  ${MULLE_FWD_FLAGS:-} \
+                  --defines "${MULLE_DEFINE_FLAGS:-}" \
+                  exec \
+                    "$@"
+}
+
+
+exekutor_mulle_sde()
+{
+   local directory="$1"
+   shift
+
+   exekutor "${MULLE_SDE:-mulle-sde}" \
+                  --no-test-check \
+                  --style 'mulle/inherit' \
+                  -E \
+                  -d "${directory}"  \
+                  ${MULLE_TECHNICAL_FLAGS:-} \
+                  ${MULLE_SDE_FLAGS:-} \
+                  ${MULLE_ENV_FLAGS:-} \
+                  ${MULLE_FWD_FLAGS:-} \
+                  --defines "${MULLE_DEFINE_FLAGS:-}" \
+                  "$@"
+}
+
+
+exekutor_mulle_test()
+{
+   local directory="$1"
+   shift
+
+   exekutor_mulle_env "${directory}" mulle-test ${MULLE_TECHNICAL_FLAGS} \
+                                                ${MULLE_TEST_FLAGS} \
+                                               "$@"
+}
+
+
+
+
+# used for 'crun' and friends
+sde::test::auto_clean()
+{
+   log_entry "sde::test::auto_clean" "$@"
+
+   local directory="$1"
+   local target="$2"
+   shift 2
+
+   (
+      test::options::r_parse "$@"
+
+      if [ "${OPTION_CLEAN}" = 'NO' ]
+      then
+         return
+      fi
+
+      # clear remaining
+
+      set --
+
+      # for t
+      if [ ! -z "${OPTION_CONFIGURATION}" ]
+      then
+         set -- --configuration "${OPTION_CONFIGURATION}" "$@"
+      fi
+
+      if [ ! -z "${OPTION_PLATFORM}" ]
+      then
+         set -- --platform "${OPTION_PLATFORM}" "$@"
+      fi
+
+      if [ ! -z "${OPTION_SDK}" ]
+      then
+         set -- --sdk "${OPTION_SDK}" "$@"
+      fi
+
+      log_fluff "Cleaning in ${directory:-${PWD}}"
+
+      exekutor_mulle_sde "${directory}" clean "$@" ${target}
+   )
+}
+
+
+
+sde::test::craft()
+{
+   log_entry "sde::test::craft" "$@"
+
+   local directory="$1"
+   shift
+
+   (
+      local OPTION_CLEAN='NO'
+      local OPTION_PARALLEL='NO'
+
+      test::options::r_parse "$@"
+
+      local sde_args
+
+      if [ "${OPTION_PARALLEL}" = 'YES' ]
+      then
+         r_add_line "${sde_args}" "--parallel"
+         sde_args="${RVAL}"
+      else
+         r_add_line "${sde_args}" "--serial"
+         sde_args="${RVAL}"
+      fi
+
+      # we handle clean separately
+      r_add_line "${sde_args}" "--no-clean"
+      sde_args="${RVAL}"
+
+      local craft_args
+
+      craft_args='--mulle-test'
+
+      r_add_line "${craft_args}" "--preferred-library-style"
+      craft_args="${RVAL}"
+      r_add_line "${craft_args}" "dynamic"
+      craft_args="${RVAL}"
+
+      if [ ! -z "${OPTION_SDK}" ]
+      then
+         r_add_line "${craft_args}" "--sdk"
+         craft_args="${RVAL}"
+         r_add_line "${craft_args}" "${OPTION_SDK}"
+         craft_args="${RVAL}"
+      fi
+
+      if [ ! -z "${OPTION_PLATFORM}" ]
+      then
+         r_add_line "${craft_args}" "--platform"
+         craft_args="${RVAL}"
+         r_add_line "${craft_args}" "${OPTION_PLATFORM}"
+         craft_args="${RVAL}"
+      fi
+
+      if [ ! -z "${OPTION_CONFIGURATION}" ]
+      then
+         r_add_line "${craft_args}" "--configuration"
+         craft_args="${RVAL}"
+         r_add_line "${craft_args}" "${OPTION_CONFIGURATION}"
+         craft_args="${RVAL}"
+      fi
+
+      local make_args=""
+
+
+      if [ "${OPTION_COVERAGE}" = 'YES' ]
+      then
+         r_add_line "${make_args}" "-DOTHER_CFLAGS+=--coverage"
+         make_args="${RVAL}"
+         r_add_line "${make_args}" "-DOTHER_CFLAGS+=-fno-inline"
+         make_args="${RVAL}"
+         r_add_line "${make_args}" "-DOTHER_CFLAGS+=-DNDEBUG"
+         make_args="${RVAL}"
+         r_add_line "${make_args}" "-DOTHER_CFLAGS+=-DNS_BLOCK_ASSERTIONS"
+         make_args="${RVAL}"
+      else
+         if [ ! -z "${SANITIZER}" ]
+         then
+            case "${SANITIZER}" in
+               undefined)
+                  r_add_line "${make_args}" "-DOTHER_CFLAGS+=-fsanitize=undefined"
+                  make_args="${RVAL}"
+               ;;
+               thread)
+                  r_add_line "${make_args}" "-DOTHER_CFLAGS+=-fsanitize=thread"
+                  make_args="${RVAL}"
+               ;;
+               address)
+                  r_add_line "${make_args}" "-DOTHER_CFLAGS+=-fsanitize=address"
+                  make_args="${RVAL}"
+               ;;
+            esac
+         fi
+      fi
+
+      log_fluff "Crafting dependencies in ${directory:-${PWD}}"
+
+      local line
+
+      set --
+
+      while IFS= read -r line
+      do
+         [ -z "${line}" ] && continue
+         set -- "$@" "${line}"
+      done <<< "${sde_args}"
+
+      # set command for crafting
+      set -- "$@" 'craftorder'
+
+      set -- "$@" "--"
+
+      while IFS= read -r line
+      do
+         [ -z "${line}" ] && continue
+         set -- "$@" "${line}"
+      done <<< "${craft_args}"
+
+      set -- "$@" "--"
+
+      while IFS= read -r line
+      do
+         [ -z "${line}" ] && continue
+         set -- "$@" "${line}"
+      done <<< "${make_args}"
+
+      exekutor_mulle_sde "${directory}" craft "$@"
+   )
+}
+
+
+sde::test::generic()
+{
+   log_entry "sde::test::generic" "$@"
+
+   local directory="$1"
+   local cmd="$2"
+   shift 2
+
+   (
+      test::options::r_parse "$@"
+      shift ${RVAL}
+
+      #
+      # preprend known options to argument
+      #
+      if [ ! -z "${OPTION_CONFIGURATION}" ]
+      then
+         set -- --configuration "${OPTION_CONFIGURATION}" "$@"
+      fi
+
+      if [ ! -z "${OPTION_PLATFORM}" ]
+      then
+         set -- --platform "${OPTION_PLATFORM}" "$@"
+      fi
+
+      if [ ! -z "${OPTION_SDK}" ]
+      then
+         set -- --sdk "${OPTION_SDK}" "$@"
+      fi
+
+      log_fluff "Executing ${cmd} in ${directory}"
+
+      exekutor_mulle_sde "${directory}" "${cmd}" "$@"
+   )
+}
+
+
+sde::test::postprocess()
+{
+   log_entry "sde::test::postprocess" "$@"
+
+   local directory="$1"
+   shift
+
+   (
+      local OPTION_CLEAN='NO'
+      local OPTION_PARALLEL='NO'
+
+      test::options::r_parse "$@"
+
+      log_fluff "Postprocessing headers in ${directory:-${PWD}}"
+
+      include "sde::test-postprocess"
+
+      sde::test::postprocess_headers "${directory}" \
+                                     "${OPTION_SDK}" \
+                                     "${OPTION_PLATFORM}" \
+                                     "${OPTION_CONFIGURATION}"
+   )
+}
+
+
+sde::test::link_args()
+{
+   log_entry "sde::test::link_args" "$@"
+
+   local directory="$1"
+   shift
+
+   (
+      local OPTION_CLEAN='NO'
+      local OPTION_PARALLEL='NO'
+
+      test::options::r_parse "$@"
+      shift $RVAL
+
+      log_fluff "Perform link-args command in ${directory:-${PWD}}"
+
+      include "sde::test-link-args"
+
+      sde::test::link_args_main -d "${directory}" \
+                                --sdk "${OPTION_SDK}" \
+                                --platform "${OPTION_PLATFORM}" \
+                                --configuration "${OPTION_CONFIGURATION}" \
+                                "$@"
+   )
+}
+
+
+sde::test::update_link_args()
+{
+   log_entry "sde::test::update_link_args" "$@"
+
+   local directory="$1"
+   shift
+
+   (
+      local OPTION_CLEAN='NO'
+      local OPTION_PARALLEL='NO'
+
+      test::options::r_parse "$@"
+      shift $RVAL
+
+      log_fluff "Perform link-args command in ${directory:-${PWD}}"
+
+      include "sde::test-link-args"
+
+      sde::test::link_args_main -d "${directory}" \
+                                --sdk "${OPTION_SDK}" \
+                                --platform "${OPTION_PLATFORM}" \
+                                --configuration "${OPTION_CONFIGURATION}" \
+                                update \
+                                "$@"
+   )
+}
+
 
 
 #
@@ -877,20 +1146,15 @@ sde::test::r_validate_test_run_paths()
 # This function may or not be running in a subshell! It will not have been
 # forced into a subshell.
 #
-sde::test::r_main()
+sde::test::main()
 {
-   log_entry "sde::test::r_main" "$@"
-
-   local rval
+   log_entry "sde::test::main" "$@"
 
    while [ $# -ne 0 ]
    do
       case "$1" in
          -h|--help|help)
             sde::test::usage
-         ;;
-
-         -*)
          ;;
 
          *)
@@ -901,137 +1165,393 @@ sde::test::r_main()
       shift
    done
 
-   sde::test::path_environment
+   local cmd="${1:-}"
 
-   RVAL=""
+   [ $# -ne 0 ] && shift
 
-   case "${1}" in
-      'run')
-         # check that paths are all in the same environment
-         if ! sde::test::r_validate_test_run_paths "$@"
-         then
-            RVAL='DEFAULT'
-         fi
-         return 1
-      ;;
-
-      # run commands with paths
-      'retest'|'recrun'|'crun'|'crerun'|'nrun'|'nrerun'|'rerun')         # check that paths are all in the same environment
-         # check that paths are all in the same environment
-         if ! sde::test::r_validate_test_run_paths "$@"
-         then
-            RVAL='DEFAULT'
-         fi
-         return 1
-      ;;
-
-      # build commands
-      clean|craft|build|craftorder|fetch|linkorder|log|rebuild|recraft)
-         RVAL='DEFAULT'
-         return 1
-      ;;
-
-      coverage)
-         shift
-         sde::test::coverage "$@"
-         RVAL='DONE'
-         rval=$?
-         return $rval
-      ;;
-
-      # introspection, no test dir needed
-      env|test-dir)
-         RVAL='HARMLESS'
-         return 1
-      ;;
-
-      libexec-dir|version)
-         rexekutor mulle-test ${MULLE_TECHNICAL_FLAGS} "$1" "$@"
-         rval=$?
-         RVAL='DONE'
-         return $rval
-      ;;
-
-      # no environment needed to run these properly
-      generate)
-         shift
-         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-         then
-            sde::exec_command_in_subshell "CD" test generate "$@"
-         else
-            sde::test::generate "$@"
-         fi
-         rval=$?
-         RVAL='DONE'
-         return $rval
-      ;;
-
-      # no environment needed to run these properly
-      init)
-         shift
-         sde::test::r_init "$@"
-      ;;
-
-      # layme, other known commands that don't work in test
-      # rerun them with mulle-sde
-      config)
-         RVAL='DONE'
-         rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} "$@"
-         return $?
-      ;;
-
-      "")
-         RVAL='DEFAULT'
-         return 1
-      ;;
-
-      *)
-         RVAL='RUN'
-         return 1
-      ;;
-   esac
-}
+   #
+   #
+   # sde command | PWD  | ENV  || Platforms | Testdirs || What should happen
+   # ------------|------|------||----------------------||--------------------------------------------------
+   #
+   #
+   # init        | test |  NO  ||  N/A      |    N/A   || **FAIL**
+   # init        | test |  YES ||  N/A      |    N/A   || **FAIL**
+   # init        | proj |  NO  ||  N/A      |    N/A   || OK
+   # init        | proj |  YES ||  N/A      |    N/A   || OK
 
 
-sde::test::main()
-{
-   log_entry "sde::test::main" "$@"
+   local state
+   local test_root
 
-   local rval
-
-   sde::test::r_main "$@"
-   rval=$?
-
-   log_debug="rval=$rval RVAL=$RVAL"
-
-   if [ $rval -eq 1 ]
+   state='proj'
+   if sde::test::r_is_test_directory
    then
-      case "${RVAL}" in
-         "DONE")
-         ;;
-
-         'DEFAULT')
-            sde::test::forward 'NO' "$@"
-            rval=$?
-         ;;
-
-         'HARMLESS')
-            sde::test::forward 'YES' "$@"
-            rval=$?
-         ;;
-
-         'RUN')
-            sde::test::forward 'NO' run "$@"
-            rval=$?
-         ;;
-
-         *)
-            sde::test::forward_run "${RVAL}" "$@"
-            rval=$?
-         ;;
-
-      esac
+      state='test'
+      test_root="${RVAL}"
    fi
 
-   return $rval
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
+   then
+      state="${state}-env"
+   fi
+
+   local cmdchain
+   local cleanargs
+
+   #
+   # Some commands need to run inside the project environment (platform variables)
+   case "${cmd}" in
+      clean)
+         r_colon_concat "${cmdchain}" "clean"
+         cmdchain="${RVAL}"
+      ;;
+
+      recraft|reccrun)
+         r_colon_concat "${cmdchain}" "auto-clean"
+         cmdchain="${RVAL}"
+
+         cleanargs='all'
+      ;;
+
+      retest|tidy)
+         r_colon_concat "${cmdchain}" "auto-clean"
+         cmdchain="${RVAL}"
+
+         cleanargs='tidy'
+      ;;
+   esac
+
+   case "${cmd}" in
+      craft|crun|crerun|recraft|recrun|retest)
+         r_colon_concat "${cmdchain}" 'craft'
+         cmdchain="${RVAL}"
+      ;;
+   esac
+
+   case "${cmd}" in
+      craft|crun|crerun|recraft|recrun|retest)
+         r_colon_concat "${cmdchain}" 'postprocess'
+         cmdchain="${RVAL}"
+      ;;
+   esac
+
+   case "${cmd}" in
+      craft|crun|crerun|recraft|recrun|retest)
+         r_colon_concat "${cmdchain}" 'update-link-args'
+         cmdchain="${RVAL}"
+      ;;
+   esac
+
+   case "${cmd}" in
+      run|crun|nrun|recrun|retest)
+         r_colon_concat "${cmdchain}" 'run'
+         cmdchain="${RVAL}"
+      ;;
+
+      rerun|crerun|nrerun)
+         r_colon_concat "${cmdchain}" 'rerun'
+         cmdchain="${RVAL}"
+      ;;
+   esac
+
+   include "test::options"
+
+   cmdchain="${cmdchain:-${cmd}}"
+
+   local test_directories
+   local clean_before_run='NO'
+
+   case "${state}" in
+      proj*)
+         sde::test::r_test_directories
+         test_directories="${RVAL}"
+      ;;
+   esac
+
+   case ":${cmdchain}:" in
+      *:clean:*|*:auto-clean:*)
+      ;;
+
+      *:craft:*|*:run:*)
+         case "${state}" in
+            proj*)
+               clean_before_run="$(mulle-env -s -E -d "${test_directories%%:*}" get --output-eval 'MULLE_TEST_CLEAN_BEFORE_RUN')"
+            ;;
+
+            test*)
+               clean_before_run="$(mulle-env -s get --output-eval 'MULLE_TEST_CLEAN_BEFORE_RUN')"
+            ;;
+         esac
+
+         if [ "${clean_before_run:-}" = 'YES' ]
+         then
+            r_colon_concat "auto-clean" "${cmdchain}"
+            cmdchain="${RVAL}"
+
+            cleanargs='project'
+         fi
+      ;;
+   esac
+
+   case ":${cmdchain}:" in
+      *:auto-clean:*craft:*run:*)
+      ;;
+
+      *:auto-clean:*run:*)
+         cmdchain="${cmdchain/auto-clean:/auto-clean:craft:postprocess:update-link-args:}"
+      ;;
+   esac
+
+   local directory
+   local platforms
+   local platform
+   local target
+
+   # we could be running outside of every environment
+   if [ -z "${MULLE_UNAME}" ]
+   then
+      MULLE_UNAME="$(PATH=/bin:/usr/bin uname -s 2> /dev/null | tr '[:upper:]' '[:lower:]')"
+   fi
+
+   log_debug "cmdchain: ${cmdchain}"
+
+   # Check if specific test files were provided (only relevant for run/rerun)
+   local specific_test_directory
+   
+   case ":${cmdchain}:" in
+      *:run:*|*:rerun:*)
+         case "${state}" in
+            proj*)
+               if ! sde::test::r_validate_test_run_paths "$@"
+               then
+                  return 1
+               fi
+               specific_test_directory="${RVAL}"
+               
+               if [ ! -z "${specific_test_directory}" ]
+               then
+                  # Specific test files provided - run them directly without platform loop
+                  log_debug "Running specific tests in: ${specific_test_directory}"
+                  exekutor_mulle_test "${specific_test_directory}" run "$@"
+                  return $?
+               fi
+            ;;
+         esac
+      ;;
+   esac
+
+   # Determine platforms once at the top level
+   case "${state}" in
+      proj*)
+         # For project state, we'll handle platforms per test directory
+         local test_dir_for_platform
+         
+         .foreachpath test_dir_for_platform in ${test_directories}
+         .do
+            sde::test::r_test_platforms "${test_dir_for_platform}"
+            platforms=${RVAL}
+            
+            log_setting "r_test_platforms ($test_dir_for_platform): ${platforms}"
+            
+            local platform_for_cmdchain
+            
+            .foreachpath platform_for_cmdchain in ${platforms}
+            .do
+               log_info "Processing platform ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}${C_INFO} for ${test_dir_for_platform}"
+               
+               .foreachpath cmd in ${cmdchain}
+               .do
+                  log_debug "${cmd}::${state}::${platform_for_cmdchain}"
+
+                  case "${cmd}" in
+                     'auto-clean')
+                        if [ "${cleanargs}" = 'project' ]
+                        then
+                           target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                           if [ -z "${target}" ]
+                           then
+                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
+                           fi
+                        else
+                           target="${cleanargs}"
+                        fi
+
+                        if ! sde::test::auto_clean "${test_dir_for_platform}" "${target:-all}" "$@"
+                        then
+                           if [ "${OPTION_LENIENT}" != 'YES' ]
+                           then
+                              exit 1
+                           fi
+                        fi
+                     ;;
+
+                     'clean'|'craftorder'|'log')
+                        if ! sde::test::generic "${test_dir_for_platform}" "${cmd}" --platform "${platform_for_cmdchain}" "$@"
+                        then
+                           if [ "${OPTION_LENIENT}" != 'YES' ]
+                           then
+                              exit 1
+                           fi
+                        fi
+                     ;;
+
+                     'craft'|'postprocess'|'update-link-args'|'link-args')
+                        if ! sde::test::${cmd//-/_} "${test_dir_for_platform}" --platform "${platform_for_cmdchain}" "$@"
+                        then
+                           if [ "${OPTION_LENIENT}" != 'YES' ]
+                           then
+                              exit 1
+                           fi
+                        fi
+                     ;;
+
+                     'run'|'rerun')
+                        local run_directory
+                        
+                        if ! sde::test::r_validate_test_run_paths "$@"
+                        then
+                           return 1
+                        fi
+                        run_directory="${RVAL}"
+
+                        if [ ! -z "${run_directory}" ]
+                        then
+                           exekutor_mulle_test "${run_directory}" "${cmd}" "$@"
+                        else
+                           if ! exekutor_mulle_test "${test_dir_for_platform}" "${cmd}" "$@"
+                           then
+                              if [ "${OPTION_LENIENT}" != 'YES' ]
+                              then
+                                 exit 1
+                              fi
+                           fi
+                        fi
+                     ;;
+
+                     coverage)
+                        sde::test::coverage "$@"
+                        return $?
+                     ;;
+
+                     init)
+                        sde::test::r_init "$@"
+                        return $?
+                     ;;
+
+                     generate)
+                        if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+                        then
+                           sde::exec_command_in_subshell "CD" test generate "$@"
+                        else
+                           sde::test::generate "$@"
+                        fi
+                        return $?
+                     ;;
+
+                     *)
+                        sde::test::usage "Unknown command \"${cmd}\""
+                     ;;
+                  esac
+               .done
+            .done
+         .done
+      ;;
+
+      test*)
+         sde::test::r_test_platforms "${test_root}"
+         platforms=${RVAL}
+         
+         log_setting "r_test_platforms ($test_root): ${platforms}"
+         
+         local platform_for_cmdchain
+         
+         .foreachpath platform_for_cmdchain in ${platforms}
+         .do
+            log_info "Processing platform ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}"
+            
+            .foreachpath cmd in ${cmdchain}
+            .do
+               log_debug "${cmd}::${state}::${platform_for_cmdchain}"
+
+               case "${cmd}" in
+                  'auto-clean')
+                     if [ "${cleanargs}" = 'project' ]
+                     then
+                        target="$(mulle-env -d "${directory}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                        if [ -z "${target}" ]
+                        then
+                           target="$(mulle-env -d "${directory}" -s get --output-eval 'PROJECT_NAME')"
+                        fi
+                     else
+                        target="${cleanargs}"
+                     fi
+
+                     if ! sde::test::auto_clean "" "${target:-all}" "$@"
+                     then
+                        if [ "${OPTION_LENIENT}" != 'YES' ]
+                        then
+                           exit 1
+                        fi
+                     fi
+                  ;;
+
+                  'clean'|'craftorder'|'log')
+                     if ! sde::test::generic "" "${cmd}" --platform "${platform_for_cmdchain}" "$@"
+                     then
+                        if [ "${OPTION_LENIENT}" != 'YES' ]
+                        then
+                           exit 1
+                        fi
+                     fi
+                  ;;
+
+                  'craft'|'postprocess'|'update-link-args'|'link-args')
+                     if ! sde::test::${cmd//-/_} "" --platform "${platform_for_cmdchain}" "$@"
+                     then
+                        if [ "${OPTION_LENIENT}" != 'YES' ]
+                        then
+                           exit 1
+                        fi
+                     fi
+                  ;;
+
+                  'run'|'rerun')
+                     if ! exekutor_mulle_test "${directory}" "${cmd}" "$@"
+                     then
+                        if [ "${OPTION_LENIENT}" != 'YES' ]
+                        then
+                           exit 1
+                        fi
+                     fi
+                  ;;
+
+                  coverage)
+                     sde::test::coverage "$@"
+                     return $?
+                  ;;
+
+                  init)
+                     sde::test::r_init "$@"
+                     return $?
+                  ;;
+
+                  generate)
+                     if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+                     then
+                        sde::exec_command_in_subshell "CD" test generate "$@"
+                     else
+                        sde::test::generate "$@"
+                     fi
+                     return $?
+                  ;;
+
+                  *)
+                     sde::test::usage "Unknown command \"${cmd}\""
+                  ;;
+               esac
+            .done
+         .done
+      ;;
+   esac
 }

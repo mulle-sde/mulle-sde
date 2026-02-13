@@ -1157,7 +1157,7 @@ sde::craftinfo::get_main()
                                                  'YES' \
                                                  "${OPTION_CONFIG_NAME:-${MULLE_SOURCETREE_CONFIG_NAME}}"
 
-      local rval
+      local rc
 
       exekutor "${MULLE_MAKE}" \
                     ${MULLE_TECHNICAL_FLAGS} \
@@ -1165,10 +1165,10 @@ sde::craftinfo::get_main()
                      --definition-dir "${_folder}.${MULLE_UNAME}" \
                      get \
                      "$@"
-      rval=$?
-      if [ $rval -ne 2 ]
+      rc=$?
+      if [ $rc -ne 2 ]
       then
-         return $rval
+         return $rc
       fi
 
       exekutor "${MULLE_MAKE}" \

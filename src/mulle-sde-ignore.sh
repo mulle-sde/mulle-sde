@@ -122,7 +122,6 @@ sde::ignore::main()
    esac
 
    [ "$#" -eq 0 ] && sde::ignore::usage "Missing argument"
-   [ "$#" -ne 1 ] && sde::ignore::usage "superfluous arguments \"$*\""
 
    exekutor "${MULLE_MATCH:-mulle-match}" \
                                     ${MULLE_TECHNICAL_FLAGS} \

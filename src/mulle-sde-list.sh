@@ -51,6 +51,7 @@ Tip:
 Options:
    --all               : list dependencies, definitions, environment, files
    --raw-files         : list only unadorned filenames
+   --unmatched-files   : list files that don't match patternfiles with reasons
    --[no-]dependencies : list dependencies
    --[no-]definitions  : list definitions
    --[no-]environment  : list environmnt
@@ -74,6 +75,12 @@ sde::list::files()
          exekutor "${MULLE_MATCH:-mulle-match}" \
                      list \
                         --format "%f\\n" "$@"
+      return $?
+   fi
+
+   if [ "${mode}" = 'unmatched' ]
+   then
+      sde::list::unmatched_files
       return $?
    fi
 
@@ -251,6 +258,208 @@ sde::list::environment()
 }
 
 
+sde::list::unmatched_files()
+{
+   log_entry "sde::list::unmatched_files" "$@"
+
+   log_info "${C_MAGENTA}${C_BOLD}Unmatched Files Analysis"
+   echo
+
+   # Step 1: Get all top-level items (files and directories)
+   local all_items
+   all_items=$(ls -A1 2>/dev/null | LC_ALL=C sort)
+
+   # Step 2: Get items in MULLE_MATCH_PATH (basenames only)
+   local match_items=""
+   local item
+
+   .foreachpath item in ${MULLE_MATCH_PATH}
+   .do
+      # Expand variables
+      case "${item}" in
+         \$*)
+            item=$(eval echo "${item}")
+         ;;
+      esac
+
+      # Get basename if it's a path
+      r_basename "${item}"
+      r_add_line "${match_items}" "${RVAL}"
+      match_items="${RVAL}"
+   .done
+
+   # Step 3: Find not searched items
+   local not_searched
+   not_searched=$(comm -23 <(echo "${all_items}") <(echo "${match_items}" | LC_ALL=C sort))
+
+   if [ ! -z "${not_searched}" ]
+   then
+      local count
+      count=$(echo "${not_searched}" | grep -c . 2>/dev/null || echo 0)
+      log_info "${C_YELLOW}${C_BOLD}Not in MULLE_MATCH_PATH (${count}):"
+      echo "${not_searched}" | while IFS= read -r item
+      do
+         [ -z "${item}" ] && continue
+         if [ -d "${item}" ]
+         then
+            echo "   ${item}/ (directory)"
+         else
+            echo "   ${item}"
+         fi
+      done
+      echo
+   fi
+
+   # Step 4: Now check files within searched paths
+   # Get all files from MULLE_MATCH_PATH
+   local search_paths=""
+
+   .foreachpath item in ${MULLE_MATCH_PATH}
+   .do
+      case "${item}" in
+         \$*)
+            item=$(eval echo "${item}")
+         ;;
+      esac
+
+      if [ -e "${item}" ]
+      then
+         r_colon_concat "${search_paths}" "${item}"
+         search_paths="${RVAL}"
+      fi
+   .done
+
+   if [ -z "${search_paths}" ]
+   then
+      return 0
+   fi
+
+   # Get all files in search paths
+   local tmpfile_all="/tmp/mulle-sde-all-searchable.$$"
+   local tmpfile_matched="/tmp/mulle-sde-matched.$$"
+
+   (
+      local path
+      local IFS=':'
+      for path in ${search_paths}
+      do
+         if [ -d "${path}" ]
+         then
+            find "${path}" -type f 2>/dev/null | sed 's|^\./||'
+         elif [ -f "${path}" ]
+         then
+            echo "${path}"
+         fi
+      done
+   ) | LC_ALL=C sort -u > "${tmpfile_all}"
+
+   # Get matched files
+   "${MULLE_MATCH:-mulle-match}" list --format "%f\\n" 2>/dev/null | LC_ALL=C sort > "${tmpfile_matched}"
+
+   # Find unmatched within searchable
+   local unmatched_searchable
+   unmatched_searchable=$(comm -23 "${tmpfile_all}" "${tmpfile_matched}")
+
+   if [ ! -z "${unmatched_searchable}" ]
+   then
+      # Classify these files
+      local extension_filtered=""
+      local actively_ignored=""
+      local no_match=""
+      local file
+      local basename
+      local matched_pattern
+
+      while IFS= read -r file
+      do
+         [ -z "${file}" ] && continue
+
+         # Check if matches MULLE_MATCH_FILENAMES
+         r_basename "${file}"
+         basename="${RVAL}"
+         matched_pattern='NO'
+
+         if [ -z "${MULLE_MATCH_FILENAMES}" ]
+         then
+            matched_pattern='YES'
+         else
+            shell_disable_glob
+            local pattern
+            .foreachpath pattern in ${MULLE_MATCH_FILENAMES}
+            .do
+               if [[ "${basename}" == ${pattern} ]]
+               then
+                  matched_pattern='YES'
+                  .break
+               fi
+            .done
+            shell_enable_glob
+         fi
+
+         if [ "${matched_pattern}" = 'NO' ]
+         then
+            r_add_line "${extension_filtered}" "${file}"
+            extension_filtered="${RVAL}"
+         else
+            # Check if actively ignored by patternfile
+            if ! "${MULLE_MATCH:-mulle-match}" filename "${file}" >/dev/null 2>&1
+            then
+               r_add_line "${actively_ignored}" "${file}"
+               actively_ignored="${RVAL}"
+            else
+               r_add_line "${no_match}" "${file}"
+               no_match="${RVAL}"
+            fi
+         fi
+      done <<< "${unmatched_searchable}"
+
+      # Display extension filtered
+      if [ ! -z "${extension_filtered}" ]
+      then
+         local count
+         count=$(echo "${extension_filtered}" | grep -c . 2>/dev/null || echo 0)
+         log_info "${C_YELLOW}${C_BOLD}Not in MULLE_MATCH_FILENAMES (${count}):"
+         echo "${extension_filtered}" | while IFS= read -r file
+         do
+            [ -z "${file}" ] && continue
+            echo "   ${file}"
+         done
+         echo
+      fi
+
+      # Display actively ignored
+      if [ ! -z "${actively_ignored}" ]
+      then
+         local count
+         count=$(echo "${actively_ignored}" | grep -c . 2>/dev/null || echo 0)
+         log_info "${C_YELLOW}${C_BOLD}Actively ignored by patternfile (${count}):"
+         echo "${actively_ignored}" | while IFS= read -r file
+         do
+            [ -z "${file}" ] && continue
+            echo "   ${file}"
+         done
+         echo
+      fi
+
+      # Display no patternfile match
+      if [ ! -z "${no_match}" ]
+      then
+         local count
+         count=$(echo "${no_match}" | grep -c . 2>/dev/null || echo 0)
+         log_info "${C_YELLOW}${C_BOLD}No patternfile match (${count}):"
+         echo "${no_match}" | while IFS= read -r file
+         do
+            [ -z "${file}" ] && continue
+            echo "   ${file}"
+         done
+         echo
+      fi
+   fi
+
+   rm -f "${tmpfile_all}" "${tmpfile_matched}"
+}
+
+
 sde::list::main()
 {
    log_entry "sde::list::main" "$@"
@@ -261,6 +470,7 @@ sde::list::main()
    local OPTION_LIST_FILES='DEFAULT'
    local OPTION_LIST_LIBRARIES='DEFAULT'
    local OPTION_RAW_FILES=''
+   local OPTION_UNMATCHED_FILES='NO'
 
    local spacer
 
@@ -283,6 +493,11 @@ sde::list::main()
 
          --raw-files)
             OPTION_RAW_FILES='raw'
+         ;;
+
+         -u|--unmatched|--unmatched-files)
+            OPTION_UNMATCHED_FILES='YES'
+            OPTION_LIST_FILES='YES'
          ;;
 
          --dependencies)
@@ -353,7 +568,12 @@ sde::list::main()
    then
       if [ "${PROJECT_TYPE}" != 'none' -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
       then
-         sde::list::files "${OPTION_RAW_FILES}"
+         if [ "${OPTION_UNMATCHED_FILES}" = 'YES' ]
+         then
+            sde::list::files 'unmatched'
+         else
+            sde::list::files "${OPTION_RAW_FILES}"
+         fi
          spacer="echo"
       else
          log_warning "No files listed in \"none\" projects.

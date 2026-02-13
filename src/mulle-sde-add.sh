@@ -405,9 +405,9 @@ sde::add::in_project()
          query_vendors="`sde::extension::main runtimes 2> /dev/null | cut -d'/' -f1,1 `"
       fi
 
-      local rval
+      local rc
 
-      rval=4
+      rc=4
       if [ ! -z "${query_vendors}" ]
       then
          sde::add::file_via_oneshot_extension "${filename}"      \
@@ -416,18 +416,18 @@ sde::add::in_project()
                                               "${type}"          \
                                               "${type_defaults}" \
                                               "${ext}"
-         rval=$?
-         case $rval in
+         rc=$?
+         case $rc in
             4|0)
             ;;
 
             *)
-               exit $rval
+               exit $rc
             ;;
          esac
       fi
 
-      if [ $rval -eq 4 ]
+      if [ $rc -eq 4 ]
       then
          # fallback to all
          query_vendors="`sde::extension::main vendors`"
@@ -438,8 +438,8 @@ sde::add::in_project()
                                               "${type}"          \
                                               "${type_defaults}" \
                                               "${ext}"
-         rval=$?
-         case $rval in
+         rc=$?
+         case $rc in
             4)
                fail "No matching template \"${type:-${type_defaults}}\" found to create file \"${filename}\" with extension \"${ext}\""
             ;;
@@ -448,7 +448,7 @@ sde::add::in_project()
             ;;
 
             *)
-               exit $rval
+               exit $rc
             ;;
          esac
       fi
@@ -542,8 +542,8 @@ sde::add::not_in_project()
                                            "${type}" \
                                            "" \
                                            "${ext}"
-      rval=$?
-      case $rval in
+      rc=$?
+      case $rc in
          4)
             if [ -z "${ext}" ]
             then
@@ -557,7 +557,7 @@ sde::add::not_in_project()
          ;;
 
          *)
-            exit $rval
+            exit $rc
          ;;
       esac
    ) || exit $?

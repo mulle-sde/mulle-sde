@@ -3414,13 +3414,13 @@ sde::init::run()
 
    sde::init::start
 
-   local rval
+   local rc
    (
       sde::init::_run_init "${projectname}" "${projecttype}"
    )
-   rval="$?"
+   rc="$?"
 
-   if [ $rval != 0 ]
+   if [ $rc != 0 ]
    then
       rmdir_safer ".mulle"
 
@@ -3438,7 +3438,7 @@ sde::init::run()
 
    log_verbose "Init end"
 
-   return $rval
+   return $rc
 }
 
 
@@ -3458,14 +3458,14 @@ sde::init::run_reinit()
 
    sde::init::start "Reinit"
 
-   local rval
+   local rc
    (
       sde::init::_run_reinit "${new_project_type}"
    )
-   rval="$?"
+   rc="$?"
 
    # rmdir_safer ".mulle-env"
-   if [ $rval -ne 0 ]
+   if [ $rc -ne 0 ]
    then
       log_info "The reinit failed. Restoring old configuration."
 
@@ -3476,9 +3476,9 @@ sde::init::run_reinit()
 
    sde::init::end
 
-   log_verbose "Reinit end ($rval)"
+   log_verbose "Reinit end ($rc)"
 
-   return $rval
+   return $rc
 }
 
 
@@ -3508,14 +3508,14 @@ sde::init::run_upgrade()
 
    sde::init::start "Upgrade"
 
-   local rval
+   local rc
    (
       sde::init::_run_upgrade "$@"
    )
-   rval="$?"
+   rc="$?"
 
    # rmdir_safer ".mulle-env"
-   if [ $rval -ne 0 ]
+   if [ $rc -ne 0 ]
    then
       log_info "The upgrade failed. Restoring old configuration for \"${PWD#"${MULLE_USER_PWD}/"}\""
 
@@ -3528,7 +3528,7 @@ sde::init::run_upgrade()
 
    log_verbose "Upgrade end"
 
-   return $rval
+   return $rc
 }
 
 
@@ -3539,14 +3539,14 @@ sde::init::run_upgrade_projectfile()
 
    log_verbose "Upgrade projectfile start"
    # probably nothing to do here (could save source but we don't)
-   local rval
+   local rc
    (
       sde::init::_run_upgrade_projectfile "$@"
    )
-   rval="$?"
+   rc="$?"
 
    log_verbose "Upgrade projectfile end"
-   return $rval
+   return $rc
 }
 
 
@@ -4330,12 +4330,12 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
                             "${MULLE_EXECUTABLE_VERSION}" || _internal_fail "failed env set"
          fi
       )
-      rval=$?
+      rc=$?
 
       #
       # for these post processing steps load up the environment if present
       #
-      if [ $rval -eq 0 ]
+      if [ $rc -eq 0 ]
       then
       (
          if [ "${OPTION_UPGRADE}" = 'YES' -a "${oldversion}" != "${MULLE_EXECUTABLE_VERSION}" ]
@@ -4387,13 +4387,13 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
             log_verbose "Use ${C_RESET_BOLD}mulle-sde vibecoding off${C_VERBOSE} to disable"
          fi
       )
-      rval=$?
+      rc=$?
       fi
    ### END
 
    sde::init::protect_unprotect "Protect" "a-w"
 
-   return $rval
+   return $rc
 }
 
 
@@ -4404,15 +4404,15 @@ sde::init::main()
    local RERUN='NO'
 
    sde::init::_main "$@"
-   rval="$?"
+   rc="$?"
 
    if [ "${RERUN}" != 'YES' ]
    then
-      return $rval
+      return $rc
    fi
 
    sde::exec_command_in_subshell "CD" init "$@"
-   rval=$?
+   rc=$?
 
-   return $rval
+   return $rc
 }

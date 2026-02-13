@@ -151,10 +151,10 @@ sde::patternfile::main()
 
    local sayok
 
-   local rval
+   local rc
    local name
 
-   rval=-1
+   rc=-1
    case "${cmd}" in
       patternfile-editor)
          name="${MULLE_PATTERNFILE_EDITOR:-mulle-patternfile-editor}"
@@ -185,7 +185,7 @@ ${C_RESET}   https://github.com/mulle-sde/mulle-patternfile-editor"
                            ${MULLE_TECHNICAL_FLAGS} \
                         "${cmd}" \
                            "$@"
-         rval=$?
+         rc=$?
       ;;
 
       patternmatch)
@@ -194,7 +194,7 @@ ${C_RESET}   https://github.com/mulle-sde/mulle-patternfile-editor"
                            ${MULLE_TECHNICAL_FLAGS} \
                         "match" \
                            "$@"
-         rval=$?
+         rc=$?
       ;;
    esac
 
@@ -253,5 +253,5 @@ ${C_INFO}Check ${C_RESET}MULLE_MATCH_PATH${C_INFO}, if files aren't found by ${C
       fi
    fi
 
-   return $rval
+   return $rc
 }

@@ -510,10 +510,10 @@ sde::subproject::map()
 
       command="$*"
 
-      local rval
+      local rc
       local subproject
 
-      rval=0
+      rc=0
 
       local expanded_subproject
       local sdefolder
@@ -539,43 +539,43 @@ has no \"${sdefolder}\" folder"
                if [ "${env}" = 'YES' ]
                then
                   exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
-                  rval=$?
+                  rc=$?
                   exit 0
                else
                   (
                      rexekutor cd "${expanded_subproject}" &&
                      MULLE_VIRTUAL_ROOT="" eval_exekutor exec "${command}"
                   )
-                  rval=$?
+                  rc=$?
                fi
 
-               log_info "$expanded_subproject: $rval"
-               if [ $rval -ne 0 ]
+               log_info "$expanded_subproject: $rc"
+               if [ $rc -ne 0 ]
                then
-                  redirect_append_exekutor "${statusfile}" printf "%s\n" "${subproject};$rval"
+                  redirect_append_exekutor "${statusfile}" printf "%s\n" "${subproject};$rc"
                fi
             ) &
          else
             if [ "${env}" = 'YES' ]
             then
                exekutor mulle-env -c "${command}" subenv "${expanded_subproject}"
-               rval=$?
+               rc=$?
             else
                (
                   rexekutor cd "${expanded_subproject}" &&
                   MULLE_VIRTUAL_ROOT="" eval_exekutor exec "${command}"
                )
-               rval=$?
+               rc=$?
             fi
 
-            log_fluff "${expanded_subproject}: $rval"
-            if [ ${rval} -ne 0 ]
+            log_fluff "${expanded_subproject}: $rc"
+            if [ ${rc} -ne 0 ]
             then
                if [ "${lenient}" = 'NO' ]
                then
-                  exit $rval
+                  exit $rc
                fi
-               log_fluff "Ignoring rval ${rval} coz we're lenient"
+               log_fluff "Ignoring rc ${rc} coz we're lenient"
             fi
          fi
       .done

@@ -45,11 +45,11 @@ sde::run::r_emulator_for_platform()
       return 0
    fi
    
-   # Look up MULLE_EMULATOR_<PLATFORM> (uppercase)
+   # Look up MULLE_EMULATOR__<PLATFORM> (uppercase)
    local varname
    
    r_uppercase "${platform}"
-   varname="MULLE_EMULATOR_${RVAL}"
+   varname="MULLE_EMULATOR__${RVAL}"
    
    RVAL="${!varname}"
    
@@ -99,8 +99,8 @@ Environment:
    MULLE_SDE_POST_RUN    : command after executable has started, implies -b
    MULLE_SDE_RUN_TIMEOUT : run the executable with a timeout value by default
    MULLE_SDE_CRAFT_BEFORE_RUN : \`mulle-sde craft\` before running, if YES
-   MULLE_EMULATOR_<PLATFORM> : emulator for cross-platform executables
-                               (e.g. MULLE_EMULATOR_WINDOWS=wine)
+   MULLE_EMULATOR__<PLATFORM> : emulator for cross-platform executables
+                               (e.g. MULLE_EMULATOR__WINDOWS=wine)
    MULLEUI_VIBECODE      : YES sets --mulleui-frames 1 and --mulleui-trace-draw
 EOF
    exit 1
@@ -482,10 +482,10 @@ sde::run::main()
    then
       emulator="${RVAL}"
    else
-      emulator=""
+      fail "Cannot run ${platform} executable: emulator not configured or not found in PATH"
    fi
 
-   local rval
+   local rc
 
    if [ ! -z "${commandline}" ]
    then
@@ -498,7 +498,7 @@ sde::run::main()
          eval_exekutor mudo ${MUDO_FLAGS} -f ${environment} "${commandline}" "$@" &
       else
          eval_exekutor ${timeout} mudo ${MUDO_FLAGS} -f ${environment} ${debugger} "${commandline}" "$@"
-         rval=$?
+         rc=$?
       fi
    else
       if [ "${OPTION_BACKGROUND}" = 'YES' ]
@@ -506,11 +506,11 @@ sde::run::main()
          exekutor mudo ${MUDO_FLAGS} -f ${environment} ${emulator} "${EXECUTABLE}" "$@" &
       else
          exekutor ${timeout} mudo ${MUDO_FLAGS} -f ${environment} ${debugger} ${emulator} "${EXECUTABLE}" "$@"
-         rval=$?
+         rc=$?
       fi
    fi
 
-   if [ $rval -eq 124 -a ! -z "${timeout}" ]
+   if [ $rc -eq 124 -a ! -z "${timeout}" ]
    then
       _log_error "${C_RESET_BOLD}${EXECUTABLE_NAME}${C_ERROR} has reached the ${OPTION_TIMEOUT} second timeout
 ${C_VERBOSE}To run indefinitely:

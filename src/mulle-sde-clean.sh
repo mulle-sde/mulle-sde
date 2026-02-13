@@ -270,7 +270,7 @@ sde::clean::db()
 {
    log_entry "sde::clean::db" "$@"
 
-   log_verbose "Cleaning sourcetree database"
+   log_verbose "Resetting sourcetree database"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
@@ -283,7 +283,8 @@ sde::clean::dependency()
 {
    log_entry "sde::clean::dependency" "$@"
 
-   log_verbose "Cleaning \"dependency\" directory"
+   log_verbose "mulle-craft cleans the \"dependency\" directory"
+
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
@@ -297,7 +298,7 @@ sde::clean::dependencydir()
 
    if [ ! -z "${DEPENDENCY_DIR}" ]
    then
-      log_verbose "Cleaning \"dependency\" directory"
+      log_verbose "Removing the \"dependency\" directory"
       rmdir_safer "${DEPENDENCY_DIR}"
    else
       log_fluff "DEPENDENCY_DIR unknown, so don't clean"
@@ -309,7 +310,7 @@ sde::clean::graveyard()
 {
    log_entry "sde::clean::graveyard" "$@"
 
-   log_verbose "Cleaning graveyard"
+   log_verbose "Desecrating the graveyard"
 
    rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                   --virtual-root \
@@ -326,7 +327,7 @@ sde::clean::kitchendir()
 
    if [ ! -z "${KITCHEN_DIR}" ]
    then
-      log_verbose "Cleaning \"kitchen\" directory"
+      log_verbose "Removing \"kitchen\" directory"
       rmdir_safer "${KITCHEN_DIR}"
    else
       log_fluff "KITCHEN_DIR unknown, so don't clean"
@@ -469,21 +470,39 @@ sde::clean::subproject()
 }
 
 
-sde::clean::demo()
+
+sde::clean::_demo()
 {
-   log_entry "sde::clean::demo" "$@"
+
+   local text="${1:-}"
+
+   if [ ! -z "${text}" ]
+   then
+      text=" ${text}"
+   fi
 
    if [ -d 'demo/.mulle/share/sde' ]
    then
    (
-      log_verbose "Cleaning demo"
+      log_verbose "Cleaning${text} demo"
 
       cd demo &&
       rexekutor "${MULLE_SDE:-mulle-sde}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                  clean
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        -E \
+                        -d demo \
+                     clean \
+                        gravetidy
    )
    fi
+}
+
+
+sde::clean::demo()
+{
+   log_entry "sde::clean::demo" "$@"
+
+   sde::clean::_demo
 }
 
 
@@ -491,17 +510,7 @@ sde::clean::demoall()
 {
    log_entry "sde::clean::demoall" "$@"
 
-   if [ -d 'demo/.mulle/share/sde' ]
-   then
-   (
-      log_verbose "Cleaning all demo"
-
-      cd demo &&
-      rexekutor "${MULLE_SDE:-mulle-sde}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                  clean all
-   )
-   fi
+   sde::clean::_demo all
 }
 
 
@@ -509,17 +518,7 @@ sde::clean::demotidy()
 {
    log_entry "sde::clean::demotidy" "$@"
 
-   if [ -d 'demo/.mulle/share/sde' ]
-   then
-   (
-      log_verbose "Cleaning tidy demo"
-
-      cd demo &&
-      rexekutor "${MULLE_SDE:-mulle-sde}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                  clean tidy
-   )
-   fi
+   sde::clean::_demo tidy
 }
 
 
@@ -527,62 +526,26 @@ sde::clean::demogravetidy()
 {
    log_entry "sde::clean::demogravetidy" "$@"
 
-   if [ -d 'demo/.mulle/share/sde' ]
-   then
-   (
-      log_verbose "Cleaning gravetidy demo"
-
-      cd demo &&
-      rexekutor "${MULLE_SDE:-mulle-sde}" \
-                     ${MULLE_TECHNICAL_FLAGS} \
-                  clean gravetidy
-   )
-   fi
+   sde::clean::_demo gravetidy
 }
+
 
 
 
 # :-/
-sde::clean::test()
+sde::clean::_test()
 {
-   log_entry "sde::clean::test" "$@"
-
    # Skip if no valid test directories exist
    local testdirs="${MULLE_SDE_TEST_PATH:-test}"
    local testdir
    local found='NO'
 
-   .foreachpath testdir in ${testdirs}
-   .do
-      if [ -d "${testdir}/.mulle/share/test" ] || [ -d "${testdir}/.mulle/share/sde" ]
-      then
-         found='YES'
-         .break
-      fi
-   .done
+   local text="${1:-}"
 
-   if [ "${found}" = 'NO' ]
+   if [ ! -z "${text}" ]
    then
-      log_fluff "No valid test directories found, skipping test clean"
-      return 0
+      text=" ${text}"
    fi
-
-   log_verbose "Cleaning test"
-
-   rexekutor "${MULLE_TEST:-mulle-test}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean
-}
-
-
-sde::clean::testall()
-{
-   log_entry "sde::clean::testall" "$@"
-
-   # Skip if no valid test directories exist
-   local testdirs="${MULLE_SDE_TEST_PATH:-test}"
-   local testdir
-   local found='NO'
 
    .foreachpath testdir in ${testdirs}
    .do
@@ -592,22 +555,36 @@ sde::clean::testall()
          if [ -d "${testdir}/.mulle/share/test" ] || [ -d "${testdir}/.mulle/share/sde" ]
          then
             found='YES'
-            .break
+
+            log_verbose "Cleaning${text} ${testdir}"
+
+            exekutor mulle-sde -E -d "${testdir}" clean ${1:-}
+            exekutor mulle-env -E -d "${testdir}" exec mulle-test clean
          fi
       fi
    .done
 
    if [ "${found}" = 'NO' ]
    then
-      log_fluff "No valid test directories found, skipping testall clean"
+      log_fluff "No valid test directories found, skipping test clean${text}"
       return 0
    fi
+}
 
-   log_verbose "Cleaning all test"
+sde::clean::test()
+{
+   log_entry "sde::clean::testall" "$@"
 
-   rexekutor "${MULLE_TEST:-mulle-test}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean all
+   sde::clean::_test
+}
+
+
+
+sde::clean::testall()
+{
+   log_entry "sde::clean::testall" "$@"
+
+   sde::clean::_test all
 }
 
 
@@ -615,72 +592,15 @@ sde::clean::testtidy()
 {
    log_entry "sde::clean::testtidy" "$@"
 
-   # Skip if no valid test directories exist
-   local testdirs="${MULLE_SDE_TEST_PATH:-test}"
-   local testdir
-   local found='NO'
-
-   .foreachpath testdir in ${testdirs}
-   .do
-      if [ -d "${testdir}" ]
-      then
-         # Check if it's a valid mulle-test project
-         if [ -d "${testdir}/.mulle/share/test" ] || [ -d "${testdir}/.mulle/share/sde" ]
-         then
-            found='YES'
-            .break
-         fi
-      fi
-   .done
-
-   if [ "${found}" = 'NO' ]
-   then
-      log_fluff "No valid test directories found, skipping testtidy clean"
-      return 0
-   fi
-
-   log_verbose "Cleaning tidy test"
-
-   rexekutor "${MULLE_TEST:-mulle-test}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-                  clean tidy
+   sde::clean::_test tidy
 }
 
 sde::clean::testgravetidy()
 {
-   log_entry "sde::clean::testgravetidy" "$@"
+   log_entry "sde::clean::gravetidy" "$@"
 
-   # Skip if no valid test directories exist
-   local testdirs="${MULLE_SDE_TEST_PATH:-test}"
-   local testdir
-   local found='NO'
-
-   .foreachpath testdir in ${testdirs}
-   .do
-      if [ -d "${testdir}" ]
-      then
-         # Check if it's a valid mulle-test project
-         if [ -d "${testdir}/.mulle/share/test" ] || [ -d "${testdir}/.mulle/share/sde" ]
-         then
-            found='YES'
-            .break
-         fi
-      fi
-   .done
-
-   if [ "${found}" = 'NO' ]
-   then
-      log_fluff "No valid test directories found, skipping testgravetidy clean"
-      return 0
-   fi
-
-   log_verbose "Cleaning gravetidy test"
-
-   rexekutor "${MULLE_TEST:-mulle-test}" \
-                  ${MULLE_TECHNICAL_FLAGS} \
-               clean gravetidy
+   sde::clean::_test gravetidy
 }
-
 
 
 
@@ -742,23 +662,25 @@ sde::clean::varcaches()
 
 
 
-sde::clean::named_target()
-{
-   local target="$1"
-
-   # Cleaning of a dependency by name leads to misery on Mac OS.
-   #
-   # TODO: mulle-craft needs to wipe dependency folder here, because
-   #       the installed craftinfo folders may be whacked
-   #
-   if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
-                   ${MULLE_TECHNICAL_FLAGS} \
-               clean \
-                  "${target}"
-   then
-      return $?
-   fi
-}
+# sde::clean::named_target()
+# {
+#    local target="$1"
+#    local platform="$2"
+#
+#    # Cleaning of a dependency by name leads to misery on Mac OS.
+#    #
+#    # TODO: mulle-craft needs to wipe dependency folder here, because
+#    #       the installed craftinfo folders may be whacked
+#    #
+#    if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+#                    ${MULLE_TECHNICAL_FLAGS} \
+#                clean \
+#                   --platform "${platform}" \
+#                   "${target}"
+#    then
+#       return $?
+#    fi
+# }
 
 
 #
@@ -805,7 +727,6 @@ sde::clean::r_interactive_target()
 
    [ ! -z "${RVAL}" ]
 }
-
 
 
 sde::clean::main()
@@ -897,6 +818,13 @@ sde::clean::main()
             MULLE_SDE_CLEAN_DEFAULT=
          ;;
 
+         --platform)
+            [ $# -eq 1 ] && sde::clean::usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_PLATFORM="$1"
+         ;;
+
          -*)
             sde::clean::usage "Unknown option \"$1\""
          ;;
@@ -908,6 +836,12 @@ sde::clean::main()
 
       shift
    done
+
+   MULLE_PLATFORM="${MULLE_PLATFORM:-${MULLE_UNAME}}"
+
+   log_debug "MULLE_PLATFORM='${MULLE_PLATFORM}'"
+   log_debug "DEPENDENCY_DIR='${DEPENDENCY_DIR}'"
+   log_debug "KITCHEN_DIR='${KITCHEN_DIR}'"
 
    DEPENDENCY_DIR="${DEPENDENCY_DIR:-$(mulle-craft ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)}"
    KITCHEN_DIR="${KITCHEN_DIR:-$(mulle-craft ${MULLE_TECHNICAL_FLAGS} kitchen-dir 2>/dev/null)}"
@@ -966,7 +900,9 @@ test"
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      clean \
-                        craftorder
+                        --platform "${MULLE_PLATFORM}" \
+                        craftorder \
+
          domains="var"
       ;;
 
@@ -1083,9 +1019,9 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
    esac
 
    local functionname
-   local rval 
+   local rc
 
-   rval=0
+   rc=0
    .foreachpath domain in ${domains}
    .do
       if [ ! -z "${domain}" ]
@@ -1098,20 +1034,21 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
             if [ $? -ne 0 ]
             then
                log_debug "${functionname} failed"
-               rval=1
+               rc=1
             fi
          else
             # log_verbose "Clean ${domain}"
             if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                               ${MULLE_TECHNICAL_FLAGS} \
                            clean \
+                              --platform "${MULLE_PLATFORM}" \
                               "${target}"
             then
-               rval=1
+               rc=1
             fi
          fi
       fi
    .done
 
-   return $rval
+   return $rc
 }

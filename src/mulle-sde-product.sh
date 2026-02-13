@@ -287,9 +287,11 @@ sde::product::r_preferred_executable_names()
    local names
    local executable
    local executable_name
+   local platform
+   local display_name
 
    # allow user to pass in path as well
-   r_extensionless_basename "${preferredname}"
+   r_basename "${preferredname}"
    preferredname="${RVAL}"
 
    .foreachline executable in ${executables}
@@ -297,14 +299,24 @@ sde::product::r_preferred_executable_names()
       r_basename "${executable}"
       executable_name="${RVAL}"
 
-      if [ ! -z "${preferredname}" -a "${preferredname}" = "${executable_name%.exe}" ]
+      if [ ! -z "${preferredname}" -a "${preferredname}" = "${executable_name}" ]
       then
          RVAL="${executable}"
          log_debug "Preferred executable found: ${executable}"
          return 0
       fi
 
-      r_add_line "${names}" "${executable_name}"
+      sde::product::r_platform_from_executable_path "${executable}"
+      platform="${RVAL}"
+      
+      if [ "${platform}" != "${MULLE_UNAME}" ]
+      then
+         display_name="${executable_name} (${platform})"
+      else
+         display_name="${executable_name}"
+      fi
+
+      r_add_line "${names}" "${display_name}"
       names="${RVAL}"
    .done
 
@@ -350,16 +362,30 @@ sde::product::r_user_choses_executable()
    row=$?
    log_debug "row=${row}"
 
-   local name 
+   local display_name
+   local executable
+   local executable_name
+   local platform
+   local check_name
 
    r_line_at_index "${names}" $row
-   name="${RVAL}"
+   display_name="${RVAL}"
+   
+   # Strip platform suffix if present: "foo.exe (windows)" -> "foo.exe"
+   check_name="${display_name%% (*}"
 
-   # gotta find it now
-   if sde::product::r_preferred_executable_names "${executables}" "${name}"
-   then
-      return 0 
-   fi
+   # Find matching executable by basename
+   .foreachline executable in ${executables}
+   .do
+      r_basename "${executable}"
+      executable_name="${RVAL}"
+      
+      if [ "${executable_name}" = "${check_name}" ]
+      then
+         RVAL="${executable}"
+         return 0
+      fi
+   .done
 
    RVAL=
    return 2

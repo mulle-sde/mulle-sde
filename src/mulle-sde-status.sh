@@ -66,7 +66,7 @@ sde::status::project()
 
    local indent="$1"
 
-   local rval
+   local rc
    local projectdir
    local parentdir
    local directory
@@ -117,7 +117,7 @@ sde::status::project()
       mode=inparent
    fi
 
-   rval=0
+   rc=0
 
    case "${mode}" in
       indir)
@@ -259,12 +259,14 @@ sde::status::sourcetree()
       *,quickstatus,*)
          log_verbose "Quick status:"
 
-         DEPENDENCY_DIR="${DEPENDENCY_DIR:-dependency}"
-         if [ ! -d "${DEPENDENCY_DIR}" ]
+         local dependency_dir
+
+         dependency_dir="`rexekutor mulle-sde dependency-dir`" || return 1
+         if [ ! -d "${dependency_dir}" ]
          then
-            log_info "${indent}There is no ${C_RESET_BOLD}${DEPENDENCY_DIR}${C_INFO} directory"
+            log_info "${indent}There is no dependency directory"
          else
-            state="`mulle-craft -s quickstatus -p`"
+            state="`rexekutor mulle-craft -s quickstatus -p`"
             case "${state}" in
                complete)
                   log_info "${indent}The dependency directory is ${state}"
@@ -303,11 +305,14 @@ sde::status::stash()
 
    local stashdir
 
-   stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
+   stashdir="`rexekutor mulle-sourcetree stash-dir`" || return 1
 
    shell_enable_nullglob
    for file in "${stashdir}"/*
    do
+      r_basename "${file}"
+      name="${RVAL}"
+
       state="missing"
       if [ -L "${file}" ]
       then
@@ -353,7 +358,7 @@ sde::status::stash()
             color="${C_MAGENTA}"
          ;;
       esac
-      printf "${indent}%b\n" "${color}${file}${C_RESET};${ok_or_fail}"
+      printf "${indent}%b\n" "${color}${name}${C_RESET};${ok_or_fail}"
    done
    shell_disable_nullglob
 }
@@ -494,7 +499,7 @@ sde::status::main()
          local stashdir
          local abs_stashdir
 
-         stashdir="${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
+         stashdir="`rexekutor mulle-sourcetree stash-dir`" || return 1
          r_absolutepath "${stashdir}"
          abs_stashdir="${RVAL}"
 
@@ -535,6 +540,6 @@ sde::status::main()
       ;;
    esac
 
-   return $rval
+   return $rc
 }
 

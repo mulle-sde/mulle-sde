@@ -34,7 +34,7 @@ MULLE_SDE_DEPENDENCY_SH='included'
 
 DEPENDENCY_MARKS='dependency,delete'  # with delete we filter out subprojects
 DEPENDENCY_LIST_MARKS='dependency'
-DEPENDENCY_LIST_NODETYPES='ALL,no-comment'
+DEPENDENCY_LIST_NODETYPES='ALL'
 
 #
 # no-cmake-loader     : C code needs no ObjCLoader (if all-load is set)
@@ -671,6 +671,29 @@ sde::dependency::pretty_filtered_json()
 }
 
 
+sde::dependency::pretty_filtered_list()
+{
+   local text="$1"
+   local line
+
+   .foreachline line in ${text}
+   .do
+      if [ -z "${line}" ]
+      then
+         continue
+      fi
+
+      # Check if it's a comment by looking at the next line
+      if [[ "${line}" =~ ^#\  ]]
+      then
+         printf "${C_INFO}%s${C_RESET}\n\n" "${line}"
+      else
+         printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n\n" "${line}"
+      fi
+   .done
+}
+
+
 sde::dependency::list_main()
 {
    log_entry "sde::dependency::list_main" "$@"
@@ -687,6 +710,16 @@ sde::dependency::list_main()
    local OPTIONS
    local OPTION_JSON='DEFAULT'
    local JSON_ARGS
+
+   # First pass: get all nodes (comments + deps) in order
+   local ALL_NODES
+   ALL_NODES="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+            --virtual-root \
+            ${MULLE_TECHNICAL_FLAGS} \
+             --silent-but-warn \
+         list \
+            --output-format raw \
+            --output-no-header 2>/dev/null || true`"
 
    while [ $# -ne 0 ]
    do
@@ -805,7 +838,10 @@ sde::dependency::list_main()
    if [ "${OPTION_JSON}" != 'NO' ]
    then
       local text
+      local merged
+      local prev_line
 
+      # Get full JSON for dependencies
       if ! text="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
                ${MULLE_TECHNICAL_FLAGS} \
@@ -818,6 +854,28 @@ sde::dependency::list_main()
       then
          return $?
       fi
+
+      # Merge comments: find comment lines that precede dependencies
+      if [ ! -z "${ALL_NODES}" ]
+      then
+         merged="${text}"
+         prev_line=""
+         .foreachline node in ${ALL_NODES}
+         .do
+            # Check if current node is a dependency (exists in our output)
+            if printf '%s' "${text}" | grep -q "^${node}\$"
+            then
+               # If previous line was a comment, insert it
+               if [ ! -z "${prev_line}" ] && ! printf '%s' "${text}" | grep -q "^${prev_line}\$"
+               then
+                  merged="`printf '%s' "${merged}" | sed "s|^${node}\$|# ${prev_line}\n\n&|"`"
+               fi
+            fi
+            prev_line="${node}"
+         .done
+         text="${merged}"
+      fi
+
       sde::dependency::pretty_filtered_json "${text}"
       return
    fi
@@ -882,7 +940,7 @@ sde::dependency::__enhance_url()
    local address="$5"
    local marks="$6"
 
-   local rval
+   local rc
    local changes
 
    if [ -z "${address}" ]
@@ -893,8 +951,8 @@ sde::dependency::__enhance_url()
                               nameguess \
                                  --scm "${nodetype}" \
                                  "${url}"`"
-      rval=$?
-      [ $rval = 127 ] && exit 1
+      rc=$?
+      [ $rc = 127 ] && exit 1
 
       log_debug "Address guessed as \"${address}\""
 
@@ -2580,6 +2638,16 @@ sde::dependency::stashes_main()
 }
 
 
+sde::dependency:reflect_on_demand()
+{
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      include "sde::reflect"
+
+      sde::reflect::main
+   fi
+}
+
 
 ###
 ### parameters and environment variables
@@ -2639,7 +2707,9 @@ sde::dependency::main()
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
          sde::dependency::add_main "$@"
-         return $?
+         rc=$?
+
+         return $rc
       ;;
 
       commands)
@@ -2682,6 +2752,10 @@ unmark"
                            --silent-but-warn \
                         "${cmd}" \
                            "$@"
+         rc=$?
+
+         sde::dependency:reflect_on_demand $rc
+         return $rc
       ;;
 
       fetch)
@@ -2727,6 +2801,10 @@ platform-excludes"
                            --silent-but-warn \
                         'move' \
                            "$@"
+         rc=$?
+
+         sde::dependency:reflect_on_demand $rc
+         return $rc
       ;;
 
       remove|rm)
@@ -2748,6 +2826,8 @@ platform-excludes"
                            --if-present \
                            "craftinfo/$1-craftinfo"
          fi
+
+         sde::dependency:reflect_on_demand $rc
          return $rc
       ;;
 
@@ -2756,7 +2836,10 @@ platform-excludes"
          . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
 
          sde::dependency::set_main "$@"
-         return $?
+         rc="$?"
+
+         sde::dependency:reflect_on_demand $rc
+         return $rc
       ;;
 
       source-dir)

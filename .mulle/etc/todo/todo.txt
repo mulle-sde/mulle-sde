@@ -1,2 +1,2 @@
 # Todo List
-mulle-sde craftorder needs to check MULLE_CRAFT_PLATFORMS
+toolchainfile for test, needs to be copied from the main project ?

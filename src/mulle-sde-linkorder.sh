@@ -38,7 +38,7 @@ sde::linkorder::usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} linkorder [options]
+   ${MULLE_USAGE_NAME} link-args [options]
 
    Emit a string suitable for linking all dependencies and libraries on the
    current platform. The dependencies must have been built, in order for this
@@ -55,6 +55,7 @@ Usage:
 Options:
    --output-format <format>  : specify node,file,file_lf or ld, ld_lf
    --output-omit <library>   : do not emit link commands for library
+   --platform <name>         : specify platform (default: current platform)
    --startup                 : include startup libraries (default)
    --no-startup              : exclude startup libraries
 EOF
@@ -79,13 +80,13 @@ sde::linkorder::r_locate_library()
                                        "${libstyle}" \
                                        "static" \
                                        "${require}" \
-                                       "$@"
+                                       "$@"  # alias
 }
 
 
 sde::linkorder::r_locate_framework()
 {
-   log_entry "sde::linkorder::r_locate_framework" "$@"
+   log_entry "sde::linkorder::r_locate_os_framework" "$@"
 
    local searchpath="$1"
    local platform="$2"
@@ -99,6 +100,32 @@ sde::linkorder::r_locate_framework()
                                        "" \
                                        "$@"
 }
+
+
+sde::linkorder::r_search_os_library()
+{
+   log_entry "sde::linkorder::r_search_os_library" "$@"
+
+   local aliases="$1"
+
+   local alias
+
+   .foreachitem alias in ${aliases}
+   .do
+      if platform::search::r_platform_search "" \
+                                             "" \
+                                             library \
+                                             "" \
+                                             "" \
+                                             "${alias}"
+      then
+         return 0
+      fi
+   .done
+
+   return 1
+}
+
 
 
 sde::linkorder::_emit_file_output()
@@ -348,6 +375,8 @@ sde::linkorder::r_all_nodes()
 {
    log_entry "sde::linkorder::r_all_nodes" "$@"
 
+   local platform="$1"
+
    local INSIDE_STANDALONE
    local INSIDE_DYNAMIC
 
@@ -365,7 +394,7 @@ sde::linkorder::r_all_nodes()
 
    local craft_qualifier
 
-   craft_qualifier="`"${MULLE_CRAFT:-mulle-craft}" qualifier print-no-build`" || exit 1
+   craft_qualifier="`"${MULLE_CRAFT:-mulle-craft}" qualifier --platform "${platform}" print-no-build`" || exit 1
 
    r_concat "${qualifier}" "${craft_qualifier}" $'\n'"AND "
    craft_qualifier="${RVAL}"
@@ -423,31 +452,57 @@ sde::linkorder::r_all_nodes()
 }
 
 
-#
-# this
-#
-sde::linkorder::r_search_os_library()
+
+
+sde::linkorder::r_pick_os_library()
 {
-   log_entry "sde::linkorder::r_search_os_library" "$@"
+   log_entry "sde::linkorder::r_pick_os_library" "$@"
 
    local aliases="$1"
 
    local alias
-
+   #
+   #  check that library is present
+   #
    .foreachitem alias in ${aliases}
    .do
-      if platform::search::r_platform_search "" \
-                                             "" \
-                                             library \
-                                             "" \
-                                             "" \
-                                             "${alias}"
+      alias="${alias#*:}"  # remove type if any
+      if sde::linkorder::r_search_os_library "${alias}"
       then
-         return 0
+         .break
       fi
    .done
 
-   return 1
+   # otherwise prefer first alias
+   if [ -z "${alias}" ]
+   then
+      alias="${aliases%%,*}"
+      alias="${alias#*:}"  # remove type if any
+   fi
+
+   RVAL="${alias}"
+}
+
+
+sde::linkorder::r_locate_aliased_dependency()
+{
+   log_entry "sde::linkorder::r_locate_aliased_dependency" "$@"
+
+   local aliases="$1"
+   local library_searchpath="$2"
+   local platform="$3"
+   local librarytype="$4"
+   local requirement="$5"
+   local aliasargs="$6"
+
+
+   # TODO: libraries are preferred over frameworks, which is arbitrary
+
+   eval sde::linkorder::r_locate_library "'${library_searchpath}'" \
+                                         "'${platform}'" \
+                                         "'${librarytype}'" \
+                                         "'${requirement}'" \
+                                         "${aliasargs}"
 }
 
 
@@ -474,11 +529,26 @@ sde::linkorder::r_collect()
    name="${RVAL}"
 
    local librarytype
-   local requirement
-   local alias
 
-   aliases="${aliases:-${name}}"
    librarytype="library"
+
+   if sourcetree::marks::r_disable "${marks}" "platform-${platform}"
+   then
+      log_fluff "${name} not available on platform ${platform}"
+      return 4
+   fi
+
+   if sourcetree::marks::r_disable "${marks}" 'link'
+   then
+      log_fluff "${name} not linked on platform ${platform}"
+      return 4
+   fi
+
+   if sourcetree::marks::r_disable "${marks}" 'actual-link'
+   then
+      log_fluff "Header-only library ${name} without actual-link not linked"
+      return 4
+   fi
 
    # find dependency lib and
    case ",${marks}," in
@@ -492,20 +562,23 @@ sde::linkorder::r_collect()
       ;;
    esac
 
-   case ",${marks}," in
-      *,no-actual-link,*)
-         log_fluff "Header-only library ${name} with dependencies not linked"
-         return 4
-      ;;
+   local requirement
 
-      *,no-dynamic-link,*)
-         requirement="static"
-      ;;
-
-      *,no-static-link,*)
+   if sourcetree::marks::r_disable "${marks}" 'dynamic-link'
+   then
+      log_debug "Dynamic link of ${name} disabled"
+      requirement="static"
+   else
+      if sourcetree::marks::r_disable "${marks}" 'static-link'
+      then
+         log_debug "Static link of ${name} static"
          requirement="dynamic"
-      ;;
-   esac
+      fi
+   fi
+
+   local alias
+
+   aliases="${aliases:-${name}}"
 
    case ",${marks},*" in
       *,no-dependency,*)
@@ -514,35 +587,12 @@ sde::linkorder::r_collect()
          then
             return 4
          fi
-
-         #
-         #  check that library is present
-         #
-         .foreachitem alias in ${aliases}
-         .do
-            alias="${alias#*:}"  # remove type if any
-            if sde::linkorder::r_search_os_library "${alias}"
-            then
-               .break
-            fi
-         .done
-
-         # otherwise prefer first alias
-         if [ -z "${alias}" ]
-         then
-            alias="${aliases%%,*}"
-            alias="${alias#*:}"  # remove type if any
-         fi
-
-         log_verbose "Use OS library ${C_MAGENTA}${C_BOLD}${alias}"
-         r_concat "${alias}" "${marks}" ";"
-         return 0
       ;;
    esac
 
-   local libpath
-   local aliasargs
+   local alias
    local aliasfail
+   local aliasargs
 
    .foreachitem alias in ${aliases}
    .do
@@ -553,38 +603,68 @@ sde::linkorder::r_collect()
       aliasargs="${RVAL}"
    .done
 
-   # TODO: libraries are preferred over frameworks, which is arbitrary
+   #
+   # first check if our dependencies provide a local anything for that
+   # name (time for mulle-core to override -dl for example)
+   #
+   local libpath
 
-   eval sde::linkorder::r_locate_library "'${library_searchpath}'" \
-                                         "'${platform}'" \
-                                         "'${librarytype}'" \
-                                         "'${requirement}'" \
-                                         "${aliasargs}"
+   sde::linkorder::r_locate_aliased_dependency  "${name}" \
+                                                "'${library_searchpath}'" \
+                                                "'${platform}'" \
+                                                "'${librarytype}'" \
+                                                "'${requirement}'" \
+                                                "${aliasargs}"
    libpath="${RVAL}"
+
+
+   #
+   # We just emit a -l<whatever> for non depedencies and let it be done
+   #
+   case ",${marks},*" in
+      *,no-dependency,*)
+         #
+         #  check that library is present
+         #
+         if [ -z "${libpath}" ]
+         then
+            sde::linkorder::r_pick_os_library "${aliases}" "${libpath}"
+            alias="${RVAL}"
+
+            log_verbose "Use OS library ${C_MAGENTA}${C_BOLD}${alias}"
+            r_concat "${alias}" "${marks}" ";"
+            return 0
+         fi
+      ;;
+   esac
 
    if [ -z "${libpath}" ]
    then
       if [ ! -z "${framework_searchpath}" ]
       then
-         eval sde::linkorder::r_locate_framework "'${framework_searchpath}'" "${aliasargs}"
+         eval sde::linkorder::r_locate_framework "'${framework_searchpath}'" \
+                                                 "${aliasargs}"
          libpath="${RVAL}"
       fi
 
       if [ -z "${libpath}" ]
       then
-         #
-         # require is per platform or os ? neither
-         #
-         case ",${marks},*" in
-            *,no-require,*|*,no-require-os-${MULLE_UNAME},*)
-               log_fluff "\"${libpath}\" is not found, but it is not required"
-               return 4
-            ;;
-         esac
+         if sourcetree::marks::r_disable "${marks}" "require"
+         then
+            log_fluff "\"${libpath}\" is not found, but it is not required"
+            return 4
+         fi
+
+         if sourcetree::marks::r_disable "${marks}" "require-platform-${platform}"
+         then
+            log_fluff "\"${libpath}\" is not found, but it is not required on platform ${platform}"
+            return 4
+         fi
 
          r_concat "Did not find a linkable" "${aliasfail}"
          r_concat "${RVAL}" "${requirement}"
          r_concat "${RVAL}" "${librarytype}"
+         r_concat "${RVAL}" "for dependency '${address}'"
          r_concat "${RVAL}" "in searchpath \"${library_searchpath}\""
 
          if [ ! -z "${framework_searchpath}" ]
@@ -626,19 +706,23 @@ sde::linkorder::r_library_searchpath()
 
    local searchpath
    local configuration
+   local platform
 
    configuration="${OPTION_CONFIGURATION:-Debug}"
+   platform="${OPTION_PLATFORM:-${MULLE_UNAME}}"
+
    searchpath="`rexekutor mulle-craft \
                                  ${MULLE_TECHNICAL_FLAGS} \
                                  -s \
                               searchpath \
                                  ${options} \
                                  --configuration "${configuration}" \
+                                 --platform "${platform}" \
                                  library`"
    if [ -z "${searchpath}" ]
    then
-      _log_warning "The library searchpath is empty.
-${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
+      _log_warning "The library searchpath is empty for linkorder.
+${C_INFO}Have dependencies been built for configuration \"${configuration}\" and platform \"${platform}\" ?"
    fi
 
    log_fluff "Library searchpath is: ${searchpath}"
@@ -784,7 +868,7 @@ sde::linkorder::r_collect_emission_libs()
    local _startup_load
    local _standalone_load
    local node
-   local rval
+   local rc
 
    .foreachline node in ${nodes}
    .do
@@ -807,8 +891,8 @@ sde::linkorder::r_collect_emission_libs()
                                             "${framework_searchpath}" \
                                             "${platform}" \
                                             "${collect_libraries}"
-         rval=$?
-         if [ $rval = 4 ]
+         rc=$?
+         if [ $rc = 4 ]
          then
             .continue
          fi
@@ -1029,13 +1113,17 @@ sde::linkorder::main()
       ;;
    esac
 
+   OPTION_PLATFORM="${OPTION_PLATFORM:-${MULLE_PLATFORM}}"
+   OPTION_PLATFORM="${OPTION_PLATFORM:-${MULLE_CRAFT_PLATFORMS%%:*}}"
+   OPTION_PLATFORM="${OPTION_PLATFORM:-${MULLE_UNAME}}"
+
    local nodes
    local name
    local all_loads
    local normal_loads
    local collect
 
-   sde::linkorder::r_all_nodes
+   sde::linkorder::r_all_nodes "${OPTION_PLATFORM}"
    nodes="${RVAL}"
 
    if [ "${OPTION_OUTPUT_FORMAT}" = "debug" ]
@@ -1050,14 +1138,16 @@ sde::linkorder::main()
       return 0
    fi
 
-
    include "path"
 
-   local platform 
+   # Resolve wholearchiveformat based on target platform if DEFAULT
+   if [ "${OPTION_WHOLE_ARCHIVE_FORMAT}" = "DEFAULT" ]
+   then
+      include "platform::environment"
 
-   platform="${OPTION_PLATFORM}"
-   platform="${platform:-${MULLE_CRAFT_PLATFORMS%%:*}}"
-   platform="${platform:-${MULLE_UNAME}}"
+      platform::environment::r_whole_archive_format "DEFAULT" "${OPTION_PLATFORM}"
+      OPTION_WHOLE_ARCHIVE_FORMAT="${RVAL}"
+   fi
 
    #
    # load mulle-platform as library, since we dont want to call the executable
@@ -1065,6 +1155,9 @@ sde::linkorder::main()
    #
    include "platform::translate"
    include "platform::search"
+
+   # we also need some marks functions
+   include "sourcetree::marks"
 
    local library_searchpath
    local framework_searchpath
@@ -1085,7 +1178,7 @@ sde::linkorder::main()
    sde::linkorder::r_collect_emission_libs "${nodes}" \
                                            "${library_searchpath}" \
                                            "${framework_searchpath}" \
-                                           "${platform}" \
+                                           "${OPTION_PLATFORM}" \
                                            "${collect_libraries}" \
                                            "${OPTION_OUTPUT_OMIT}"
    dependency_libs="${RVAL}"

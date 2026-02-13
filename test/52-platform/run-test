@@ -1,0 +1,225 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! grep -q "${pattern}" <<< "${text}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output: ${text}"
+   fi
+}
+
+
+expect_not_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if grep -q "${pattern}" <<< "${text}"
+   then
+      fail "Unexpected pattern \"${pattern}\" found in output: ${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local host
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   host="`mulle-bashfunctions uname`"
+
+   #
+   # Create a test project
+   #
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable || exit 1
+
+   [ ! -d "${directory}/.mulle" ] && fail ".mulle directory failed"
+
+   cd "${directory}" || exit 1
+
+   #
+   # Create dummy toolchain files for testing
+   #
+   mkdir -p cmake || exit 1
+   cat > "cmake/toolchain--${host}-testplatform--x86_64-test--test-compiler.cmake" <<EOF
+# Test toolchain file
+set(CMAKE_SYSTEM_NAME TestOS)
+set(CMAKE_C_COMPILER test-gcc)
+EOF
+   cat > "cmake/toolchain--${host}-testplatform2--x86_64-test--test-compiler.cmake" <<EOF
+# Test toolchain file 2
+set(CMAKE_SYSTEM_NAME TestOS)
+set(CMAKE_C_COMPILER test-gcc)
+EOF
+
+   log_verbose "----- #1 Test platform show (should show testplatform) -----"
+   
+   result="`run_mulle_sde -s platform show 2>&1`"
+   expect_line "testplatform" "${result}"
+   expect_line "test-compiler" "${result}"
+
+   log_verbose "----- #2 Test platform list (should show none initially) -----"
+
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   [ ! -z "${result}" ] && fail "MULLE_CRAFT_PLATFORMS should be empty initially, got: ${result}"
+   
+   result="`run_mulle_sde environment get MULLE_SOURCETREE_PLATFORMS`"
+   [ ! -z "${result}" ] && fail "MULLE_SOURCETREE_PLATFORMS should be empty initially, got: ${result}"
+
+   log_verbose "----- #3 Test platform add with --no-uname -----"
+
+   run_mulle_sde -s platform add --no-uname testplatform || fail "platform add failed"
+   
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   [ "${result}" != "testplatform" ] && fail "Expected MULLE_CRAFT_PLATFORMS='testplatform', got: '${result}'"
+   
+   result="`run_mulle_sde environment get MULLE_SOURCETREE_PLATFORMS`"
+   [ "${result}" != "testplatform" ] && fail "Expected MULLE_SOURCETREE_PLATFORMS='testplatform', got: '${result}'"
+   
+   # Check for no quotes in values
+   case "${result}" in
+      *"'"*)
+         fail "MULLE_SOURCETREE_PLATFORMS contains quotes: '${result}'"
+      ;;
+   esac
+
+   log_verbose "----- #3b Test platform add with default (should prepend \${MULLE_UNAME}) -----"
+   
+   run_mulle_sde -s platform add testplatform2 || fail "platform add with default failed"
+   
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   # Should be: testplatform:${MULLE_UNAME}:testplatform2
+   expect_line "\${MULLE_UNAME}" "${result}"
+   expect_line "testplatform2" "${result}"
+   
+   # Check for no literal quotes
+   case "${result}" in
+      *"'${MULLE_UNAME}'"*|*"'"*)
+         fail "MULLE_CRAFT_PLATFORMS contains quotes: '${result}'"
+      ;;
+   esac
+
+   log_verbose "----- #4 Test platform add duplicate (should be silently skipped) -----"
+
+   result="`run_mulle_sde platform add testplatform2 2>&1`"
+   # Should not error, just skip since already there
+   
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   # Should still have the same platforms
+   expect_line "testplatform" "${result}"
+   expect_line "testplatform2" "${result}"
+
+   log_verbose "----- #5 Test platform add with force -----"
+
+   run_mulle_sde -s -f platform add testplatform2 || fail "platform add with force failed"
+   
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   # Should still have all platforms
+   expect_line "testplatform" "${result}"
+   expect_line "testplatform2" "${result}"
+
+   log_verbose "----- #6 Test platform disable -----"
+
+   run_mulle_sde -s platform disable testplatform || fail "platform disable failed"
+   
+   # After disable testplatform, CRAFT should have linux:testplatform2
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   expect_line "testplatform2" "${result}"
+   ! grep -q "^testplatform:" <<< "${result}" && ! grep -q ":testplatform:" <<< "${result}" || fail "testplatform should not be in CRAFT: '${result}'"
+   
+   result="`run_mulle_sde environment get MULLE_SOURCETREE_PLATFORMS`"
+   expect_line "testplatform" "${result}"
+   expect_line "testplatform2" "${result}"
+
+   log_verbose "----- #7 Test platform enable -----"
+
+   run_mulle_sde -s platform enable testplatform || fail "platform enable failed"
+   
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   expect_line "testplatform" "${result}"
+   expect_line "testplatform2" "${result}"
+
+   log_verbose "----- #8 Test platform get/set -----"
+
+   run_mulle_sde -s platform set testplatform root "/test/root" || fail "platform set root failed"
+   
+   result="`run_mulle_sde platform get testplatform root`"
+   [ "${result}" != "/test/root" ] && fail "platform get root returned \"${result}\" instead of \"/test/root\""
+
+   run_mulle_sde -s platform set testplatform emulator "test-emulator" || fail "platform set emulator failed"
+   
+   result="`run_mulle_sde platform get testplatform emulator`"
+   [ "${result}" != "test-emulator" ] && fail "platform get emulator returned \"${result}\" instead of \"test-emulator\""
+
+   log_verbose "----- #9 Test platform remove -----"
+
+   run_mulle_sde -s platform remove --no-uname testplatform || fail "platform remove failed"
+   
+   # After remove testplatform, should have linux:testplatform2 left
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   expect_line "testplatform2" "${result}"
+   
+   result="`run_mulle_sde environment get MULLE_SOURCETREE_PLATFORMS`"
+   expect_line "testplatform2" "${result}"
+   
+   # Remove testplatform2
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   log_info "Before removing testplatform2: '${result}'"
+   
+   run_mulle_sde -s platform remove testplatform2 || fail "platform remove testplatform2 failed"
+   
+   # After removing testplatform2, should just have linux
+   result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
+   log_info "After removing testplatform2: '${result}'"
+   [ "${result}" = "\${MULLE_UNAME}" ] || [ "${result}" = "linux" ] || [ "${result}" = "" ] || fail "After removing testplatform2, expected '\${MULLE_UNAME}' or 'linux' or empty, got: '${result}'"
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

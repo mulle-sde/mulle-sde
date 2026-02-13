@@ -1,0 +1,202 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+main()
+{
+   _options_mini_main "$@" && set -x
+
+   local directory
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   
+   cd "${directory}" || exit 1
+   
+   # Setup minimal mulle-sde environment
+   mkdir -p .mulle/share/env
+   mkdir -p .mulle/share/match/match.d
+   mkdir -p .mulle/share/match/ignore.d
+   mkdir -p .mulle/var
+   
+   # Create environment files
+   cat > .mulle/share/env/environment.sh <<'EOF'
+export MULLE_MATCH_PATH="src:ignored_dir"
+export MULLE_MATCH_IGNORE_PATH="ignored_dir"
+export MULLE_MATCH_FILENAMES="*.c:*.h:*.old"
+export PROJECT_SOURCE_DIR="src"
+EOF
+
+   # Create test files for each category
+   
+   # 1. Not in MULLE_MATCH_PATH
+   mkdir -p other
+   echo "// not searched" > other/ignored.c
+   
+   # 2. In MULLE_MATCH_IGNORE_PATH (searched but ignored)
+   mkdir -p ignored_dir
+   echo "// ignored path" > ignored_dir/file.c
+   
+   # 3. Not in MULLE_MATCH_FILENAMES (in src but wrong extension)
+   mkdir -p src
+   echo "readme" > src/README.txt
+   
+   # 4. Actively ignored by patternfile (*.old in MULLE_MATCH_FILENAMES but ignored)
+   echo "old code" > src/main.old
+   
+   # 5. No patternfile match
+   echo "// orphan" > src/orphan.c
+   
+   # 6. Matched file
+   echo "// main" > src/main.c
+   
+   # Create patternfile that matches main.c
+   echo "main.c" > .mulle/share/match/match.d/90-source--test
+   
+   # Create ignore patternfile for *.old files
+   echo "*.old" > .mulle/share/match/ignore.d/10-ignore--old-files
+   
+   log_info "Test files created"
+   
+   # Source environment
+   . .mulle/share/env/environment.sh
+   
+   # Test matched files
+   log_info ""
+   log_info "=== Matched files ==="
+   mulle-match list --format "%f\n" 2>&1 | sort
+   
+   # Test unmatched files
+   log_info ""
+   log_info "=== Unmatched analysis ==="
+   
+   # Manually run the unmatched logic
+   local all_items
+   all_items=$(ls -A1 2>/dev/null | sort)
+   
+   local match_items
+   match_items=$(echo "${MULLE_MATCH_PATH}" | tr ':' '\n' | while read item; do basename "$item" 2>/dev/null; done | sort)
+   
+   local not_searched
+   not_searched=$(comm -23 <(echo "${all_items}") <(echo "${match_items}"))
+   
+   log_info "Not in MULLE_MATCH_PATH:"
+   echo "${not_searched}" | while read item; do
+      [ -z "$item" ] && continue
+      if [ -d "$item" ]; then
+         echo "  $item/ (directory)"
+      else
+         echo "  $item"
+      fi
+   done
+   
+   # Check files in src
+   local all_src
+   all_src=$(find src -type f 2>/dev/null | sort)
+   
+   local matched
+   matched=$(mulle-match list --format "%f\n" 2>/dev/null | sort)
+   
+   local unmatched
+   unmatched=$(comm -23 <(echo "${all_src}") <(echo "${matched}"))
+   
+   log_info ""
+   log_info "Unmatched in searched paths:"
+   echo "${unmatched}" | while read file; do
+      [ -z "$file" ] && continue
+      local basename=$(basename "$file")
+      case "$basename" in
+         *.c|*.h)
+            echo "  $file (no patternfile match)"
+         ;;
+         *)
+            echo "  $file (not in MULLE_MATCH_FILENAMES)"
+         ;;
+      esac
+   done
+   
+   # Check ignored paths
+   log_info ""
+   log_info "In MULLE_MATCH_IGNORE_PATH:"
+   if [ -d "ignored_dir" ]; then
+      echo "  ignored_dir/ (directory)"
+      find ignored_dir -type f 2>/dev/null | while read file; do
+         echo "    $file"
+      done
+   fi
+   
+   # Verify expectations
+   log_info ""
+   log_info "=== Verification ==="
+   
+   if echo "${not_searched}" | grep -q "other"; then
+      log_info "✓ other/ found in not searched"
+   else
+      fail "✗ other/ not found in not searched"
+   fi
+   
+   if [ -d "ignored_dir" ]; then
+      log_info "✓ ignored_dir/ exists and should be ignored"
+   else
+      fail "✗ ignored_dir/ not found"
+   fi
+   
+   if echo "${unmatched}" | grep -q "README.txt"; then
+      log_info "✓ README.txt found in unmatched"
+   else
+      fail "✗ README.txt not found in unmatched"
+   fi
+   
+   if echo "${unmatched}" | grep -q "main.old"; then
+      log_info "✓ main.old found in unmatched (should be actively ignored)"
+   else
+      fail "✗ main.old not found in unmatched"
+   fi
+   
+   # Check if main.old is actually ignored by patternfile
+   if mulle-match filename src/main.old >/dev/null 2>&1; then
+      fail "✗ main.old should be ignored by patternfile"
+   else
+      log_info "✓ main.old correctly ignored by patternfile"
+   fi
+   
+   if echo "${unmatched}" | grep -q "orphan.c"; then
+      log_info "✓ orphan.c found in unmatched"
+   else
+      fail "✗ orphan.c not found in unmatched"
+   fi
+   
+   if echo "${matched}" | grep -q "main.c"; then
+      log_info "✓ main.c found in matched"
+   else
+      fail "✗ main.c not found in matched"
+   fi
+   
+   if echo "${unmatched}" | grep -q "main.c"; then
+      fail "✗ main.c should not be in unmatched"
+   else
+      log_info "✓ main.c correctly not in unmatched"
+   fi
+   
+   if echo "${matched}" | grep -q "ignored_dir"; then
+      fail "✗ ignored_dir files should not be in matched"
+   else
+      log_info "✓ ignored_dir correctly not in matched"
+   fi
+   
+   log_info ""
+   log_info "All checks passed!"
+   
+   cd /
+   rm -rf "${directory}"
+}
+
+main "$@"

@@ -40,7 +40,8 @@ sde::craftorder::usage()
 Usage:
    ${MULLE_USAGE_NAME} craftorder [options]
 
-   Show the craftorder of the dependencies.
+   Show the craftorder of the dependencies. The craftorder is the same for
+   all sdks, platforms, configurations. mulle-craft will filter it later.
 
 Options:
    -h                      : show this usage
@@ -56,11 +57,9 @@ EOF
 
 sde::craftorder::__get_info()
 {
-#   local sdk="$1"
-#   local platform="$2"
-#   local configuration="$3"
+   [ -z "${DEPENDENCY_DIR}" ] && _internal_fail "DEPENDENCY_DIR is empty"
 
-   _cachedir="${MULLE_SDE_VAR_DIR}/cache"
+   _cachedir="${DEPENDENCY_DIR}/etc"
    _craftorderfile="${_cachedir}/craftorder"
 }
 
@@ -112,37 +111,67 @@ sde::craftorder::create_file()
    include "file"
    include "path"
 
+   local rc
+
+   rexekutor mulle-sourcetree -s dbstatus
+   rc=$?
+
+   #  0 : yes
+   #  1 : no sourcetree
+   #  2 : no (not up to date)
+   #  3 : no (stash directory changed, needs fetch and clean)
+
+   if [ $rc -gt 1 ]
+   then
+      log_verbose "Sourcetree is not up to date, needs fectch"
+      exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch --no-quick-check || exit 1
+   fi
+
    log_info "Creating ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} craftorder"
 
    local callback
 
    # get "source" of function into callback
    callback="`declare -f sde::craftorder::r_append_mark_no_memo_to_subproject`"
-   mkdir_if_missing "${cachedir}"
 
-   # remove old file, so if we get CTRL-Ced the state is more reasonable
-   remove_file_if_present "${craftorderfile}"
+   local rc
 
-   log_setting "SOURCETREE_MODE=${SOURCETREE_MODE}"
-   log_setting "OPTION_PRINT_ENV=${OPTION_PRINT_ENV}"
-   log_setting "MULLE_SOURCETREE_STASH_DIR=${MULLE_SOURCETREE_STASH_DIR}"
-   log_setting "MULLE_VIRTUAL_ROOT=${MULLE_VIRTUAL_ROOT}"
+   exekutor mulle-craft dependency begin
+   (
+      mkdir_if_missing "${cachedir}"
 
-   if text="`
-      "${MULLE_SOURCETREE:-mulle-sourcetree}" \
-            --virtual-root \
-            -s \
-            ${MULLE_TECHNICAL_FLAGS:-} \
-         craftorder \
-            --no-print-env \
-            --callback "${callback}" \
-            "$@" `"
-   then
+      # remove old file, so if we get CTRL-Ced the state is more reasonable
+      remove_file_if_present "${craftorderfile}"
+
+      log_setting "SOURCETREE_MODE=${SOURCETREE_MODE}"
+      log_setting "OPTION_PRINT_ENV=${OPTION_PRINT_ENV}"
+      log_setting "MULLE_SOURCETREE_STASH_DIR=${MULLE_SOURCETREE_STASH_DIR}"
+      log_setting "MULLE_VIRTUAL_ROOT=${MULLE_VIRTUAL_ROOT}"
+
+      text="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+               --virtual-root \
+               -s \
+               ${MULLE_TECHNICAL_FLAGS:-} \
+            craftorder \
+               --no-print-env \
+               --callback "${callback}" \
+               "$@" `"
+      rc=$?
+      if [ $rc -ne 0 ]
+      then
+         fail "mulle-sourcetree failed to produce a craftorder ($rc)"
+      fi
       redirect_exekutor "${craftorderfile}" printf "%s\n" "${text}"
-      return $?
-   fi
+   )
+   rc=$?
 
-   return 1
+   if [ $rc -eq 0 ]
+   then
+      exekutor mulle-craft dependency end
+   else
+      exekutor mulle-craft dependency fail
+   fi
+   return $rc
 }
 
 
@@ -194,16 +223,18 @@ sde::craftorder::show_cached()
 {
    log_entry "sde::craftorder::show_cached" "$@"
 
-   local craftorderfile="$1" ; shift
+   local craftorderfile="$1"
+
+   [ -z "${craftorderfile}" ] && _internal_fail "no craftorderfile location given"
 
    if [ -f "${craftorderfile}" ]
    then
-      log_info "Cached craftorder (${craftorderfile#"${MULLE_USER_PWD}/"})"
+      log_info "Cached craftorder ${C_RESET_BOLD}(${craftorderfile#"${MULLE_USER_PWD}/"}"
       cat "${craftorderfile}"
       return 0
    fi
 
-   log_info "There is no cached craftorder"
+   log_info "There is no cached craftorder ${C_RESET_BOLD}${craftorderfile#"${MULLE_USER_PWD}/"}"
    return 1
 }
 
@@ -379,8 +410,8 @@ sde::craftorder::main()
 
    if [ "${OPTION_NAMES}" = 'YES'  ]
    then
-      sde::craftorder::list | sed 's/.*\/\([^;]*\);.*/\1/'
+      sde::craftorder::list "${_craftorderfile}" | sed 's/.*\/\([^;]*\);.*/\1/'
    else
-      sde::craftorder::list
+      sde::craftorder::list "${_craftorderfile}"
    fi
 }

@@ -50,8 +50,9 @@ Usage:
 Tip:
    Try ${MULLE_USAGE_NAME} -v craft --serial, if you get compile errors.
 
-   To push CFLAGS to the build process you can do it like this:
+   To push flags to the build process you can do it like this:
       ${MULLE_USAGE_NAME} -DCFLAGS=-H -v craft --clean --serial
+      ${MULLE_USAGE_NAME} -DCMAKEFLAGS='-DMULLE_TRACE_INCLUDE=ON' craft
    (You need to clean as cmake caches)
 
 Options:
@@ -183,6 +184,7 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
       # check if the config switch is still around
       actual="`(
          MULLE_VIRTUAL_ROOT=
+         MULLE_VIRTUAL_ROOT_ID=
          rexekutor cd "${repository}" &&
          rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} \
                                              env get MULLE_SOURCETREE_CONFIG_NAME
@@ -208,6 +210,7 @@ ${C_RESET_BOLD}   mulle-sde config switch -d ${dependencyname} ${configname}"
       # but not too many settings.
       (
         MULLE_VIRTUAL_ROOT=
+        MULLE_VIRTUAL_ROOT_ID=
         exekutor cd "${repository}" &&
         rexekutor "${MULLE_SDE:-mulle-sde}" ${MULLE_TECHNICAL_FLAGS} \
                                             reflect
@@ -482,13 +485,13 @@ sde::craft::target()
       MULLE_FLAG_LOG_EXEKUTOR='YES'
    fi
 
-   local rval 
+   local rc
 
    sde::craft::_target "$@"
-   rval=$?
+   rc=$?
 
    MULLE_FLAG_LOG_EXEKUTOR="${old}"
-   return $rval
+   return $rc
 }
 
 
@@ -662,6 +665,7 @@ sde::craft::_run_cppcheck()
    esac
 
    local platform
+   local kitchen_dir
 
    #
    # TODO, if we produce no compile_commands.json could fallback to
@@ -671,11 +675,14 @@ sde::craft::_run_cppcheck()
    .do
       log_info "Platform ${C_MAGENTA}${C_BOLD}${platform}"
 
+      kitchen_dir="$(mulle-sde --platform "${platform}" \
+                               --configuration "${buildstyle:-Debug}" \
+                               kitchen-dir)"
       eval_exekutor "'${CPPCHECK}'" \
                     "${CPPCHECKFLAGS}" \
                     "${CPPCHECKAUXFLAGS}" \
                     --platform="'${platform}'" \
-                    --project="'`mulle-sde kitchen-dir`/${buildstyle:-Debug}/compile_commands.json'"
+                    --project="'${kitchen-dir}/compile_commands.json'"
       echo
    .done
 }
@@ -692,13 +699,13 @@ sde::craft::run_cppcheck()
       MULLE_FLAG_LOG_EXEKUTOR='YES'
    fi
 
-   local rval 
+   local rc
 
    sde::craft::_run_cppcheck "$@"
-   rval=$?
+   rc=$?
 
    MULLE_FLAG_LOG_EXEKUTOR="${old}"
-   return $rval
+   return $rc
 }
 
 
@@ -761,6 +768,7 @@ sde::craft::main()
             OPTION_CLEAN='YES'
          ;;
 
+
          -a|-C|--all|--clean-all)
             OPTION_CLEAN='ALL'
          ;;
@@ -780,6 +788,7 @@ sde::craft::main()
             OPTION_CLEAN='GRAVETIDY'
          ;;
 
+         # for vibecoding, when cleaning gets tedious (i.e. before api list)
          --no-clean)
             OPTION_CLEAN='NO'
          ;;
@@ -974,6 +983,7 @@ sde::craft::main()
    then
       fail "Could not create craftorder"
    fi
+
 
    #
    # we have to check that our craftorder dependencies have reflected to the
@@ -1234,7 +1244,7 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
    #   project_cmdline="${RVAL}"
    #fi
 
-   log_fluff "Craft ${C_RESET_BOLD}${target}${C_VERBOSE} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
+   log_fluff "Craft ${C_RESET_BOLD}${target}${C_FLUFF} of project ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}"
 
    r_concat "${arguments}" "${project_arguments}"
    project_arguments="${RVAL}"

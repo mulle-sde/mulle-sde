@@ -32,6 +32,54 @@
 MULLE_SDE_VIBECODING_SH='included'
 
 
+#
+# Check if craft should be redirected to test craft in vibecoding mode
+# This is called from the PROJECT directory (not test directory)
+#
+sde::vibecoding::check_craft_vs_test_craft()
+{
+   log_entry "sde::vibecoding::check_craft_vs_test_craft" "$@"
+
+   [ "${MULLE_VIBECODING}" != 'YES' ] && return 0
+
+   # Check if --mulle-test is already in the arguments
+   local arg
+
+   for arg in "$@"
+   do
+      case "${arg}" in
+         --mulle-test)
+            return 0
+         ;;
+      esac
+   done
+
+   # Check if test directories exist
+   local test_directories
+
+   test_directories="$(mulle-env environment get MULLE_SDE_TEST_PATH 2>/dev/null)"
+   test_directories="${test_directories:-test}"
+
+   local dir
+
+   .foreachpath dir in ${test_directories}
+   .do
+      if [ -d "${dir}" ]
+      then
+         fail "This project has a test folder.
+In vibecoding mode, use:
+   ${C_RESET_BOLD}mulle-sde test craft${C_ERROR}
+
+instead of:
+   ${C_RESET_BOLD}mulle-sde craft${C_ERROR}
+
+This ensures the test environment is properly set up and dependencies
+are built for testing."
+      fi
+   .done
+}
+
+
 sde::vibecoding::usage()
 {
    [ "$#" -ne 0 ] && log_error "$1"
@@ -92,7 +140,6 @@ sde::vibecoding::list_info()
    else
       log_info "Vibecoding is disabled in ${C_RESET_BOLD}${here}"
    fi
-
 }
 
 
@@ -130,7 +177,6 @@ sde::vibecoding::list()
       fi
    .done
 }
-
 
 
 sde::vibecoding::main()
@@ -264,9 +310,8 @@ sde::vibecoding::main()
       (
          rexekutor cd "${dir}"
 
-
          log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'           "${flag}"
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
@@ -289,13 +334,13 @@ sde::vibecoding::main()
          rexekutor cd "${dir}"
 
          log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'           "${flag}"
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
          # test does this differently
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     'NO'
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     'YES'
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' 'NO'
          # test does this differently too,
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          '0'
+         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'           $(( timeout * 20 ))
 
          # tests have no tests
          sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     'NO'

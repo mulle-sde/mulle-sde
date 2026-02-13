@@ -404,7 +404,7 @@ sde::symbol::ctags()
       ;;
    esac
 
-   local rval 
+   local rc
 
    (
       if [ ! -z "${xformat}" ]
@@ -431,7 +431,7 @@ sde::symbol::ctags()
            fi
         )
    )
-   rval=$?
+   rc=$?
 
    if [ ! -z "${tmp_dir}" ]
    then
@@ -443,7 +443,7 @@ sde::symbol::ctags()
       fi
    fi
 
-   return $rval
+   return $rc
 }
 
 
@@ -482,7 +482,7 @@ EOF
 #    sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
 #       <( rexekutor mulle-match list --category-matches  "${OPTION_CATEGORY}" ) || exit 1
 #
-#    local rval
+#    local rc
 #
 #    (
 #       exekutor cd "${tmp_dir}" || exit 1
@@ -492,7 +492,7 @@ EOF
 #
 #       rexekutor clangd --compile-commands-dir=. "$@"
 #    )
-#    rval=$?
+#    rc=$?
 #
 #    if [ "${OPTION_KEEP_TMP}" = 'NO' ]
 #    then
@@ -501,7 +501,7 @@ EOF
 #       log_info "Tmp is ${C_RESET}${tmp_dir}"
 #    fi
 #
-#    return $rval
+#    return $rc
 # }
 #
 

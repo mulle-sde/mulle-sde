@@ -171,7 +171,7 @@ sde::fetch::main()
    done
 
    local do_update
-   local rval
+   local rc
    local dbstatus
 
    if [ "${OPTION_QUICK_CHECK}" = 'YES'  ]
@@ -183,10 +183,10 @@ sde::fetch::main()
                      ${MULLE_TECHNICAL_FLAGS} \
                     status \
                      --is-uptodate
-      rval=$?
-      log_fluff "Sourcetree status --is-uptodate returned with $rval"
+      rc=$?
+      log_fluff "Sourcetree status --is-uptodate returned with $rc"
 
-      if [ ${rval} -eq 0 ]
+      if [ ${rc} -eq 0 ]
       then
          return 0  # Quick exit, everything is uptodate
       fi
@@ -197,15 +197,15 @@ sde::fetch::main()
                      -s \
                      ${MULLE_TECHNICAL_FLAGS} \
                     dbstatus
-      rval=$?
-      log_fluff "Sourcetree dbstatus returned with $rval"
+      rc=$?
+      log_fluff "Sourcetree dbstatus returned with $rc"
       
-      if [ $rval -ge 2 ]
+      if [ $rc -ge 2 ]
       then
          do_update='YES'
          
-         # If stash directory changed (rval=3), clean database first
-         if [ $rval -eq 3 ]
+         # If stash directory changed (rc=3), clean database first
+         if [ $rc -eq 3 ]
          then
             include "sde::clean"
             

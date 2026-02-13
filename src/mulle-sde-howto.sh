@@ -55,12 +55,14 @@ Examples:
       mulle-sde howto show --keyword leak --keyword sanitizer
       mulle-sde howto keywords
       mulle-sde howto grep sanitizer
+      mulle-sde howto apropos "how do I debug memory leaks?"
 
 Commands:
       list       : list available howto topics (default)
       show       : show howto file by number or filename
       keywords   : list all keywords from all howto files
       grep       : search for pattern in all howto files
+      apropos    : AI-powered search through all howto content
 
    Use 'mulle-sde howto <cmd> --help' for command-specific help.
 
@@ -81,10 +83,14 @@ Usage:
    By default, shows keywords for each topic.
 
 Options:
+      --all          : show all dependencies (default in vibecoding mode)
+      --flat         : show only top-level dependencies (default otherwise)
       --no-keywords  : hide keywords column
 
 Examples:
       mulle-sde howto list
+      mulle-sde howto list --all
+      mulle-sde howto list --flat
       mulle-sde howto list --no-keywords
       mulle-sde howto list leak
 
@@ -152,6 +158,107 @@ EOF
    exit 1
 }
 
+
+sde::howto::apropos_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} howto apropos <question>
+
+   AI-powered or keyword-based search through all available howto content.
+
+   If MULLE_SDE_AI_LOCAL is set, it will be called with:
+      \${MULLE_SDE_AI_LOCAL} --context <file> "<prompt>"
+
+   The AI wrapper should:
+   - Accept --context <filepath> (a temp file with all howto content)
+   - Accept the prompt as a single string argument
+   - Output the answer to stdout
+   - Return exit code 0 on success
+
+   Example wrapper script:
+      #!/bin/bash
+      while [ \$# -gt 0 ]; do
+        case "\$1" in
+          --context) shift; context_file="\$1" ;;
+          *) prompt="\$1" ;;
+        esac
+        shift
+      done
+      context=\$(cat "\${context_file}")
+      # Call your AI with context and prompt, output to stdout
+      your-ai-tool "\${context}" "\${prompt}"
+
+   Otherwise, falls back to grep with context lines (-B1 -A3).
+
+   Alias: search
+
+Examples:
+      mulle-sde howto apropos "how do I debug memory leaks?"
+      mulle-sde howto search "what testing frameworks are available?"
+      export MULLE_SDE_AI_LOCAL=~/bin/my-ai-wrapper.sh
+      mulle-sde howto apropos "explain dependency management"
+
+Environment:
+      MULLE_SDE_AI_LOCAL : Path to AI wrapper script
+
+EOF
+   exit 1
+}
+
+
+#
+# Helper function to ensure dependencies are crafted if in vibecoding mode
+# Returns 0 if dependencies are available or were successfully crafted
+# Returns 1 if dependencies could not be built
+#
+sde::howto::ensure_dependencies_crafted()
+{
+   log_entry "sde::howto::ensure_dependencies_crafted" "$@"
+
+   local purpose="${1:-howto information}"
+
+   # Only auto-craft in vibecoding mode
+   if [ "${MULLE_VIBECODING}" != 'YES' ]
+   then
+      return 0
+   fi
+
+   # Check if dependencies are already built
+   local state
+   state="$(rexekutor mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
+
+   if [ "${state}" = "complete" ]
+   then
+      log_debug "Dependencies already crafted"
+      return 0
+   fi
+
+   # Dependencies not complete, try to craft
+   log_info "Crafting dependencies to get ${purpose}..."
+
+   local craft_cmd
+   if sde::is_test_directory "$PWD"
+   then
+      craft_cmd="mulle-sde test craft"
+   else
+      craft_cmd="mulle-sde craft --no-clean craftorder"
+   fi
+
+   # Capture exit code to prevent error cascade
+   local rc
+   rexekutor ${craft_cmd}
+   rc=$?
+
+   if [ $rc -ne 0 ]
+   then
+      log_warning "Failed to craft dependencies"
+   fi
+
+   return 0  # Always succeed, we'll show what we have
+}
 
 #
 # Howtos are installed by extensions into share/howto/
@@ -235,10 +342,12 @@ sde::howto::r_collect_howtos()
    local keyword="$1"
    local display="${2:-NO}"
    local show_keywords="${3:-NO}"
+   local filter_toplevel="${4:-NO}"
    
    log_debug "keyword: '${keyword}'"
    log_debug "display: '${display}'"
    log_debug "show_keywords: '${show_keywords}'"
+   log_debug "filter_toplevel: '${filter_toplevel}'"
    
    local howtos
    local howto
@@ -573,62 +682,127 @@ sde::howto::r_collect_howtos()
    
    log_debug "dependency_dir='${dependency_dir}'"
    
+   # Get top-level dependencies if filtering
+   local toplevel_deps
+   if [ "${filter_toplevel}" = 'YES' ]
+   then
+      toplevel_deps="$(mulle-sourcetree -s list 2>/dev/null | tail -n +3)" || toplevel_deps=""
+      log_debug "toplevel_deps='${toplevel_deps}'"
+   fi
+
    if [ ! -z "${dependency_dir}" ] && [ -d "${dependency_dir}" ]
    then
       log_debug "Searching dependencies in ${dependency_dir}"
+
+      local platforms
       local searchpath=':Release:Debug:RelDebug'
       local repo
+      local subdir
       
-      .foreachpath subdir in ${searchpath}
+      # Check if we have platform-specific directories
+      platforms="$(rexekutor mulle-sde environment get MULLE_SOURCETREE_PLATFORMS 2>/dev/null)" || true
+
+      log_debug "platforms='${platforms}'"
+      log_debug "searchpath='${searchpath}'"
+
+      # Build list of platform directories to check (platform subdirs + root)
+      local platform_dirs=":"  # Always check root (no platform subdir)
+
+      if [ ! -z "${platforms}" ]
+      then
+         local platform
+         for platform in ${platforms}
+         do
+            # Only add platform dir if it actually exists
+            if [ -d "${dependency_dir}/${platform}" ]
+            then
+               r_colon_concat "${platform_dirs}" "${platform}"
+               platform_dirs="${RVAL}"
+               log_debug "Found platform directory: ${platform}"
+            fi
+         done
+      fi
+
+      log_debug "platform_dirs='${platform_dirs}'"
+
+      .foreachpath platform_dir in ${platform_dirs}
       .do
-         log_debug "Checking ${dependency_dir}/${subdir}/share"
-         if [ -d "${dependency_dir}/${subdir}/share" ]
-         then
-            for repo in "${dependency_dir}/${subdir}/share"/*
-            do
-               log_debug "Checking repo: ${repo}"
-               if [ -d "${repo}/howto" ]
-               then
-                  log_debug "Found ${repo}/howto"
-                  for howto in "${repo}/howto"/*.md
-                  do
-                     log_debug "Checking file: ${howto}"
-                     if [ -f "${howto}" ]
+         .foreachpath subdir in ${searchpath}
+         .do
+            local search_dir
+            if [ -z "${platform_dir}" ]
+            then
+               search_dir="${dependency_dir}/${subdir}/share"
+            else
+               search_dir="${dependency_dir}/${platform_dir}/${subdir}/share"
+            fi
+
+            log_debug "Checking ${search_dir}"
+            if [ -d "${search_dir}" ]
+            then
+               for repo in "${search_dir}"/*
+               do
+                  log_debug "Checking repo: ${repo}"
+                  if [ -d "${repo}/howto" ]
+                  then
+                     r_basename "${repo}"
+                     reponame="${RVAL}"
+
+                     # Filter by top-level if needed
+                     if [ "${filter_toplevel}" = 'YES' ]
                      then
-                        count=$((count + 1))
-                        log_debug "File exists, count=${count}"
-                        
-                        if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
+                        if ! echo "${toplevel_deps}" | grep -q "^${reponame}$"
+                        then
+                           log_debug "Skipping non-toplevel dependency: ${reponame}"
+                           continue
+                        fi
+                     fi
+
+                     log_debug "Found ${repo}/howto"
+                     for howto in "${repo}/howto"/*.md
+                     do
+                        log_debug "Checking file: ${howto}"
+                        if [ -f "${howto}" ]
                         then
                            r_basename "${howto}"
                            r_extensionless_basename "${RVAL}"
                            name="${RVAL}"
                            
-                           r_basename "${repo}"
-                           reponame="${RVAL}"
-                           
-                           if [ "${show_keywords}" = 'YES' ]
+                           if ! find_line "${seen_basenames}" "${name}:${reponame}"
                            then
-                              sde::howto::r_extract_keywords "${howto}"
-                              keywords_str="${RVAL}"
-                              if [ ! -z "${keywords_str}" ]
+                              count=$((count + 1))
+                              log_debug "File exists, count=${count}"
+
+                              r_add_line "${seen_basenames}" "${name}:${reponame}"
+                              seen_basenames="${RVAL}"
+
+                              if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
                               then
-                                 printf "%2d. %-30s [%s] (${reponame})\n" "${count}" "${name}" "${keywords_str}"
-                              else
-                                 printf "%2d. %-30s (${reponame})\n" "${count}" "${name}"
+                                 if [ "${show_keywords}" = 'YES' ]
+                                 then
+                                    sde::howto::r_extract_keywords "${howto}"
+                                    keywords_str="${RVAL}"
+                                    if [ ! -z "${keywords_str}" ]
+                                    then
+                                       printf "%2d. %-30s [%s] (${reponame})\n" "${count}" "${name}" "${keywords_str}"
+                                    else
+                                       printf "%2d. %-30s (${reponame})\n" "${count}" "${name}"
+                                    fi
+                                 else
+                                    printf "%2d. %-30s (${reponame})\n" "${count}" "${name}"
+                                 fi
                               fi
-                           else
-                              printf "%2d. %-30s (${reponame})\n" "${count}" "${name}"
+
+                              r_colon_concat "${howtos}" "${howto}"
+                              howtos="${RVAL}"
                            fi
                         fi
-                        
-                        r_colon_concat "${howtos}" "${howto}"
-                        howtos="${RVAL}"
-                     fi
-                  done
-               fi
-            done
-         fi
+                     done
+                  fi
+               done
+               .break
+            fi
+         .done
       .done
    else
       log_debug "No dependency_dir or doesn't exist"
@@ -660,6 +834,19 @@ sde::howto::list()
 
    local keyword
    local show_keywords='YES'
+   local OPTION_ALL
+   local vibecoding
+
+   # Get vibecoding setting from environment
+   vibecoding="$(mulle-env --search-here environment get MULLE_VIBECODING 2>/dev/null)" || vibecoding="${MULLE_VIBECODING}"
+
+   # Default based on vibecoding mode
+   if [ "${vibecoding}" = 'YES' ]
+   then
+      OPTION_ALL='YES'
+   else
+      OPTION_ALL='NO'
+   fi
    
    # Parse options
    while [ $# -ne 0 ]
@@ -667,6 +854,14 @@ sde::howto::list()
       case "$1" in
          -h*|--help|help)
             sde::howto::list_usage
+         ;;
+
+         --all|--full)
+            OPTION_ALL='YES'
+         ;;
+
+         --flat)
+            OPTION_ALL='NO'
          ;;
 
          --no-keywords)
@@ -688,6 +883,14 @@ sde::howto::list()
    local pwd_basename
    r_basename "${PWD}"
    pwd_basename="${RVAL}"
+
+   # Ensure dependencies are crafted in vibecoding mode
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      sde::howto::ensure_dependencies_crafted "additional howto information"
+   else
+      log_warning "Dependencies not yet crafted. Run 'mulle-sde craft' to get howtos from dependencies."
+   fi
    
    log_info "Howtos"
    
@@ -695,21 +898,17 @@ sde::howto::list()
    # DEPENDENCY_DIR might not be available though, so that's not an error
    # we just skip that
    
-   sde::howto::r_collect_howtos "${keyword}" 'YES' "${show_keywords}"
-   local count=$?
-   
-   # Check if we should suggest crafting
-   local dependency_dir
-   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
-   
-   if [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ]
+   # Invert OPTION_ALL to filter_toplevel logic
+   local filter_toplevel
+   if [ "${OPTION_ALL}" = 'YES' ]
    then
-      # Check if we have a sourcetree (in either etc or share)
-      if [ -d ".mulle/etc/sourcetree" ] || [ -d ".mulle/share/sourcetree" ]
-      then
-         log_warning "Dependencies not yet crafted. Run 'mulle-sde craft' to get howtos from dependencies."
-      fi
+      filter_toplevel='NO'
+   else
+      filter_toplevel='YES'
    fi
+
+   sde::howto::r_collect_howtos "${keyword}" 'YES' "${show_keywords}" "${filter_toplevel}"
+   local count=$?
    
    if [ ${count} -eq 0 ]
    then
@@ -749,7 +948,7 @@ sde::howto::keywords()
    done
    
    # Collect all howtos silently
-   sde::howto::r_collect_howtos "" 'NO'
+   sde::howto::r_collect_howtos "" 'NO' 'NO' 'NO'
    local count=$?
    local howtos="${RVAL}"
    
@@ -829,7 +1028,7 @@ sde::howto::grep()
    [ -z "${pattern}" ] && sde::howto::grep_usage "Missing pattern for grep"
    
    # Collect all howtos silently
-   sde::howto::r_collect_howtos "" 'NO'
+   sde::howto::r_collect_howtos "" 'NO' 'NO' 'NO'
    local count=$?
    local howtos="${RVAL}"
    
@@ -858,6 +1057,185 @@ sde::howto::grep()
       return 1
    fi
    
+   return 0
+}
+
+
+sde::howto::apropos()
+{
+   log_entry "sde::howto::apropos" "$@"
+
+   local question
+
+   # Parse options
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::howto::apropos_usage
+         ;;
+
+         -*)
+            sde::howto::apropos_usage "Unknown option $1"
+         ;;
+
+         *)
+            [ ! -z "${question}" ] && sde::howto::apropos_usage "Too many arguments"
+            question="$1"
+         ;;
+      esac
+      shift
+   done
+
+   [ -z "${question}" ] && sde::howto::apropos_usage "Missing question"
+
+   # Collect all howtos silently
+   sde::howto::r_collect_howtos "" 'NO' 'NO' 'NO'
+   local count=$?
+   local howtos="${RVAL}"
+
+   if [ ${count} -eq 0 ]
+   then
+      log_info "No howto files found"
+      return 1
+   fi
+
+   # Check if MULLE_SDE_AI_LOCAL is set
+   if [ ! -z "${MULLE_SDE_AI_LOCAL}" ]
+   then
+      # AI mode: build context file and call AI
+      local context_file
+      context_file="$(mktemp /tmp/mulle-sde-howto-context.XXXXXX)" || fail "Failed to create temp file"
+
+      # Build context from all howto files
+      # Target 128K chars (~32K tokens), leaving room for prompt structure
+      local max_context_chars=131072  # 128K
+      local current_chars=0
+      local howto
+      local content
+      local basename_name
+
+      log_info "Building context from ${count} howto files..."
+
+      .foreachpath howto in ${howtos}
+      .do
+         if [ -f "${howto}" ]
+         then
+            content="$(cat "${howto}" 2>/dev/null)"
+            local content_length=${#content}
+
+            # Check if adding this file would exceed limit
+            if [ $((current_chars + content_length + 200)) -lt ${max_context_chars} ]
+            then
+               r_basename "${howto}"
+               basename_name="${RVAL}"
+
+               {
+                  echo ""
+                  echo "--- ${basename_name} ---"
+                  echo "${content}"
+                  echo ""
+               } >> "${context_file}"
+
+               current_chars=$((current_chars + content_length + 200))
+            else
+               log_debug "Context size limit reached at ${current_chars} chars"
+               .break
+            fi
+         fi
+      .done
+
+      # Build the prompt with more elaborate instructions
+      local prompt="You are a helpful assistant for the mulle-sde development environment. Below is documentation from multiple HOWTO files. Answer the user's question concisely based on this documentation. If the answer is not in the documentation, say so.
+
+Question: ${question}"
+
+      log_info "Querying AI (context size: ${current_chars} chars)..."
+
+      # Call the AI with context file
+      ${MULLE_SDE_AI_LOCAL} --context "${context_file}" "${prompt}"
+      local exit_code=$?
+
+      # Clean up temp file
+      rm -f "${context_file}"
+
+      return ${exit_code}
+   else
+      # Fallback mode: extract keywords from question and use grep
+      log_info "No AI configured, using keyword search fallback..."
+
+      # Extract meaningful keywords from question (remove common words)
+      local keywords
+      keywords="$(echo "${question}" | \
+         tr '[:upper:]' '[:lower:]' | \
+         sed 's/[^a-z0-9 ]/ /g' | \
+         tr -s ' ' '\n' | \
+         grep -v -E '^(how|do|i|a|an|the|is|are|to|in|for|of|with|what|where|when|why|can|could|should|would|explain|show|tell|me|about)$' | \
+         tr '\n' ' ' | \
+         sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+      if [ -z "${keywords}" ]
+      then
+         log_warning "Could not extract meaningful keywords from question"
+         keywords="${question}"
+      fi
+
+      log_info "Searching for keywords: ${keywords}"
+
+      # Grep through all files with context (-B1 -A3)
+      local howto
+      local found='NO'
+      local word
+
+      # Build grep pattern (OR all keywords together)
+      local pattern
+      for word in ${keywords}
+      do
+         if [ -z "${pattern}" ]
+         then
+            pattern="${word}"
+         else
+            pattern="${pattern}|${word}"
+         fi
+      done
+
+      if [ -z "${pattern}" ]
+      then
+         log_info "No search pattern generated"
+         return 1
+      fi
+
+      log_debug "Grep pattern: ${pattern}"
+
+      # Search through all howtos
+      .foreachpath howto in ${howtos}
+      .do
+         local matches
+         matches="$(rexekutor grep -B1 -A3 -n -H -i -E "${pattern}" "${howto}" 2>/dev/null)"
+
+         if [ ! -z "${matches}" ]
+         then
+            if [ "${found}" = 'NO' ]
+            then
+               echo "=== Search Results for: ${question} ==="
+               echo ""
+               found='YES'
+            fi
+
+            r_basename "${howto}"
+            echo "--- ${RVAL} ---"
+            echo "${matches}"
+            echo ""
+         fi
+      .done
+
+      if [ "${found}" = 'NO' ]
+      then
+         log_info "No matches found for keywords: ${keywords}"
+         return 1
+      fi
+   fi
+
    return 0
 }
 
@@ -905,7 +1283,7 @@ sde::howto::show()
    fi
    
    # Collect all howtos silently
-   sde::howto::r_collect_howtos "" 'NO'
+   sde::howto::r_collect_howtos "" 'NO' 'NO' 'NO'
    local count=$?
    local howtos="${RVAL}"
    
@@ -1089,7 +1467,7 @@ sde::howto::main()
       shift
    done
 
-   local cmd="list"
+   local cmd
 
    if [ $# -ne 0 ]
    then
@@ -1097,7 +1475,7 @@ sde::howto::main()
       shift
    fi
 
-   case "${cmd}" in
+   case "${cmd:-list}" in
       'help')
          sde::howto::usage
       ;;
@@ -1118,8 +1496,12 @@ sde::howto::main()
          sde::howto::grep "$@"
       ;;
       
+      'apropos'|'search')
+         sde::howto::apropos "$@"
+      ;;
+
       *)
-         sde::howto::usage "Unknown command '${cmd}'"
+         sde::howto::show "${cmd}" "$@"
       ;;
    esac
 }

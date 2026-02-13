@@ -58,8 +58,8 @@ feat: add definition export and improve installation checks
 
 
 * Detect target platform from executable path (kitchen/`<platform>`/`<config>`)
-* Support `MULLE_EMULATOR_`<PLATFORM>`` environment variables
-  - Example: `MULLE_EMULATOR_WINDOWS=wine`
+* Support `MULLE_EMULATOR__`<PLATFORM>`` environment variables
+  - Example: `MULLE_EMULATOR__WINDOWS=wine`
   - Automatically prefix non-native executables with emulator
 * Add `sde::product::r_platform_from_executable_path()` to extract platform
 * Add `sde::run::r_emulator_for_platform()` to resolve emulator command

@@ -55,7 +55,7 @@ The migrate command handles transitions across these version boundaries:
 #### v0.41 → v0.42
 - **Header management**: Removes duplicate headers in project root after reflection
 - **CMake restructuring**: Reorganizes CMake configuration files
-- **File cleanup**: Removes old objc-loader.inc files
+- **File cleanup**: Removes old objc-deps.inc files
 
 #### v0.46 → v0.47
 - **Sourcetree mark renaming**: Renames cmake-related sourcetree marks to use hyphenated format

@@ -384,18 +384,22 @@ sde::headerorder::r_library_searchpath()
 
    local searchpath
    local configuration
+   local platform
 
    configuration="${OPTION_CONFIGURATION:-Debug}"
+   platform="${OPTION_PLATFORM:-${MULLE_UNAME}}"
+
    searchpath="`rexekutor mulle-craft \
                                  ${MULLE_TECHNICAL_FLAGS} \
                                  -s \
                               searchpath \
                                  ${options} \
                                  --configuration "${configuration}" \
+                                 --platform "${platform}" \
                                  library`"
    if [ -z "${searchpath}" ]
    then
-      _log_warning "The library searchpath is empty.
+      _log_warning "The library searchpath is empty for headerorder.
 ${C_INFO}Have dependencies been built for configuration \"${configuration}\" ?"
    fi
 
@@ -492,7 +496,7 @@ sde::headerorder::r_collect_emission_headers()
    local marks
    local raw_userinfo
    local node
-   local rval
+   local rc
    local line 
    local _startup_load
    local _standalone_load
@@ -511,8 +515,8 @@ sde::headerorder::r_collect_emission_headers()
                                               "${marks}" \
                                               "${raw_userinfo}" \
                                               "${header_searchpath}"
-      rval=$?
-      if [ $rval = 4 ]
+      rc=$?
+      if [ $rc = 4 ]
       then
          .continue
       fi
@@ -591,11 +595,11 @@ sde::headerorder::main()
             OPTION_BEQUEATH='NO'
          ;;
 
-         --recursive)
+         --recursive|--recurse)
             OPTION_RECURSIVE='YES'
          ;;
 
-         --no-recursive)
+         --no-recursive|--no-recurse)
             OPTION_RECURSIVE='NO'
          ;;
 

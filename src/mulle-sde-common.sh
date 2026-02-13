@@ -759,6 +759,11 @@ sde::common::pretty_filtered_json()
    .foreachline line in ${text}
    .do
       case "${line}" in
+         '# '*)
+            printf "%s${C_INFO}%s${C_RESET}\n" "${sep}" "${line}"
+            sep=$'\n'
+         ;;
+
          '   '*)
             printf "%s\n" "${line}"
          ;;

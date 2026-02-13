@@ -44,15 +44,23 @@ Usage:
 
 Examples:
       mulle-sde api list
-      mulle-sde api show 2
-      mulle-sde api show mulle-core
+      mulle-sde api list --all
+      mulle-sde api list --flat
+      mulle-sde api cat 2
+      mulle-sde api cat mulle-core
       mulle-sde api find header zlib.h
       mulle-sde api find library libz.a
+      mulle-sde api apropos "how do I allocate memory?"
 
 Commands:
-      list           : list available API documentation from dependencies
-      show <name>    : show API doc by number or dependency name
+      list               : list available API documentation from dependencies
+      cat <name>         : show API doc by number or dependency name
       find <type> <name> : find header or library file in dependencies
+      apropos <question> : AI-powered or keyword search through API docs (alias: search)
+
+List options:
+      --all          : show all dependencies (default in vibecoding mode)
+      --flat         : show only top-level dependencies (default otherwise)
       
 Find types:
       header         : find header file (e.g., zlib.h)
@@ -61,6 +69,113 @@ Find types:
       
 EOF
    exit 1
+}
+
+
+sde::api::apropos_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} api apropos <question>
+
+   AI-powered or keyword-based search through all available API documentation.
+
+   If MULLE_SDE_AI_LOCAL is set, it will be called with:
+      \${MULLE_SDE_AI_LOCAL} --context <file> "<prompt>"
+
+   The AI wrapper should:
+   - Accept --context <filepath> (a temp file with API documentation)
+   - Accept the prompt as a single string argument
+   - Output the answer to stdout
+   - Return exit code 0 on success
+
+   Example wrapper script:
+      #!/bin/bash
+      while [ \$# -gt 0 ]; do
+        case "\$1" in
+          --context) shift; context_file="\$1" ;;
+          *) prompt="\$1" ;;
+        esac
+        shift
+      done
+      context=\$(cat "\${context_file}")
+      # Call your AI with context and prompt, output to stdout
+      your-ai-tool "\${context}" "\${prompt}"
+
+   Otherwise, falls back to grep with context lines (-B1 -A3).
+
+   Note: API docs can be large. Context prioritization:
+   1. Top-level dependencies first
+   2. Dependencies with "amalgamated" keyword next
+   3. Remaining dependencies (space permitting, up to 128K)
+
+   Alias: search
+
+Examples:
+      mulle-sde api apropos "how do I allocate memory?"
+      mulle-sde api search "what is the container API?"
+      export MULLE_SDE_AI_LOCAL=~/bin/my-ai-wrapper.sh
+      mulle-sde api apropos "explain the threading model"
+
+Environment:
+      MULLE_SDE_AI_LOCAL : Path to AI wrapper script
+
+EOF
+   exit 1
+}
+
+
+#
+# Helper function to ensure dependencies are crafted if in vibecoding mode
+# Returns 0 if dependencies are available or were successfully crafted
+# Returns 1 if dependencies could not be built
+#
+sde::api::ensure_dependencies_crafted()
+{
+   log_entry "sde::api::ensure_dependencies_crafted" "$@"
+
+   local purpose="${1:-API information}"
+
+   # Only auto-craft in vibecoding mode
+   if [ "${MULLE_VIBECODING}" != 'YES' ]
+   then
+      return 0
+   fi
+
+   # Check if dependencies are already built
+   local state
+   state="$(rexekutor mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
+
+   if [ "${state}" = "complete" ]
+   then
+      log_debug "Dependencies already crafted"
+      return 0
+   fi
+
+   # Dependencies not complete, try to craft
+   log_info "Crafting dependencies to get ${purpose}..."
+
+   local craft_cmd
+   if sde::is_test_directory "$PWD"
+   then
+      craft_cmd="mulle-sde test craft"
+   else
+      craft_cmd="mulle-sde craft --no-clean craftorder"
+   fi
+
+   # Capture exit code to prevent error cascade
+   local rc
+   rexekutor ${craft_cmd}
+   rc=$?
+
+   if [ $rc -ne 0 ]
+   then
+      log_warning "Failed to craft dependencies"
+   fi
+
+   return 0  # Always succeed, we'll show what we have
 }
 
 
@@ -114,77 +229,120 @@ sde::api::r_collect_apis()
       return 0
    fi
    
+   local platforms
    local searchpath=':Release:Debug:RelDebug'
    local subdir
    local repo
    local api
    local keywords_str
+   local seen_repos
+
+   # Check if we have platform-specific directories
+   platforms="$(rexekutor mulle-sde environment get MULLE_SOURCETREE_PLATFORMS 2>/dev/null)" || true
+
+   log_debug "platforms='${platforms}'"
+   log_debug "searchpath='${searchpath}'"
+
+   # Build list of platform directories to check (platform subdirs + root)
+   local platform_dirs=":"  # Always check root (no platform subdir)
+
+   if [ ! -z "${platforms}" ]
+   then
+      local platform
+      for platform in ${platforms}
+      do
+         # Only add platform dir if it actually exists
+         if [ -d "${dependency_dir}/${platform}" ]
+         then
+            r_colon_concat "${platform_dirs}" "${platform}"
+            platform_dirs="${RVAL}"
+            log_debug "Found platform directory: ${platform}"
+         fi
+      done
+   fi
    
-   .foreachpath subdir in ${searchpath}
+   log_debug "platform_dirs='${platform_dirs}'"
+
+   .foreachpath platform_dir in ${platform_dirs}
    .do
-      log_debug "Checking ${dependency_dir}/${subdir}/share"
-      if [ -d "${dependency_dir}/${subdir}/share" ]
-      then
-         for repo in "${dependency_dir}/${subdir}/share"/*
-         do
-            log_debug "Checking repo: ${repo}"
-            if [ -d "${repo}" ]
-            then
-               r_basename "${repo}"
-               local reponame="${RVAL}"
-               
-               # Try share/<name>/dox/TOC.md first
-               api="${repo}/dox/TOC.md"
-               if [ -f "${api}" ]
+      .foreachpath subdir in ${searchpath}
+      .do
+         local search_dir
+         if [ -z "${platform_dir}" ]
+         then
+            search_dir="${dependency_dir}/${subdir}/share"
+         else
+            search_dir="${dependency_dir}/${platform_dir}/${subdir}/share"
+         fi
+
+         log_debug "Checking ${search_dir}"
+         if [ -d "${search_dir}" ]
+         then
+            for repo in "${search_dir}"/*
+            do
+               log_debug "Checking repo: ${repo}"
+               if [ -d "${repo}" ]
                then
-                  count=$((count + 1))
-                  log_debug "Found ${api}, count=${count}"
+                  r_basename "${repo}"
+                  local reponame="${RVAL}"
                   
-                  if [ "${display}" = 'YES' ]
+                  if ! find_line "${seen_repos}" "${reponame}"
                   then
-                     sde::api::r_extract_keywords "${api}"
-                     keywords_str="${RVAL}"
-                     if [ ! -z "${keywords_str}" ]
+                     r_add_line "${seen_repos}" "${reponame}"
+                     seen_repos="${RVAL}"
+
+                     # Try share/<name>/dox/TOC.md first
+                     api="${repo}/dox/TOC.md"
+                     if [ -f "${api}" ]
                      then
-                        printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
-                     else
-                        printf "%2d. %-30s\n" "${count}" "${reponame}"
+                        count=$((count + 1))
+                        log_debug "Found ${api}, count=${count}"
+
+                        if [ "${display}" = 'YES' ]
+                        then
+                           sde::api::r_extract_keywords "${api}"
+                           keywords_str="${RVAL}"
+                           if [ ! -z "${keywords_str}" ]
+                           then
+                              printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
+                           else
+                              printf "%2d. %-30s\n" "${count}" "${reponame}"
+                           fi
+                        fi
+
+                        r_colon_concat "${apis}" "${api}"
+                        apis="${RVAL}"
+                        continue
+                     fi
+
+                     # Try share/<name>/TOC.md as fallback
+                     api="${repo}/TOC.md"
+                     if [ -f "${api}" ]
+                     then
+                        count=$((count + 1))
+                        log_debug "Found ${api}, count=${count}"
+
+                        if [ "${display}" = 'YES' ]
+                        then
+                           sde::api::r_extract_keywords "${api}"
+                           keywords_str="${RVAL}"
+                           if [ ! -z "${keywords_str}" ]
+                           then
+                              printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
+                           else
+                              printf "%2d. %-30s\n" "${count}" "${reponame}"
+                           fi
+                        fi
+
+                        r_colon_concat "${apis}" "${api}"
+                        apis="${RVAL}"
                      fi
                   fi
-                  
-                  r_colon_concat "${apis}" "${api}"
-                  apis="${RVAL}"
-                  continue
                fi
-               
-               # Try share/<name>/TOC.md as fallback
-               api="${repo}/TOC.md"
-               if [ -f "${api}" ]
-               then
-                  count=$((count + 1))
-                  log_debug "Found ${api}, count=${count}"
-                  
-                  if [ "${display}" = 'YES' ]
-                  then
-                     sde::api::r_extract_keywords "${api}"
-                     keywords_str="${RVAL}"
-                     if [ ! -z "${keywords_str}" ]
-                     then
-                        printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
-                     else
-                        printf "%2d. %-30s\n" "${count}" "${reponame}"
-                     fi
-                  fi
-                  
-                  r_colon_concat "${apis}" "${api}"
-                  apis="${RVAL}"
-               fi
-            fi
-         done
-         
-         # Only search first existing subdir
-         .break
-      fi
+            done
+            .break
+         fi
+      .done
    .done
    
    log_debug "Total count: ${count}"
@@ -199,13 +357,28 @@ sde::api::list()
 {
    log_entry "sde::api::list" "$@"
 
-   local OPTION_FULL='NO'
+   local OPTION_ALL
+
+   # Default based on vibecoding mode
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      OPTION_ALL='YES'
+   else
+      OPTION_ALL='NO'
+   fi
+
+   log_setting "MULLE_VIBECODING: '${MULLE_VIBECODING}'"
+   log_setting "OPTION_ALL (initial): ${OPTION_ALL}"
    
    while [ $# -ne 0 ]
    do
       case "$1" in
-         --full)
-            OPTION_FULL='YES'
+         --all|--full)
+            OPTION_ALL='YES'
+         ;;
+
+         --flat)
+            OPTION_ALL='NO'
          ;;
          
          *)
@@ -218,16 +391,10 @@ sde::api::list()
    local count
    local apis
    local toplevel_deps
-   local state
-   
-   # Check if we need to craft
-   state="$(mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
-   if [ "${state}" != "complete" ]
-   then
-      log_info "Crafting dependencies to get API information..."
-      rexekutor mulle-sde craft craftorder
-   fi
-   
+
+   # Ensure dependencies are crafted in vibecoding mode
+   sde::api::ensure_dependencies_crafted "API information"
+
    # Collect all APIs
    sde::api::r_collect_apis 'NO'
    count=$?
@@ -241,7 +408,18 @@ sde::api::list()
          return 1
       fi
 
-      rexekutor mulle-sde craft craftorder || fail "Could not build dependencies yet, so no APIs available"
+      # In vibecoding mode, if still no APIs, try full craft
+      log_info "No APIs found, attempting full craft..."
+
+      local craft_cmd
+      if sde::is_test_directory "$PWD"
+      then
+         craft_cmd="mulle-sde test craft"
+      else
+         craft_cmd="mulle-sde craft craftorder"
+      fi
+
+      rexekutor ${craft_cmd} || fail "Could not build dependencies yet, so no APIs available"
       sde::api::r_collect_apis 'NO'
       count=$?
       apis="${RVAL}"
@@ -253,10 +431,16 @@ sde::api::list()
       fi
    fi
    
-   # Get top-level dependencies if not --full
-   if [ "${OPTION_FULL}" = 'NO' ]
+   log_setting "OPTION_ALL (final): ${OPTION_ALL}"
+   log_debug "Total APIs collected: ${count}"
+
+   # Get top-level dependencies if not --all
+   if [ "${OPTION_ALL}" = 'NO' ]
    then
       toplevel_deps="$(mulle-sourcetree -s list 2>/dev/null | tail -n +3)" || toplevel_deps=""
+      log_setting "Filtering to top-level deps: ${toplevel_deps}"
+   else
+      log_setting "Showing all dependencies (no filtering)"
    fi
    
    # Display APIs
@@ -271,16 +455,20 @@ sde::api::list()
       r_basename "$(dirname "$(dirname "${api}")")"
       reponame="${RVAL}"
       
+      log_debug "Processing API: ${reponame}"
+
       # Filter by top-level if needed
-      if [ "${OPTION_FULL}" = 'NO' ]
+      if [ "${OPTION_ALL}" = 'NO' ]
       then
          if ! echo "${toplevel_deps}" | grep -q "^${reponame}$"
          then
+            log_debug "Skipping non-toplevel: ${reponame}"
             .continue
          fi
       fi
       
       display_count=$((display_count + 1))
+      log_debug "Displaying: ${reponame} (count=${display_count})"
       
       sde::api::r_extract_keywords "${api}"
       keywords_str="${RVAL}"
@@ -294,21 +482,24 @@ sde::api::list()
    
    if [ ${display_count} -eq 0 ]
    then
-      log_info "No API documentation available for top-level dependencies (use --full to see all)"
+      log_info "No API documentation available for top-level dependencies (use --all to see all)"
    fi
    
    return 0
 }
 
 
-sde::api::show()
+sde::api::cat()
 {
-   log_entry "sde::api::show" "$@"
+   log_entry "sde::api::cat" "$@"
 
    local identifier="$1"
    
    [ -z "${identifier}" ] && sde::api::usage "Missing argument (number or dependency name)"
    
+   # Ensure dependencies are crafted in vibecoding mode
+   sde::api::ensure_dependencies_crafted "API information"
+
    # Collect all APIs silently
    sde::api::r_collect_apis 'NO'
    local count=$?
@@ -316,7 +507,12 @@ sde::api::show()
    
    if [ ${count} -eq 0 ]
    then
-      log_info "No API documentation found (dependencies not yet crafted?)"
+      if [ "${MULLE_VIBECODING}" = 'YES' ]
+      then
+         fail "No API documentation found even after crafting"
+      else
+         log_info "No API documentation found (dependencies not yet crafted?)"
+      fi
       return 1
    fi
    
@@ -511,6 +707,273 @@ sde::api::find()
 }
 
 
+sde::api::apropos()
+{
+   log_entry "sde::api::apropos" "$@"
+
+   local question
+
+   # Parse options
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::api::apropos_usage
+         ;;
+
+         -*)
+            sde::api::apropos_usage "Unknown option $1"
+         ;;
+
+         *)
+            [ ! -z "${question}" ] && sde::api::apropos_usage "Too many arguments"
+            question="$1"
+         ;;
+      esac
+      shift
+   done
+
+   [ -z "${question}" ] && sde::api::apropos_usage "Missing question"
+
+   # Ensure dependencies are crafted in vibecoding mode
+   sde::api::ensure_dependencies_crafted "API information"
+
+   # Collect all API docs silently
+   sde::api::r_collect_apis 'NO'
+   local count=$?
+   local apis="${RVAL}"
+
+   if [ ${count} -eq 0 ]
+   then
+      if [ "${MULLE_VIBECODING}" = 'YES' ]
+      then
+         fail "No API documentation found even after crafting"
+      else
+         log_info "No API documentation found. Run 'mulle-sde craft' to build dependencies."
+      fi
+      return 1
+   fi
+
+   # Get top-level dependencies for prioritization
+   local toplevel_deps
+   toplevel_deps="$(mulle-sourcetree -s list 2>/dev/null | tail -n +3)" || toplevel_deps=""
+
+   # Check if MULLE_SDE_AI_LOCAL is set
+   if [ ! -z "${MULLE_SDE_AI_LOCAL}" ]
+   then
+      # AI mode: build context file with prioritization
+      local context_file
+      context_file="$(mktemp /tmp/mulle-sde-api-context.XXXXXX)" || fail "Failed to create temp file"
+
+      local max_context_chars=131072  # 128K
+      local current_chars=0
+      local api
+      local content
+      local reponame
+      local keywords_str
+
+      log_info "Building prioritized context from ${count} API docs..."
+
+      # Helper function to add API doc to context
+      add_api_to_context()
+      {
+         local api_file="$1"
+         local priority_label="$2"
+
+         if [ -f "${api_file}" ]
+         then
+            content="$(cat "${api_file}" 2>/dev/null)"
+            local content_length=${#content}
+
+            # Check if adding this file would exceed limit
+            if [ $((current_chars + content_length + 200)) -lt ${max_context_chars} ]
+            then
+               r_dirname "${api_file}"
+               r_basename "${RVAL}"
+               reponame="${RVAL}"
+
+               {
+                  echo ""
+                  echo "--- ${reponame} (${priority_label}) ---"
+                  echo "${content}"
+                  echo ""
+               } >> "${context_file}"
+
+               current_chars=$((current_chars + content_length + 200))
+               return 0
+            else
+               log_debug "Context size limit reached at ${current_chars} chars"
+               return 1
+            fi
+         fi
+         return 1
+      }
+
+      # Priority 1: Top-level dependencies
+      log_debug "Adding top-level dependencies..."
+      .foreachpath api in ${apis}
+      .do
+         r_dirname "${api}"
+         r_basename "${RVAL}"
+         reponame="${RVAL}"
+
+         if echo "${toplevel_deps}" | grep -q "^${reponame}$"
+         then
+            if ! add_api_to_context "${api}" "top-level"
+            then
+               .break
+            fi
+         fi
+      .done
+
+      # Priority 2: Amalgamated libraries
+      if [ ${current_chars} -lt ${max_context_chars} ]
+      then
+         log_debug "Adding amalgamated dependencies..."
+         .foreachpath api in ${apis}
+         .do
+            # Check if already added (top-level)
+            r_dirname "${api}"
+            r_basename "${RVAL}"
+            reponame="${RVAL}"
+
+            if echo "${toplevel_deps}" | grep -q "^${reponame}$"
+            then
+               .continue
+            fi
+
+            # Check for amalgamated keyword
+            sde::api::r_extract_keywords "${api}"
+            keywords_str="${RVAL}"
+
+            if echo "${keywords_str}" | grep -q -i "amalgamated"
+            then
+               if ! add_api_to_context "${api}" "amalgamated"
+               then
+                  .break
+               fi
+            fi
+         .done
+      fi
+
+      # Priority 3: Remaining dependencies
+      if [ ${current_chars} -lt ${max_context_chars} ]
+      then
+         log_debug "Adding remaining dependencies..."
+         .foreachpath api in ${apis}
+         .do
+            r_dirname "${api}"
+            r_basename "${RVAL}"
+            reponame="${RVAL}"
+
+            # Skip if already added
+            if grep -q "^--- ${reponame} " "${context_file}" 2>/dev/null
+            then
+               .continue
+            fi
+
+            if ! add_api_to_context "${api}" "other"
+            then
+               .break
+            fi
+         .done
+      fi
+
+      # Build the prompt
+      local prompt="You are a helpful assistant for API documentation. Below is API documentation from multiple dependencies. Answer the user's question concisely based on this documentation. If the answer is not in the documentation, say so.
+
+Question: ${question}"
+
+      log_info "Querying AI (context size: ${current_chars} chars)..."
+
+      # Call the AI with context file
+      ${MULLE_SDE_AI_LOCAL} --context "${context_file}" "${prompt}"
+      local exit_code=$?
+
+      # Clean up temp file
+      rm -f "${context_file}"
+
+      return ${exit_code}
+   else
+      # Fallback mode: extract keywords and grep
+      log_info "No AI configured, using keyword search fallback..."
+
+      # Extract meaningful keywords from question
+      local keywords
+      keywords="$(echo "${question}" | \
+         tr '[:upper:]' '[:lower:]' | \
+         sed 's/[^a-z0-9 ]/ /g' | \
+         tr -s ' ' '\n' | \
+         grep -v -E '^(how|do|i|a|an|the|is|are|to|in|for|of|with|what|where|when|why|can|could|should|would|explain|show|tell|me|about)$' | \
+         tr '\n' ' ' | \
+         sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+      if [ -z "${keywords}" ]
+      then
+         log_warning "Could not extract meaningful keywords from question"
+         keywords="${question}"
+      fi
+
+      log_info "Searching for keywords: ${keywords}"
+
+      # Build grep pattern
+      local pattern
+      local word
+      for word in ${keywords}
+      do
+         if [ -z "${pattern}" ]
+         then
+            pattern="${word}"
+         else
+            pattern="${pattern}|${word}"
+         fi
+      done
+
+      if [ -z "${pattern}" ]
+      then
+         log_info "No search pattern generated"
+         return 1
+      fi
+
+      log_debug "Grep pattern: ${pattern}"
+
+      # Search through all API docs
+      local found='NO'
+      .foreachpath api in ${apis}
+      .do
+         local matches
+         matches="$(rexekutor grep -B1 -A3 -n -H -i -E "${pattern}" "${api}" 2>/dev/null)"
+
+         if [ ! -z "${matches}" ]
+         then
+            if [ "${found}" = 'NO' ]
+            then
+               echo "=== API Search Results for: ${question} ==="
+               echo ""
+               found='YES'
+            fi
+
+            r_dirname "${api}"
+            r_basename "${RVAL}"
+            reponame="${RVAL}"
+
+            echo "--- ${reponame} ---"
+            echo "${matches}"
+            echo ""
+         fi
+      .done
+
+      if [ "${found}" = 'NO' ]
+      then
+         log_info "No matches found for keywords: ${keywords}"
+         return 1
+      fi
+   fi
+
+   return 0
+}
+
+
 sde::api::main()
 {
    log_entry "sde::api::main" "$@"
@@ -550,14 +1013,18 @@ sde::api::main()
          sde::api::list "$@"
       ;;
 
-      'show')
-         sde::api::show "$@"
+      'cat'|'display')
+         sde::api::cat "$@"
       ;;
       
       'find')
          sde::api::find "$@"
       ;;
       
+      'apropos'|'search')
+         sde::api::apropos "$@"
+      ;;
+
       *)
          sde::api::usage "Unknown command '${cmd}'"
       ;;

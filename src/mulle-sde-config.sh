@@ -603,6 +603,7 @@ ${C_INFO}Use -f to force the switch"
 
             exekutor cd "${dependency_dir}" || return 1
             MULLE_VIRTUAL_ROOT=
+            MULLE_VIRTUAL_ROOT_ID=
             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
                                 ${MULLE_SDE_FLAGS} \
                                 config switch ${args} "${name}"

@@ -1568,7 +1568,7 @@ sde::extension::do_usage()
 
    local extension="$1"
 
-   if [ "${OPTION_RECURSE}" = 'YES' ]
+   if [ "${OPTION_RECURSIVE}" = 'YES' ]
    then
       local dependency
 
@@ -1604,7 +1604,7 @@ sde::extension::usage_main()
    local OPTION_LIST=
    local OPTION_LIST_TYPES='NO'
    local OPTION_INFO='NO'
-   local OPTION_RECURSE='NO'
+   local OPTION_RECURSIVE='NO'
    local OPTION_USAGE_ONLY='NO'
    local OPTION_NO_USAGE='NO'
 
@@ -1626,8 +1626,8 @@ sde::extension::usage_main()
             OPTION_LIST="$1"
          ;;
 
-         -r|--recurse)
-            OPTION_RECURSE='YES'
+         -r|--recurse|--recursive)
+            OPTION_RECURSIVE='YES'
          ;;
 
          -v|--vendor)

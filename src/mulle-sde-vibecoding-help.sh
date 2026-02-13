@@ -52,7 +52,7 @@ sde::vibecoding_help::r_find_howto()
    
    include "sde::howto"
    
-   sde::howto::r_collect_howtos "" 'NO'
+   sde::howto::r_collect_howtos "" 'NO' 'NO' 'NO'
    local howtos="${RVAL}"
    
    [ -z "${howtos}" ] && return 1
@@ -99,9 +99,10 @@ sde::vibecoding_help::show_help()
    if sde::vibecoding_help::r_find_howto "${howto_keyword}"
    then
       log_info "📖 See: ${C_RESET_BOLD}mulle-sde howto show ${howto_keyword}"
-   else
-      # No howto found, show command usage
-      log_info "💡 Try: ${C_RESET_BOLD}mulle-sde ${cmd} help"
+# AI just ignore this
+#   else
+#      # No howto found, show command usage
+#      log_info "💡 Try: ${C_RESET_BOLD}mulle-sde ${cmd} help"
    fi
 }
 
@@ -115,7 +116,7 @@ sde::vibecoding_help::on_failure()
    [ "${MULLE_VIBECODING}" != 'YES' ] && return 0
    
    local cmd="$1"
-   local rval="${2:-1}"
+   local rc="${2:-1}"
    
    # Skip for help/usage commands
    case "${cmd}" in
@@ -124,13 +125,9 @@ sde::vibecoding_help::on_failure()
       ;;
    esac
    
-   echo "" >&2
-   log_info "❌ ${C_RESET_BOLD}Vibecoding Tip${C_INFO}: Command '${cmd}' failed (exit ${rval})"
-   echo "" >&2
-   
+#   echo "" >&2
+#   log_info "Command '${cmd}' failed (exit ${rc})"
    sde::vibecoding_help::show_help "${cmd}"
-   
-   echo "" >&2
    
    # Always return 0 - we're just showing help, not changing the error
    return 0

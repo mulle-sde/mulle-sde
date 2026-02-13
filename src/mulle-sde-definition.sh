@@ -371,14 +371,14 @@ sde::definition::scoped_unset()
 
    shift 3
 
-   local rval 
+   local rc
 
    if [ -d "${etcdir}" ]
    then
       sde::definition::call "unset" "${flags}" "${etcdir}" "$@"
-      rval=$?
+      rc=$?
       etc_remove_if_possible "${etcdir}" "${sharedir}"
-      return $rval
+      return $rc
    fi
 
    # check if value exists in sharedir

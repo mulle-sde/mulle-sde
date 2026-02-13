@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.7.0
+MULLE_EXECUTABLE_VERSION=3.8.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -82,7 +82,7 @@ function sde::print_commands()
    craftinfo      : show build flags of dependencies
    definition     : change projects craft options like CFLAGS
    dependency     : manage third party components (like GitHub projects)
-   editors        : run various GUI tools (needs node.js)
+   editor         : run various GUI tools (needs node.js)
    environment    : manage environment variables (project settings)
    exec           : run a command in a subshell
    howto          : show list of development topics for more extensive help
@@ -90,6 +90,7 @@ function sde::print_commands()
    library        : manage second party (OS) libraries (like pthread)
    log            : show craft results
    list           : list project files (files matching patternfiles)
+   platform       : manage cross-compilation platforms
    reflect        : update project makefiles and sources
    run            : run executable product
    status         : show information about the current project state
@@ -111,7 +112,7 @@ function sde::print_commands()
    headerorder    : show header includes for dependencies and libraries
    init           : create a new project
    json           : show dependencies and libraries as JSON
-   linkorder      : show linkorder of dependencies and libraries
+   link-args      : show linker arguments to link dependencies and libraries
    match          : experiment with patternfiles
    monitor        : monitor project files, run reflect and craft
    patternfile    : manage patternfiles
@@ -182,13 +183,6 @@ Usage:
 
    Read the "De Re mulle-sde" guide:
       https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
-
-   ⚠️  ${MULLE_USAGE_NAME} is AI and noob friendly! Use:
-      \`${MULLE_USAGE_NAME} commands\` to see all commands with descriptions
-      \`${MULLE_USAGE_NAME} <cmd> help\` for detailed help
-      \`${MULLE_USAGE_NAME} howto help\` for development topics ‼️
-      \`${MULLE_USAGE_NAME} api help\` for API info
-      \`mulle-bashfunctions help\` for tracing mulle-sde itself
 
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -326,7 +320,7 @@ sde::assert_test_environment()
 
    local cmd="${1:-craft}"
 
-   if [ "${FLAG_TEST_CHECK}" = 'NO' ]
+   if [ "${MULLE_SDE_TEST_CHECK}" = 'NO' ]
    then
       return
    fi
@@ -675,11 +669,12 @@ sde::vibecoding_help_on_exit()
 
 sde::main()
 {
-   local FLAG_TEST_CHECK="${MULLE_SDE_TEST_CHECK:-YES}"
+   local MULLE_SDE_TEST_CHECK="${MULLE_SDE_TEST_CHECK:-YES}"
    local FLAG_OUTSIDE_ENV='NO'
+   local FLAG_CHANGE_ENVIRONMENT='NO'
 
    local defines
-   
+   local arg
    # Track current command for vibecoding help
    local MULLE_SDE_CURRENT_CMD=""
 
@@ -699,16 +694,28 @@ sde::main()
             sde::usage "${MULLE_TRACE}"
          ;;
 
+         # hackish flag
          -e|--environment-override)
             FLAG_OUTSIDE_ENV='YES'
          ;;
 
-         --test-check)
-            FLAG_TEST_CHECK='YES'
+         # flag to properly transition between environments
+         -E|--environment-transition)
+            FLAG_CHANGE_ENVIRONMENT='YES'
+
+            # add --style
+            r_concat "${MULLE_ENV_FLAGS}" "$1"
+            MULLE_ENV_FLAGS="${RVAL}"
          ;;
 
          --no-test-check)
-            FLAG_TEST_CHECK='NO'
+            MULLE_SDE_TEST_CHECK=NO
+
+            r_add_line "${MULLE_DEFINE_FLAGS}" "-DMULLE_SDE_TEST_CHECK=NO"
+            MULLE_DEFINE_FLAGS="${RVAL}"
+
+            r_add_line "${defines}" "-DMULLE_SDE_TEST_CHECK=NO"
+            defines="${RVAL}"
          ;;
 
          -f|--force)
@@ -781,6 +788,20 @@ sde::main()
             exit 0
          ;;
 
+         --defines)
+            [ $# -eq 1 ] && env::usage "Missing argument to $1"
+            shift
+
+            while read -r arg
+            do
+               r_add_line "${MULLE_DEFINE_FLAGS}" "$1"
+               MULLE_DEFINE_FLAGS="${RVAL}"
+
+               r_add_line "${defines}" "$1"
+               defines="${RVAL}"
+            done <<< "$1"
+         ;;
+
          -D*)
             r_add_line "${MULLE_DEFINE_FLAGS}" "$1"
             MULLE_DEFINE_FLAGS="${RVAL}"
@@ -831,7 +852,7 @@ sde::main()
    export MULLE_SDE_CURRENT_CMD
    
    # Set up EXIT trap for vibecoding help
-   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   if [ "${MULLE_VIBECODING:-}" = 'YES' ]
    then
       trap 'sde::vibecoding_help_on_exit "$?" "${MULLE_SDE_CURRENT_CMD}"' EXIT
    fi
@@ -841,28 +862,53 @@ sde::main()
       MULLE_VIRTUAL_ROOT="`pwd -P`"
       [ "${MULLE_VIRTUAL_ROOT}" = "/" ] && fail "MULLE_VIRTUAL_ROOT can't be /"
       export MULLE_VIRTUAL_ROOT
+
+      MULLE_VIRTUAL_ROOT_ID="$(shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+      export MULLE_VIRTUAL_ROOT_ID
    else
       #
       # a "convenient" ? shortcut to do projects w/o having to enter
       # a subshell. Starts a subshell every time though....
       #
 
-      if [ -z "${MULLE_VIRTUAL_ROOT:-}" ]
+      if [ -z "${MULLE_VIRTUAL_ROOT:-}" -o "${FLAG_CHANGE_ENVIRONMENT:-}" = 'YES' ]
       then
          case "${cmd}" in
-            # commands that do not need a subshell (immediately)
-            add|api|bash-completion|commands|common-unames|env|environment|\
-env-identifier|edit|ext|extension|get|init|init-and-enter|install|reinit|\
-status|hostname|howto|remove|uname|show|version|libexec-dir|library-path|project-dir|\
-retest|set|source-dir|steal|symlink|test|upgrade|username|source-tree|\
-project-tree)
+            #
+            # commands that have a help text, we want to show this even
+            # if there is no environment around
+            #
+            api|callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
+craft-status|definition|dep|dependency|doctor|donefile|export|\
+fetch|file|files|filename|find|headerorder|howto|ignore|json|library|\
+link-args|list|log|mark|match|migrate|monitor|move|\
+patterncheck|patternenv|patternfile|patternfiles|\
+platform|product|project|protect|reflect|recraft|searchpath|sourcetree|\
+subproject|style|\
+sweatcoding|symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
+lib|pat|sub|unveil|view|vibecoding)
+               if ! sde::is_non_environment_commandline "$@"
+               then
+                  sde::exec_command_in_subshell 'CD' "$@"
+               fi
             ;;
 
             # commands where we want to start a subshell and these don't have
             # any help text
             editor|addiction-dir|craftorder-kitchen-dir|dependency-dir|\
-kitchen-dir|tool-env|stash-dir|*-tree|*-open|todo)
+kitchen-dir|tool-env|stash-dir|*-tree|*-open|*-ls|*-exec|*-eval|todo)
                sde::exec_command_in_subshell 'CD' "$@"
+            ;;
+
+
+            # commands that do not need a subshell (immediately)
+            # these commands are UNUSUAL do not add by default here
+            add|bash-completion|commands|common-unames|env|environment|\
+env-identifier|edit|ext|extension|get|init|init-and-enter|install|reinit|\
+status|hostname|remove|uname|show|version|libexec-dir|library-path|project-dir|\
+retest|set|source-dir|steal|symlink|test|upgrade|username|source-tree|\
+project-tree)
             ;;
 
             #
@@ -874,7 +920,6 @@ kitchen-dir|tool-env|stash-dir|*-tree|*-open|todo)
                   sde::exec_command_in_subshell 'STAY' "$@"
                fi
             ;;
-
 
             _install)
                # shellcheck source=src/mulle-sde-install.sh
@@ -890,26 +935,6 @@ kitchen-dir|tool-env|stash-dir|*-tree|*-open|todo)
                MULLE_USAGE_NAME="mulle-sde" \
                   sde::exec_mulle_env "$@"
             ;;
-
-            #
-            # commands that have a help text, we want to show this even
-            # if there is no environment around
-            #
-            callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
-craft-status|definition|dep|dependency|doctor|donefile|export|\
-fetch|file|files|filename|find|headerorder|ignore|json|library|\
-linkorder|list|log|mark|match|migrate|monitor|move|\
-patterncheck|patternenv|patternfile|patternfiles|\
-product|project|protect|reflect|recraft|searchpath|sourcetree|\
-subproject|style|\
-sweatcoding|symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
-lib|pat|sub|unveil|view|vibecoding)
-               if ! sde::is_non_environment_commandline "$@"
-               then
-                  sde::exec_command_in_subshell 'CD' "$@"
-               fi
-            ;;
-
 
             "")
                # special treatment for empty, show sde::usage
@@ -938,11 +963,14 @@ lib|pat|sub|unveil|view|vibecoding)
 
    [ $# -ne 0 ] && shift
 
+   local rc
+
    #
    # think about having a second MULLE_VIRTUAL_ROOT so that the project can
    # be read only and we keep the bookkeeping somewhere on the outside
    #
    log_setting "MULLE_VIRTUAL_ROOT    = \"${MULLE_VIRTUAL_ROOT}\""
+   log_setting "MULLE_VIRTUAL_ROOT_ID = \"${MULLE_VIRTUAL_ROOT_ID}\""
    log_setting "MULLE_TECHNICAL_FLAGS = \"${MULLE_TECHNICAL_FLAGS}\""
 
    if ! sde::is_non_environment_commandline "$@"
@@ -955,11 +983,12 @@ lib|pat|sub|unveil|view|vibecoding)
       #
       if ! eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde`
       then
+         # why is this ?
          if [ "${FLAG_OUTSIDE_ENV}" != "YES" ]
          then
             return 1
          fi
-         # assume user knows what hes doing
+         # assume user knows what hes doing (maybe not)
       else
          if [ -z "${MULLE_SDE_VAR_DIR}" ]
          then
@@ -1007,6 +1036,42 @@ lib|pat|sub|unveil|view|vibecoding)
    log_setting "MULLE_VIBECODING      = ${MULLE_VIBECODING:-NO}"
 
    case "${cmd}" in
+      *-eval)
+         local directory
+
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%-eval}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+
+         log_verbose "Executing in ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+         ( cd "${directory}" && eval_exekutor "$@" )
+      ;;
+
+      *-exec)
+         local directory
+
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%-exec}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+
+         log_verbose "Executing in ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+         ( cd "${directory}" && exekutor "$@" )
+      ;;
+
+      *-ls)
+         local directory
+
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%-ls}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+
+         log_verbose "Listing ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+         ( cd "${directory}" && rexekutor ls "$@"  )
+      ;;
+
       *-open)
          case "${MULLE_UNAME}" in
             linux)
@@ -1035,6 +1100,7 @@ lib|pat|sub|unveil|view|vibecoding)
                                              "${cmd%-open}-dir" `"
          [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
 
+         log_verbose "Opening ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
          rexekutor "${OPEN}" "${directory}"
       ;;
 
@@ -1058,6 +1124,9 @@ lib|pat|sub|unveil|view|vibecoding)
                treeflags=-a
             ;;
          esac
+
+         log_verbose "Showing ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_VERBOSE} tree"
+
          rexekutor "${TREE}" ${treeflags} --noreport "$@" "${directory}"
       ;;
 
@@ -1135,6 +1204,11 @@ definitions - alias for definition (help: yes)
 dep - alias for dependency (help: yes)
 dependency - manage third party components (like GitHub projects) (help: yes)
 dependency-dir - print path to dependency directory (help: no)
+dependency-ls - execute ls command in dependency directory (help: no)
+dependency-open - execute open command in dependency directory (help: no)
+dependency-tree - show tree of dependency directory (help: no)
+dependency-exec - execute arbitary command in dependency directory (help: no)
+dependency-eval - evaluate arbitary command in dependency directory (help: no)
 doctor - diagnose project issues (help: yes)
 donefile - show contents of donefiles (help: yes)
 donefiles - alias for donefile (help: yes)
@@ -1168,7 +1242,7 @@ libexec-dir - print path to mulle-sde libexec (help: no)
 libraries - alias for library (help: yes)
 library - manage second party (OS) libraries (like pthread) (help: yes)
 library-path - show library search paths (help: yes)
-linkorder - show linkorder of dependencies and libraries (help: yes)
+link-args - show linker arguments for dependencies and libraries (help: yes)
 list - list project files (files matching patternfiles) (help: yes)
 log - show craft results (help: yes)
 mark - mark files with attributes (help: yes)
@@ -1246,11 +1320,24 @@ EOF
       ;;
 
       'craft'|'recraft')
+         # Save MULLE_VIBECODING before environment setup potentially overrides it
+         local SAVED_MULLE_VIBECODING="${MULLE_VIBECODING}"
+
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}"
 
             sde::assert_test_environment "${cmd}"
+         fi
+
+         # In vibecoding mode, check if we should use test craft instead
+         if [ "${SAVED_MULLE_VIBECODING}" = 'YES' ]
+         then
+            ! [ ${MULLE_SDE_VIBECODING_SH+x} ] && \
+               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-vibecoding.sh"
+
+            MULLE_VIBECODING="${SAVED_MULLE_VIBECODING}" \
+               sde::vibecoding::check_craft_vs_test_craft "$@"
          fi
 
          # shellcheck source=src/mulle-sde-craft.sh
@@ -1519,6 +1606,11 @@ tool        - available binaries in mulle-sde subshell"
       ;;
 
       'howto')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+
          # shellcheck source=src/mulle-sde-howto.sh
          include "sde::howto"
 
@@ -1526,6 +1618,11 @@ tool        - available binaries in mulle-sde subshell"
       ;;
 
       'api')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+
          # shellcheck source=src/mulle-sde-api.sh
          include "sde::api"
 
@@ -1597,6 +1694,19 @@ tool        - available binaries in mulle-sde subshell"
          exekutor printf "%s\n" "${MULLE_SDE_LIBEXEC_DIR}"
       ;;
 
+      'link-args')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
+
+            sde::assert_test_environment "${cmd}"
+         fi
+         # shellcheck source=src/mulle-test-link-args.sh
+         include "sde::linkorder"
+
+         sde::linkorder::main "$@"
+      ;;
+
       'linkorder')
          if ! sde::is_non_environment_commandline "$@"
          then
@@ -1604,7 +1714,7 @@ tool        - available binaries in mulle-sde subshell"
 
             sde::assert_test_environment "${cmd}"
          fi
-         # shellcheck source=src/mulle-sde-linkorder.sh
+         # shellcheck source=src/mulle-test-linkorder.sh
          include "sde::linkorder"
 
          sde::linkorder::main "$@"
@@ -1668,9 +1778,11 @@ tool        - available binaries in mulle-sde subshell"
          sde::dependency::main "${cmd}" "$@"
       ;;
 
-
       'migrate')
-         _log_warning "Command only to be used for development of mulle-sde"
+         if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+         then
+            fail "Command only to be used for development of mulle-sde. Use -f to force it"
+         fi
 
          if ! sde::is_non_environment_commandline "$@"
          then
@@ -1716,6 +1828,17 @@ tool        - available binaries in mulle-sde subshell"
          include "sde::patternfile"
 
          sde::patternfile::main "${cmd}" "$@"
+      ;;
+
+      'platform')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+         # shellcheck source=src/mulle-sde-platform.sh
+         include "sde::platform"
+
+         sde::platform::main "$@"
       ;;
 
       'product')
@@ -1996,28 +2119,43 @@ tool        - available binaries in mulle-sde subshell"
       ;;
 
       'view')
-         log_info "${C_BR_BLUE}${C_BOLD}Environment"
-         mulle-sde -s env list --output-eval \
-         | GREP_COLOR=none grep -E '^MULLE_SOURCETREE_CONFIG|^MULLE_CRAFT_|FLAGS=' \
-         | sed -e 's/^/   /'
+         log_info "${C_BR_BLUE}${C_BOLD}Project"
+         printf "   %s\n" "$(basename "${MULLE_VIRTUAL_ROOT}")"
          echo
-         echo
+
+         local env_output
+         local dep_output
+         local lib_output
+
+         env_output="$(mulle-sde -s env list --output-eval \
+            | GREP_COLOR=none grep -E '^MULLE_SOURCETREE_CONFIG|^MULLE_CRAFT_|FLAGS=' 2>/dev/null)"
+         if [ ! -z "${env_output}" ]
+         then
+            log_info "${C_BR_BLUE}${C_BOLD}Environment"
+            printf "%s\n" "${env_output}" | sed -e 's/^/   /'
+            echo
+         fi
+
          log_info "${C_BR_BLUE}${C_BOLD}Definition"
          mulle-sde definition
          echo
-         echo
+
+         dep_output="$(mulle-sde dependency list --columnar -- -f "%a\n" --no-output-header 2>/dev/null | sort)"
          log_info "${C_BR_BLUE}${C_BOLD}Dependency"
-         mulle-sde dependency list --columnar -- -f "%a\n" --no-output-header \
-         | sort \
-         | sed -e 's/^/   /'
+         if [ ! -z "${dep_output}" ]
+         then
+            printf "%s\n" "${dep_output}" | sed -e 's/^/   /'
+         fi
          echo
-         echo
+
+         lib_output="$(mulle-sde library list -- -f "%a\n" --no-output-header 2>/dev/null | sort)"
          log_info "${C_BR_BLUE}${C_BOLD}Library"
-         mulle-sde library list -- -f "%a\n" --no-output-header \
-         | sort \
-         | sed -e 's/^/   /'
+         if [ ! -z "${lib_output}" ]
+         then
+            printf "%s\n" "${lib_output}" | sed -e 's/^/   /'
+         fi
          echo
-         echo
+
          log_info "${C_BR_BLUE}${C_BOLD}Craftinfo"
          mulle-sde craftinfo
          echo
@@ -2039,19 +2177,20 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
       ;;
    esac
 
-   rval=$?
+
+   rc=$?
 
    # Vibecoding help on failure - show before user hooks
-   if [ $rval -ne 0 ] && [ "${MULLE_VIBECODING}" = 'YES' ]
+   if [ $rc -ne 0 ] && [ "${MULLE_VIBECODING}" = 'YES' ]
    then
       include "sde::vibecoding-help"
-      sde::vibecoding_help::on_failure "${cmd}" "${rval}"
+      sde::vibecoding_help::on_failure "${cmd}" "${rc}"
    fi
 
    # User hooks run after vibecoding help
    if [ ! -z "${cmdidentifier}" ]
    then
-      if [ $rval -eq 0 ]
+      if [ $rc -eq 0 ]
       then
          hook="MULLE_SDE_${cmdidentifier}_OK"
       else
@@ -2062,7 +2201,7 @@ ${C_RESET_BOLD}exit${C_ERROR} the current environment."
       eval "[ ! -z \"\${${hook}}\" ] && eval \"\${${hook}}\"" >&2
    fi
 
-   return $rval
+   return $rc
 }
 
 HACKY_ARGS="$*"

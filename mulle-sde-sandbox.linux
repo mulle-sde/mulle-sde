@@ -86,22 +86,59 @@ else
    set -- '--' "$@"
 fi
 
-set -- -rx /usr \
-       -rx /bin \
-       -rx /etc \
-       -rx /lib \
-       -rx /lib64 \
-       -rx /opt \
-       -rw /proc \
-       -rx /sbin \
-       -rx "${home}/bin" \
-       -rx "${home}/go/bin" \
-       -rx "${home}/.mulle/bin" \
-       -rx "${home}/.local/bin" \
-       -crw /dev \
-       -crwx /var \
-       -crwx /tmp \
-       -crw /run/user "$@"
+RX_DIRS="/usr 
+/bin
+/etc
+/lib
+/lib64
+/opt
+/sbin
+${home}/bin
+${home}/go/bin
+${home}/.mulle/bin
+${home}/.local/bin"
+
+RW_DIRS="/proc" 
+
+CRW_DIRS="/dev
+/run/user"
+
+CRWX_DIRS="/var
+/tmp"
+
+
+for dir in ${RX_DIRS}
+do
+   if [ -d "${dir}" ]
+   then
+      set -- -rx "${dir}" "$@"
+   fi
+done
+
+for dir in ${RW_DIRS}
+do
+   if [ -d "${dir}" ]
+   then
+      set -- -rw "${dir}" "$@"
+   fi
+done
+
+for dir in ${CRW_DIRS}
+do
+   if [ -d "${dir}" ]
+   then
+      set -- -crw "${dir}" "$@"
+   fi
+done
+
+for dir in ${CRWX_DIRS}
+do
+   if [ -d "${dir}" ]
+   then
+      set -- -crwx "${dir}" "$@"
+   fi
+done
+
 
 if [ -d "${MULLE_SDE_SANDBOX_CLAUDE_DIR}" ]
 then

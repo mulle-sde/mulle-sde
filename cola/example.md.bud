@@ -23,7 +23,7 @@ cd myproject
 ### Look at project
 
 ``` sh
-tree .               # or ls -R if tree is not installed
+tree .
 mulle-sde file
 mulle-sde view
 mulle-sde dependency
@@ -42,6 +42,18 @@ mulle-sde edit
 You don't have to use `mulle-sde edit` though, it's a mere convenience.
 
 
+#### Add a file
+
+``` sh
+mulle-sde add src/MyClass.m
+mulle-sde file
+mulle-sde ignore src/MyClass.m src/MyClass.h
+mulle-sde file --unmatched
+mulle-sde reflect
+```
+
+#### Craft the project run and debug
+
 ``` sh
 mulle-sde definition set CFLAGS "-DFOO=1"
 mulle-sde craft
@@ -49,12 +61,19 @@ mulle-sde log
 mulle-sde product
 mulle-sde run
 mulle-sde debug
-mulle-sde add src/MyClass.m
-mulle-sde ignore src/MyClass.m src/MyClass.h
-mulle-sde reflect
-mulle-sde clean
-mulle-sde clean all
+```
+
+### Look around <project
+
+```
 mulle-sde clean tidy
+mulle-sde status
+mulle-sde craft
+mulle-sde status
+mulle-sde clean all
+mulle-sde status
+mulle-sde clean tidy
+mulle-sde status
 ```
 
 

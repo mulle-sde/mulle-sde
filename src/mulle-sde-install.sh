@@ -649,7 +649,7 @@ pass through)"
       ;;
    esac
 
-   local rval
+   local rc
 
    if [ "${OPTION_ONLY_PROJECT}" = 'YES' ]
    then
@@ -761,9 +761,9 @@ pass through)"
                            "${environment}" 
    fi
 
-   rval=$?
+   rc=$?
 
-   if [ ${rval} -eq 0 ]
+   if [ ${rc} -eq 0 ]
    then
       if [ ! -z "${delete_tmp}" ]
       then
@@ -772,5 +772,5 @@ pass through)"
       fi
    fi
 
-   return $rval
+   return $rc
 }

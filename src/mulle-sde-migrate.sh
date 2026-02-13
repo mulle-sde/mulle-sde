@@ -54,7 +54,7 @@ sde::migrate::from_v0_41_to_v42()
          r_basename "$i"
          remove_file_if_present "${PROJECT_SOURCE_DIR}/${RVAL}"
       done
-      remove_file_if_present "${PROJECT_SOURCE_DIR}/objc-loader.inc"
+      remove_file_if_present "${PROJECT_SOURCE_DIR}/objc-deps.inc"
    fi
 
    # remove old cmake stuff
@@ -254,6 +254,112 @@ sde::migrate::from_v3_3_to_v3_7()
 }
 
 
+sde::migrate::from_v3_7_to_v3_8()
+{
+   log_entry "sde::migrate::from_v3_7_to_v3_8" "$@"
+
+   local old_file
+   local new_file
+
+   local srcdir
+
+   srcdir="${PROJECT_SOURCE_DIR:-src}"
+
+   if [ -d "${srcdir}" ]
+   then
+      shell_enable_nullglob
+      for old_file in `find "${srcdir}" -name 'objc-loader.*'`
+      do
+         new_file="${old_file/objc-loader/objc-deps}"
+         if git ls-files --error-unmatch "${old_file}" > /dev/null 2>&1
+         then
+            exekutor git mv "${old_file}" "${new_file}"
+         else
+            exekutor mv "${old_file}" "${new_file}"
+         fi
+         log_info "Renamed ${C_RESET_BOLD}${old_file}${C_INFO} to ${C_RESET_BOLD}${new_file}"
+      done
+
+      # Rename MulleObjCLoader+*.h files to MulleObjCDeps+*.h
+      shell_enable_nullglob
+      for old_file in `find "${srcdir}" -name 'MulleObjCLoader+*.[hm]'`
+      do
+         new_file="${old_file/MulleObjCLoader/MulleObjCDeps}"
+         if git ls-files --error-unmatch "${old_file}" > /dev/null 2>&1
+         then
+            exekutor git mv "${old_file}" "${new_file}"
+         else
+            exekutor mv "${old_file}" "${new_file}"
+         fi
+         log_info "Renamed ${C_RESET_BOLD}${old_file}${C_INFO} to ${C_RESET_BOLD}${new_file}"
+      done
+      shell_disable_nullglob
+   fi
+
+   include "sde::project"
+
+   log_verbose "Replacing MulleObjCLoader and objc-loader in project"
+
+   # create inline sed expression command
+   local sed_cmdline
+
+   sed_cmdline="inplace_sed"
+
+   local check
+
+   check="$(sed 's/[[:<:]]old[[:>:]]/new/g' <<< "old moldy" 2> /dev/null)"
+   if [ "${check}" = "new moldy" ]
+   then
+      sed_cmdline="${sed_cmdline} -e 's/[[:<:]]MulleObjCLoader[[:>:]]/MulleObjCDeps/g'"
+      sed_cmdline="${sed_cmdline} -e 's/[[:<:]]objc-loader[[:>:]]/objc-deps/g'"
+   else
+      check="$(sed 's/\<old\>/new/g' <<< "old moldy" 2> /dev/null)"
+      if [ "${check}" = "new moldy" ]
+      then
+         sed_cmdline="${sed_cmdline} -e 's/\<MulleObjCLoader\>/MulleObjCDeps/g'"
+         sed_cmdline="${sed_cmdline} -e 's/\<objc-loader\>/objc-deps/g'"
+      else
+         sed_cmdline="${sed_cmdline} -e 's/MulleObjCLoader/MulleObjCDeps/g'"
+         sed_cmdline="${sed_cmdline} -e 's/objc-loader/objc-deps/g'"
+      fi
+   fi
+
+   local grep_cmdline
+
+   grep_cmdline="grep -q -s -n"
+   grep_cmdline="${grep_cmdline} -e 'MulleObjCLoader'"
+   grep_cmdline="${grep_cmdline} -e 'objc-loader'"
+
+   grep_cmdline="${grep_cmdline} -e 'MulleObjCDeps'"
+   grep_cmdline="${grep_cmdline} -e 'objc-deps'"
+
+   sde::project::_local_search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
+   sde::project::walk_over_mulle_match_path sde::project::search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
+
+   local dir
+
+   .foreachpath dir in ${MULLE_SDE_TEST_PATH:-test} demo
+   .do
+      if [ ! -e "${dir}/.mulle/etc/sourcetree/config" ]
+      then
+         .continue
+      fi
+
+      (
+         cd "${dir}"
+         MULLE_VIRTUAL_ROOT=
+         MULLE_VIRTUAL_ROOT_ID=
+         mulle-sde dep move --if-exists Foundation-startup to bottom
+         mulle-sde dep move --if-exists MulleFoundation-startup to bottom
+         mulle-sde dep move --if-exists MulleStandardFoundation-startup to bottom
+         mulle-sde dep move --if-exists MulleObjC-startup to bottom
+         mulle-sde dep move --if-exists mulle-objc-runtime-startup to bottom
+         mulle-sde dep move --if-exists mulle-testallocator to bottom
+      )
+   .done
+}
+
+
 sde::migrate::do()
 {
    log_entry "sde::migrate::do" "$@"
@@ -338,6 +444,15 @@ sde::migrate::do()
       oldminor=7
    fi
 
+   if [ "${oldmajor}" -lt 3 ] || [ "${oldmajor}" -eq 3 -a "${oldminor}" -lt 8 ]
+   then
+      (
+         sde::migrate::from_v3_7_to_v3_8
+      ) || exit 1
+      oldmajor=3
+      oldminor=8
+   fi
+
    #
    # if craft etc is same as share now, we can remove etc
    #
@@ -406,11 +521,12 @@ sde::migrate::main()
 
    sde::init::protect_unprotect "Unprotect" "ug+w"
    (
+      MULLE_VIBECODING=NO
       sde::migrate::do "${oldversion}" "${newversion}"
    )
-   rval=$?
+   rc=$?
 
    sde::init::protect_unprotect "Protect" "a-w"
 
-   return $rval
+   return $rc
 }

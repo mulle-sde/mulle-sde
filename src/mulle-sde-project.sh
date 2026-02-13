@@ -169,7 +169,6 @@ sde::project::set_test_name_variables()
 }
 
 
-
 sde::project::set_language_variables()
 {
    log_entry "sde::project::set_language_variables" "$@"
@@ -880,6 +879,21 @@ sde::project::r_rename_current_project()
       sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}/${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}/g'"
       sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_HEADER_GUARD}/${NEW_PROJECT_HEADER_GUARD}/g'"
 
+      # go for word boundary if set permits
+      local check
+
+      check="$(sed 's/[[:<:]]old[[:>:]]/new/g' <<< "old moldy" 2> /dev/null)"
+      if [ "${check}" = "new moldy" ]
+      then
+         sed_cmdline=$(sed -e 's|s/\([^/][^/]*\)/\([^/][^/]*\)/g|s/[[:<:]]\1[[:>:]]/\2/g|g' <<< "${sed_cmdline}")
+      else
+         check="$(sed 's/\<old\>/new/g' <<< "old moldy" 2> /dev/null)"
+         if [ "${check}" = "new moldy" ]
+         then
+            sed_cmdline=$(sed -e 's|s/\([^/][^/]*\)/\([^/][^/]*\)/g|s/\\<\1\\>/\2/g|g' <<< "${sed_cmdline}")
+         fi
+      fi
+
       local grep_cmdline
 
       grep_cmdline="grep -q -s -n"
@@ -1061,6 +1075,7 @@ sde::project::rename_main()
          .do
             (
                MULLE_VIRTUAL_ROOT=
+               MULLE_VIRTUAL_ROOT_ID=
                PROJECT_NAME=
 
                log_verbose "$testdir"
