@@ -96,7 +96,8 @@ RX_DIRS="/usr
 ${home}/bin
 ${home}/go/bin
 ${home}/.mulle/bin
-${home}/.local/bin"
+${home}/.local/bin
+${home}/.npm"
 
 RW_DIRS="/proc" 
 

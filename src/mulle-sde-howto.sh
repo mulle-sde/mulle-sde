@@ -239,18 +239,18 @@ sde::howto::ensure_dependencies_crafted()
    # Dependencies not complete, try to craft
    log_info "Crafting dependencies to get ${purpose}..."
 
-   local craft_cmd
-   if sde::is_test_directory "$PWD"
-   then
-      craft_cmd="mulle-sde test craft"
-   else
-      craft_cmd="mulle-sde craft --no-clean craftorder"
-   fi
-
    # Capture exit code to prevent error cascade
    local rc
-   rexekutor ${craft_cmd}
-   rc=$?
+
+   if sde::is_test_directory "$PWD"
+   then
+      rexekutor mulle-sde test craft
+      rc=$?
+   else
+      # Disable vibecoding check for this internal craft
+      rexekutor mulle-sde -DMULLE_VIBECODING=NO craft --no-clean craftorder
+      rc=$?
+   fi
 
    if [ $rc -ne 0 ]
    then
@@ -343,6 +343,18 @@ sde::howto::r_collect_howtos()
    local display="${2:-NO}"
    local show_keywords="${3:-NO}"
    local filter_toplevel="${4:-NO}"
+   
+   # If in test directory, inherit from parent project (subshell is OK here, no crafting)
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, moving to parent for howtos"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      (cd "${parent_dir}" 2>/dev/null && sde::howto::r_collect_howtos "$@")
+      return $?
+   fi
    
    log_debug "keyword: '${keyword}'"
    log_debug "display: '${display}'"
@@ -1243,6 +1255,18 @@ Question: ${question}"
 sde::howto::show()
 {
    log_entry "sde::howto::show" "$@"
+
+   # If in test directory, run in parent project using mudo
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, running show in parent via mudo"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      rexekutor mudo -e sh -c "cd '${parent_dir}' && mulle-sde howto show $*"
+      return $?
+   fi
 
    local OPTION_KEYWORDS
    

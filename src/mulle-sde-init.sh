@@ -1764,11 +1764,20 @@ ${C_RESET_BOLD}${vendor}/${extname}${C_VERBOSE}${C_INFO} for project type ${C_RE
                                                      "no-project-oneshot" \
                                                      "no-project-oneshot/${vendor}/${extname}"
       then
+         # Determine force mode for oneshot files
+         local oneshot_force
+         if [ "${OPTION_CLOBBER_ONESHOT}" = 'NO' ]
+         then
+            oneshot_force=""  # Don't clobber existing oneshot files
+         else
+            oneshot_force="${force}"  # Use normal force behavior
+         fi
+
          sde::init::_copy_extension_template_directory "${extensiondir}" \
                                                        "${subdirectory}" \
                                                        "${projecttype}" \
                                                        "${vendor}/${extname}" \
-                                                       "${force}" \
+                                                       "${oneshot_force}" \
                                                        "${onlyfilename}" \
                                                        "$@"
       fi
@@ -3688,6 +3697,7 @@ sde::init::_main()
    local OPTION_ADD
    local OPTION_BLURB='YES'
    local OPTION_BUILDTOOL=""
+   local OPTION_CLOBBER_ONESHOT='YES'
    local OPTION_COMMON="sde"
    local OPTION_DEFINES
    local OPTION_DIALECT
@@ -4025,11 +4035,20 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
          --reinit)
             OPTION_REINIT='YES'
             OPTION_BLURB='NO'
+            OPTION_CLOBBER_ONESHOT='NO'  # Don't clobber oneshot files by default
             r_comma_concat "${OPTION_MARKS}" "no-demo"
             # r_comma_concat "${RVAL}" "no-project"
             # r_comma_concat "${RVAL}" "no-project-oneshot"
             OPTION_MARKS="${RVAL}"
             OPTION_INIT_ENV='YES'
+         ;;
+
+         --clobber-oneshot)
+            OPTION_CLOBBER_ONESHOT='YES'
+         ;;
+
+         --no-clobber-oneshot)
+            OPTION_CLOBBER_ONESHOT='NO'
          ;;
 
          --reflect)

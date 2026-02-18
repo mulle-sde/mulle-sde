@@ -380,7 +380,11 @@ sde::platform::platform_setup()
 
    if [ -z "${toolchain_file}" ]
    then
-      log_info "No toolchain found for platform '${platform}'."$'\n'"Looked for: ${PWD#${MULLE_USER_PWD/}}/cmake/[share/]toolchain--${MULLE_UNAME}-${platform}--*--*.cmake"
+      if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+      then
+         fail "No toolchain found for platform '${platform}'."$'\n'"Looked for: ${PWD#${MULLE_USER_PWD/}}/cmake/[share/]toolchain--${MULLE_UNAME}-${platform}--*--*.cmake"$'\n'"Use -f to add platform without toolchain"
+      fi
+      log_info "No toolchain found for platform '${platform}', but continuing due to -f"
       return
    fi
 

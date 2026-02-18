@@ -651,13 +651,13 @@ sde::linkorder::r_collect()
       then
          if sourcetree::marks::r_disable "${marks}" "require"
          then
-            log_fluff "\"${libpath}\" is not found, but it is not required"
+            log_fluff "\"${name}\" is not found, but it is not required"
             return 4
          fi
 
          if sourcetree::marks::r_disable "${marks}" "require-platform-${platform}"
          then
-            log_fluff "\"${libpath}\" is not found, but it is not required on platform ${platform}"
+            log_fluff "\"${name}\" is not found, but it is not required on platform ${platform}"
             return 4
          fi
 

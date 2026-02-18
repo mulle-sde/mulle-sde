@@ -717,6 +717,11 @@ sde::test::r_test_platforms()
 
    platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_TEST_PLATFORMS)"
    log_setting "MULLE_TEST_PLATFORMS: ${platforms}"
+   if [ -z "${platforms}" ]
+   then
+      platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_CRAFT_PLATFORMS)"
+      log_setting "MULLE_CRAFT_PLATFORMS: ${platforms}"
+   fi
    platforms="${platforms:-${MULLE_UNAME}}"
 
    RVAL="${platforms}"
@@ -861,7 +866,6 @@ sde::test::auto_clean()
 
       set --
 
-      # for t
       if [ ! -z "${OPTION_CONFIGURATION}" ]
       then
          set -- --configuration "${OPTION_CONFIGURATION}" "$@"
@@ -897,6 +901,18 @@ sde::test::craft()
       local OPTION_PARALLEL='NO'
 
       test::options::r_parse "$@"
+
+      # Check if cross-compiling without proper toolchain support
+      if [ ! -z "${OPTION_PLATFORM}" -a "${OPTION_PLATFORM}" != "${MULLE_UNAME}" ]
+      then
+         # Check if we have toolchain support for this platform
+         local toolchain_dir="/opt/mulle-clang-project-${OPTION_PLATFORM}"
+         if [ ! -d "${toolchain_dir}" ]
+         then
+            fail "Cross-compilation to platform '${OPTION_PLATFORM}' requires a toolchain in ${toolchain_dir}.
+${C_INFO}Either install the cross-compilation toolchain or remove the platform from test configuration."
+         fi
+      fi
 
       local sde_args
 
@@ -1196,6 +1212,12 @@ sde::test::main()
       state="${state}-env"
    fi
 
+   # we could be running outside of every environment
+   if [ -z "${MULLE_UNAME}" ]
+   then
+      MULLE_UNAME="$(PATH=/bin:/usr/bin uname -s 2> /dev/null | tr '[:upper:]' '[:lower:]')"
+   fi
+
    local cmdchain
    local cleanargs
 
@@ -1220,25 +1242,42 @@ sde::test::main()
 
          cleanargs='tidy'
       ;;
+
+
+      coverage)
+         sde::test::coverage "$@"
+         return $?
+      ;;
+
+      init)
+         sde::test::r_init "$@"
+         return $?
+      ;;
+
+      generate)
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            sde::exec_command_in_subshell "CD" test generate "$@"
+         else
+            sde::test::generate "$@"
+         fi
+         return $?
+      ;;
+
+      test*|craft|crun|crerun|rec|run|nrun|recrun|rerun)
+         # handled later
+      ;;
+
+      *)
+         sde::test::usage "Unknown command \"${cmd}\""
+      ;;
    esac
 
    case "${cmd}" in
       craft|crun|crerun|recraft|recrun|retest)
          r_colon_concat "${cmdchain}" 'craft'
-         cmdchain="${RVAL}"
-      ;;
-   esac
-
-   case "${cmd}" in
-      craft|crun|crerun|recraft|recrun|retest)
-         r_colon_concat "${cmdchain}" 'postprocess'
-         cmdchain="${RVAL}"
-      ;;
-   esac
-
-   case "${cmd}" in
-      craft|crun|crerun|recraft|recrun|retest)
-         r_colon_concat "${cmdchain}" 'update-link-args'
+         r_colon_concat "${RVAL}" 'postprocess'
+         r_colon_concat "${RVAL}" 'update-link-args'
          cmdchain="${RVAL}"
       ;;
    esac
@@ -1308,12 +1347,6 @@ sde::test::main()
    local platform
    local target
 
-   # we could be running outside of every environment
-   if [ -z "${MULLE_UNAME}" ]
-   then
-      MULLE_UNAME="$(PATH=/bin:/usr/bin uname -s 2> /dev/null | tr '[:upper:]' '[:lower:]')"
-   fi
-
    log_debug "cmdchain: ${cmdchain}"
 
    # Check if specific test files were provided (only relevant for run/rerun)
@@ -1329,13 +1362,7 @@ sde::test::main()
                fi
                specific_test_directory="${RVAL}"
                
-               if [ ! -z "${specific_test_directory}" ]
-               then
-                  # Specific test files provided - run them directly without platform loop
-                  log_debug "Running specific tests in: ${specific_test_directory}"
-                  exekutor_mulle_test "${specific_test_directory}" run "$@"
-                  return $?
-               fi
+               # Don't skip platform loop - let specific tests run for all configured platforms
             ;;
          esac
       ;;
@@ -1345,7 +1372,15 @@ sde::test::main()
    case "${state}" in
       proj*)
          # For project state, we'll handle platforms per test directory
+
+         # If specific test directory was identified, use only that one
+         if [ ! -z "${specific_test_directory}" ]
+         then
+            test_directories="${specific_test_directory}"
+         fi
+
          local test_dir_for_platform
+         local tidy_done='NO'
          
          .foreachpath test_dir_for_platform in ${test_directories}
          .do
@@ -1358,7 +1393,7 @@ sde::test::main()
             
             .foreachpath platform_for_cmdchain in ${platforms}
             .do
-               log_info "Processing platform ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}${C_INFO} for ${test_dir_for_platform}"
+               log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}${C_INFO} in ${C_RESET_BOLD}${test_dir_for_platform#${MULLE_USER_PWD}/}${C_INFO} 🔸🔸🔸"
                
                .foreachpath cmd in ${cmdchain}
                .do
@@ -1366,22 +1401,34 @@ sde::test::main()
 
                   case "${cmd}" in
                      'auto-clean')
-                        if [ "${cleanargs}" = 'project' ]
+                        # Skip tidy if already done
+                        if [ "${cleanargs}" = 'tidy' -a "${tidy_done}" = 'YES' ]
                         then
-                           target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
-                           if [ -z "${target}" ]
-                           then
-                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
-                           fi
+                           log_debug "Skipping tidy (already done)"
                         else
-                           target="${cleanargs}"
-                        fi
-
-                        if ! sde::test::auto_clean "${test_dir_for_platform}" "${target:-all}" "$@"
-                        then
-                           if [ "${OPTION_LENIENT}" != 'YES' ]
+                           if [ "${cleanargs}" = 'project' ]
                            then
-                              exit 1
+                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                              if [ -z "${target}" ]
+                              then
+                                 target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
+                              fi
+                           else
+                              target="${cleanargs}"
+                           fi
+
+                           if ! sde::test::auto_clean "${test_dir_for_platform}" "${target:-all}" --platform "${platform_for_cmdchain}" "$@"
+                           then
+                              if [ "${OPTION_LENIENT}" != 'YES' ]
+                              then
+                                 exit 1
+                              fi
+                           fi
+
+                           # Mark tidy as done
+                           if [ "${cleanargs}" = 'tidy' ]
+                           then
+                              tidy_done='YES'
                            fi
                         fi
                      ;;
@@ -1417,9 +1464,9 @@ sde::test::main()
 
                         if [ ! -z "${run_directory}" ]
                         then
-                           exekutor_mulle_test "${run_directory}" "${cmd}" "$@"
+                           exekutor_mulle_test "${run_directory}" --platform "${platform_for_cmdchain}" "${cmd}" "$@"
                         else
-                           if ! exekutor_mulle_test "${test_dir_for_platform}" "${cmd}" "$@"
+                           if ! exekutor_mulle_test "${test_dir_for_platform}" --platform "${platform_for_cmdchain}" "${cmd}" "$@"
                            then
                               if [ "${OPTION_LENIENT}" != 'YES' ]
                               then
@@ -1427,30 +1474,6 @@ sde::test::main()
                               fi
                            fi
                         fi
-                     ;;
-
-                     coverage)
-                        sde::test::coverage "$@"
-                        return $?
-                     ;;
-
-                     init)
-                        sde::test::r_init "$@"
-                        return $?
-                     ;;
-
-                     generate)
-                        if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-                        then
-                           sde::exec_command_in_subshell "CD" test generate "$@"
-                        else
-                           sde::test::generate "$@"
-                        fi
-                        return $?
-                     ;;
-
-                     *)
-                        sde::test::usage "Unknown command \"${cmd}\""
                      ;;
                   esac
                .done
@@ -1465,10 +1488,11 @@ sde::test::main()
          log_setting "r_test_platforms ($test_root): ${platforms}"
          
          local platform_for_cmdchain
+         local tidy_done='NO'
          
          .foreachpath platform_for_cmdchain in ${platforms}
          .do
-            log_info "Processing platform ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}"
+            log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}${C_INFO} 🔸🔸🔸"
             
             .foreachpath cmd in ${cmdchain}
             .do
@@ -1476,22 +1500,34 @@ sde::test::main()
 
                case "${cmd}" in
                   'auto-clean')
-                     if [ "${cleanargs}" = 'project' ]
+                     # Skip tidy if already done
+                     if [ "${cleanargs}" = 'tidy' -a "${tidy_done}" = 'YES' ]
                      then
-                        target="$(mulle-env -d "${directory}" -s get --output-eval 'TEST_PROJECT_NAME')"
-                        if [ -z "${target}" ]
-                        then
-                           target="$(mulle-env -d "${directory}" -s get --output-eval 'PROJECT_NAME')"
-                        fi
+                        log_debug "Skipping tidy (already done)"
                      else
-                        target="${cleanargs}"
-                     fi
-
-                     if ! sde::test::auto_clean "" "${target:-all}" "$@"
-                     then
-                        if [ "${OPTION_LENIENT}" != 'YES' ]
+                        if [ "${cleanargs}" = 'project' ]
                         then
-                           exit 1
+                           target="$(mulle-env -d "${directory}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                           if [ -z "${target}" ]
+                           then
+                              target="$(mulle-env -d "${directory}" -s get --output-eval 'PROJECT_NAME')"
+                           fi
+                        else
+                           target="${cleanargs}"
+                        fi
+
+                        if ! sde::test::auto_clean "" "${target:-all}" --platform "${platform_for_cmdchain}" "$@"
+                        then
+                           if [ "${OPTION_LENIENT}" != 'YES' ]
+                           then
+                              exit 1
+                           fi
+                        fi
+                        
+                        # Mark tidy as done
+                        if [ "${cleanargs}" = 'tidy' ]
+                        then
+                           tidy_done='YES'
                         fi
                      fi
                   ;;
@@ -1517,37 +1553,13 @@ sde::test::main()
                   ;;
 
                   'run'|'rerun')
-                     if ! exekutor_mulle_test "${directory}" "${cmd}" "$@"
+                     if ! exekutor_mulle_test "${directory}" --platform "${platform_for_cmdchain}" "${cmd}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then
                            exit 1
                         fi
                      fi
-                  ;;
-
-                  coverage)
-                     sde::test::coverage "$@"
-                     return $?
-                  ;;
-
-                  init)
-                     sde::test::r_init "$@"
-                     return $?
-                  ;;
-
-                  generate)
-                     if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-                     then
-                        sde::exec_command_in_subshell "CD" test generate "$@"
-                     else
-                        sde::test::generate "$@"
-                     fi
-                     return $?
-                  ;;
-
-                  *)
-                     sde::test::usage "Unknown command \"${cmd}\""
                   ;;
                esac
             .done

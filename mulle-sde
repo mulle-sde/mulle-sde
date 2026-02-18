@@ -708,6 +708,10 @@ sde::main()
             MULLE_ENV_FLAGS="${RVAL}"
          ;;
 
+         --no-vibecoding)
+            MULLE_VIBECODING='NO'
+         ;;
+
          --no-test-check)
             MULLE_SDE_TEST_CHECK=NO
 
@@ -897,7 +901,7 @@ lib|pat|sub|unveil|view|vibecoding)
             # commands where we want to start a subshell and these don't have
             # any help text
             editor|addiction-dir|craftorder-kitchen-dir|dependency-dir|\
-kitchen-dir|tool-env|stash-dir|*-tree|*-open|*-ls|*-exec|*-eval|todo)
+kitchen-dir|tool-env|stash-dir|todo)
                sde::exec_command_in_subshell 'CD' "$@"
             ;;
 
@@ -908,7 +912,7 @@ kitchen-dir|tool-env|stash-dir|*-tree|*-open|*-ls|*-exec|*-eval|todo)
 env-identifier|edit|ext|extension|get|init|init-and-enter|install|reinit|\
 status|hostname|remove|uname|show|version|libexec-dir|library-path|project-dir|\
 retest|set|source-dir|steal|symlink|test|upgrade|username|source-tree|\
-project-tree)
+project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval)
             ;;
 
             #
@@ -1100,9 +1104,10 @@ project-tree)
                                              "${cmd%-open}-dir" `"
          [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
 
-         log_verbose "Opening ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+         log_verbose "Opening ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}${C_VERBOSE}"
          rexekutor "${OPEN}" "${directory}"
       ;;
+
 
       *-tree)
          if ! TREE="${TREE:-`command -v tree`}"
@@ -1200,6 +1205,7 @@ crun - craft and run if project is an executable (help: yes)
 debug - run executable product in debugger (help: yes)
 def - alias for definition (help: yes)
 definition - change projects craft options like CFLAGS (help: yes)
+definition-editor - run definition GUI editor (needs node.js) (help: no)
 definitions - alias for definition (help: yes)
 dep - alias for dependency (help: yes)
 dependency - manage third party components (like GitHub projects) (help: yes)
@@ -1213,11 +1219,12 @@ doctor - diagnose project issues (help: yes)
 donefile - show contents of donefiles (help: yes)
 donefiles - alias for donefile (help: yes)
 edit - open project in editor (help: yes)
-editor - alias for edit (help: yes)
+editor - run various GUI tools (needs node.js) (help: yes)
 enter - enter mulle-sde subshell environment (help: yes)
 env - alias for environment (help: yes)
 env-identifier - get variable name MULLE_UIOS for a name like MulleUIOS (help: yes)
 environment - manage environment variables (project settings) (help: yes)
+environment-editor - run environment GUI editor (needs node.js) (help: no)
 exec - run a command in a subshell (help: yes)
 execute - alias for exec (help: yes)
 export - export a dependency or library as mulle-sde commands (help: yes)
@@ -1249,11 +1256,13 @@ mark - mark files with attributes (help: yes)
 match - experiment with patternfiles (help: yes)
 migrate - migrate project to newer mulle-sde version (help: yes)
 monitor - monitor project files, run reflect and craft (help: yes)
+monitor-editor - run monitor GUI editor (needs node.js) (help: no)
 move - move/rename files in project (help: yes)
 pat - alias for patternfile (help: yes)
 patterncheck - check pattern matching (help: yes)
 patternenv - show pattern environment variables (help: yes)
 patternfile - manage patternfiles (help: yes)
+patternfile-editor - run patternfile GUI editor (needs node.js) (help: no)
 patternfiles - alias for patternfile (help: yes)
 filename - check if filename matches patterns (help: yes)
 patternmatch - alias for match (help: yes)
@@ -1272,6 +1281,7 @@ set - set environment variable value (help: yes)
 show - show available meta extensions (help: yes)
 source-dir - print project source directory (help: no)
 sourcetree - alias for config (help: yes)
+sourcetree-editor - run sourcetree GUI editor (needs node.js) (help: no)
 stash-dir - print path to stash directory (help: no)
 status - show information about the current project state (help: yes)
 steal - steal/copy files from another project (help: yes)
@@ -1287,6 +1297,7 @@ task - manage reflection tasks (help: yes)
 test - run tests using mulle-test (help: yes)
 todo - show TODO items in project (help: yes)
 tool - manage build tools (help: yes)
+tool-editor - run tool GUI editor (needs node.js) (help: no)
 tool-env - show tool environment variables (help: yes)
 treestatus - show the sourcetree status (help: yes)
 uname - the simplified uname(1) (help: no)
@@ -1459,11 +1470,40 @@ EOF
          sde::edit::main "$@"
       ;;
 
+      *-editor)
+         local topic
+
+         topic="${cmd%-editor}"
+         case "${topic}" in
+            definition|environment|monitor|patternfile|sourcetree|tool)
+            ;;
+            *)
+               fail "Unknown editor topic '${topic}'. Available: definition, environment, monitor, patternfile, sourcetree, tool"
+            ;;
+         esac
+
+         local executable
+         local executable_name
+         local project_dir
+
+         project_dir="$(mulle-env project-dir)"
+         project_dir="${project_dir:-${PWD}}"
+
+         executable_name="mulle-${topic}-editor"
+         if executable="$(mudo which "${executable_name}" 2>/dev/null)" && [ ! -z "${executable}" ]
+         then
+            exekutor mudo -f "${executable}" "${project_dir}"
+            return $?
+         fi
+         exekutor mudo -f npx mulle-sde/mulle-${topic}-editor -- -- "${project_dir}"
+      ;;
+
       'editor')
          [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ] && fail "${cmd} not available with ${C_RESET_BOLD}vibecoding${C_ERROR} enabled"
 
          local editors
          local row
+         local topic
 
          editors="\
 definition  - set compiler and linker flags and more
@@ -1472,24 +1512,39 @@ monitor     - manage the reflection mechanism
 patternfile - matching and categorizing project files
 sourcetree  - dependencies and libraries
 tool        - available binaries in mulle-sde subshell"
-         rexekutor mudo -f mulle-menu --title "Choose mulle-sde topic:" \
-                                      --final-title '' \
-                                      --options "${editors}"
-         row=$?
 
-         r_line_at_index "${editors}" $row
-         [ -z "${RVAL}" ] && return 1
+         topic="$1"
+         if [ ! -z "${topic}" ]
+         then
+            shift
+            case "${topic}" in
+               definition|environment|monitor|patternfile|sourcetree|tool)
+               ;;
+               *)
+                  fail "Unknown topic '${topic}'. Available: definition, environment, monitor, patternfile, sourcetree, tool"
+               ;;
+            esac
+         else
+            rexekutor mudo -f mulle-menu --title "Choose mulle-sde topic:" \
+                                         --final-title '' \
+                                         --options "${editors}"
+            row=$?
+
+            r_line_at_index "${editors}" $row
+            [ -z "${RVAL}" ] && return 1
+            topic="${RVAL%% *}"
+         fi
 
          local executable
          local executable_name
 
-         executable_name="mulle-${RVAL%% *}-editor"
-         if executable= $(mudo which "${executable_name}")
+         executable_name="mulle-${topic}-editor"
+         if executable="$(mudo which "${executable_name}" 2>/dev/null)" && [ ! -z "${executable}" ]
          then
-            exekutor mudo -f "${executable}"
+            exekutor mudo -f "${executable}" "${MULLE_VIRTUAL_ROOT}"
             return $?
          fi
-         exekutor mudo -f npx mulle-sde/mulle-${RVAL%% *}-editor
+         exekutor mudo -f npx mulle-sde/mulle-${topic}-editor -- -- "${MULLE_VIRTUAL_ROOT}"
       ;;
 
       'enter')

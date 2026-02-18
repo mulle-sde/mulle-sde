@@ -157,18 +157,18 @@ sde::api::ensure_dependencies_crafted()
    # Dependencies not complete, try to craft
    log_info "Crafting dependencies to get ${purpose}..."
 
-   local craft_cmd
-   if sde::is_test_directory "$PWD"
-   then
-      craft_cmd="mulle-sde test craft"
-   else
-      craft_cmd="mulle-sde craft --no-clean craftorder"
-   fi
-
    # Capture exit code to prevent error cascade
    local rc
-   rexekutor ${craft_cmd}
-   rc=$?
+
+   if sde::is_test_directory "$PWD"
+   then
+      rexekutor mulle-sde test craft
+      rc=$?
+   else
+      # Disable vibecoding check for this internal craft
+      rexekutor mulle-sde -DMULLE_VIBECODING=NO craft --no-clean craftorder
+      rc=$?
+   fi
 
    if [ $rc -ne 0 ]
    then
@@ -211,6 +211,18 @@ sde::api::r_collect_apis()
    log_entry "sde::api::r_collect_apis" "$@"
    
    local display="${1:-NO}"
+   
+   # If in test directory, inherit from parent project (subshell is OK here, no crafting)
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, moving to parent for APIs"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      (cd "${parent_dir}" 2>/dev/null && sde::api::r_collect_apis "$@")
+      return $?
+   fi
    
    log_debug "display: '${display}'"
    
@@ -357,6 +369,18 @@ sde::api::list()
 {
    log_entry "sde::api::list" "$@"
 
+   # If in test directory, run in parent project using mudo
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, running list in parent via mudo"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      rexekutor mudo -e sh -c "cd '${parent_dir}' && mulle-sde api list $*"
+      return $?
+   fi
+
    local OPTION_ALL
 
    # Default based on vibecoding mode
@@ -493,6 +517,18 @@ sde::api::cat()
 {
    log_entry "sde::api::cat" "$@"
 
+   # If in test directory, run in parent project using mudo
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, running cat in parent via mudo"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      rexekutor mudo -e sh -c "cd '${parent_dir}' && mulle-sde api cat $*"
+      return $?
+   fi
+
    local identifier="$1"
    
    [ -z "${identifier}" ] && sde::api::usage "Missing argument (number or dependency name)"
@@ -591,6 +627,18 @@ sde::api::r_find_symbol()
 sde::api::find()
 {
    log_entry "sde::api::find" "$@"
+
+   # If in test directory, run in parent project using mudo
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, running find in parent via mudo"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      rexekutor mudo -e sh -c "cd '${parent_dir}' && mulle-sde api find $*"
+      return $?
+   fi
 
    [ $# -eq 0 ] && sde::api::usage "Missing type argument"
 
@@ -710,6 +758,18 @@ sde::api::find()
 sde::api::apropos()
 {
    log_entry "sde::api::apropos" "$@"
+
+   # If in test directory, run in parent project using mudo
+   if sde::is_test_directory "${PWD}"
+   then
+      log_debug "In test directory, running apropos in parent via mudo"
+      local parent_dir
+      r_dirname "${PWD}"
+      parent_dir="${RVAL}"
+      
+      rexekutor mudo -e sh -c "cd '${parent_dir}' && mulle-sde api apropos $*"
+      return $?
+   fi
 
    local question
 

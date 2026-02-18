@@ -189,10 +189,13 @@ Usage:
    this would be out of scope.
    
 Options:
-   --gui          : on participating platforms use a GUI menu
-   --interactive  : choose dependency to clean from a menu
-   --no-graveyard : do not create backups in graveyard
-   --no-test      : do not check, if a dependecy exists
+   --gui            : on participating platforms use a GUI menu
+   --interactive    : choose dependency to clean from a menu
+   --no-graveyard   : do not create backups in graveyard
+   --no-test        : do not check, if a dependecy exists
+   --platform <p>   : platform to clean for
+   --configuration <c> : configuration to clean for
+   --sdk <s>        : sdk to clean for
 
 Environment:
    MULLE_SDE_CLEAN_DEFAULT : default domains to clear, separated by ':'
@@ -288,6 +291,7 @@ sde::clean::dependency()
    rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
+                  "$@" \
                   dependency
 }
 
@@ -486,7 +490,6 @@ sde::clean::_demo()
    (
       log_verbose "Cleaning${text} demo"
 
-      cd demo &&
       rexekutor "${MULLE_SDE:-mulle-sde}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                         -E \
@@ -558,7 +561,7 @@ sde::clean::_test()
 
             log_verbose "Cleaning${text} ${testdir}"
 
-            exekutor mulle-sde -E -d "${testdir}" clean ${1:-}
+            exekutor mulle-sde --no-test-check -E -d "${testdir}" clean ${1:-}
             exekutor mulle-env -E -d "${testdir}" exec mulle-test clean
          fi
       fi
@@ -825,6 +828,22 @@ sde::clean::main()
             MULLE_PLATFORM="$1"
          ;;
 
+         --configuration)
+            [ $# -eq 1 ] && sde::clean::usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_CRAFT_CONFIGURATIONS="$1"
+            export MULLE_CRAFT_CONFIGURATIONS
+         ;;
+
+         --sdk)
+            [ $# -eq 1 ] && sde::clean::usage "Missing argument to \"$1\""
+            shift
+
+            MULLE_CRAFT_SDKS="$1"
+            export MULLE_CRAFT_SDKS
+         ;;
+
          -*)
             sde::clean::usage "Unknown option \"$1\""
          ;;
@@ -1030,7 +1049,22 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
          target="${domain#@}"
          if [ "${target}" = "${domain}" ] && shell_is_function "${functionname}"
          then
-            "${functionname}"
+            # Build arguments for clean functions - only add if not empty
+            set --
+            if [ ! -z "${MULLE_PLATFORM}" ]
+            then
+               set -- "$@" --platform "${MULLE_PLATFORM}"
+            fi
+            if [ ! -z "${MULLE_CRAFT_CONFIGURATIONS}" ]
+            then
+               set -- "$@" --configuration "${MULLE_CRAFT_CONFIGURATIONS}"
+            fi
+            if [ ! -z "${MULLE_CRAFT_SDKS}" ]
+            then
+               set -- "$@" --sdk "${MULLE_CRAFT_SDKS}"
+            fi
+            
+            "${functionname}" "$@"
             if [ $? -ne 0 ]
             then
                log_debug "${functionname} failed"
@@ -1038,10 +1072,26 @@ ${C_RESET}`sort -u <<< "${targets}" | sed 's/^/   /'`
             fi
          else
             # log_verbose "Clean ${domain}"
+            
+            # Build arguments for mulle-craft clean - only add if not empty
+            set --
+            if [ ! -z "${MULLE_PLATFORM}" ]
+            then
+               set -- "$@" --platform "${MULLE_PLATFORM}"
+            fi
+            if [ ! -z "${MULLE_CRAFT_CONFIGURATIONS}" ]
+            then
+               set -- "$@" --configuration "${MULLE_CRAFT_CONFIGURATIONS}"
+            fi
+            if [ ! -z "${MULLE_CRAFT_SDKS}" ]
+            then
+               set -- "$@" --sdk "${MULLE_CRAFT_SDKS}"
+            fi
+            
             if ! rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                               ${MULLE_TECHNICAL_FLAGS} \
                            clean \
-                              --platform "${MULLE_PLATFORM}" \
+                              "$@" \
                               "${target}"
             then
                rc=1
