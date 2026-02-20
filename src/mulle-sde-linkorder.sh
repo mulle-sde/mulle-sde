@@ -672,10 +672,21 @@ sde::linkorder::r_collect()
             r_concat "${RVAL}" "or \"${framework_searchpath}\""
          fi
 
-         fail "${RVAL}.
-${C_INFO}The linkorder will be available after dependencies have been crafted.
+         local _craft_hint
+
+         if [ "${PROJECT_TYPE}" = "none" ]
+         then
+            _craft_hint="${C_INFO}The linkorder will be available after dependencies have been crafted.
+${C_RESET_BOLD}   mulle-sde test clean all
+${C_RESET_BOLD}   mulle-sde test --platform ${platform:-<platform>} craft"
+         else
+            _craft_hint="${C_INFO}The linkorder will be available after dependencies have been crafted.
 ${C_RESET_BOLD}   mulle-sde clean all
 ${C_RESET_BOLD}   mulle-sde craft"
+         fi
+
+         fail "${RVAL}.
+${_craft_hint}"
       fi
 
       # make it distinguishable as framework

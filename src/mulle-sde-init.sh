@@ -4385,10 +4385,20 @@ ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
 
          if [ "${OPTION_REFLECT}" = 'YES' ]
          then
-            exekutor "${MULLE_SDE:-mulle-sde}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        -N \
-                     reflect || exit $?
+            # Skip reflect for test directories (PROJECT_TYPE=none) during upgrade
+            # They will be reflected by the parent project
+            local project_type
+            project_type="$(mulle-env environment get PROJECT_TYPE 2>/dev/null)"
+            
+            if [ "${project_type}" != 'none' ]
+            then
+               exekutor "${MULLE_SDE:-mulle-sde}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           -N \
+                        reflect || exit $?
+            else
+               log_verbose "Skipping reflect for test directory (PROJECT_TYPE=none)"
+            fi
          fi
 
          if [ -f AGENTS.md ]

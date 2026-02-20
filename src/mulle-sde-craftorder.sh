@@ -49,7 +49,6 @@ Options:
    --names                 : print only names of craftorder dependencies
    --print-craftorder-file : print file path of cached craftorder file
    --remaining             : show what remains uncrafted of a craftorder
-   --remove-cached         : remove cached craftorder contents
 EOF
    exit 1
 }
@@ -57,7 +56,9 @@ EOF
 
 sde::craftorder::__get_info()
 {
-   [ -z "${DEPENDENCY_DIR}" ] && _internal_fail "DEPENDENCY_DIR is empty"
+   [ -z "${DEPENDENCY_DIR}" ] && fail "DEPENDENCY_DIR is not set.
+${C_INFO}This command must be run inside a mulle-sde virtual environment.
+${C_RESET_BOLD}   mulle-sde craft"
 
    _cachedir="${DEPENDENCY_DIR}/etc"
    _craftorderfile="${_cachedir}/craftorder"
@@ -306,7 +307,6 @@ sde::craftorder::main()
    log_entry "sde::craftorder::main" "$@"
 
    local OPTION_CACHED='YES'
-   local OPTION_REMOVE_CACHED='NO'
    local OPTION_CREATE='NO'
    local OPTION_NAMES='NO'
    local OPTION_UNCACHED='DEFAULT'
@@ -350,10 +350,6 @@ sde::craftorder::main()
             OPTION_UNCACHED='YES'
          ;;
 
-         --remove-cached)
-            OPTION_REMOVE_CACHED='YES'
-         ;;
-
          --remaining)
             OPTION_REMAINING='YES'
          ;;
@@ -390,15 +386,6 @@ sde::craftorder::main()
    then
       printf "%s\n" "${_craftorderfile#"${MULLE_USER_PWD}/"}"
       exit 0
-   fi
-
-   if [ "${OPTION_REMOVE_CACHED}" = 'YES'  ]
-   then
-      include "path"
-      include "file"
-
-      remove_file_if_present "${_craftorderfile}"
-      return 0
    fi
 
    if [ "${OPTION_CREATE}" = 'YES'  ]
