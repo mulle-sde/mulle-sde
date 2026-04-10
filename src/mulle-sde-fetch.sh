@@ -103,6 +103,9 @@ sde::fetch::do_sync_sourcetree()
       fail "sync fail ($rc)"
    fi
 
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && _internal_fail "no MULLE_VIRTUAL_ROOT"
+   [ -z "${MULLE_VIRTUAL_ROOT_ID}" ] && _internal_fail "no MULLE_VIRTUAL_ROOT_ID"
+
    #
    # run this quickly, because incomplete previous fetches trip me
    # up too often
@@ -112,8 +115,7 @@ sde::fetch::do_sync_sourcetree()
                   --virtual-root \
                    ${MULLE_TECHNICAL_FLAGS:-} \
                    ${MULLE_SOURCETREE_FLAGS:-} \
-                 -s \
-               dbstatus
+               dbstatus -s
    rc=$?
    if [ $rc -ge 2 ]
    then
@@ -216,8 +218,6 @@ sde::fetch::main()
    else
       do_update='YES'
    fi
-
-   local rc
 
    if [ "${do_update}" = 'YES' ]
    then

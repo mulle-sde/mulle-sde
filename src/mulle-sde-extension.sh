@@ -2081,10 +2081,9 @@ sde::extension::main()
       shift
    done
 
-   [ $# -eq 0 ] && sde::extension::usage
+   local cmd="${1:-list}"
 
-   local cmd="$1"
-   shift
+   [ $# -ne 0 ] && shift
 
    local OPTION_DEFINES
 
@@ -2124,7 +2123,7 @@ sde::extension::main()
          [ $# -eq 0 ] && sde::extension::pimp_usage
 
          # shellcheck source=src/mulle-sde-init.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+         include "sde::init"
 
          local args
 

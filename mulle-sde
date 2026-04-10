@@ -61,6 +61,7 @@ function sde::print_commands()
       SHOWN_COMMANDS="\
    add            : create a source file from templates
    api            : show API documentation from dependencies
+   code           : search and navigate dependency source code
    extension      : manage language and buildtool extensions
    howto          : show list of development topics for more extensive help
    init           : create a new project
@@ -191,7 +192,7 @@ EOF
    Start a project with \`mulle-sde init\` or enter an existing mulle-sde
    project with \`mulle-sde <directory>\`. Get a quick view over the
    project with \`mulle-sde view\` and \`mulle-sde files\`. Manage external
-   dependencies or add files with \`mulle-sde add\`.
+   dependencies \`mulle-sde dependency\ or add files with \`mulle-sde add\`.
 EOF
    else
       cat <<EOF
@@ -571,6 +572,10 @@ already ($physdir)"
 
    # set MULLE_VIRTUAL_ROOT to physical (can have changed above intermittently)
    MULLE_VIRTUAL_ROOT="${PWD}"
+
+   # also need to change ID then
+   MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+   MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
 }
 
 
@@ -708,7 +713,7 @@ sde::main()
             MULLE_ENV_FLAGS="${RVAL}"
          ;;
 
-         --no-vibecoding)
+         --no-vibe*)
             MULLE_VIBECODING='NO'
          ;;
 
@@ -724,6 +729,7 @@ sde::main()
 
          -f|--force)
             MULLE_FLAG_MAGNUM_FORCE='YES'
+
             r_concat "${MULLE_FWD_FLAGS}" "$1"
             MULLE_FWD_FLAGS="${RVAL}"
          ;;
@@ -884,7 +890,7 @@ ${C_RESET_BOLD}   mulle-sde test --platform <platform> craft"
       [ "${MULLE_VIRTUAL_ROOT}" = "/" ] && fail "MULLE_VIRTUAL_ROOT can't be /"
       export MULLE_VIRTUAL_ROOT
 
-      MULLE_VIRTUAL_ROOT_ID="$(shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+      MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
       MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
       export MULLE_VIRTUAL_ROOT_ID
    else
@@ -901,6 +907,7 @@ ${C_RESET_BOLD}   mulle-sde test --platform <platform> craft"
             # if there is no environment around
             #
             api|callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
+code|\
 craft-status|definition|dep|dependency|doctor|donefile|export|\
 fetch|file|files|filename|find|headerorder|howto|ignore|json|library|\
 link-args|list|log|mark|match|migrate|monitor|move|\
@@ -993,6 +1000,26 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval)
    log_setting "MULLE_VIRTUAL_ROOT    = \"${MULLE_VIRTUAL_ROOT}\""
    log_setting "MULLE_VIRTUAL_ROOT_ID = \"${MULLE_VIRTUAL_ROOT_ID}\""
    log_setting "MULLE_TECHNICAL_FLAGS = \"${MULLE_TECHNICAL_FLAGS}\""
+
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a -z "${MULLE_VIRTUAL_ROOT_ID}" ]
+   then
+      local envfilename
+
+      envfilename="${MULLE_VIRTUAL_ROOT}/.mulle/etc/env/environment.sh"
+      if [ -e "${envfilename}" ]
+      then
+         _log_warning "The environment.sh file \"${envfilename}\" is outdated and needs to set MULLE_VIRTUAL_ROOT_ID:
+MULLE_VIRTUAL_ROOT_ID=\"\$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< \"\${MULLE_VIRTUAL_ROOT}\")
+MULLE_VIRTUAL_ROOT_ID=\"\${MULLE_VIRTUAL_ROOT_ID:1:12}
+export MULLE_VIRTUAL_ROOT_ID"
+      else
+         log_warning "The environment in \"${MULLE_VIRTUAL_ROOT}\" is outdated and needs a mulle-sde upgrade"
+      fi
+
+      MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+      export MULLE_VIRTUAL_ROOT_ID
+   fi
 
    if ! sde::is_non_environment_commandline "$@"
    then
@@ -1205,6 +1232,7 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval)
 add - create a source file from templates (help: yes)
 addiction-dir - print path to addiction/dependency build directory (help: no)
 api - show API documentation from dependencies (help: yes)
+code - search and navigate dependency source code (help: yes)
 bash-completion - deprecated, bash completion no longer supported (help: no)
 callback - manage reflection callbacks (help: yes)
 clean - clean various parts of the project (help: yes)
@@ -1361,8 +1389,7 @@ EOF
          # In vibecoding mode, check if we should use test craft instead
          if [ "${SAVED_MULLE_VIBECODING}" = 'YES' ]
          then
-            ! [ ${MULLE_SDE_VIBECODING_SH+x} ] && \
-               . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-vibecoding.sh"
+            include "sde::vibecoding"
 
             MULLE_VIBECODING="${SAVED_MULLE_VIBECODING}" \
                sde::vibecoding::check_craft_vs_test_craft "$@"
@@ -1504,13 +1531,25 @@ EOF
          project_dir="$(mulle-env project-dir)"
          project_dir="${project_dir:-${PWD}}"
 
+         # the editor command can be run w/o the environment. OTOH we
+         # could be in the environment, so out of paranoia we just use mudo
+         # anyway
          executable_name="mulle-${topic}-editor"
-         if executable="$(mudo which "${executable_name}" 2>/dev/null)" && [ ! -z "${executable}" ]
+         executable="$(mudo -f which "${executable_name}")"
+         if [ -z "${executable}" ]
          then
-            exekutor mudo -f "${executable}" "${project_dir}"
-            return $?
+            log_info "Installing ${executable_name}..."
+            if ! exekutor mudo -f npm install -g electron mulle-${topic}-editor
+            then
+               fail "Failed to install ${executable_name}"
+            fi
+            executable="$(mudo -f which "${executable_name}")"
+            if [ -z "${executable}" ]
+            then
+               fail "Installation succeeded but ${executable_name} not found in PATH"
+            fi
          fi
-         exekutor mudo -f npx mulle-sde/mulle-${topic}-editor -- -- "${project_dir}"
+         exekutor mudo -f "${executable}" "${project_dir}"
       ;;
 
       'editor')
@@ -1554,12 +1593,21 @@ tool        - available binaries in mulle-sde subshell"
          local executable_name
 
          executable_name="mulle-${topic}-editor"
-         if executable="$(mudo which "${executable_name}" 2>/dev/null)" && [ ! -z "${executable}" ]
+         executable="$(mudo which "${executable_name}" 2>/dev/null)"
+         if [ -z "${executable}" ]
          then
-            exekutor mudo -f "${executable}" "${MULLE_VIRTUAL_ROOT}"
-            return $?
+            log_info "Installing ${executable_name}..."
+            if ! exekutor mudo -f npm install -g electron mulle-${topic}-editor
+            then
+               fail "Failed to install ${executable_name}"
+            fi
+            executable="$(mudo which "${executable_name}" 2>/dev/null)"
+            if [ -z "${executable}" ]
+            then
+               fail "Installation succeeded but ${executable_name} not found in PATH"
+            fi
          fi
-         exekutor mudo -f npx mulle-sde/mulle-${topic}-editor -- -- "${MULLE_VIRTUAL_ROOT}"
+         exekutor mudo -f "${executable}" "${MULLE_VIRTUAL_ROOT}"
       ;;
 
       'enter')
@@ -1653,6 +1701,12 @@ tool        - available binaries in mulle-sde subshell"
             sde::exec_mulle_env -N \
                                 "environment" \
                                 "${cmd}" "$@"
+         case "$1" in
+            'vibecoding'|'sweatcoding')
+               log_info "To be sure ${C_RESET_BOLD}mulle-sde $1${C_WARNING} is a command not a variable to be \"set\""
+            ;;
+         esac
+
          exekutor "${MULLE_ENV:-mulle-env}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      "${cmd}" "$@"
@@ -1697,6 +1751,18 @@ tool        - available binaries in mulle-sde subshell"
          include "sde::api"
 
          sde::api::main "$@"
+      ;;
+
+      'code')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+
+         # shellcheck source=src/mulle-sde-code.sh
+         include "sde::code"
+
+         sde::code::main "$@"
       ;;
 
       'ignore')
@@ -1800,11 +1866,22 @@ tool        - available binaries in mulle-sde subshell"
       ;;
 
       'log')
+         # Save MULLE_VIBECODING before environment setup potentially overrides it
+         local SAVED_MULLE_VIBECODING="${MULLE_VIBECODING}"
+
          if ! sde::is_non_environment_commandline "$@"
          then
             sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO' 'NO'
 
             sde::assert_test_environment "${cmd}"
+         fi
+
+         # In vibecoding mode, check if we should use test log instead
+         if [ "${MULLE_VIBECODING}" = 'YES' ]
+         then
+            include "sde::vibecoding"
+
+            sde::vibecoding::check_log_vs_test_log "$@"
          fi
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -1959,7 +2036,7 @@ tool        - available binaries in mulle-sde subshell"
          if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
          then
             log_error "You must run ${C_RESET_BOLD}reinit${C_ERROR} with the -f flag, as it is destructive!"
-#
+            log_info "Tip: make a backup of your project now."
 # reinit -f clobbers! so demo and project are off by default
 #
             log_info "  Additionally specify option --allow-project if you want to reinit project files"
@@ -2043,10 +2120,10 @@ tool        - available binaries in mulle-sde subshell"
       ;;
 
       'symbol'|'symbols')
-         # shellcheck source=src/mulle-sde-symbol.sh
-         include "sde::symbol"
+         # shellcheck source=src/mulle-sde-code.sh
+         include "sde::code"
 
-         sde::symbol::main "$@"
+         sde::code::symbol "$@"
       ;;
 
       'style')

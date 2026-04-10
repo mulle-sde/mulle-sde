@@ -88,7 +88,9 @@ Usage:
 
 Commands:
    add        : add a dependency to the sourcetree
+   insert     : like add, but move the new entry to the top of the sourcetree
    binaries   : list all binaries in the built dependencies folder
+   config     : switch sourcetree configuration of a dependency (e.g. glfw vs sdl backend)
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
    etcs       : list all etc files in the built dependencies folder
@@ -98,6 +100,7 @@ Commands:
    get        : retrieve a dependency settings from the sourcetree
    headers    : list all headers in the built dependencies folder
    info       : for some dependencies there might be online help available
+   insert     : like add, but move the new entry to the top of the sourcetree
    libraries  : list all libraries in the built dependencies folder
    list       : list dependencies in the sourcetree (default)
    mark       : add marks to a dependency in the sourcetree
@@ -178,6 +181,25 @@ Options:
    --startup       : dependency is a ObjC startup library
    --tag <name>    : used in conjunction with --domain to specify an url
    --user <name>   : used in conjunction with --domain to specify an url
+
+EOF
+  exit 1
+}
+
+
+sde::dependency::insert_usage()
+{
+   [ "$#" -ne 0 ] &&  log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency insert [options] <url>
+
+   Like \`add\`, but moves the new entry to the top of the sourcetree so it
+   is built and linked before existing dependencies.
+
+   All options from \`add\` are supported. See:
+      ${MULLE_USAGE_NAME} dependency add -h
 
 EOF
   exit 1
@@ -413,6 +435,9 @@ sde::dependency::set_main()
    local OPTION_OPERATION
    local OPTION_DIALECT=''
    local OPTION_ENHANCE='YES'
+   local upcaseid
+   local nodetype
+   local address_for_id
 
    while [ $# -ne 0 ]
    do
@@ -542,9 +567,6 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
       url)
          if [ "${OPTION_ENHANCE}" = 'YES' ]
          then
-            local upcaseid
-            local nodetype
-
             if [ -z "${nodetype}" ]
             then
                nodetype="`rexekutor "${MULLE_DOMAIN:-mulle-domain}" \
@@ -568,9 +590,7 @@ ${C_INFO}Use \`mulle-sourcetree mark\`, if you want this to happen."
       tag|branch|nodetype)
          if [ "${OPTION_ENHANCE}" = 'YES' ]
          then
-            local upcaseid
-
-            local address_for_id="${address}"
+            address_for_id="${address}"
             if [[ "${_marks}" == *"no-share-shirk"* ]]
             then
                r_basename "${address}"
@@ -1136,6 +1156,7 @@ sde::dependency::add_to_sourcetree()
    fi
 
    MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+   MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -1200,7 +1221,7 @@ sde::dependency::__parse_json()
          'url')          eval url="$value" ;;
          'raw_userinfo') eval raw_userinfo="${value}" ;;
          'userinfo')
-            log_error "You need to use the --raw option to prepare the list JSON output
+            _log_error "You need to use the --raw option to prepare the list JSON output
 ${C_RESET_BOLD}Example: mulle-sde dep list --json --raw"
             # but snarf up copy/paste info till the end
             failed='YES'
@@ -1263,7 +1284,6 @@ sde::dependency::add_main()
    argc=$#
 
    local domain
-   local name
    local repo
    local domains
 
@@ -1662,9 +1682,15 @@ sde::dependency::add_main()
                   case "${user}" in
                      mulle-c|mulle-cc|mulle-gfx|mulle-objc|mulle-core|\
 mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
-                        nodetype="tar"
-                        tag="${tag:-latest}"
-                        url="https://github.com/${user}/${repo:-$url}/archive/\${MULLE_TAG}.tar.gz"
+                        if [ "${nodetype}" = "clib" ]
+                        then
+                           # user explicitly requested clib, keep original URL
+                           url="${originalurl}"
+                        else
+                           nodetype="tar"
+                           tag="${tag:-latest}"
+                           url="https://github.com/${user}/${repo:-$url}/archive/\${MULLE_TAG}.tar.gz"
+                        fi
                      ;;
                      *)
                         nodetype="${nodetype:-tar}"
@@ -1800,7 +1826,7 @@ mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
                                               "${address}" \
                                               "${marks}"
 
-               url="${_url/\}/@\$\{MULLE_BRANCH\}}"
+               url="${_url/\}/@\$\{MULLE_BRANCH\}\}}"
                if [ "${OPTION_BRANCH_SET}" != 'YES' ]
                then
                   branch="${_branch/\}/:-*\}}"
@@ -1811,7 +1837,7 @@ mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
                fi
                nodetype="${_nodetype}"
                address="${_address}"
-               fetchoptions='clibmode=hardlink'
+               fetchoptions="${fetchoptions:-clibmode=hardlink}"
                # copied from an existing entry <ahem>
                marks="${_marks},no-clobber,no-share-shirk"
             ;;
@@ -2035,10 +2061,12 @@ mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
    fi
 
    local dependency
-   local name
 
    dependency="${address:-${originalurl}}"
    r_extensionless_basename "${dependency}"
+
+   local name
+
    name="${address:-${RVAL}}"
 
    if [ "${OPTION_EMBEDDED}" = 'YES' ]
@@ -2076,6 +2104,59 @@ ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
          ;;
       esac
    fi
+}
+
+
+sde::dependency::insert_main()
+{
+   log_entry "sde::dependency::insert_main" "$@"
+
+   local arg
+   local prev=""
+   local found_address=""
+   local last_positional=""
+
+   for arg in "$@"
+   do
+      case "${prev}" in
+         --address)
+            found_address="${arg}"
+         ;;
+      esac
+      case "${arg}" in
+         -h|--help|help)
+            sde::dependency::insert_usage
+         ;;
+         -*)
+         ;;
+         *)
+            last_positional="${arg}"
+         ;;
+      esac
+      prev="${arg}"
+   done
+
+   local name
+
+   if [ -n "${found_address}" ]
+   then
+      name="${found_address}"
+   else
+      r_extensionless_basename "${last_positional}"
+      name="${RVAL}"
+   fi
+
+   sde::dependency::add_main "$@"
+   local rc=$?
+
+   if [ $rc -eq 0 ] && [ -n "${name}" ]
+   then
+      exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                     --virtual-root \
+                     ${MULLE_TECHNICAL_FLAGS} \
+               move "${name}" top
+   fi
+   return $rc
 }
 
 
@@ -2704,11 +2785,23 @@ sde::dependency::main()
    case "${cmd}" in
       add)
          # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+         include "sde::common"
 
          sde::dependency::add_main "$@"
          rc=$?
 
+         sde::dependency:reflect_on_demand $rc
+         return $rc
+      ;;
+
+      insert)
+         # shellcheck source=src/mulle-sde-common.sh
+         include "sde::common"
+
+         sde::dependency::insert_main "$@"
+         rc=$?
+
+         sde::dependency:reflect_on_demand $rc
          return $rc
       ;;
 
@@ -2716,6 +2809,7 @@ sde::dependency::main()
          echo "\
 add
 binaries
+config
 craftinfo
 duplicate
 downloads
@@ -2724,6 +2818,7 @@ export
 fetch
 get
 headers
+insert
 libraries
 list
 help
@@ -2737,6 +2832,12 @@ set
 shares
 source-dir
 unmark"
+      ;;
+
+      config)
+         include "sde::config"
+         sde::config::switch -d "$@"
+         return $?
       ;;
 
       craftinfo)
@@ -2766,7 +2867,7 @@ unmark"
 
       get|export)
          # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+         include "sde::common"
 
          sde::dependency::${cmd}_main "$@"
          return $?
@@ -2833,7 +2934,7 @@ platform-excludes"
 
       set)
          # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+         include "sde::common"
 
          sde::dependency::set_main "$@"
          rc="$?"

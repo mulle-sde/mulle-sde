@@ -228,7 +228,7 @@ sde::howto::ensure_dependencies_crafted()
 
    # Check if dependencies are already built
    local state
-   state="$(rexekutor mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
+   state="$(rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS:--s} quickstatus -p 2>/dev/null)" || state=""
 
    if [ "${state}" = "complete" ]
    then
@@ -244,20 +244,21 @@ sde::howto::ensure_dependencies_crafted()
 
    if sde::is_test_directory "$PWD"
    then
-      rexekutor mulle-sde test craft
+      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS:--s} -DMULLE_VIBECODING=NO test craft
       rc=$?
    else
       # Disable vibecoding check for this internal craft
-      rexekutor mulle-sde -DMULLE_VIBECODING=NO craft --no-clean craftorder
+      rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS:--s} -DMULLE_VIBECODING=NO craft --no-clean craftorder
       rc=$?
    fi
 
    if [ $rc -ne 0 ]
    then
       log_warning "Failed to craft dependencies"
+      return 1
    fi
 
-   return 0  # Always succeed, we'll show what we have
+   return 0
 }
 
 #
@@ -552,14 +553,9 @@ sde::howto::r_collect_howtos()
    if [ -d "asset/howto" ]
    then
       log_debug "Found asset/howto"
-      local xtrace_was_set='NO'
-      case $- in
-         *x*) xtrace_was_set='YES' ; set +x ;;
-      esac
 
       for howto in asset/howto/*.md
       do
-         [ "${xtrace_was_set}" = 'YES' ] && set -x
          log_debug "Checking file: ${howto}"
          if [ -f "${howto}" ]
          then
@@ -593,9 +589,7 @@ sde::howto::r_collect_howtos()
             r_colon_concat "${howtos}" "${howto}"
             howtos="${RVAL}"
          fi
-         [ "${xtrace_was_set}" = 'YES' ] && set +x
       done
-      [ "${xtrace_was_set}" = 'YES' ] && set -x
    else
       log_debug "asset/howto does not exist"
    fi
@@ -636,10 +630,56 @@ sde::howto::r_collect_howtos()
       if [ -d "${subdir}" ]
       then
          log_debug "Found ${subdir}"
-         # Check if either directory exists before globbing to avoid zsh errors
-         if [ -d "${subdir}/.mulle/share/howto" ] || [ -d "${subdir}/.mulle/etc/howto" ]
+         # Check each directory separately to avoid zsh glob errors
+         if [ -d "${subdir}/.mulle/share/howto" ]
          then
-            for howto in "${subdir}"/.mulle/share/howto/*.md "${subdir}"/.mulle/etc/howto/*.md
+            for howto in "${subdir}"/.mulle/share/howto/*.md
+            do
+               log_debug "Checking file: ${howto}"
+               if [ -f "${howto}" ]
+               then
+                  r_basename "${howto}"
+                  r_extensionless_basename "${RVAL}"
+                  basename="${RVAL}"
+
+                  # Skip if we already have this basename
+                  if ! find_line "${seen_basenames}" "${basename}"
+                  then
+                     count=$((count + 1))
+                     log_debug "File exists, count=${count}"
+                     r_add_line "${seen_basenames}" "${basename}"
+                     seen_basenames="${RVAL}"
+
+                     if [ "${display}" = 'YES' ] && sde::howto::r_matches_keyword "${howto}" "${keyword}"
+                     then
+                        r_basename "${subdir}"
+                        subdir_name="${RVAL}"
+
+                        if [ "${show_keywords}" = 'YES' ]
+                        then
+                           sde::howto::r_extract_keywords "${howto}"
+                           keywords_str="${RVAL}"
+                           if [ ! -z "${keywords_str}" ]
+                           then
+                              printf "%2d. %-30s [%s]\n" "${count}" "${subdir_name}/${basename}" "${keywords_str}"
+                           else
+                              printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
+                           fi
+                        else
+                           printf "%2d. %-30s\n" "${count}" "${subdir_name}/${basename}"
+                        fi
+                     fi
+
+                     r_colon_concat "${howtos}" "${howto}"
+                     howtos="${RVAL}"
+                  fi
+               fi
+            done
+         fi
+
+         if [ -d "${subdir}/.mulle/etc/howto" ]
+         then
+            for howto in "${subdir}"/.mulle/etc/howto/*.md
             do
                log_debug "Checking file: ${howto}"
                if [ -f "${howto}" ]
@@ -709,7 +749,7 @@ sde::howto::r_collect_howtos()
       local platforms
       local searchpath=':Release:Debug:RelDebug'
       local repo
-      local subdir
+      local search_dir
       
       # Check if we have platform-specific directories
       platforms="$(rexekutor mulle-sde environment get MULLE_SOURCETREE_PLATFORMS 2>/dev/null)" || true
@@ -741,7 +781,6 @@ sde::howto::r_collect_howtos()
       .do
          .foreachpath subdir in ${searchpath}
          .do
-            local search_dir
             if [ -z "${platform_dir}" ]
             then
                search_dir="${dependency_dir}/${subdir}/share"
@@ -752,8 +791,11 @@ sde::howto::r_collect_howtos()
             log_debug "Checking ${search_dir}"
             if [ -d "${search_dir}" ]
             then
+               shell_enable_nullglob
                for repo in "${search_dir}"/*
                do
+                  shell_disable_nullglob
+                  [ -e "${repo}" ] || continue
                   log_debug "Checking repo: ${repo}"
                   if [ -d "${repo}/howto" ]
                   then
@@ -899,7 +941,10 @@ sde::howto::list()
    # Ensure dependencies are crafted in vibecoding mode
    if [ "${MULLE_VIBECODING}" = 'YES' ]
    then
-      sde::howto::ensure_dependencies_crafted "additional howto information"
+      if ! sde::howto::ensure_dependencies_crafted "additional howto information"
+      then
+         :
+      fi
    else
       log_warning "Dependencies not yet crafted. Run 'mulle-sde craft' to get howtos from dependencies."
    fi
@@ -973,11 +1018,11 @@ sde::howto::keywords()
    # Collect all keywords
    local all_keywords
    local howto
+   local keywords_line
    
    .foreachpath howto in ${howtos}
    .do
       # Look for keywords comment line: <!-- keywords: word1 word2 word3 -->
-      local keywords_line
       keywords_line="$(grep -i '^<!--[[:space:]]*[Kk]eywords:' "${howto}" 2>/dev/null | head -n 1)"
       
       if [ ! -z "${keywords_line}" ]
@@ -1126,6 +1171,7 @@ sde::howto::apropos()
       local howto
       local content
       local basename_name
+      local content_length
 
       log_info "Building context from ${count} howto files..."
 
@@ -1134,7 +1180,7 @@ sde::howto::apropos()
          if [ -f "${howto}" ]
          then
             content="$(cat "${howto}" 2>/dev/null)"
-            local content_length=${#content}
+            content_length=${#content}
 
             # Check if adding this file would exceed limit
             if [ $((current_chars + content_length + 200)) -lt ${max_context_chars} ]
@@ -1198,6 +1244,7 @@ Question: ${question}"
       local howto
       local found='NO'
       local word
+      local matches
 
       # Build grep pattern (OR all keywords together)
       local pattern
@@ -1222,7 +1269,6 @@ Question: ${question}"
       # Search through all howtos
       .foreachpath howto in ${howtos}
       .do
-         local matches
          matches="$(rexekutor grep -B1 -A3 -n -H -i -E "${pattern}" "${howto}" 2>/dev/null)"
 
          if [ ! -z "${matches}" ]
@@ -1318,6 +1364,7 @@ sde::howto::show()
       local howto
       local keyword
       local all_match
+      local first_two_lines
       
       .foreachpath howto in ${howtos}
       .do
@@ -1331,7 +1378,6 @@ sde::howto::show()
             if ! grep -q -i "${keyword}" <<< "${RVAL}"
             then
                # Didn't match filename, check first two lines
-               local first_two_lines
                first_two_lines="$(head -n 2 "${howto}" 2>/dev/null)"
                
                if ! grep -q -i "${keyword}" <<< "${first_two_lines}"
@@ -1364,6 +1410,9 @@ sde::howto::show()
    local found='NO'
    local index=0
    local howto
+   local name
+   local subdir_part
+   local name_part
    
    # Check if identifier is a number
    case "${identifier}" in
@@ -1387,8 +1436,8 @@ sde::howto::show()
          case "${identifier}" in
             */*)
                # Has slash - look for specific subdir/name
-               local subdir_part="${identifier%/*}"
-               local name_part="${identifier#*/}"
+               subdir_part="${identifier%/*}"
+               name_part="${identifier#*/}"
 
                .foreachpath howto in ${howtos}
                .do
@@ -1397,7 +1446,7 @@ sde::howto::show()
                   then
                      r_basename "${howto}"
                      r_extensionless_basename "${RVAL}"
-                     local name="${RVAL}"
+                     name="${RVAL}"
 
                      if [ "${name}" = "${name_part}" ]
                      then
@@ -1415,7 +1464,7 @@ sde::howto::show()
                .do
                   r_basename "${howto}"
                   r_extensionless_basename "${RVAL}"
-                  local name="${RVAL}"
+                  name="${RVAL}"
 
                   # Try exact match first
                   if [ "${name}" = "${identifier}" ]
@@ -1433,7 +1482,7 @@ sde::howto::show()
                   .do
                      r_basename "${howto}"
                      r_extensionless_basename "${RVAL}"
-                     local name="${RVAL}"
+                     name="${RVAL}"
 
                      # Check if identifier is contained in filename
                      if grep -q -i "${identifier}" <<< "${name}"
@@ -1456,7 +1505,19 @@ sde::howto::show()
             fail "No howto with number ${identifier} found (total: ${count})"
          ;;
          *)
-            fail "No howto named '${identifier}' found"
+            # Try searching by keyword before giving up
+            sde::howto::r_collect_howtos "${identifier}" 'YES' 'YES' 'NO'
+            local keyword_count=$?
+
+            if [ ${keyword_count} -gt 0 ]
+            then
+               echo ""
+               log_info "No exact match for '${identifier}', but found ${keyword_count} howto(s) with this keyword."
+               log_info "Use: mulle-sde howto show <number>"
+               return 1
+            else
+               fail "No howto named '${identifier}' found"
+            fi
          ;;
       esac
    fi

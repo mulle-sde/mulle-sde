@@ -576,10 +576,6 @@ sde::linkorder::r_collect()
       fi
    fi
 
-   local alias
-
-   aliases="${aliases:-${name}}"
-
    case ",${marks},*" in
       *,no-dependency,*)
          # os-library, ignore it unless we do 'ld'
@@ -593,6 +589,8 @@ sde::linkorder::r_collect()
    local alias
    local aliasfail
    local aliasargs
+
+   aliases="${aliases:-${name}}"
 
    .foreachitem alias in ${aliases}
    .do
@@ -881,6 +879,18 @@ sde::linkorder::r_collect_emission_libs()
    local node
    local rc
 
+   # Pre-pass: collect all node addresses so we can shirk aliased nodes
+   # whose amalgam (first alias) is present in the list.
+   # e.g. mulle-stacktrace with aliases=mulle-core-all-load is dropped
+   # when mulle-core-all-load is also a node.
+   local all_addresses
+   .foreachline node in ${nodes}
+   .do
+      IFS=";" read address marks raw_userinfo <<< "${node}"
+      r_add_line "${all_addresses}" "${address}"
+      all_addresses="${RVAL}"
+   .done
+
    .foreachline node in ${nodes}
    .do
       IFS=";" read address marks raw_userinfo <<< "${node}"
@@ -888,6 +898,25 @@ sde::linkorder::r_collect_emission_libs()
       case ",${omit}," in
          *,${address},*)
             .continue
+         ;;
+      esac
+
+      # Shirk: if this node has aliases and its first alias is present as
+      # another node address, drop it — the amalgam covers it.
+      case "${raw_userinfo}" in
+         *aliases=*)
+            local _decoded
+            sourcetree::node::r_decode_raw_userinfo "${raw_userinfo}"
+            _decoded="${RVAL}"
+            local _first_alias
+            _first_alias="${_decoded#*aliases=}"
+            _first_alias="${_first_alias%%,*}"
+            _first_alias="${_first_alias%%$'\n'*}"
+            if [ "${_first_alias}" != "${address}" ] && find_line "${all_addresses}" "${_first_alias}"
+            then
+               log_fluff "Shirking \"${address}\" — amalgam \"${_first_alias}\" is present"
+               .continue
+            fi
          ;;
       esac
 
@@ -973,14 +1002,14 @@ sde::linkorder::main()
            [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
-            OPTION_CONFIGURATION="$1"
+            OPTION_CONFIGURATION="${1:-${OPTION_CONFIGURATION}}"
          ;;
 
          --platform)
            [ $# -eq 1 ] && sde::linkorder::usage "Missing argument to \"$1\""
             shift
 
-            OPTION_PLATFORM="$1"
+            OPTION_PLATFORM="${1:-${OPTION_PLATFORM}}"
          ;;
 
          --preferred-library-style)
@@ -1120,13 +1149,20 @@ sde::linkorder::main()
 
    case "${PROJECT_EXTENSIONS}" in
       args)
-         fail "A linkorder is only available for library projects"
+         log_fluff "Generating linkorder for executable (args) project"
       ;;
    esac
 
    OPTION_PLATFORM="${OPTION_PLATFORM:-${MULLE_PLATFORM}}"
    OPTION_PLATFORM="${OPTION_PLATFORM:-${MULLE_CRAFT_PLATFORMS%%:*}}"
    OPTION_PLATFORM="${OPTION_PLATFORM:-${MULLE_UNAME}}"
+
+   # In vibecoding mode, auto-craft dependencies if not yet built
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      include "sde::howto"
+      sde::howto::ensure_dependencies_crafted "link-args" || fail "Failed to craft dependencies"
+   fi
 
    local nodes
    local name

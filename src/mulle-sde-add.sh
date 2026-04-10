@@ -133,10 +133,8 @@ sde::add::oneshot_extension()
    local class="$3"
    local category="$4"
 
-   if [ -z "${MULLE_SDE_PROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-project.sh" || _internal_fail "missing file"
-   fi
+   include "sde::project"
+
 
    (
       OPTION_ADD='YES'

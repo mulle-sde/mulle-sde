@@ -110,6 +110,7 @@ sde::test::emit_include_h()
                if [ "${PROJECT_NAME}" != 'mulle-objc-runtime' -a \
                     "${PROJECT_NAME}" != 'mulle-objc-debug' ]
                then
+                  printf "%s\n" "// skipped \"${depname}\" due to 'mulle-objc-*' (hack)"
                   log_debug "Skip \"${depname}\""
                   continue
                fi
@@ -120,6 +121,7 @@ sde::test::emit_include_h()
       case "${depname}" in
          *'mintomic')
             log_debug "Skip \"${depname}\""
+            printf "%s\n" "// skipped \"${depname}\" due to 'mintomic' (hack)"
             continue
          ;;
       esac
@@ -127,7 +129,7 @@ sde::test::emit_include_h()
       # for <mulle-time/mulle-time.h> ....
       if [ -f "$root_hdr" ]
       then
-         if [ ! -e "${dep}/.no-mulle-test" ]
+         if [ ! -e "${dir}/.no-mulle-test" ]
          then
             if [[ "${depname:0:1}" =~ [A-Z] ]]
             then
@@ -135,16 +137,24 @@ sde::test::emit_include_h()
             else
                emit_line "${depname}/${depname}.h" "no"
             fi
+         else
+            log_debug "Skip \"${depname}\""
+            printf "%s\n" "// skipped \"${depname}/${depname}.h\" due to .no-mulle-test"
          fi
          continue
       fi
 
-      while IFS= read -r hdr
-      do
-         rel="${hdr#$INC_ROOT/}"
+      #
+      # Lets try not emitting for now
+      #
+      printf "%s\n" "// no umbrella header \"${depname}/${depname}.h\" found, skipping \"${depname}\""
 
-         emit_line "${rel}" "no"
-      done < <(find "$dir" -type f -name '*.h' ! -path "*/cmake/*" | sort)
+      #while IFS= read -r hdr
+      #do
+      #   rel="${hdr#$INC_ROOT/}"
+      #
+      #   emit_line "${rel}" "no"
+      #done < <(find "$dir" -type f -name '*.h' ! -path "*/cmake/*" | sort)
    done
 
    if [ "${dialect}" != "objc" ]

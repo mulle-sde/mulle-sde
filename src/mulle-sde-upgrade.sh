@@ -89,8 +89,7 @@ sde::upgrade::project()
    log_entry "sde::upgrade::project" "$@"
 
    # shellcheck source=src/mulle-sde-init.sh
-   [ -z "${MULLE_SDE_INIT_SH}" ] && \
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+   include "sde::init"
 
    eval_exekutor sde::init::main --upgrade "$@"
 }
@@ -103,10 +102,7 @@ sde::upgrade::subprojects()
 
    local parallel="$1"
 
-   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || _internal_fail "missing file"
-   fi
+   include "sde::subproject"
 
    local flags
 
@@ -226,7 +222,27 @@ sde::upgrade::main()
          MULLE_VIRTUAL_ROOT="`pwd -P`"
          export MULLE_VIRTUAL_ROOT
 
+         MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+         MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+         export MULLE_VIRTUAL_ROOT_ID
+
          eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
+
+         # Preserve MULLE_SOURCETREE_CONFIG_NAME for projects with multiple
+         # sourcetree configs (e.g. x11/wayland/macos). mulle-tool-env only
+         # loads tool dirs, not the full project environment, so we need to
+         # read it explicitly here so that subproject::get_addresses can call
+         # mulle-sourcetree list with the correct config.
+         if [ -z "${MULLE_SOURCETREE_CONFIG_NAME}" ]
+         then
+            MULLE_SOURCETREE_CONFIG_NAME="`"${MULLE_ENV:-mulle-env}" \
+                                               --search-as-is \
+                                               -s \
+                                            environment \
+                                               get MULLE_SOURCETREE_CONFIG_NAME 2>/dev/null`"
+            [ -n "${MULLE_SOURCETREE_CONFIG_NAME}" ] && \
+               export MULLE_SOURCETREE_CONFIG_NAME
+         fi
 
          # not sure about next two, but its the proper transformation
          # of previous code

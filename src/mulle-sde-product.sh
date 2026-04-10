@@ -252,11 +252,22 @@ sde::product::r_executables()
       local projectname
 
       projectname="`mulle-sde env get PROJECT_NAME`"
-      executables="`rexekutor find "${kitchen_dir}" \( -name "${projectname}${MULLE_EXE_EXTENSION}" \
+
+      # Get platform-appropriate executable suffix if not already set
+      local exe_extension
+      exe_extension="${MULLE_EXE_EXTENSION}"
+      if [ -z "${exe_extension}" ]
+      then
+         local MULLE_PLATFORM_EXECUTABLE_SUFFIX
+         eval "`mulle-platform environment 2>/dev/null | grep '^MULLE_PLATFORM_EXECUTABLE_SUFFIX='`"
+         exe_extension="${MULLE_PLATFORM_EXECUTABLE_SUFFIX}"
+      fi
+
+      executables="`rexekutor find "${kitchen_dir}" \( -name "${projectname}${exe_extension}" \
                                                     -o -name "${projectname}" \
                                                     \) \
                                                     -type f \
-                                                    -perm 0111 \
+                                                    -perm /111 \
                                                     -not -path "${kitchen_dir}/.craftorder/*" `"
 
       executables="`sde::product::freshest_files "${executables}"`"
@@ -348,7 +359,7 @@ sde::product::r_user_choses_executable()
       return 0
    fi
 
-   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   if [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       RVAL=
       return 1
@@ -649,6 +660,11 @@ sde::product::r_platform_from_executable_path()
    log_entry "sde::product::r_platform_from_executable_path" "$@"
 
    local executable="$1"
+
+         # Extract the part after kitchen/
+   local after_kitchen
+   local sdk_platform
+   local platform
    
    # Extract platform from path like kitchen/<platform>/<config>/executable
    # If no platform subdir, assume native. Is this actually "styled" by
@@ -657,12 +673,12 @@ sde::product::r_platform_from_executable_path()
    case "${executable}" in
       */kitchen/*/*|kitchen/*/*)
          # Extract the part after kitchen/
-         local after_kitchen="${executable#*kitchen/}"
+         after_kitchen="${executable#*kitchen/}"
          # Get first path component
-         local sdk_platform="${after_kitchen%%/*}"
+         sdk_platform="${after_kitchen%%/*}"
 
          # strip SDK if any
-         local platform="${sdk_platform#*-}"
+         platform="${sdk_platform#*-}"
 
          # Check if it's a config name (Debug, Release, etc.) - if so, it's native
          case "${platform}" in

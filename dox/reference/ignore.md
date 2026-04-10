@@ -226,7 +226,7 @@ mulle-sde ignore "build-windows/"
 # Ignore test output
 mulle-sde ignore "test/output/"
 mulle-sde ignore "test/results/"
-mulle-sde ignore "*.test.log"
+mulle-sde ignore "*.tmp.*"
 
 # Ignore generated documentation
 mulle-sde ignore "docs/html/"

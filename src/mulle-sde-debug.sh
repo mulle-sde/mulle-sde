@@ -109,19 +109,21 @@ sde::debug::r_user_choses_debugger()
    log_entry "sde::debug::r_user_chosen_debugger" "$@"
 
    local debuggers="$1"
+   local reselect="$2"
+
 
    local row
+   row=0
 
-   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   if [ "${reselect}" != 'NO' ]
    then
-      row=0
-   else
       rexekutor mudo -f mulle-menu --title "Choose debugger:" \
                                    --final-title "" \
                                    --options "${debuggers}"
       row=$?
+
+      log_debug "row=${row}"
    fi
-   log_debug "row=${row}"
 
    r_line_at_index "${debuggers}" $row
    [ ! -z "${RVAL}" ]
@@ -154,6 +156,8 @@ sde::debug::r_user_debugger()
 {
    log_entry "sde::debug::r_debugger" "$@"
 
+   local reselect="$1"
+
    local choices
 
    choices="${MULLE_SDE_DEBUGGERS:-mulle-gdb:seergdb:gdb:lldb:rr}"
@@ -166,7 +170,7 @@ sde::debug::r_user_debugger()
 
    debuggers="${RVAL}"
 
-   if ! sde::debug::r_user_choses_debugger "${debuggers}"
+   if ! sde::debug::r_user_choses_debugger "${debuggers}" "${reselect}"
    then
       return 1
    fi
@@ -178,6 +182,7 @@ sde::debug::r_debugger()
    log_entry "sde::debug::r_debugger" "$@"
 
    local preference="$1"
+   local reselect="$2"
 
    local debugger
 
@@ -188,7 +193,7 @@ sde::debug::r_debugger()
 
    if [ -z "${debugger}" ]
    then
-      sde::debug::r_user_debugger
+      sde::debug::r_user_debugger "${reselect}"
       debugger="${RVAL}"
    fi
 
@@ -280,6 +285,11 @@ sde::debug::run_main()
    local debugger_preexe
    local debugger_postexe
 
+   if [ -z "${OPTION_SELECT}" -a "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      OPTION_SELECT='NO'
+   fi
+
    if [ "${stacktrace}" = 'YES' ]
    then
       debugger='gdb'
@@ -291,7 +301,7 @@ sde::debug::run_main()
          log_fluff "Retrieved debugger preference: ${preference}"
       fi
 
-      if ! sde::debug::r_debugger "${preference}"
+      if ! sde::debug::r_debugger "${preference}" "${OPTION_SELECT}"
       then
          log_verbose "No debugger selected"
          return 1
@@ -432,7 +442,7 @@ sde::debug::main()
          ;;
 
          --select|--reselect)
-            [ "${MULLE_VIBECODING}" = 'YES' ] && fail "$1 not available with ${C_RESET_BOLD}vibecoding${C_ERROR} enabled"
+            [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ] && fail "$1 not available with ${C_RESET_BOLD}vibecoding${C_ERROR} enabled"
             OPTION_SELECT='YES'
          ;;
 
@@ -604,10 +614,8 @@ if .settings == null then .settings = {} else . end \
             debugger="${RVAL}"
 
             local mimode
-            local debugtype
 
             mimode="gdb"
-            debugtype="cppdbg"
 
             case "${RVAL}" in
                *lldb*)

@@ -85,8 +85,10 @@ Commands:
    unset           : remove a build setting of a dependency
 
 Options:
-   --global        : use global settings instead of current OS settings
-   --os <name>     : specify settings for a specific OS
+   --global           : use global settings (not OS-specific)
+   --os <name>        : specify settings for a specific OS (e.g. linux, darwin)
+   --platform <name>  : alias for --os
+   --config <name>    : use a named sourcetree configuration
 
 Environment:
    CRAFTINFO_REPOS : Repo URLs separated by | (https://github.com/craftinfo)
@@ -102,18 +104,21 @@ sde::craftinfo::set_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} dependency craftinfo set [option] <dep> <key> <value>
+   ${MULLE_USAGE_NAME} dependency craftinfo [craftinfo-option] set [option] <dep> <key> <value>
 
    Change a "craftinfo" setting value for a key. Typically these are compile or
-   link options that a part of a mulle-make definition, contained in the
-   craftinfo. During a craft the appropriatedefinition is then passed to
-   mulle-make during a craft. See \`mulle-make definition help\` for more info.
+   link options that are part of a mulle-make definition, contained in the
+   craftinfo. During a craft the appropriate definition is then passed to
+   mulle-make. See \`mulle-make definition help\` for more info.
 
    This command will automatically create a proper "craftinfo" subproject,
    if there is none yet.
 
    Use the special dependency name '*' to set flags for all dependencies.
    These values can be overridden by a specific dependency still.
+
+   Without any craftinfo-option the setting applies to the current OS only
+   (same as specifying --os \$(mulle-sde common-unames --current)).
 
 Examples:
    Set preprocessor flag -DX=0 for all platforms on dependency "nng":
@@ -134,12 +139,25 @@ Examples:
          set curl \\
             CMAKEFLAGS "-DBUILD_CURL_EXE=OFF -DBUILD_SHARED_LIBS=OFF"
 
-   Set mujs to build with -fPIC:
-      mulle-sde dependency craftinfo --os linux set mujs XCFLAGS -fPIC
+   Set mujs to build with -fPIC on linux only:
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --os linux set mujs XCFLAGS -fPIC
+
+   Append an XCFLAGS value to an existing setting (instead of replacing it):
+
+      ${MULLE_USAGE_NAME} dependency craftinfo --global set --concat mujs XCFLAGS -fPIC
+
+Craftinfo Options (precede the \`set\` subcommand):
+   --global           : apply to all platforms (no OS-specific override)
+   --os <name>        : apply to a specific OS only (e.g. linux, darwin, windows)
+   --platform <name>  : alias for --os
+   --config <name>    : use a named sourcetree configuration (e.g. for x11 vs wayland)
 
 Options:
-   --append  : value will be appended to key instead (e.g. CPPFLAGS += )
-   --script  : use an existing script of the package to build
+   --append           : append value to existing key (e.g. CPPFLAGS += value)
+   --concat           : concatenate value to previous value within same definition
+   --clobber          : remove environment and all previous definitions first
+   --ifempty          : only set key if no value exists yet
 
 EOF
   exit 1
@@ -481,7 +499,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
 #         local ptype
 
          # shellcheck source=src/mulle-sde-extension.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-extension.sh"
+         include "sde::extension"
 
 #         ptype="${PROJECT_TYPE}"
 #         if [ "${ptype}" = 'none' ]
@@ -1194,6 +1212,71 @@ sde::craftinfo::get_main()
 }
 
 
+sde::craftinfo::_list_definition_dir()
+{
+   log_entry "sde::craftinfo::_list_definition_dir" "$@"
+
+   local definition_dir="$1"
+   local label="$2"
+   local indent="$3"
+
+   shift 3
+
+   local text
+
+   text="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
+      definition --definition-dir "${definition_dir}" list "$@" | sed "s/^/   ${indent}/"`"
+
+   if [ ! -z "${text}" ]
+   then
+      log_info "${C_MAGENTA}${C_BOLD}${indent}${label}${C_RESET_BOLD}"
+      printf "%s\n" "${text}"
+   fi
+}
+
+
+sde::craftinfo::_list_subprojectdir()
+{
+   log_entry "sde::craftinfo::_list_subprojectdir" "$@"
+
+   local subprojectdir="$1"
+   local config_label="$2"
+   local indent="$3"
+
+   shift 3
+
+   local definition_dir
+   local found='NO'
+   local label
+   local os_ext
+
+   shell_enable_nullglob
+   for definition_dir in "${subprojectdir}"/definition*
+   do
+      [ -d "${definition_dir}" ] || continue
+
+      # extract the OS/SDK extension from the folder name (e.g. ".linux", ".iPhoneOS.darwin")
+      os_ext="${definition_dir#"${subprojectdir}/definition"}"
+
+      if [ -z "${os_ext}" ]
+      then
+         label="${config_label:+${config_label} / }global"
+      else
+         label="${config_label:+${config_label} / }${os_ext#.}"
+      fi
+
+      sde::craftinfo::_list_definition_dir "${definition_dir}" "${label}" "${indent}" "$@"
+      found='YES'
+   done
+   shell_disable_nullglob
+
+   if [ "${found}" = 'NO' ]
+   then
+      log_verbose "${indent}(no definitions in ${subprojectdir})"
+   fi
+}
+
+
 sde::craftinfo::_list_main()
 {
    log_entry "sde::craftinfo::_list_main" "$@"
@@ -1218,48 +1301,49 @@ sde::craftinfo::_list_main()
       return 1
    fi
 
-   log_info "${url}"
-
+   # specific extension (--os, --global etc.) requested: show just that one
    if [ "${extension}" != 'DEFAULT' ]
    then
-      log_info "${url}${extension}"
-
-      log_info "${C_MAGENTA}${C_BOLD}${indent}${extension} ${C_RESET_BOLD}"
-      exekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
-         definition --definition-dir "${_folder}${extension}" list "$@"  | sed "s/^/   ${indent}/"
+      log_info "${url}${extension:+ (${extension#.})}"
+      sde::craftinfo::_list_definition_dir "${_folder}${extension}" \
+                                           "${extension:+${extension#.}}" \
+                                           "${indent}" "$@"
       return $?
    fi
 
-   local text1
-   local text2
+   # DEFAULT mode: scan ALL subproject variants (base + every config suffix)
+   # so nothing is hidden from the user
+   local base_subprojectdir
 
-   text1="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS} \
-      definition --definition-dir "${_folder}" list "$@" | sed "s/^/   ${indent}/"`"
-   text2="`rexekutor "${MULLE_MAKE}" ${MULLE_TECHNICAL_FLAGS}  \
-      definition --definition-dir "${_folder}.${MULLE_UNAME}" list "$@" | \
-         sed "s/^/   ${indent}/"`"
+   # strip any config suffix that __vars may have resolved to get the raw base
+   base_subprojectdir="craftinfo/${_name}-craftinfo"
 
-   if [ ! -z "${text1}" -o ! -z "${text2}" ]
-   then
-      if [ ! -z "${_config}" ]
+   local subprojectdir
+   local config_label
+   local printed_header='NO'
+
+   shell_enable_nullglob
+   for subprojectdir in "${base_subprojectdir}" "${base_subprojectdir}".*
+   do
+      [ -d "${subprojectdir}" ] || continue
+
+      # derive a human-readable config label from the directory suffix
+      config_label="${subprojectdir#"${base_subprojectdir}"}"
+      config_label="${config_label#.}"
+      # strip the redundant "-craftinfo" trailer if present (e.g. "wayland-craftinfo" → "wayland")
+      config_label="${config_label%-craftinfo}"
+
+      if [ "${printed_header}" = 'NO' ]
       then
-         log_info "${url}.${_config}"
-      else
          log_info "${url}"
+         printed_header='YES'
       fi
 
-      if [ ! -z "${text1}" ]
-      then
-         log_info "${C_MAGENTA}${C_BOLD}${indent}Global"
-         printf "%s\n" "${text1}"
-      fi
-
-      if [ ! -z "${text2}" ]
-      then
-         log_info "${C_MAGENTA}${C_BOLD}${indent}${MULLE_UNAME}"
-         printf "%s\n" "${text2}"
-      fi
-   fi
+      sde::craftinfo::_list_subprojectdir "${subprojectdir}" \
+                                          "${config_label}" \
+                                          "${indent}" "$@"
+   done
+   shell_disable_nullglob
 }
 
 

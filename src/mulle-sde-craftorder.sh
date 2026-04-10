@@ -56,11 +56,11 @@ EOF
 
 sde::craftorder::__get_info()
 {
-   [ -z "${DEPENDENCY_DIR}" ] && fail "DEPENDENCY_DIR is not set.
+   [ -z "${DEPENDENCY_DIR}" ] && _log_warning "DEPENDENCY_DIR is not set.
 ${C_INFO}This command must be run inside a mulle-sde virtual environment.
 ${C_RESET_BOLD}   mulle-sde craft"
 
-   _cachedir="${DEPENDENCY_DIR}/etc"
+   _cachedir="${DEPENDENCY_DIR:-dependency}/etc"
    _craftorderfile="${_cachedir}/craftorder"
 }
 
@@ -106,8 +106,10 @@ sde::craftorder::create_file()
 {
    log_entry "sde::craftorder::create_file" "$@"
 
-   local craftorderfile="$1"; shift
-   local cachedir="$1"; shift
+   local craftorderfile="$1"
+   local cachedir="$2"
+
+   shift 2
 
    include "file"
    include "path"
@@ -135,9 +137,7 @@ sde::craftorder::create_file()
    # get "source" of function into callback
    callback="`declare -f sde::craftorder::r_append_mark_no_memo_to_subproject`"
 
-   local rc
-
-   exekutor mulle-craft dependency begin
+   exekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} dependency begin
    (
       mkdir_if_missing "${cachedir}"
 
@@ -149,15 +149,15 @@ sde::craftorder::create_file()
       log_setting "MULLE_SOURCETREE_STASH_DIR=${MULLE_SOURCETREE_STASH_DIR}"
       log_setting "MULLE_VIRTUAL_ROOT=${MULLE_VIRTUAL_ROOT}"
 
-      text="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+      text=$(rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                --virtual-root \
-               -s \
-               ${MULLE_TECHNICAL_FLAGS:-} \
+               ${MULLE_TECHNICAL_FLAGS:--s} \
             craftorder \
                --no-print-env \
                --callback "${callback}" \
-               "$@" `"
+               "$@" )
       rc=$?
+
       if [ $rc -ne 0 ]
       then
          fail "mulle-sourcetree failed to produce a craftorder ($rc)"
@@ -168,9 +168,9 @@ sde::craftorder::create_file()
 
    if [ $rc -eq 0 ]
    then
-      exekutor mulle-craft dependency end
+      exekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} dependency end
    else
-      exekutor mulle-craft dependency fail
+      exekutor mulle-craft ${MULLE_TECHNICAL_FLAGS} dependency fail
    fi
    return $rc
 }

@@ -379,7 +379,7 @@ sde::subproject::init_main()
 
    (
       # shellcheck source=src/mulle-sde-init.sh
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
+      include "sde::init"
 
       #
       # pass some information to init scripts via environment
@@ -391,6 +391,7 @@ sde::subproject::init_main()
       PARENT_PROJECT_TYPE="${PROJECT_TYPE}" \
       PARENT_DIR="${MULLE_VIRTUAL_ROOT}" \
       MULLE_VIRTUAL_ROOT="" \
+      MULLE_VIRTUAL_ROOT_ID="" \
          eval_exekutor sde::init::main -d "${directory}" \
                                        -m "${meta}" \
                                        ${flags} \
@@ -544,7 +545,7 @@ has no \"${sdefolder}\" folder"
                else
                   (
                      rexekutor cd "${expanded_subproject}" &&
-                     MULLE_VIRTUAL_ROOT="" eval_exekutor exec "${command}"
+                     MULLE_VIRTUAL_ROOT="" MULLE_VIRTUAL_ROOT_ID="" eval_exekutor exec "${command}"
                   )
                   rc=$?
                fi
@@ -563,7 +564,7 @@ has no \"${sdefolder}\" folder"
             else
                (
                   rexekutor cd "${expanded_subproject}" &&
-                  MULLE_VIRTUAL_ROOT="" eval_exekutor exec "${command}"
+                  MULLE_VIRTUAL_ROOT="" MULLE_VIRTUAL_ROOT_ID="" eval_exekutor exec "${command}"
                )
                rc=$?
             fi
@@ -645,8 +646,7 @@ sde::subproject::main()
 
    case "${cmd}" in
       add)
-         [ -z "${MULLE_SDE_DEPENDENCY_SH}" ] && \
-            . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+         include "sde::dependency"
 
          sde::dependency::add_main --address "$1" \
                                    --marks "${SUBPROJECT_MARKS}" \
@@ -729,7 +729,7 @@ $1"
 
       get)
          # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
+         include "sde::common"
 
          sde::subproject::get_main "$@"
       ;;
@@ -783,8 +783,6 @@ $1"
       ;;
 
       set)
-         # shellcheck source=src/mulle-sde-common.sh
-         . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-common.sh"
          sde::subproject::set_main "$@"
       ;;
 

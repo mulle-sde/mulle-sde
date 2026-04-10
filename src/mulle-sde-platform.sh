@@ -84,6 +84,176 @@ EOF
 }
 
 
+sde::platform::list_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform list
+
+   List all configured platforms. Active platforms (used for crafting) are
+   shown first, followed by disabled platforms (in sourcetree but not crafted).
+EOF
+   exit 1
+}
+
+
+sde::platform::show_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform show
+
+   Show available cross-compilation toolchains that can be added as platforms.
+EOF
+   exit 1
+}
+
+
+sde::platform::add_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform add [options] [<platform>]
+
+   Add and enable a cross-compilation platform. If no platform name is given,
+   use --uname to add the current host OS platform (\${MULLE_UNAME}).
+
+   After adding a platform, configure it with:
+      mulle-sde platform set <platform> root <cross-toolset-root>
+      mulle-sde platform set <platform> emulator <emulator-binary>
+
+Options:
+   --uname             : add the current host OS name as a platform
+   --toolchain-file    : path to a cmake toolchain file for this platform
+EOF
+   exit 1
+}
+
+
+sde::platform::remove_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform remove [options] [<platform>]
+
+   Remove a platform entirely (removes from both craft list and sourcetree).
+   This also clears associated environment variables (toolchain, emulator, etc).
+
+Options:
+   --uname             : remove the current host OS name as a platform
+EOF
+   exit 1
+}
+
+
+sde::platform::set_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform set <platform> <key> <value>
+
+   Set a configuration value for a cross-compilation platform.
+
+   Keys:
+      root      : path to the cross-compiler toolset root directory
+                  (sets MULLE_CRAFT_CROSS_COMPILER_ROOT__<PLATFORM>)
+      emulator  : emulator binary used to run target binaries on the host
+                  (sets MULLE_EMULATOR__<PLATFORM>)
+
+Examples:
+   mulle-sde platform set windows root /opt/mingw64
+   mulle-sde platform set arm emulator qemu-arm
+EOF
+   exit 1
+}
+
+
+sde::platform::get_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform get <platform> <key>
+
+   Get a configuration value for a cross-compilation platform.
+
+   Keys:
+      root      : path to the cross-compiler toolset root directory
+      emulator  : emulator binary used to run target binaries on the host
+EOF
+   exit 1
+}
+
+
+sde::platform::enable_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform enable [options] <platform>
+
+   Enable a previously disabled platform for crafting. The platform must have
+   been added with 'platform add' first. Enabling adds the platform back to
+   MULLE_CRAFT_PLATFORMS without touching the sourcetree.
+
+   By default the change is written to the OS-specific scope (--this-os).
+   Use --global or another scope option to override.
+
+Options:
+   --global        : write to the global scope
+   --this-os       : write to the current OS scope (default)
+   --this-host     : write to the current host scope
+   --this-user     : write to the current user scope
+   --os <name>     : write to the named OS scope
+   --host <name>   : write to the named host scope
+   --user <name>   : write to the named user scope
+   --scope <name>  : write to an arbitrary named scope
+EOF
+   exit 1
+}
+
+
+sde::platform::disable_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$*"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} platform disable [options] <platform>
+
+   Disable a platform so it is not used for crafting, without removing it from
+   the sourcetree. Dependencies for the platform are kept. Re-enable later with
+   'platform enable <platform>'.
+
+   By default the change is written to the OS-specific scope (--this-os).
+   Use --global or another scope option to override.
+
+Options:
+   --global        : write to the global scope
+   --this-os       : write to the current OS scope (default)
+   --this-host     : write to the current host scope
+   --this-user     : write to the current user scope
+   --os <name>     : write to the named OS scope
+   --host <name>   : write to the named host scope
+   --user <name>   : write to the named user scope
+   --scope <name>  : write to an arbitrary named scope
+EOF
+   exit 1
+}
+
+
 
 sde::platform::list_main()
 {
@@ -93,11 +263,11 @@ sde::platform::list_main()
    do
       case "$1" in
          -h|--help|help)
-            sde::platform::usage
+            sde::platform::list_usage
          ;;
 
          -*)
-            sde::platform::usage "Unknown option \"$1\""
+            sde::platform::list_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -197,11 +367,14 @@ sde::platform::show()
    local host
    local toolchains
    local seen_platforms
-   
+
    host="`mulle-bashfunctions uname`"
    seen_platforms=""
-   
-   log_info "Available platforms:"
+
+   log_info "Current platform:"
+   printf "  %s (native)\n" "${host}"
+   log_info ""
+   log_info "Available cross-compile platforms:"
 
    local toolchain
    local basename
@@ -277,15 +450,15 @@ sde::platform::show_main()
    do
       case "$1" in
          -h|--help|help)
-            sde::platform::usage
+            sde::platform::show_usage
          ;;
 
          -*)
-            sde::platform::usage "Unknown option \"$1\""
+            sde::platform::show_usage "Unknown option \"$1\""
          ;;
 
          *)
-            sde::platform::usage "Unexpected argument \"$1\""
+            sde::platform::show_usage "Unexpected argument \"$1\""
          ;;
       esac
 
@@ -506,6 +679,10 @@ sde::platform::add_main()
    while [ $# -ne 0 ]
    do
       case "$1" in
+         -h|--help|help)
+            sde::platform::add_usage
+         ;;
+
          --uname)
             use_uname='YES'
             shift
@@ -517,14 +694,14 @@ sde::platform::add_main()
          ;;
 
          --toolchain-file)
-            [ $# -eq 1 ] && craft::qualifier::usage "Missing argument to \"$1\""
+            [ $# -eq 1 ] && sde::platform::add_usage "Missing argument to \"$1\""
             shift
 
             OPTION_TOOLCHAIN_FILE="$1"
          ;;
 
          -*)
-            sde::platform::usage "Unknown option \"$1\" for remove command"
+            sde::platform::add_usage "Unknown option \"$1\""
          ;;
          
          *)
@@ -533,7 +710,7 @@ sde::platform::add_main()
       esac
    done
 
-   [ $# -gt 1 ] && sde::platform::usage "Superfluous arguments \"$*\""
+   [ $# -gt 1 ] && sde::platform::add_usage "Superfluous arguments \"$*\""
 
    local platform="${1:-}"
 
@@ -625,6 +802,10 @@ sde::platform::remove_main()
    while [ $# -ne 0 ]
    do
       case "$1" in
+         -h|--help|help)
+            sde::platform::remove_usage
+         ;;
+
          --uname)
             use_uname='YES'
             shift
@@ -636,7 +817,7 @@ sde::platform::remove_main()
          ;;
 
          -*)
-            sde::platform::usage "Unknown option \"$1\" for remove command"
+            sde::platform::remove_usage "Unknown option \"$1\""
          ;;
 
          *)
@@ -645,7 +826,7 @@ sde::platform::remove_main()
       esac
    done
 
-   [ $# -gt 1 ] && sde::platform::usage "Superfluous arguments \"$*\""
+   [ $# -gt 1 ] && sde::platform::remove_usage "Superfluous arguments \"$*\""
 
    local platform="${1:-}"
 
@@ -687,8 +868,26 @@ sde::platform::set_main()
 {
    log_entry "sde::platform::set_main" "$@"
 
-   [ $# -lt 3 ] && sde::platform::usage "Usage: platform set <platform> <key> <value>"
-   [ $# -gt 3 ] && sde::platform::usage "Superfluous arguments \"$*\""
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::platform::set_usage
+         ;;
+
+         -*)
+            sde::platform::set_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   [ $# -lt 3 ] && sde::platform::set_usage "Missing arguments"
+   [ $# -gt 3 ] && sde::platform::set_usage "Superfluous arguments \"$*\""
 
    local platform="$1"
    local key="$2"
@@ -740,12 +939,30 @@ sde::platform::get_main()
 {
    log_entry "sde::platform::get_main" "$@"
 
-   [ $# -lt 2 ] && sde::platform::usage "Usage: platform get <platform> <key>"
-   [ $# -gt 2 ] && sde::platform::usage "Superfluous arguments \"$*\""
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::platform::get_usage
+         ;;
+
+         -*)
+            sde::platform::get_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   [ $# -lt 2 ] && sde::platform::get_usage "Missing arguments"
+   [ $# -gt 2 ] && sde::platform::get_usage "Superfluous arguments \"$*\""
 
    local platform="$1"
    local key="$2"
-   
+
    sde::platform::get "${platform}" "${key}"
 }
 
@@ -755,20 +972,23 @@ sde::platform::enable()
    log_entry "sde::platform::enable" "$@"
 
    local platform="$1"
+   local read_scope_flags="${2:-}"
+   local write_scope_flags="${3:---this-os}"
+
    local craft_platforms
    local sourcetree_platforms
-   
+
    # Read literal values from environment (not expanded)
-   craft_platforms="`rexekutor mulle-sde environment get MULLE_CRAFT_PLATFORMS`"
+   craft_platforms="`rexekutor mulle-sde environment ${read_scope_flags} get MULLE_CRAFT_PLATFORMS`"
    sourcetree_platforms="`rexekutor mulle-sde environment get MULLE_SOURCETREE_PLATFORMS`"
-   
+
    if [ -z "${platform}" ]
    then
       r_colon_concat_if_missing "${craft_platforms}" '${MULLE_UNAME}'
       if [ "${RVAL}" != "${craft_platforms}" ]
       then
          craft_platforms="${RVAL}"
-         exekutor mulle-sde environment set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
+         exekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
       fi
       return
    fi
@@ -782,8 +1002,8 @@ sde::platform::enable()
    # Add to craft platforms using mulle-bashfunctions
    r_colon_concat_if_missing "${craft_platforms}" "${platform}"
    craft_platforms="${RVAL}"
-   rexekutor mulle-sde environment set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
-   
+   rexekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
+
    log_info "Platform '${platform}' enabled"
 }
 
@@ -792,12 +1012,56 @@ sde::platform::enable_main()
 {
    log_entry "sde::platform::enable_main" "$@"
 
-   [ $# -eq 0 ] && sde::platform::usage "Missing platform name"
-   [ $# -gt 1 ] && sde::platform::usage "Superfluous arguments \"$*\""
+   local scope_flags=""
+   local has_scope='NO'
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::platform::enable_usage
+         ;;
+
+         --global|--this-os|--this-host|--this-user|--this-os-user)
+            scope_flags="$1"
+            has_scope='YES'
+         ;;
+
+         --os|--host|--user|--scope)
+            [ $# -lt 2 ] && sde::platform::enable_usage "Missing argument to \"$1\""
+            scope_flags="$1 $2"
+            has_scope='YES'
+            shift
+         ;;
+
+         -*)
+            sde::platform::enable_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   [ $# -eq 0 ] && sde::platform::enable_usage "Missing platform name"
+   [ $# -gt 1 ] && sde::platform::enable_usage "Superfluous arguments \"$*\""
 
    local platform="$1"
+   local read_scope_flags
+   local write_scope_flags
 
-   sde::platform::enable "${platform}"
+   if [ "${has_scope}" = 'YES' ]
+   then
+      read_scope_flags="${scope_flags}"
+      write_scope_flags="${scope_flags}"
+   else
+      read_scope_flags=""
+      write_scope_flags="--this-os"
+   fi
+
+   sde::platform::enable "${platform}" "${read_scope_flags}" "${write_scope_flags}"
    sde::platform::propagate_to_subdirs "enable" "$@"
 }
 
@@ -807,30 +1071,33 @@ sde::platform::disable()
    log_entry "sde::platform::disable" "$@"
 
    local platform="$1"
+   local read_scope_flags="${2:-}"
+   local write_scope_flags="${3:---this-os}"
+
    local craft_platforms
-   
+
    # Read literal value from environment (not expanded)
-   craft_platforms="`rexekutor mulle-sde environment get MULLE_CRAFT_PLATFORMS`"
-   
+   craft_platforms="`rexekutor mulle-sde environment ${read_scope_flags} get MULLE_CRAFT_PLATFORMS`"
+
    # Check if platform is in craft platforms
    if ! find_item "${craft_platforms}" "${platform}" ":"
    then
       log_warning "Platform '${platform}' is not enabled"
       return 0
    fi
-   
+
    # Remove platform from craft platforms using mulle-bashfunctions
    r_colon_remove "${craft_platforms}" "${platform}"
    craft_platforms="${RVAL}"
-   
+
    # Update environment (if empty after removal, remove the variable)
    if [ -z "${craft_platforms}" ]
    then
-      rexekutor mulle-sde environment remove MULLE_CRAFT_PLATFORMS
+      rexekutor mulle-sde environment ${write_scope_flags} remove MULLE_CRAFT_PLATFORMS
    else
-      rexekutor mulle-sde environment set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
+      rexekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
    fi
-   
+
    log_info "Platform '${platform}' disabled (dependencies kept)"
 }
 
@@ -839,12 +1106,56 @@ sde::platform::disable_main()
 {
    log_entry "sde::platform::disable_main" "$@"
 
-   [ $# -eq 0 ] && sde::platform::usage "Missing platform name"
-   [ $# -gt 1 ] && sde::platform::usage "Superfluous arguments \"$*\""
+   local scope_flags=""
+   local has_scope='NO'
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::platform::disable_usage
+         ;;
+
+         --global|--this-os|--this-host|--this-user|--this-os-user)
+            scope_flags="$1"
+            has_scope='YES'
+         ;;
+
+         --os|--host|--user|--scope)
+            [ $# -lt 2 ] && sde::platform::disable_usage "Missing argument to \"$1\""
+            scope_flags="$1 $2"
+            has_scope='YES'
+            shift
+         ;;
+
+         -*)
+            sde::platform::disable_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   [ $# -eq 0 ] && sde::platform::disable_usage "Missing platform name"
+   [ $# -gt 1 ] && sde::platform::disable_usage "Superfluous arguments \"$*\""
 
    local platform="$1"
+   local read_scope_flags
+   local write_scope_flags
 
-   sde::platform::disable "${platform}"
+   if [ "${has_scope}" = 'YES' ]
+   then
+      read_scope_flags="${scope_flags}"
+      write_scope_flags="${scope_flags}"
+   else
+      read_scope_flags=""
+      write_scope_flags="--this-os"
+   fi
+
+   sde::platform::disable "${platform}" "${read_scope_flags}" "${write_scope_flags}"
    sde::platform::propagate_to_subdirs "disable" "$@"
 }
 
@@ -864,6 +1175,7 @@ sde::platform::propagate_to_subdirs()
    local dir
 
    MULLE_SDE_DEMO_PATH="${MULLE_SDE_DEMO_PATH:-demo}"
+   MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
 
    local toolchain_path
 
@@ -875,26 +1187,16 @@ sde::platform::propagate_to_subdirs()
    r_basename "${toolchain_path}"
    toolchain_file="${RVAL}"
 
-   local extension
+   local cmake_dir
 
    r_path_extension "${toolchain_file}"
-   extension="${RVAL:-cmake}"
+   cmake_dir="${RVAL:-cmake}"
 
-   .foreachpath dir in ${MULLE_SDE_DEMO_PATH}
-   .do
-      if [ -d "${dir}" ]
-      then
-      (
-         rexekutor cd "${dir}"
-         log_info "Propagating to ${C_RESET_BOLD}${dir}"
-         MULLE_PLATFORM_RECURSE='NO' sde::platform::${cmd}_main "$@"
-      )
-      fi
-   .done
+   local subdirs
 
-   MULLE_SDE_TEST_PATH="${MULLE_SDE_TEST_PATH:-test}"
+   subdirs="${MULLE_SDE_TEST_PATH}:${MULLE_SDE_DEMO_PATH}"
 
-   .foreachpath dir in ${MULLE_SDE_TEST_PATH}
+   .foreachpath dir in ${subdirs}
    .do
       if [ -d "${dir}" ]
       then
@@ -903,12 +1205,13 @@ sde::platform::propagate_to_subdirs()
 
          if [ ! -z "${toolchain_file}" ]
          then
-            if [ ! -e "${extension}/${toolchain_file}" ]
+            if [ ! -e "${cmake_dir}/${toolchain_file}" ] \
+               && [ ! -e "${cmake_dir}/share/${toolchain_file}" ]
             then
                log_info "Copying toolchain file ${C_RESET_BOLD}${toolchain_file}${C_INFO} to ${C_RESET_BOLD}${dir}"
 
-               mkdir_if_missing "${extension}"
-               exekutor cp "${toolchain_path}" "${extension}/"
+               mkdir_if_missing "${cmake_dir}"
+               exekutor cp "${toolchain_path}" "${cmake_dir}/"
             fi
          fi
 

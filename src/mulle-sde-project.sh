@@ -571,12 +571,103 @@ sde::project::rename_old_to_new_filename()
 
    local renamed
 
+   # Skip if the new name is already in the filename (prevents double-replacement)
+   case "${filename}" in
+      *"${name}"*)
+         return 0
+      ;;
+   esac
+
    renamed="${filename/${old}/${name}}"
    if [ "${filename}" != "${renamed}" ]
    then
       log_verbose "Rename \"${filename}\" to \"${renamed}\""
       exekutor mv -f "${filename}" "${renamed}" || exit 1
    fi
+}
+
+
+#
+# Collect unique old/new rename pairs into _rename_pairs (newline-separated
+# "old:new" entries). Duplicates and pairs where old==new are skipped.
+# Longer old strings sort first so that more specific patterns are matched
+# before shorter ones that could be substrings.
+#
+sde::project::add_rename_pair()
+{
+   local old="$1"
+   local new="$2"
+
+   [ -z "${old}" ] && return
+   [ "${old}" = "${new}" ] && return
+
+   local pair="${old}:${new}"
+
+   # skip if already collected
+   case "${_rename_pairs}" in
+      "${pair}"|*$'\n'"${pair}"|"${pair}"$'\n'*|*$'\n'"${pair}"$'\n'*)
+         return
+      ;;
+   esac
+
+   r_add_line "${_rename_pairs}" "${pair}"
+   _rename_pairs="${RVAL}"
+}
+
+
+#
+# Sort _rename_pairs by descending length of the old part, so longer (more
+# specific) patterns are processed first. This prevents a shorter old string
+# from matching inside an already-renamed filename when the new name contains
+# the old name as a substring.
+#
+sde::project::r_sort_rename_pairs_by_length()
+{
+   local pairs="$1"
+
+   local pair
+   local old
+   local decorated=""
+
+   .foreachline pair in ${pairs}
+   .do
+      old="${pair%%:*}"
+      # prefix with zero-padded length for sort
+      r_add_line "${decorated}" "$(printf "%04d" "${#old}") ${pair}"
+      decorated="${RVAL}"
+   .done
+
+   # sort descending by length prefix, then strip the prefix
+   RVAL="$(sort -r <<< "${decorated}" | sed 's/^[0-9]* //')"
+}
+
+
+#
+# Run all collected rename pairs (longest-old-first) through the local and
+# walk-over rename helpers. Processing longest patterns first prevents a
+# shorter old string from re-matching inside an already-renamed filename
+# when the new name contains the old name as a substring.
+#
+sde::project::search_and_replace_filenames_with_pairs()
+{
+   log_entry "sde::project::search_and_replace_filenames_with_pairs" "$@"
+
+   local pairs="$1"
+
+   local pair
+   local old
+   local new
+
+   .foreachline pair in ${pairs}
+   .do
+      old="${pair%%:*}"
+      new="${pair#*:}"
+
+      sde::project::_local_search_and_replace_filenames "${old}" "${new}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${old}" "${new}" "f"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${old}" "${new}" "d"
+      sde::project::search_and_replace_filenames .idea "${old}" "${new}" "f"
+   .done
 }
 
 
@@ -751,6 +842,9 @@ sde::project::r_rename_current_project()
    OLD_PROJECT_DOWNCASE_IDENTIFIER="${PROJECT_DOWNCASE_IDENTIFIER}"
    OLD_PROJECT_UPCASE_IDENTIFIER="${PROJECT_UPCASE_IDENTIFIER}"
 
+   # Capture old TEST_PROJECT_NAME before any modification
+   OLD_TEST_PROJECT_NAME="${TEST_PROJECT_NAME}"
+
    if [ -z "${OLD_PROJECT_IDENTIFIER}" ]
    then
       r_identifier "${OLD_PROJECT_NAME}"
@@ -794,6 +888,26 @@ sde::project::r_rename_current_project()
    fi
 
    sde::project::set_name_variables "${newname}"
+
+   # Fix A: derive new TEST_PROJECT_NAME by applying the main-project rename
+   # substitution to the old value, so e.g. "Foo-test" → "Bar-test".
+   # When called recursively from rename_main (test descent), the new
+   # TEST_PROJECT_NAME is passed explicitly via OPTION_NEW_TEST_PROJECT_NAME.
+   if [ -n "${OPTION_NEW_TEST_PROJECT_NAME}" ]
+   then
+      sde::project::set_test_name_variables "${OPTION_NEW_TEST_PROJECT_NAME}"
+   elif [ -n "${OLD_TEST_PROJECT_NAME}" ]
+   then
+      local _new_test_name="${OLD_TEST_PROJECT_NAME}"
+      # Try substituting the full project name first
+      _new_test_name="${_new_test_name//${OLD_PROJECT_NAME}/${PROJECT_NAME}}"
+      # Fallback: try identifier form (handles capitalisation variants)
+      if [ "${_new_test_name}" = "${OLD_TEST_PROJECT_NAME}" ]
+      then
+         _new_test_name="${_new_test_name//${OLD_PROJECT_IDENTIFIER}/${PROJECT_IDENTIFIER}}"
+      fi
+      sde::project::set_test_name_variables "${_new_test_name}"
+   fi
    
    # Generate new modern C naming patterns
    NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO="${PROJECT_NAME//-/__}"
@@ -820,30 +934,46 @@ sde::project::r_rename_current_project()
    then
       log_verbose "Changing filenames"
 
-      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "f"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "d"
-      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_NAME}" "${PROJECT_NAME}" "f"
+      #
+      # Collect unique rename pairs and process longest-old-first to avoid
+      # double-replacement when the new name contains the old name as a
+      # substring (e.g. MulleUI -> MulleUIWidgetsBase).
+      #
+      local _rename_pairs=""
 
-      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "f"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "d"
-      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}" "f"
+      sde::project::add_rename_pair "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
+      sde::project::add_rename_pair "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
+      sde::project::add_rename_pair "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}"
+      sde::project::add_rename_pair "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}"
+      sde::project::add_rename_pair "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}"
 
-      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "f"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "d"
-      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}" "f"
+      # Fix B: when inside a test project, TEST_PROJECT_NAME refers to the main
+      # project. Include those pairs so #include "Foo.h" → #include "Bar.h".
+      if [ -n "${OLD_TEST_PROJECT_NAME}" ] && [ "${OLD_TEST_PROJECT_NAME}" != "${OLD_PROJECT_NAME}" ]
+      then
+         local _old_test_id _old_test_dc _old_test_uc
+         r_identifier "${OLD_TEST_PROJECT_NAME}"
+         _old_test_id="${RVAL}"
+         r_smart_downcase_identifier "${_old_test_id}"
+         _old_test_dc="${RVAL}"
+         r_smart_upcase_identifier "${_old_test_id}"
+         _old_test_uc="${RVAL}"
 
-      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "d"
-      sde::project::search_and_replace_filenames .idea "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}" "f"
+         sde::project::add_rename_pair "${OLD_TEST_PROJECT_NAME}" "${TEST_PROJECT_NAME}"
+         sde::project::add_rename_pair "${_old_test_id}" "${TEST_PROJECT_IDENTIFIER}"
+         sde::project::add_rename_pair "${_old_test_dc}" "${TEST_PROJECT_DOWNCASE_IDENTIFIER}"
+         sde::project::add_rename_pair "${_old_test_uc}" "${TEST_PROJECT_UPCASE_IDENTIFIER}"
+      fi
 
-      # Handle modern C naming patterns in filenames
-      sde::project::_local_search_and_replace_filenames "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "f"
-      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_filenames "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "d"
+      # Add underscore-prefixed pairs for filename matching (e.g., _ProjectName-import.h)
+      # These will sort before their non-prefixed versions due to greater length
+      sde::project::add_rename_pair "_${OLD_PROJECT_NAME}" "_${PROJECT_NAME}"
+      sde::project::add_rename_pair "_${OLD_PROJECT_IDENTIFIER}" "_${PROJECT_IDENTIFIER}"
+      sde::project::add_rename_pair "_${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "_${PROJECT_DOWNCASE_IDENTIFIER}"
+      sde::project::add_rename_pair "_${OLD_PROJECT_UPCASE_IDENTIFIER}" "_${PROJECT_UPCASE_IDENTIFIER}"
+
+      sde::project::r_sort_rename_pairs_by_length "${_rename_pairs}"
+      sde::project::search_and_replace_filenames_with_pairs "${RVAL}"
 
       changes="${changes}changes"
    fi
@@ -852,34 +982,63 @@ sde::project::r_rename_current_project()
    then
       log_verbose "Changing file contents"
 
-      # create inline sed expression command
+      #
+      # Collect unique old/new pairs for content replacement, reusing the
+      # same dedup helper as filenames. Pairs are sorted longest-old-first
+      # so that sed -e expressions process more specific patterns before
+      # shorter ones that could be substrings.
+      #
+      local _rename_pairs=""
+
+      sde::project::add_rename_pair "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
+      sde::project::add_rename_pair "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
+      sde::project::add_rename_pair "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" "${PROJECT_DOWNCASE_IDENTIFIER}"
+      sde::project::add_rename_pair "${OLD_PROJECT_UPCASE_IDENTIFIER}" "${PROJECT_UPCASE_IDENTIFIER}"
+      sde::project::add_rename_pair "${OLD_PROJECT_FUNCTION_PREFIX}" "${NEW_PROJECT_FUNCTION_PREFIX}"
+      sde::project::add_rename_pair "${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}" "${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}"
+      sde::project::add_rename_pair "${OLD_PROJECT_HEADER_GUARD}" "${NEW_PROJECT_HEADER_GUARD}"
+
+      # Fix B: when inside a test project, TEST_PROJECT_NAME refers to the main
+      # project. Include those pairs so file contents like #include "Foo.h" are
+      # renamed to #include "Bar.h".
+      if [ -n "${OLD_TEST_PROJECT_NAME}" ] && [ "${OLD_TEST_PROJECT_NAME}" != "${OLD_PROJECT_NAME}" ]
+      then
+         local _old_test_id _old_test_dc _old_test_uc
+         r_identifier "${OLD_TEST_PROJECT_NAME}"
+         _old_test_id="${RVAL}"
+         r_smart_downcase_identifier "${_old_test_id}"
+         _old_test_dc="${RVAL}"
+         r_smart_upcase_identifier "${_old_test_id}"
+         _old_test_uc="${RVAL}"
+
+         sde::project::add_rename_pair "${OLD_TEST_PROJECT_NAME}" "${TEST_PROJECT_NAME}"
+         sde::project::add_rename_pair "${_old_test_id}" "${TEST_PROJECT_IDENTIFIER}"
+         sde::project::add_rename_pair "${_old_test_dc}" "${TEST_PROJECT_DOWNCASE_IDENTIFIER}"
+         sde::project::add_rename_pair "${_old_test_uc}" "${TEST_PROJECT_UPCASE_IDENTIFIER}"
+      fi
+
+      sde::project::r_sort_rename_pairs_by_length "${_rename_pairs}"
+      local sorted_pairs="${RVAL}"
+
+      # build sed and grep command lines from sorted pairs
       local sed_cmdline
+      local grep_cmdline
+      local pair
+      local old
+      local new
 
       sed_cmdline="inplace_sed"
+      grep_cmdline="grep -q -s -n"
 
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_NAME}/${PROJECT_NAME}/g'"
-      if [ "${PROJECT_NAME}" != "${OLD_PROJECT_IDENTIFIER}" ]
-      then
-         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_IDENTIFIER}/${PROJECT_IDENTIFIER}/g'"
-      fi
-      if [ "${PROJECT_NAME}" != "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" -a \
-           "${PROJECT_IDENTIFIER}" != "${OLD_PROJECT_DOWNCASE_IDENTIFIER}" ]
-      then
-         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_DOWNCASE_IDENTIFIER}/${PROJECT_DOWNCASE_IDENTIFIER}/g'"
-      fi
-      if [ "${PROJECT_NAME}" != "${OLD_PROJECT_UPCASE_IDENTIFIER}" -a \
-           "${PROJECT_IDENTIFIER}" != "${OLD_PROJECT_UPCASE_IDENTIFIER}" ]
-      then
-         sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_UPCASE_IDENTIFIER}/${PROJECT_UPCASE_IDENTIFIER}/g'"
-      fi
+      .foreachline pair in ${sorted_pairs}
+      .do
+         old="${pair%%:*}"
+         new="${pair#*:}"
+         sed_cmdline="${sed_cmdline} -e 's/${old}/${new}/g'"
+         grep_cmdline="${grep_cmdline} -e '${old}'"
+      .done
 
-      # Add modern C naming pattern replacements - ORDER MATTERS!
-      # Replace longer patterns first to avoid partial matches
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_FUNCTION_PREFIX}/${NEW_PROJECT_FUNCTION_PREFIX}/g'"
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}/${NEW_PROJECT_DOUBLE_UNDERSCORE_MACRO}/g'"
-      sed_cmdline="${sed_cmdline} -e 's/${OLD_PROJECT_HEADER_GUARD}/${NEW_PROJECT_HEADER_GUARD}/g'"
-
-      # go for word boundary if set permits
+      # go for word boundary if sed permits
       local check
 
       check="$(sed 's/[[:<:]]old[[:>:]]/new/g' <<< "old moldy" 2> /dev/null)"
@@ -894,20 +1053,27 @@ sde::project::r_rename_current_project()
          fi
       fi
 
-      local grep_cmdline
-
-      grep_cmdline="grep -q -s -n"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_NAME}'"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_IDENTIFIER}'"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_DOWNCASE_IDENTIFIER}'"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_UPCASE_IDENTIFIER}'"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_DOUBLE_UNDERSCORE_MACRO}'"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_HEADER_GUARD}'"
-      grep_cmdline="${grep_cmdline} -e '${OLD_PROJECT_FUNCTION_PREFIX}'"
+      # Build additional sed commands for underscore-prefixed patterns
+      # This handles cases like _ProjectName-import.h
+      local underscore_sed_cmdline="inplace_sed"
+      local underscore_grep_cmdline="grep -q -s -n"
+      
+      .foreachline pair in ${sorted_pairs}
+      .do
+         old="${pair%%:*}"
+         new="${pair#*:}"
+         underscore_sed_cmdline="${underscore_sed_cmdline} -e 's/_${old}/_${new}/g'"
+         underscore_grep_cmdline="${underscore_grep_cmdline} -e '_${old}'"
+      .done
 
       sde::project::_local_search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
       sde::project::walk_over_mulle_match_path sde::project::search_and_replace_contents "${grep_cmdline}" "${sed_cmdline}"
       sde::project::search_and_replace_contents .idea "${grep_cmdline}" "${sed_cmdline}"
+
+      # Apply underscore-prefixed replacements
+      sde::project::_local_search_and_replace_contents "${underscore_grep_cmdline}" "${underscore_sed_cmdline}"
+      sde::project::walk_over_mulle_match_path sde::project::search_and_replace_contents "${underscore_grep_cmdline}" "${underscore_sed_cmdline}"
+      sde::project::search_and_replace_contents .idea "${underscore_grep_cmdline}" "${underscore_sed_cmdline}"
 
       changes="${changes}changes"
    fi
@@ -927,6 +1093,7 @@ sde::project::rename_main()
    local OPTION_SEARCH_REPLACE_CONTENTS='DEFAULT'
    local OPTION_SAVE_ENV='DEFAULT'
    local OPTION_TESTS='DEFAULT'
+   local OPTION_NEW_TEST_PROJECT_NAME=''
 
    local newname
 
@@ -978,6 +1145,14 @@ sde::project::rename_main()
 
          --no-tests)
             OPTION_TESTS='NO'
+         ;;
+
+         # Internal option used when recursing into test projects so the
+         # new TEST_PROJECT_NAME (= new main project name) is passed explicitly.
+         --new-test-project-name)
+            [ $# -eq 1 ] && sde::project::rename_usage "Missing argument to \"$1\""
+            shift
+            OPTION_NEW_TEST_PROJECT_NAME="$1"
          ;;
 
          -*)
@@ -1039,7 +1214,7 @@ sde::project::rename_main()
       then
          local cmdline
 
-         cmdline="--no-tests"
+         cmdline="--no-tests --new-test-project-name ${newname}"
 
          case "${OPTION_SEARCH_REPLACE_FILENAMES}" in
             'YES')
@@ -1076,15 +1251,32 @@ sde::project::rename_main()
             (
                MULLE_VIRTUAL_ROOT=
                MULLE_VIRTUAL_ROOT_ID=
-               PROJECT_NAME=
 
                log_verbose "$testdir"
+
+               # Fix C: derive the test project's new name by substituting the
+               # main project rename into its current PROJECT_NAME (e.g.
+               # "Foo-test" → "Bar-test"). PROJECT_NAME here is still the OLD
+               # main project name because the rename ran in a subshell above.
+               local _old_test_project_name
+               local _new_test_project_name
+               _old_test_project_name="$(cd "${testdir}" && \
+                  mulle-sde -s env get PROJECT_NAME 2>/dev/null)"
+               _new_test_project_name="${_old_test_project_name//${PROJECT_NAME}/${newname}}"
+               # If no substitution matched, fall back to bare newname
+               if [ -z "${_new_test_project_name}" ] || \
+                  [ "${_new_test_project_name}" = "${_old_test_project_name}" ]
+               then
+                  _new_test_project_name="${newname}"
+               fi
+
+               PROJECT_NAME=
 
                rexekutor cd "${testdir}" && \
                exekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
                               project \
                                  rename \
-                                    ${cmdline} "${newname}"
+                                    ${cmdline} "${_new_test_project_name}"
             )
          .done
       fi

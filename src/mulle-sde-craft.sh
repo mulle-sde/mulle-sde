@@ -370,6 +370,8 @@ sde::craft::create_craftorder_if_needed()
    local cachedir="$3"
    local dbrval="$4"
 
+   include "sde::craftorder"
+
    #
    # Possibly build a new craftorder file for sourcetree changes
    #
@@ -926,8 +928,7 @@ sde::craft::main()
    [ -z "${PROJECT_TYPE}" ] && _internal_fail "PROJECT_TYPE is undefined"
    [ -z "${MULLE_HOSTNAME}" ] &&  _internal_fail "old mulle-bashfunctions installed"
 
-   ! [ ${MULLE_SDE_CRAFTORDER_SH+x} ] && \
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
+   include "sde::craftorder"
 
    local _craftorderfile
    local _cachedir
@@ -1300,8 +1301,7 @@ sde::craft::craftstatus_main()
    local _craftorderfile
    local _cachedir
 
-   ! [ ${MULLE_SDE_CRAFTORDER_SH+x} ] && \
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
+   include "sde::craftorder"
 
    sde::craftorder::__get_info
 

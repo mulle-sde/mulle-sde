@@ -44,28 +44,20 @@ Usage:
 
 Examples:
       mulle-sde api list
-      mulle-sde api list --all
-      mulle-sde api list --flat
-      mulle-sde api cat 2
       mulle-sde api cat mulle-core
-      mulle-sde api find header zlib.h
-      mulle-sde api find library libz.a
       mulle-sde api apropos "how do I allocate memory?"
 
 Commands:
       list               : list available API documentation from dependencies
       cat <name>         : show API doc by number or dependency name
-      find <type> <name> : find header or library file in dependencies
-      apropos <question> : AI-powered or keyword search through API docs (alias: search)
+      context            : dump all API docs to stdout (pipe to AI tool)
+      apropos <question> : keyword search through API docs
+
+   For code search use: ${MULLE_USAGE_NAME} code
 
 List options:
       --all          : show all dependencies (default in vibecoding mode)
       --flat         : show only top-level dependencies (default otherwise)
-      
-Find types:
-      header         : find header file (e.g., zlib.h)
-      library        : find library file (e.g., libz.a)
-      symbol         : find symbol in headers (quick hack, may not work well)
       
 EOF
    exit 1
@@ -78,49 +70,25 @@ sde::api::apropos_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} api apropos <question>
+   ${MULLE_USAGE_NAME} api apropos [options] <question>
 
-   AI-powered or keyword-based search through all available API documentation.
+   Search through dependency API docs (TOC.md files) for relevant APIs using
+   keyword matching. If MULLE_SDE_AI_LOCAL is set, the question is passed to
+   an AI wrapper with API docs as context instead.
 
-   If MULLE_SDE_AI_LOCAL is set, it will be called with:
-      \${MULLE_SDE_AI_LOCAL} --context <file> "<prompt>"
+   For source code search use: ${MULLE_USAGE_NAME} code search
 
-   The AI wrapper should:
-   - Accept --context <filepath> (a temp file with API documentation)
-   - Accept the prompt as a single string argument
-   - Output the answer to stdout
-   - Return exit code 0 on success
-
-   Example wrapper script:
-      #!/bin/bash
-      while [ \$# -gt 0 ]; do
-        case "\$1" in
-          --context) shift; context_file="\$1" ;;
-          *) prompt="\$1" ;;
-        esac
-        shift
-      done
-      context=\$(cat "\${context_file}")
-      # Call your AI with context and prompt, output to stdout
-      your-ai-tool "\${context}" "\${prompt}"
-
-   Otherwise, falls back to grep with context lines (-B1 -A3).
-
-   Note: API docs can be large. Context prioritization:
-   1. Top-level dependencies first
-   2. Dependencies with "amalgamated" keyword next
-   3. Remaining dependencies (space permitting, up to 128K)
-
-   Alias: search
+Options:
+   --json    : output structured JSON (default when MULLE_VIBECODING=YES)
+   --no-json : force plain text output
 
 Examples:
-      mulle-sde api apropos "how do I allocate memory?"
-      mulle-sde api search "what is the container API?"
-      export MULLE_SDE_AI_LOCAL=~/bin/my-ai-wrapper.sh
-      mulle-sde api apropos "explain the threading model"
+   ${MULLE_USAGE_NAME} api apropos "allocate memory"
+   ${MULLE_USAGE_NAME} api apropos --json "container API"
 
 Environment:
-      MULLE_SDE_AI_LOCAL : Path to AI wrapper script
+   MULLE_SDE_AI_LOCAL : path to AI wrapper script
+   MULLE_VIBECODING   : set to YES to default to JSON output
 
 EOF
    exit 1
@@ -146,7 +114,8 @@ sde::api::ensure_dependencies_crafted()
 
    # Check if dependencies are already built
    local state
-   state="$(rexekutor mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
+
+   state="$(rexekutor ${MULLE_TECHNICAL_FLAGS:--s} quickstatus -p 2>/dev/null)" || state=""
 
    if [ "${state}" = "complete" ]
    then
@@ -160,15 +129,8 @@ sde::api::ensure_dependencies_crafted()
    # Capture exit code to prevent error cascade
    local rc
 
-   if sde::is_test_directory "$PWD"
-   then
-      rexekutor mulle-sde test craft
-      rc=$?
-   else
-      # Disable vibecoding check for this internal craft
-      rexekutor mulle-sde -DMULLE_VIBECODING=NO craft --no-clean craftorder
-      rc=$?
-   fi
+   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS:--s} -DMULLE_VIBECODING=NO craft --no-clean craftorder
+   rc=$?
 
    if [ $rc -ne 0 ]
    then
@@ -211,8 +173,8 @@ sde::api::r_collect_apis()
    log_entry "sde::api::r_collect_apis" "$@"
    
    local display="${1:-NO}"
-   
-   # If in test directory, inherit from parent project (subshell is OK here, no crafting)
+
+   # If in test directory, always delegate to parent - APIs live in main project
    if sde::is_test_directory "${PWD}"
    then
       log_debug "In test directory, moving to parent for APIs"
@@ -220,7 +182,7 @@ sde::api::r_collect_apis()
       r_dirname "${PWD}"
       parent_dir="${RVAL}"
       
-      (cd "${parent_dir}" 2>/dev/null && sde::api::r_collect_apis "$@")
+      (cd "${parent_dir}" 2>/dev/null && sde::api::r_collect_apis "${display}")
       return $?
    fi
    
@@ -229,18 +191,18 @@ sde::api::r_collect_apis()
    local apis
    local count=0
    local dependency_dir
-   
+
    dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
-   
+
    log_debug "dependency_dir='${dependency_dir}'"
-   
+
    if [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ]
    then
       log_debug "No dependency_dir or doesn't exist"
       RVAL=""
       return 0
    fi
-   
+
    local platforms
    local searchpath=':Release:Debug:RelDebug'
    local subdir
@@ -248,6 +210,8 @@ sde::api::r_collect_apis()
    local api
    local keywords_str
    local seen_repos
+   local search_dir
+   local reponame
 
    # Check if we have platform-specific directories
    platforms="$(rexekutor mulle-sde environment get MULLE_SOURCETREE_PLATFORMS 2>/dev/null)" || true
@@ -279,7 +243,6 @@ sde::api::r_collect_apis()
    .do
       .foreachpath subdir in ${searchpath}
       .do
-         local search_dir
          if [ -z "${platform_dir}" ]
          then
             search_dir="${dependency_dir}/${subdir}/share"
@@ -290,13 +253,16 @@ sde::api::r_collect_apis()
          log_debug "Checking ${search_dir}"
          if [ -d "${search_dir}" ]
          then
+            shell_enable_nullglob
             for repo in "${search_dir}"/*
             do
+               shell_disable_nullglob
+               [ -e "${repo}" ] || continue
                log_debug "Checking repo: ${repo}"
                if [ -d "${repo}" ]
                then
                   r_basename "${repo}"
-                  local reponame="${RVAL}"
+                  reponame="${RVAL}"
                   
                   if ! find_line "${seen_repos}" "${reponame}"
                   then
@@ -359,7 +325,7 @@ sde::api::r_collect_apis()
    
    log_debug "Total count: ${count}"
    log_debug "Collected apis: ${apis}"
-   
+
    RVAL="${apis}"
    return ${count}
 }
@@ -435,15 +401,7 @@ sde::api::list()
       # In vibecoding mode, if still no APIs, try full craft
       log_info "No APIs found, attempting full craft..."
 
-      local craft_cmd
-      if sde::is_test_directory "$PWD"
-      then
-         craft_cmd="mulle-sde test craft"
-      else
-         craft_cmd="mulle-sde craft craftorder"
-      fi
-
-      rexekutor ${craft_cmd} || fail "Could not build dependencies yet, so no APIs available"
+      rexekutor mulle-sde craft craftorder || fail "Could not build dependencies yet, so no APIs available"
       sde::api::r_collect_apis 'NO'
       count=$?
       apis="${RVAL}"
@@ -556,6 +514,8 @@ sde::api::cat()
    local found='NO'
    local index=0
    local api
+   local dir
+   local name
    
    # Check if identifier is a number
    case "${identifier}" in
@@ -579,11 +539,10 @@ sde::api::cat()
          .do
             # Extract dependency name from path
             # api is like: /path/to/dependency/Release/share/mulle-core/dox/TOC.md
-            local dir
             dir="$(dirname "${api}")"  # .../mulle-core/dox or .../mulle-core
             dir="$(dirname "${dir}")"  # .../mulle-core
             r_basename "${dir}"
-            local name="${RVAL}"
+            name="${RVAL}"
             
             if [ "${name}" = "${identifier}" ]
             then
@@ -617,7 +576,6 @@ sde::api::r_find_symbol()
    local name="$2"
    local follow="$3"
    
-   # some sort of fuzzy search would not be bad
    found="$(rexekutor find ${follow} "${dir}" -name "*.h" -exec grep -i -l "${name}" {} \; 2> /dev/null)"
    
    RVAL="${found}"
@@ -628,130 +586,9 @@ sde::api::find()
 {
    log_entry "sde::api::find" "$@"
 
-   # If in test directory, run in parent project using mudo
-   if sde::is_test_directory "${PWD}"
-   then
-      log_debug "In test directory, running find in parent via mudo"
-      local parent_dir
-      r_dirname "${PWD}"
-      parent_dir="${RVAL}"
-      
-      rexekutor mudo -e sh -c "cd '${parent_dir}' && mulle-sde api find $*"
-      return $?
-   fi
-
-   [ $# -eq 0 ] && sde::api::usage "Missing type argument"
-
-   local type=$1
-   shift
-
-   [ $# -eq 0 ] && sde::api::usage "Missing name argument"
-
-   local name=$1
-   shift
-
-   [ $# -ne 0 ] && sde::api::usage "Superflous arguments $*"
-
-   local dependency_dir
-   
-   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
-
-   if [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ]
-   then
-      fail "Need to craft dependencies first"
-   fi
-
-   (
-      eval `mulle-platform env`
-
-      local follow
-      local paths
-      local pattern
-
-      case "${type}" in
-         'h'|'header'|'s'|'symbol')
-            prefixes=
-            suffixes=".h"
-            paths="${dependency_dir}/Debug/include:${dependency_dir}/Release/include:${dependency_dir}/include"
-         ;;
-
-         'l'|'library')
-            paths="${dependency_dir}/Debug/lib:${dependency_dir}/Release/lib:${dependency_dir}/lib"
-            # We'll search for library files with proper prefix and suffix
-         ;;
-
-         *)
-            sde::api::usage "Unknown type \"${type}\""
-         ;;
-      esac
-
-      local dir
-      local abs_dir
-      local found
-
-      .foreachpath dir in ${paths}
-      .do
-         r_absolutepath "${dir}"
-         abs_dir="${RVAL}"
-
-         if [ ! -d "${abs_dir}" ]
-         then
-            .continue
-         fi
-
-         case "${type}" in
-            's'|'symbol')
-               sde::api::r_find_symbol "${abs_dir}" "${name}" ${follow}
-               found="${RVAL}"
-            ;;
-
-            'l'|'library')
-               # Search for library files with proper naming
-               # User can pass "mulle-core" or "libmulle-core.a"
-               # Try to match with platform-specific prefix and suffixes
-               
-               # First try exact match (files only)
-               found="$(rexekutor find ${follow} "${abs_dir}" -type f -name "${name}" -print 2> /dev/null | head -1)"
-               
-               if [ -z "${found}" ]
-               then
-                  # Try with prefix and static suffix
-                  found="$(rexekutor find ${follow} "${abs_dir}" -type f -name "${MULLE_PLATFORM_LIBRARY_PREFIX}${name}${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}" -print 2> /dev/null | head -1)"
-               fi
-               
-               if [ -z "${found}" ]
-               then
-                  # Try with prefix and dynamic suffix
-                  found="$(rexekutor find ${follow} "${abs_dir}" -type f -name "${MULLE_PLATFORM_LIBRARY_PREFIX}${name}${MULLE_PLATFORM_LIBRARY_SUFFIX_DYNAMIC}*" -print 2> /dev/null | head -1)"
-               fi
-               
-               if [ -z "${found}" ]
-               then
-                  # Try wildcard match
-                  found="$(rexekutor find ${follow} "${abs_dir}" -type f -name "*${name}*${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}" -print 2> /dev/null | head -1)"
-               fi
-               
-               if [ -z "${found}" ]
-               then
-                  # Try wildcard match with dynamic
-                  found="$(rexekutor find ${follow} "${abs_dir}" -type f -name "*${name}*${MULLE_PLATFORM_LIBRARY_SUFFIX_DYNAMIC}*" -print 2> /dev/null | head -1)"
-               fi
-            ;;
-
-            *)
-               found="$(rexekutor find ${follow} "${abs_dir}" -name "${name}" -print 2> /dev/null)"
-            ;;
-         esac
-
-         if [ ! -z "${found}" ]
-         then
-            printf "%s\n" "${found}"
-            return
-         fi
-      .done
-
-      log_warning "Nothing found"
-   )
+   # Delegate to code find
+   include "sde::code"
+   sde::code::find "$@"
 }
 
 
@@ -772,6 +609,13 @@ sde::api::apropos()
    fi
 
    local question
+   local output_json='NO'
+
+   # Default to JSON in vibecoding mode
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      output_json='YES'
+   fi
 
    # Parse options
    while [ $# -ne 0 ]
@@ -781,17 +625,27 @@ sde::api::apropos()
             sde::api::apropos_usage
          ;;
 
+         --json)
+            output_json='YES'
+         ;;
+
+         --no-json)
+            output_json='NO'
+         ;;
+
          -*)
             sde::api::apropos_usage "Unknown option $1"
          ;;
 
          *)
-            [ ! -z "${question}" ] && sde::api::apropos_usage "Too many arguments"
-            question="$1"
+            break
          ;;
       esac
       shift
    done
+
+   # Remaining arguments form the question
+   question="$*"
 
    [ -z "${question}" ] && sde::api::apropos_usage "Missing question"
 
@@ -955,8 +809,7 @@ Question: ${question}"
 
       return ${exit_code}
    else
-      # Fallback mode: extract keywords and grep
-      log_info "No AI configured, using keyword search fallback..."
+      # TOC.md keyword search
 
       # Extract meaningful keywords from question
       local keywords
@@ -968,25 +821,14 @@ Question: ${question}"
          tr '\n' ' ' | \
          sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
-      if [ -z "${keywords}" ]
-      then
-         log_warning "Could not extract meaningful keywords from question"
-         keywords="${question}"
-      fi
-
-      log_info "Searching for keywords: ${keywords}"
+      [ -z "${keywords}" ] && keywords="${question}"
 
       # Build grep pattern
       local pattern
       local word
       for word in ${keywords}
       do
-         if [ -z "${pattern}" ]
-         then
-            pattern="${word}"
-         else
-            pattern="${pattern}|${word}"
-         fi
+         pattern="${pattern:+${pattern}|}${word}"
       done
 
       if [ -z "${pattern}" ]
@@ -995,42 +837,198 @@ Question: ${question}"
          return 1
       fi
 
-      log_debug "Grep pattern: ${pattern}"
+      local all_matches=""
+      local reponame
+      local cnt
+      local matches
 
-      # Search through all API docs
-      local found='NO'
+      # rank files by match count, keep top 5, cap at 3 matches per file
+      local counts_file
+      r_make_tmp_file
+      counts_file="${RVAL}"
+      local api
       .foreachpath api in ${apis}
       .do
-         local matches
-         matches="$(rexekutor grep -B1 -A3 -n -H -i -E "${pattern}" "${api}" 2>/dev/null)"
+         cnt="$(rexekutor grep -c -i -E "${pattern}" "${api}" 2>/dev/null)"
+         [ "${cnt:-0}" -gt 0 ] && printf '%s %s\n' "${cnt}" "${api}" >> "${counts_file}"
+      .done
 
-         if [ ! -z "${matches}" ]
+      local ranked_apis
+      ranked_apis="$(sort -rn "${counts_file}" | head -5 | sed 's/^[0-9]* //')"
+      rm -f "${counts_file}"
+
+      for api in ${ranked_apis}
+      do
+         matches="$(rexekutor grep -m 3 -n -H -i -E "${pattern}" "${api}" 2>/dev/null)"
+         [ -z "${matches}" ] && continue
+
+         if [ "${output_json}" = 'YES' ]
          then
-            if [ "${found}" = 'NO' ]
-            then
-               echo "=== API Search Results for: ${question} ==="
-               echo ""
-               found='YES'
-            fi
-
+            all_matches="${all_matches}${matches}"$'\n'
+         else
             r_dirname "${api}"
             r_basename "${RVAL}"
             reponame="${RVAL}"
-
             echo "--- ${reponame} ---"
             echo "${matches}"
             echo ""
          fi
-      .done
+      done
 
-      if [ "${found}" = 'NO' ]
+      if [ "${output_json}" = 'YES' ]
       then
-         log_info "No matches found for keywords: ${keywords}"
-         return 1
+         if [ -z "${all_matches}" ]
+         then
+            log_info "No matches found in API docs"
+         else
+            local prev_file="" first_file='YES' first_line='YES'
+            local path lineno content
+            printf '['
+            while IFS= read -r line
+            do
+               [ -z "${line}" ] && continue
+               path="${line%%:*}"
+               line="${line#*:}"
+               lineno="${line%%:*}"
+               content="${line#*:}"
+               content="${content//\\/\\\\}"
+               content="${content//\"/\\\"}"
+               if [ "${path}" != "${prev_file}" ]
+               then
+                  [ "${first_file}" = 'NO' ] && printf ']},'
+                  first_file='NO'
+                  printf '{"filename":"%s","location":"%s","lines":[' \
+                     "${path##*/}" "${path}"
+                  first_line='YES'
+                  prev_file="${path}"
+               fi
+               [ "${first_line}" = 'NO' ] && printf ','
+               first_line='NO'
+               printf '{"line_number":%s,"content":"%s"}' "${lineno}" "${content}"
+            done <<< "${all_matches}"
+            printf ']}\n'
+            printf ']\n'
+         fi
       fi
    fi
 
    return 0
+}
+
+
+sde::api::context_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} api context [options]
+
+   Output all API documentation (TOC.md files) from dependencies to stdout,
+   suitable for piping to an AI tool. Content is prioritized and truncated
+   to fit within the context size limit.
+
+Options:
+   --context-size <n> : maximum output in bytes (default: 131072 = 128K)
+
+Examples:
+   ${MULLE_USAGE_NAME} api context | my-ai-tool "how do I allocate memory?"
+   ${MULLE_USAGE_NAME} api context --context-size 262144 > /tmp/context.txt
+
+EOF
+   exit 1
+}
+
+
+sde::api::context()
+{
+   log_entry "sde::api::context" "$@"
+
+   local max_chars=131072
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::api::context_usage
+         ;;
+         --context-size)
+            shift
+            max_chars="${1:-131072}"
+         ;;
+         -*)
+            sde::api::context_usage "Unknown option $1"
+         ;;
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   sde::api::ensure_dependencies_crafted "API information"
+
+   sde::api::r_collect_apis 'NO'
+   local count=$?
+   local apis="${RVAL}"
+
+   if [ ${count} -eq 0 ]
+   then
+      log_info "No API documentation found. Run 'mulle-sde craft' to build dependencies."
+      return 1
+   fi
+
+   local toplevel_deps
+   toplevel_deps="$(mulle-sourcetree -s list 2>/dev/null | tail -n +3)" || toplevel_deps=""
+
+   local current_chars=0
+   local api reponame content keywords_str
+
+   # emit one api file to stdout, track size, return 1 if limit reached
+   _emit_api()
+   {
+      local api_file="$1"
+      [ -f "${api_file}" ] || return 1
+      content="$(cat "${api_file}" 2>/dev/null)"
+      local len=${#content}
+      if [ $((current_chars + len + 200)) -ge ${max_chars} ]
+      then
+         log_debug "Context size limit reached at ${current_chars} chars"
+         return 1
+      fi
+      r_dirname "${api_file}"; r_basename "${RVAL}"; reponame="${RVAL}"
+      printf '\n--- %s ---\n%s\n' "${reponame}" "${content}"
+      current_chars=$((current_chars + len + 200))
+      return 0
+   }
+
+   # Pass 1: top-level deps
+   .foreachpath api in ${apis}
+   .do
+      r_dirname "${api}"; r_basename "${RVAL}"; reponame="${RVAL}"
+      echo "${toplevel_deps}" | grep -q "^${reponame}$" || .continue
+      _emit_api "${api}" || .break
+   .done
+
+   # Pass 2: amalgamated
+   [ ${current_chars} -lt ${max_chars} ] &&
+   .foreachpath api in ${apis}
+   .do
+      r_dirname "${api}"; r_basename "${RVAL}"; reponame="${RVAL}"
+      echo "${toplevel_deps}" | grep -q "^${reponame}$" && .continue
+      sde::api::r_extract_keywords "${api}"
+      echo "${RVAL}" | grep -q -i "amalgamated" || .continue
+      _emit_api "${api}" || .break
+   .done
+
+   # Pass 3: remaining
+   [ ${current_chars} -lt ${max_chars} ] &&
+   .foreachpath api in ${apis}
+   .do
+      _emit_api "${api}" || .break
+   .done
+
+   log_debug "Context output: ${current_chars} chars from ${count} available docs"
 }
 
 
@@ -1081,8 +1079,12 @@ sde::api::main()
          sde::api::find "$@"
       ;;
       
-      'apropos'|'search')
+      'apropos')
          sde::api::apropos "$@"
+      ;;
+
+      'context')
+         sde::api::context "$@"
       ;;
 
       *)

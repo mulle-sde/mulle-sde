@@ -193,6 +193,8 @@ sde::edit::main()
    if sde::r_determine_project_dir
    then
       MULLE_VIRTUAL_ROOT="${RVAL}"
+      MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
 
       log_debug "Sourcing environment from ${MULLE_VIRTUAL_ROOT#${MULLE_USER_PWD}/}..."
 

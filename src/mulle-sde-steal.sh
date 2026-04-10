@@ -202,7 +202,7 @@ sde::steal::create_include_files()
 
 #
 # TODO: Doesn't work 100% for mulle-data, since it embeds farmhash, which
-# ususally runs configure before (though it never uses the config.h file ?)
+# ususually runs configure before (though it never uses the config.h file ?)
 # Doesn't work for mulle-thread, since it doesn't catch mintomic.
 #
 

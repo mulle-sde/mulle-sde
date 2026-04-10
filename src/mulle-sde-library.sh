@@ -838,6 +838,17 @@ sde::library::list_main()
 }
 
 
+sde::library::reflect_on_demand()
+{
+   if [ "${MULLE_VIBECODING}" = 'YES' ]
+   then
+      include "sde::reflect"
+
+      sde::reflect::main
+   fi
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -888,6 +899,13 @@ sde::library::main()
    case "${cmd}" in
       add|export|get|list|set)
          sde::library::${cmd}_main "$@"
+         rc=$?
+         case "${cmd}" in
+            add|set)
+               sde::library::reflect_on_demand $rc
+            ;;
+         esac
+         return $rc
       ;;
 
       move)
@@ -904,6 +922,9 @@ sde::library::main()
                            --silent-but-warn \
                         'move' \
                            "$@"
+         rc=$?
+         sde::library::reflect_on_demand $rc
+         return $rc
       ;;
 
 
@@ -916,6 +937,9 @@ sde::library::main()
                            --silent-but-warn \
                         ${cmd} \
                            "$@"
+         rc=$?
+         sde::library::reflect_on_demand $rc
+         return $rc
       ;;
 
       "")

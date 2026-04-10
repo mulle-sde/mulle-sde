@@ -55,7 +55,13 @@ Usage:
    ${MULLE_USAGE_NAME} test coverage --mulle cov.html
 
 Options:
-   See \`mulle-test help\` for options
+   --platform <name> : run tests for this platform only (use 'all' to reset)
+   --sdk <name>      : use this SDK
+   --configuration   : use this configuration (default: Debug)
+   See \`mulle-test help\` for more options
+
+   Note: --platform, --sdk, --configuration must be placed BEFORE the command.
+   e.g.: ${MULLE_USAGE_NAME} test --platform windows craft
 
 Command:
    clean      : clean tests and or dependencies
@@ -64,15 +70,14 @@ Command:
    coverage   : do a coverage run
    crun       : craft and run tests
    crerun     : craft and rerun failed tests
-   generate   : generate some simple test files (Objective-C only)
    init       : initialize a test directory
-   linkorder  : show library command for linking test executable
+   link-args  : show library command for linking test executable (alias: linkorder)
    nrun       : run tests without crafting
    nrerun     : rerun failed tests without crafting
    recraft    : re-craft library and dependencies
    recrun     : clean all, craft and run tests
    rerun      : rerun failed tests
-   retest     : clean gravetidy and then craft and run tests once more
+   retest     : clean tidy, craft and run tests. If --platform given, persists it in MULLE_TEST_PLATFORMS (use 'all' to reset)
    run        : run tests (crafts if MULLE_VIBECODING=YES)
    test-dir   : list test directories
 
@@ -123,8 +128,14 @@ Usage:
    You need to \`mulle-sde test clean all\` before running tests without
    coverage information again.
 
+   If PROJECT_DIALECT is objc (or --clang is given), all deps are compiled
+   with mulle-clang so coverage uses a single compiler. llvm-cov is used
+   instead of gcovr in that case.
+
 Options:
+      --clang    : force mulle-clang for all deps (default for objc projects)
       --craft    : skips step "clean"
+      --gcc      : use system gcc for deps (default for C projects)
       --gcov     : use gcov instead of gcovr
       --lines    : run --json and extract lines of code field (needs jq)
       --mulle    : create "coverage.html" with mulle style gcovr options
@@ -253,7 +264,8 @@ sde::test::coverage()
    local OPTION_RUN='YES'
    local OPTION_SHOW='YES'
    local OPTION_JQ='NO'
-   local OPTION_GCOV='gcovr'
+   local OPTION_GCOV=''
+   local OPTION_COMPILER=''
    local RUN_CMD="run"
 
    local CRAFT_RUN_FLAGS
@@ -265,6 +277,14 @@ sde::test::coverage()
       case "$1" in
          -h|help|--help)
             sde::test::coverage_usage
+         ;;
+
+         --clang)
+            OPTION_COMPILER='mulle-clang'
+         ;;
+
+         --gcc)
+            OPTION_COMPILER='gcc'
          ;;
 
          --craft|--recraft|--no-clean)
@@ -360,13 +380,44 @@ sde::test::coverage()
          exekutor cd "${projectdir}"
       fi
 
+      local testdir
+
+      sde::test::r_test_directories
+      testdir="${RVAL%%:*}"
+
+      # Auto-detect compiler mode from PROJECT_DIALECT if not forced
+      local compiler
+      compiler="${OPTION_COMPILER}"
+      if [ -z "${compiler}" ]
+      then
+         local dialect
+         dialect="`rexekutor "${MULLE_ENV:-mulle-env}" get PROJECT_DIALECT 2>/dev/null`"
+         case "${dialect}" in
+            objc|m)
+               compiler='mulle-clang'
+            ;;
+         esac
+      fi
+
+      # Default gcov tool based on compiler
+      local gcov_tool
+      gcov_tool="${OPTION_GCOV}"
+      if [ -z "${gcov_tool}" ]
+      then
+         case "${compiler}" in
+            mulle-clang|clang)
+               gcov_tool='mulle-cov'
+            ;;
+            *)
+               gcov_tool='gcovr'
+            ;;
+         esac
+      fi
+
       local jsonfile
 
       if [ "${OPTION_JQ}" = 'YES' ]
       then
-         local testdir
-
-         testdir="`rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} -s test test-dir | head -1`"
          r_filepath_concat "${testdir}" "coverage.json"
          jsonfile="${RVAL}"
 
@@ -380,32 +431,41 @@ sde::test::coverage()
          fi
       fi
 
-      # true && true || echo 1 -> nothing
       # clean recrafts all dependencies as no-coverage
       if [ "${OPTION_CLEAN}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Build dependencies without coverage"
-         sde::test::forward 'YES' clean all   || exit 1
+         exekutor_mulle_sde "${testdir}" clean all   || exit 1
          OPTION_CRAFT='YES'
       fi
 
       if [ "${OPTION_CRAFT}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Rebuild selected dependencies with coverage"
-         sde::test::forward 'YES' --coverage craft ${CRAFT_RUN_FLAGS} || exit 1
+         local compiler_flags
+         if [ ! -z "${compiler}" ]
+         then
+            compiler_flags="--cc ${compiler}"
+         fi
+         # Coverage builds must be serial: parallel platform builds share the
+         # same kitchen dir and the non-coverage platform (windows) would
+         # overwrite the coverage-instrumented .so from the linux build.
+         sde::test::craft "${testdir}" --coverage --serial ${compiler_flags} || exit 1
+         sde::test::postprocess "${testdir}" --coverage ${CRAFT_RUN_FLAGS} || exit 1
+         sde::test::update_link_args "${testdir}" --coverage ${CRAFT_RUN_FLAGS} || exit 1
       fi
       if [ "${OPTION_RUN}" = 'YES' ]
       then
          # must run tests serially, otherwise the coverage files may end up
          # inconsistent
          log_info "${C_BR_BLUE}${C_BOLD}* Run tests"
-         sde::test::forward 'YES' --coverage "${RUN_CMD}" ${CRAFT_RUN_FLAGS} --serial || exit 1
+         exekutor_mulle_test "${testdir}" --coverage "${RUN_CMD}" ${CRAFT_RUN_FLAGS} --serial || exit 1
       fi
 
       if [ "${OPTION_SHOW}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Produce coverage information"
-         sde::test::forward 'YES' coverage "${OPTION_GCOV}" ${GCOV_FLAGS} "$@" || exit 1
+         exekutor_mulle_test "${testdir}" coverage "${gcov_tool}" ${GCOV_FLAGS} "$@" || exit 1
       fi
 
       if [ "${OPTION_JQ}" = 'YES' ]
@@ -468,7 +528,7 @@ MULLE_SOURCETREE_PLATFORMS"
    .done
 
    # Move platform loop settings into test environment
-   value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get --lenient MULLE_SDE_TEST_PLATFORMS 2>/dev/null`"
+   value="`rexekutor "${MULLE_ENV:-mulle-env}" environment get --lenient MULLE_TEST_PLATFORMS 2>/dev/null`"
    value="${value:-`rexekutor "${MULLE_ENV:-mulle-env}" environment get --lenient MULLE_CRAFT_PLATFORMS 2>/dev/null`}"
    if [ ! -z "${value}" ]
    then
@@ -595,6 +655,8 @@ sde::test::r_validate_test_run_paths()
       local shifts
       local remainder
 
+      include "test::options"
+
       test::options::r_parse "$@"
       shifts="${RVAL}"
 
@@ -604,7 +666,6 @@ sde::test::r_validate_test_run_paths()
       local filename
       local test_dir
       local test_file
-      local test_env
 
       if [ $# -eq  0 ]
       then
@@ -612,6 +673,9 @@ sde::test::r_validate_test_run_paths()
          RVAL=
          return 0 # is ok
       fi
+
+      local ext
+      local extensions
 
       while [ $# -ne 0 ]
       do
@@ -630,9 +694,6 @@ sde::test::r_validate_test_run_paths()
          if [ ! -e "${filename}" ]
          then
             # Try adding extensions from PROJECT_EXTENSIONS before failing
-            local ext
-            local extensions
-
             sde::test::r_get_test_project_extensions
             extensions="${RVAL}"
 
@@ -700,6 +761,7 @@ sde::test::r_test_directories()
    log_entry "sde::test::r_test_directories" "$@"
 
    local directory="${1:-}"
+   local missing="${2:-fail}"   # "fail" or "ignore"
 
    local directories
 
@@ -707,16 +769,23 @@ sde::test::r_test_directories()
    directories="${directories:-test}"
 
    local dir
+   local result=""
 
    .foreachpath dir in ${directories}
    .do
       if [ ! -d "${dir}" ]
       then
+         if [ "${missing}" = "ignore" ]
+         then
+            continue
+         fi
          fail "Test directory ${C_RESET_BOLD}${dir}${C_ERROR} is missing ($PWD)"
       fi
+      r_colon_concat "${result}" "${dir}"
+      result="${RVAL}"
    .done
 
-   RVAL="${directories}"
+   RVAL="${result}"
 }
 
 
@@ -725,17 +794,70 @@ sde::test::r_test_platforms()
    log_entry "sde::test::r_test_platforms" "$@"
 
    local directory="${1:-}"
+   local test_platforms
+   local craft_platforms
+   local platform
+   local platforms
 
-   platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_TEST_PLATFORMS)"
-   log_setting "MULLE_TEST_PLATFORMS: ${platforms}"
-   if [ -z "${platforms}" ]
+   test_platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_TEST_PLATFORMS)"
+   craft_platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_CRAFT_PLATFORMS)"
+   craft_platforms="${craft_platforms:-${MULLE_UNAME}}"
+
+   log_setting "MULLE_TEST_PLATFORMS: ${test_platforms}"
+   log_setting "MULLE_CRAFT_PLATFORMS: ${craft_platforms}"
+
+   if [ -z "${test_platforms}" ]
    then
-      platforms="$(mulle-env -E -d "${directory}" get --output-eval MULLE_CRAFT_PLATFORMS)"
-      log_setting "MULLE_CRAFT_PLATFORMS: ${platforms}"
+      platforms="${craft_platforms}"
+   else
+      platforms=""
+      .foreachpath platform in ${test_platforms}
+      .do
+         if find_item "${craft_platforms}" "${platform}" ":"
+         then
+            r_colon_concat_if_missing "${platforms}" "${platform}"
+            platforms="${RVAL}"
+         fi
+      .done
+      [ -z "${platforms}" ] && fail "MULLE_TEST_PLATFORMS narrows MULLE_CRAFT_PLATFORMS, but there is no overlap (test='${test_platforms}', craft='${craft_platforms}')."
    fi
-   platforms="${platforms:-${MULLE_UNAME}}"
+   log_setting "EFFECTIVE_TEST_PLATFORMS: ${platforms}"
 
    RVAL="${platforms}"
+}
+
+
+#
+# Explode a cmdchain like "craft:run" with platforms "linux:windows" into
+# "craft.Default-linux-Debug:run.Default-linux-Debug:craft.Default-windows-Debug:run.Default-windows-Debug"
+# (grouped per platform)
+#
+sde::test::r_explode_cmdchain()
+{
+   log_entry "sde::test::r_explode_cmdchain" "$@"
+
+   local cmdchain="$1"
+   local platforms="$2"
+   local sdk="${3:-Default}"
+   local configuration="${4:-Debug}"
+
+   local exploded
+   local platform
+   local cmd
+   local style
+
+   .foreachpath platform in ${platforms}
+   .do
+      style="${sdk}-${platform}-${configuration}"
+
+      .foreachpath cmd in ${cmdchain}
+      .do
+         r_colon_concat "${exploded}" "${cmd}.${style}"
+         exploded="${RVAL}"
+      .done
+   .done
+
+   RVAL="${exploded}"
 }
 
 
@@ -866,6 +988,8 @@ sde::test::auto_clean()
    shift 2
 
    (
+      include "test::options"
+
       test::options::r_parse "$@"
 
       if [ "${OPTION_CLEAN}" = 'NO' ]
@@ -909,7 +1033,31 @@ sde::test::craft()
 
    (
       local OPTION_CLEAN='NO'
-      local OPTION_PARALLEL='NO'
+      local OPTION_PARALLEL='DEFAULT'
+      local OPTION_CC=''
+
+      # consume --cc before test::options::r_parse
+      local _args=()
+      while [ $# -ne 0 ]
+      do
+         case "$1" in
+            --cc)
+               [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+               shift
+               OPTION_CC="$1"
+            ;;
+            -DCC=*)
+               OPTION_CC="${1#-DCC=}"
+            ;;
+            *)
+               _args+=( "$1" )
+            ;;
+         esac
+         shift
+      done
+      set -- "${_args[@]}"
+
+      include "test::options"
 
       test::options::r_parse "$@"
 
@@ -920,21 +1068,40 @@ sde::test::craft()
          local toolchain_dir="/opt/mulle-clang-project-${OPTION_PLATFORM}"
          if [ ! -d "${toolchain_dir}" ]
          then
+            local test_platforms
+            local craft_platforms
+            local fix_hint
+
+            test_platforms="`mulle-env -E get --output-eval MULLE_TEST_PLATFORMS 2>/dev/null`"
+            craft_platforms="`mulle-env -E get --output-eval MULLE_CRAFT_PLATFORMS 2>/dev/null`"
+
+            fix_hint="${C_RESET_BOLD}mulle-sde platform disable ${OPTION_PLATFORM}"
+            if [ ! -z "${test_platforms}" ] && find_item "${test_platforms}" "${OPTION_PLATFORM}" ":"
+            then
+               fix_hint="${C_RESET_BOLD}mulle-sde test --platform all retest"
+            fi
+
             fail "Cross-compilation to platform '${OPTION_PLATFORM}' requires a toolchain in ${toolchain_dir}.
-${C_INFO}Either install the cross-compilation toolchain or remove the platform from test configuration."
+${C_INFO}Effective test platforms are resolved as MULLE_CRAFT_PLATFORMS, optionally narrowed by MULLE_TEST_PLATFORMS.
+MULLE_TEST_PLATFORMS='${test_platforms}'
+MULLE_CRAFT_PLATFORMS='${craft_platforms}'
+Either install the cross-compilation toolchain or remove '${OPTION_PLATFORM}' from the effective test platform configuration.
+   ${fix_hint}"
          fi
       fi
 
       local sde_args
 
-      if [ "${OPTION_PARALLEL}" = 'YES' ]
-      then
-         r_add_line "${sde_args}" "--parallel"
-         sde_args="${RVAL}"
-      else
-         r_add_line "${sde_args}" "--serial"
-         sde_args="${RVAL}"
-      fi
+      case "${OPTION_PARALLEL}" in
+         'YES')
+            r_add_line "${sde_args}" "--parallel"
+            sde_args="${RVAL}"
+         ;;
+         'NO')
+            r_add_line "${sde_args}" "--serial"
+            sde_args="${RVAL}"
+         ;;
+      esac
 
       # we handle clean separately
       r_add_line "${sde_args}" "--no-clean"
@@ -975,6 +1142,11 @@ ${C_INFO}Either install the cross-compilation toolchain or remove the platform f
 
       local make_args=""
 
+      if [ ! -z "${OPTION_CC}" ]
+      then
+         r_add_line "${make_args}" "-DCC=${OPTION_CC}"
+         make_args="${RVAL}"
+      fi
 
       if [ "${OPTION_COVERAGE}" = 'YES' ]
       then
@@ -985,6 +1157,8 @@ ${C_INFO}Either install the cross-compilation toolchain or remove the platform f
          r_add_line "${make_args}" "-DOTHER_CFLAGS+=-DNDEBUG"
          make_args="${RVAL}"
          r_add_line "${make_args}" "-DOTHER_CFLAGS+=-DNS_BLOCK_ASSERTIONS"
+         make_args="${RVAL}"
+         r_add_line "${make_args}" "-DOTHER_LDFLAGS+=--coverage"
          make_args="${RVAL}"
       else
          if [ ! -z "${SANITIZER}" ]
@@ -1051,27 +1225,6 @@ sde::test::generic()
    shift 2
 
    (
-      test::options::r_parse "$@"
-      shift ${RVAL}
-
-      #
-      # preprend known options to argument
-      #
-      if [ ! -z "${OPTION_CONFIGURATION}" ]
-      then
-         set -- --configuration "${OPTION_CONFIGURATION}" "$@"
-      fi
-
-      if [ ! -z "${OPTION_PLATFORM}" ]
-      then
-         set -- --platform "${OPTION_PLATFORM}" "$@"
-      fi
-
-      if [ ! -z "${OPTION_SDK}" ]
-      then
-         set -- --sdk "${OPTION_SDK}" "$@"
-      fi
-
       log_fluff "Executing ${cmd} in ${directory}"
 
       exekutor_mulle_sde "${directory}" "${cmd}" "$@"
@@ -1089,6 +1242,8 @@ sde::test::postprocess()
    (
       local OPTION_CLEAN='NO'
       local OPTION_PARALLEL='NO'
+
+      include "test::options"
 
       test::options::r_parse "$@"
 
@@ -1111,9 +1266,20 @@ sde::test::link_args()
    local directory="$1"
    shift
 
+   case "${PROJECT_TYPE}" in
+      library|framework)
+      ;;
+      *)
+         log_fluff "Skipping link-args for ${PROJECT_TYPE} project"
+         return 0
+      ;;
+   esac
+
    (
       local OPTION_CLEAN='NO'
       local OPTION_PARALLEL='NO'
+
+      include "test::options"
 
       test::options::r_parse "$@"
       shift $RVAL
@@ -1138,9 +1304,20 @@ sde::test::update_link_args()
    local directory="$1"
    shift
 
+   case "${PROJECT_TYPE}" in
+      library|framework|executable)
+      ;;
+      *)
+         log_fluff "Skipping update-link-args for ${PROJECT_TYPE} project"
+         return 0
+      ;;
+   esac
+
    (
       local OPTION_CLEAN='NO'
       local OPTION_PARALLEL='NO'
+
+      include "test::options"
 
       test::options::r_parse "$@"
       shift $RVAL
@@ -1184,29 +1361,48 @@ sde::test::persist_platform_setting()
 
    case "${state}" in
       proj*)
-         # Set MULLE_TEST_PLATFORMS in each test directory
          local directory
 
          .foreachpath directory in ${test_directories}
          .do
-            rexekutor "${MULLE_ENV:-mulle-env}" \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS} \
-                           -d "${directory}" \
-                        environment --scope project \
-                           set MULLE_TEST_PLATFORMS "${platform}"
-            log_verbose "Set MULLE_TEST_PLATFORMS=${platform} in ${directory}"
+            if [ "${platform}" = 'all' ]
+            then
+               rexekutor "${MULLE_ENV:-mulle-env}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_ENV_FLAGS} \
+                              -d "${directory}" \
+                           environment --scope project \
+                              remove MULLE_TEST_PLATFORMS
+               log_verbose "Removed MULLE_TEST_PLATFORMS in ${directory}"
+            else
+               rexekutor "${MULLE_ENV:-mulle-env}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_ENV_FLAGS} \
+                              -d "${directory}" \
+                           environment --scope project \
+                              set MULLE_TEST_PLATFORMS "${platform}"
+               log_verbose "Set MULLE_TEST_PLATFORMS=${platform} in ${directory}"
+            fi
          .done
       ;;
 
       test*)
-         # Set in current test directory
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                        ${MULLE_TECHNICAL_FLAGS} \
-                        ${MULLE_ENV_FLAGS} \
-                     environment --scope project \
-                        set MULLE_TEST_PLATFORMS "${platform}"
-         log_verbose "Set MULLE_TEST_PLATFORMS=${platform}"
+         if [ "${platform}" = 'all' ]
+         then
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment --scope project \
+                           remove MULLE_TEST_PLATFORMS
+            log_verbose "Removed MULLE_TEST_PLATFORMS"
+         else
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                           ${MULLE_TECHNICAL_FLAGS} \
+                           ${MULLE_ENV_FLAGS} \
+                        environment --scope project \
+                           set MULLE_TEST_PLATFORMS "${platform}"
+            log_verbose "Set MULLE_TEST_PLATFORMS=${platform}"
+         fi
       ;;
    esac
 }
@@ -1263,9 +1459,26 @@ sde::test::main()
    while [ $# -ne 0 ]
    do
       case "$1" in
-         --platform|--sdk|--configuration)
-            fail "\"$1\" must be placed before the command.
-${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
+         --platform)
+            [ $# -lt 2 ] && sde::test::usage "Missing argument to \"$1\""
+            shift
+            OPTION_PLATFORM="$1"
+            shift
+         ;;
+         --sdk)
+            [ $# -lt 2 ] && sde::test::usage "Missing argument to \"$1\""
+            shift
+            OPTION_SDK="$1"
+            shift
+         ;;
+         --configuration)
+            [ $# -lt 2 ] && sde::test::usage "Missing argument to \"$1\""
+            shift
+            OPTION_CONFIGURATION="$1"
+            shift
+         ;;
+         -h|--help|help)
+            sde::test::usage
          ;;
          *)
             _filtered_args+=( "$1" )
@@ -1301,6 +1514,17 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
    then
       state="${state}-env"
    fi
+
+   local PROJECT_TYPE
+   case "${state}" in
+      test*)
+         # read PROJECT_TYPE from parent project, not the test subproject (which is 'none')
+         PROJECT_TYPE="$(rexekutor "${MULLE_ENV:-mulle-env}" -d "${test_root}/.." get --output-eval PROJECT_TYPE 2>/dev/null)"
+      ;;
+      *)
+         PROJECT_TYPE="$(rexekutor "${MULLE_ENV:-mulle-env}" get --output-eval PROJECT_TYPE 2>/dev/null)"
+      ;;
+   esac
 
    # we could be running outside of every environment
    if [ -z "${MULLE_UNAME}" ]
@@ -1358,17 +1582,54 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
       ;;
 
       generate)
-         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
-         then
-            sde::exec_command_in_subshell "CD" test generate "$@"
-         else
-            sde::test::generate "$@"
-         fi
-         return $?
+         log_warning "The 'generate' command has been removed. Use an AI assistant to generate test files."
+         return 1
       ;;
 
       test*|craft|crun|crerun|rec|run|nrun|recrun|rerun)
          # handled later
+      ;;
+
+      craftorder|linkorder|link-args|log)
+         local test_cmd="${cmd}"
+         case "${test_cmd}" in
+            linkorder) test_cmd='link-args' ;;
+         esac
+         case "${test_cmd}" in
+            link-args|linkorder)
+               case "${PROJECT_TYPE}" in
+                  library|framework|executable)
+                  ;;
+                  *)
+                     log_warning "link-args/linkorder is not available for ${PROJECT_TYPE} projects"
+                     return 0
+                  ;;
+               esac
+            ;;
+         esac
+         # For 'log' in test context, default to '*' (all projects) since the
+         # test project itself has no main cmake build, only craftorder deps
+         local log_args=( "$@" )
+         if [ "${test_cmd}" = 'log' -a $# -eq 0 ]
+         then
+            log_args=( '*' )
+         fi
+         case "${state}" in
+            proj*)
+               sde::test::r_test_directories
+               sde::test::generic "${RVAL%%:*}" "${test_cmd}" \
+                  --platform "${OPTION_PLATFORM}" \
+                  --configuration "${OPTION_CONFIGURATION:-Debug}" \
+                  "${log_args[@]}"
+            ;;
+            test*)
+               sde::test::generic "" "${test_cmd}" \
+                  --platform "${OPTION_PLATFORM}" \
+                  --configuration "${OPTION_CONFIGURATION:-Debug}" \
+                  "${log_args[@]}"
+            ;;
+         esac
+         return $?
       ;;
 
       *)
@@ -1399,17 +1660,31 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
 
    include "test::options"
 
-   cmdchain="${cmdchain:-${cmd}}"
 
    local test_directories
-   local clean_before_run='NO'
 
    case "${state}" in
       proj*)
-         sde::test::r_test_directories
+         local _missing_dir_mode
+         case "${cmd}" in
+            test-dir) _missing_dir_mode="ignore" ;;
+            *)        _missing_dir_mode="fail"   ;;
+         esac
+         sde::test::r_test_directories "" "${_missing_dir_mode}"
          test_directories="${RVAL}"
       ;;
    esac
+
+   case "${cmd}" in
+      test-dir)
+         printf "%s\n" "${test_directories}"
+         return 0
+      ;;
+   esac
+
+   local clean_before_run='NO'
+
+   cmdchain="${cmdchain:-${cmd}}"
 
    case ":${cmdchain}:" in
       *:clean:*|*:auto-clean:*)
@@ -1472,6 +1747,17 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
    esac
 
    # Determine platforms once at the top level
+   local banner
+   local cmd_part style_part sdk_part platform_part configuration_part
+   local crafted_styles
+   local dependency_dir
+   local exploded_cmdchain
+   local last_banner
+   local remaining
+   local test_dir_for_platform
+   local tidy_done='NO'
+   local token
+
    case "${state}" in
       proj*)
          # For project state, we'll handle platforms per test directory
@@ -1482,188 +1768,80 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
             test_directories="${specific_test_directory}"
          fi
 
-         local test_dir_for_platform
-         local tidy_done='NO'
-         
          .foreachpath test_dir_for_platform in ${test_directories}
          .do
+            tidy_done='NO'
             sde::test::r_test_platforms "${test_dir_for_platform}"
-            platforms=${RVAL}
-            
-            # Override platforms if --platform was specified
-            if [ ! -z "${OPTION_PLATFORM}" ]
+            platforms="${RVAL}"
+
+            if [ ! -z "${OPTION_PLATFORM}" -a "${OPTION_PLATFORM}" != 'all' ]
             then
                platforms="${OPTION_PLATFORM}"
             fi
 
-            log_setting "r_test_platforms ($test_dir_for_platform): ${platforms}"
 
-            # Cache DEPENDENCY_DIR once per test directory (not per platform)
-            local dependency_dir
             dependency_dir="$(mulle-env -E -d "${test_dir_for_platform}" get --output-eval DEPENDENCY_DIR 2>/dev/null)"
-            
-            local platform_for_cmdchain
-            
-            .foreachpath platform_for_cmdchain in ${platforms}
-            .do
-               log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}${C_INFO} in ${C_RESET_BOLD}${test_dir_for_platform#${MULLE_USER_PWD}/}${C_INFO} 🔸🔸🔸"
-               
-               .foreachpath cmd in ${cmdchain}
-               .do
-                  log_debug "${cmd}::${state}::${platform_for_cmdchain}"
 
-                  case "${cmd}" in
-                     'auto-clean')
-                        # Skip tidy if already done
-                        if [ "${cleanargs}" = 'tidy' -a "${tidy_done}" = 'YES' ]
-                        then
-                           log_debug "Skipping tidy (already done)"
-                        else
-                           if [ "${cleanargs}" = 'project' ]
-                           then
-                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
-                              if [ -z "${target}" ]
-                              then
-                                 target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
-                              fi
-                           else
-                              target="${cleanargs}"
-                           fi
+            sde::test::r_explode_cmdchain "${cmdchain}" \
+                                          "${platforms}" \
+                                          "${OPTION_SDK:-Default}" \
+                                          "${OPTION_CONFIGURATION:-Debug}"
+            exploded_cmdchain="${RVAL}"
 
-                           if ! sde::test::auto_clean "${test_dir_for_platform}" "${target:-all}" --platform "${platform_for_cmdchain}" "$@"
-                           then
-                              if [ "${OPTION_LENIENT}" != 'YES' ]
-                              then
-                                 exit 1
-                              fi
-                           fi
+            remaining="${exploded_cmdchain}"
 
-                           # Mark tidy as done
-                           if [ "${cleanargs}" = 'tidy' ]
-                           then
-                              tidy_done='YES'
-                           fi
-                        fi
-                     ;;
+            while [ ! -z "${remaining}" ]
+            do
+               token="${remaining%%:*}"
+               if [ "${remaining}" = "${token}" ]
+               then
+                  remaining=""
+               else
+                  remaining="${remaining#*:}"
+               fi
 
-                     'clean'|'craftorder'|'log')
-                        if ! sde::test::generic "${test_dir_for_platform}" "${cmd}" --platform "${platform_for_cmdchain}" "$@"
-                        then
-                           if [ "${OPTION_LENIENT}" != 'YES' ]
-                           then
-                              exit 1
-                           fi
-                        fi
-                     ;;
+               cmd_part="${token%%.*}"
+               style_part="${token#*.}"
+               # style is sdk-platform-configuration
+               sdk_part="${style_part%%-*-*}"
+               configuration_part="${style_part##*-}"
+               platform_part="${style_part#*-}"
+               platform_part="${platform_part%-*}"
 
-                     'craft'|'postprocess'|'update-link-args'|'link-args')
-                        if ! sde::test::${cmd//-/_} "${test_dir_for_platform}" --platform "${platform_for_cmdchain}" "$@"
-                        then
-                           if [ "${OPTION_LENIENT}" != 'YES' ]
-                           then
-                              exit 1
-                           fi
-                        fi
-                     ;;
+               log_debug "${cmd_part}::${state}::${platform_part}"
 
-                     'run'|'rerun')
-                        local run_directory
-                        
-                        if ! sde::test::r_validate_test_run_paths "$@"
-                        then
-                           return 1
-                        fi
-                        run_directory="${RVAL}"
+               banner="${platform_part}:${test_dir_for_platform}"
+               if [ "${banner}" != "${last_banner}" ]
+               then
+                  last_banner="${banner}"
+                  log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_part}${C_INFO} in ${C_RESET_BOLD}${test_dir_for_platform#${MULLE_USER_PWD}/}${C_INFO} 🔸🔸🔸"
+               fi
 
-                        # Check if link file exists, craft if missing
-                        if [ ! -z "${dependency_dir}" ]
-                        then
-                           include "test::link-args"
-                           if ! test::link_args::r_linkfile_path "${dependency_dir}" \
-                                                                  "${platform_for_cmdchain}" \
-                                                                  "${OPTION_SDK:-Default}" \
-                                                                  "${OPTION_CONFIGURATION:-Debug}"
-                           then
-                              log_info "Link file missing for ${platform_for_cmdchain}, crafting first..."
-                              sde::test::craft "${test_dir_for_platform}" \
-                                               --platform "${platform_for_cmdchain}" \
-                                               "$@"
-                           fi
-                        fi
-
-                        if [ ! -z "${run_directory}" ]
-                        then
-                           exekutor_mulle_test "${run_directory}" --platform "${platform_for_cmdchain}" "${cmd}" "$@"
-                        else
-                           if ! exekutor_mulle_test "${test_dir_for_platform}" --platform "${platform_for_cmdchain}" "${cmd}" "$@"
-                           then
-                              if [ "${OPTION_LENIENT}" != 'YES' ]
-                              then
-                                 exit 1
-                              fi
-                           fi
-                        fi
-                     ;;
-                  esac
-               .done
-            .done
-         .done
-      ;;
-
-      test*)
-         sde::test::r_test_platforms "${test_root}"
-         platforms=${RVAL}
-         
-         # Override platforms if --platform was specified
-         if [ ! -z "${OPTION_PLATFORM}" ]
-         then
-            platforms="${OPTION_PLATFORM}"
-         fi
-
-         log_setting "r_test_platforms ($test_root): ${platforms}"
-
-         # Cache DEPENDENCY_DIR once for this test directory
-         local dependency_dir
-         dependency_dir="$(mulle-env -E get --output-eval DEPENDENCY_DIR 2>/dev/null)"
-         
-         local platform_for_cmdchain
-         local tidy_done='NO'
-         
-         .foreachpath platform_for_cmdchain in ${platforms}
-         .do
-            log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_for_cmdchain}${C_INFO} 🔸🔸🔸"
-            
-            .foreachpath cmd in ${cmdchain}
-            .do
-               log_debug "${cmd}::${state}::${platform_for_cmdchain}"
-
-               case "${cmd}" in
+               case "${cmd_part}" in
                   'auto-clean')
-                     # Skip tidy if already done
                      if [ "${cleanargs}" = 'tidy' -a "${tidy_done}" = 'YES' ]
                      then
                         log_debug "Skipping tidy (already done)"
                      else
                         if [ "${cleanargs}" = 'project' ]
                         then
-                           target="$(mulle-env -d "${directory}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                           target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
                            if [ -z "${target}" ]
                            then
-                              target="$(mulle-env -d "${directory}" -s get --output-eval 'PROJECT_NAME')"
+                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
                            fi
                         else
                            target="${cleanargs}"
                         fi
 
-                        if ! sde::test::auto_clean "" "${target:-all}" --platform "${platform_for_cmdchain}" "$@"
+                        if ! sde::test::auto_clean "${test_dir_for_platform}" "${target:-all}" --platform "${platform_part}" "$@"
                         then
                            if [ "${OPTION_LENIENT}" != 'YES' ]
                            then
                               exit 1
                            fi
                         fi
-                        
-                        # Mark tidy as done
+
                         if [ "${cleanargs}" = 'tidy' ]
                         then
                            tidy_done='YES'
@@ -1671,8 +1849,8 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
                      fi
                   ;;
 
-                  'clean'|'craftorder'|'log')
-                     if ! sde::test::generic "" "${cmd}" --platform "${platform_for_cmdchain}" "$@"
+                  'clean')
+                     if ! sde::test::generic "${test_dir_for_platform}" "${cmd_part}" --platform "${platform_part}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then
@@ -1682,7 +1860,7 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
                   ;;
 
                   'craft'|'postprocess'|'update-link-args'|'link-args')
-                     if ! sde::test::${cmd//-/_} "" --platform "${platform_for_cmdchain}" "$@"
+                     if ! sde::test::${cmd_part//-/_} "${test_dir_for_platform}" --platform "${platform_part}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then
@@ -1692,31 +1870,186 @@ ${C_INFO}Use: ${C_RESET_BOLD}mulle-sde test $1 <value> ${cmd} ...${C_INFO}"
                   ;;
 
                   'run'|'rerun')
-                     # Check if link file exists, craft if missing
-                     if [ ! -z "${dependency_dir}" ]
+                     # If link file missing, prepend craft steps to remaining chain (once only)
+                     include "test::link-args"
+                     if case "${PROJECT_TYPE}" in library|framework) true ;; *) false ;; esac && \
+                        ! test::link_args::r_linkfile_path "${dependency_dir}" \
+                                                           "${platform_part}" \
+                                                           "${sdk_part}" \
+                                                           "${configuration_part}"
                      then
-                        include "test::link-args"
-                        if ! test::link_args::r_linkfile_path "${dependency_dir}" \
-                                                               "${platform_for_cmdchain}" \
-                                                               "${OPTION_SDK:-Default}" \
-                                                               "${OPTION_CONFIGURATION:-Debug}"
+                        case ":${crafted_styles}:" in
+                           *":${style_part}:"*)
+                              log_warning "Craft did not produce link file for ${platform_part}, skipping"
+                           ;;
+                           *)
+                              log_debug "Link file missing for ${platform_part}, crafting first..."
+                              r_colon_concat "${crafted_styles}" "${style_part}"
+                              crafted_styles="${RVAL}"
+                              local prepend
+                              prepend="craft.${style_part}:postprocess.${style_part}:update-link-args.${style_part}:${cmd_part}.${style_part}"
+                              remaining="${prepend}${remaining:+:${remaining}}"
+                              continue
+                           ;;
+                        esac
+                     else
+                        local run_directory
+                        run_directory=""
+                        if ! sde::test::r_validate_test_run_paths "$@"
                         then
-                           log_info "Link file missing for ${platform_for_cmdchain}, crafting first..."
-                           sde::test::craft "" --platform "${platform_for_cmdchain}" "$@"
+                           return 1
+                        fi
+                        run_directory="${RVAL}"
+
+                        if [ ! -z "${run_directory}" ]
+                        then
+                           exekutor_mulle_test "${run_directory}" --platform "${platform_part}" "${cmd_part}" "$@"
+                        else
+                           if ! exekutor_mulle_test "${test_dir_for_platform}" --platform "${platform_part}" "${cmd_part}" "$@"
+                           then
+                              if [ "${OPTION_LENIENT}" != 'YES' ]
+                              then
+                                 exit 1
+                              fi
+                           fi
                         fi
                      fi
+                  ;;
+               esac
+            done
+         .done
+      ;;
 
-                     if ! exekutor_mulle_test "${directory}" --platform "${platform_for_cmdchain}" "${cmd}" "$@"
+      test*)
+         sde::test::r_test_platforms "${test_root}"
+         platforms="${RVAL}"
+
+         if [ ! -z "${OPTION_PLATFORM}" -a "${OPTION_PLATFORM}" != 'all' ]
+         then
+            platforms="${OPTION_PLATFORM}"
+         fi
+
+         dependency_dir="$(mulle-env -E get --output-eval DEPENDENCY_DIR 2>/dev/null)"
+
+         sde::test::r_explode_cmdchain "${cmdchain}" \
+                                       "${platforms}" \
+                                       "${OPTION_SDK:-Default}" \
+                                       "${OPTION_CONFIGURATION:-Debug}"
+         exploded_cmdchain="${RVAL}"
+         remaining="${exploded_cmdchain}"
+
+         while [ ! -z "${remaining}" ]
+         do
+            token="${remaining%%:*}"
+            if [ "${remaining}" = "${token}" ]
+            then
+               remaining=""
+            else
+               remaining="${remaining#*:}"
+            fi
+
+            cmd_part="${token%%.*}"
+            style_part="${token#*.}"
+            sdk_part="${style_part%%-*-*}"
+            configuration_part="${style_part##*-}"
+            platform_part="${style_part#*-}"
+            platform_part="${platform_part%-*}"
+
+            log_debug "${cmd_part}::${state}::${platform_part}"
+
+            if [ "${platform_part}" != "${last_banner}" ]
+            then
+               last_banner="${platform_part}"
+               log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_part}${C_INFO} 🔸🔸🔸"
+            fi
+
+            case "${cmd_part}" in
+               'auto-clean')
+                  if [ "${cleanargs}" = 'tidy' -a "${tidy_done}" = 'YES' ]
+                  then
+                     log_debug "Skipping tidy (already done)"
+                  else
+                     if [ "${cleanargs}" = 'project' ]
+                     then
+                        target="$(mulle-env -d "${directory}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                        if [ -z "${target}" ]
+                        then
+                           target="$(mulle-env -d "${directory}" -s get --output-eval 'PROJECT_NAME')"
+                        fi
+                     else
+                        target="${cleanargs}"
+                     fi
+
+                     if ! sde::test::auto_clean "" "${target:-all}" --platform "${platform_part}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then
                            exit 1
                         fi
                      fi
-                  ;;
-               esac
-            .done
-         .done
+
+                     if [ "${cleanargs}" = 'tidy' ]
+                     then
+                        tidy_done='YES'
+                     fi
+                  fi
+               ;;
+
+               'clean')
+                  if ! sde::test::generic "" "${cmd_part}" --platform "${platform_part}" "$@"
+                  then
+                     if [ "${OPTION_LENIENT}" != 'YES' ]
+                     then
+                        exit 1
+                     fi
+                  fi
+               ;;
+
+               'craft'|'postprocess'|'update-link-args'|'link-args')
+                  if ! sde::test::${cmd_part//-/_} "" --platform "${platform_part}" "$@"
+                  then
+                     if [ "${OPTION_LENIENT}" != 'YES' ]
+                     then
+                        exit 1
+                     fi
+                  fi
+               ;;
+
+               'run'|'rerun')
+                  # If link file missing, prepend craft steps to remaining chain (once only)
+                  include "test::link-args"
+                  if case "${PROJECT_TYPE}" in library|framework) true ;; *) false ;; esac && \
+                     ! test::link_args::r_linkfile_path "${dependency_dir}" \
+                                                        "${platform_part}" \
+                                                        "${sdk_part}" \
+                                                        "${configuration_part}"
+                  then
+                     case ":${crafted_styles}:" in
+                        *":${style_part}:"*)
+                           log_warning "Craft did not produce link file for ${platform_part}, skipping"
+                        ;;
+                        *)
+                           log_debug "Link file missing for ${platform_part}, crafting first..."
+                           r_colon_concat "${crafted_styles}" "${style_part}"
+                           crafted_styles="${RVAL}"
+                           local prepend
+                           prepend="craft.${style_part}:postprocess.${style_part}:update-link-args.${style_part}:${cmd_part}.${style_part}"
+                           remaining="${prepend}${remaining:+:${remaining}}"
+                           continue
+                        ;;
+                     esac
+                  else
+                     if ! exekutor_mulle_test "${directory}" --platform "${platform_part}" "${cmd_part}" "$@"
+                     then
+                        if [ "${OPTION_LENIENT}" != 'YES' ]
+                        then
+                           exit 1
+                        fi
+                     fi
+                  fi
+               ;;
+            esac
+         done
       ;;
    esac
 }

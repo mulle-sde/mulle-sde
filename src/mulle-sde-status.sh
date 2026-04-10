@@ -160,8 +160,7 @@ sde::status::config()
    local _craftorderfile
    local _cachedir
 
-   [ -z "${MULLE_SDE_CRAFTORDER_SH}" ] && \
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftorder.sh"
+   include "sde::craftorder"
 
    sde::craftorder::__get_info
 

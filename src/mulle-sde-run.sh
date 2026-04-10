@@ -131,14 +131,14 @@ sde::run::vibecodehelp()
    if [ ! -z "$(dir_list_files "${directory}"  "main-${executablename}.*" 'f' 2> /dev/null)"  ]
    then
       r_dirname "${directory}"
-      log_info "Did you mean ${C_RESET_BOLD}${executablename}${C_INFO} ? Run this instead:
+      _log_info "Did you mean ${C_RESET_BOLD}${executablename}${C_INFO} ? Run this instead:
 ${C_RESET_BOLD}   (cd \"${RVAL}\" && mulle-sde run ${executablename})"
       return
    fi
 
    if [ ! -d test ]
    then
-      log_info "Hint: to run tests use
+      _log_info "Hint: to run tests use
 ${C_RESET_BOLD}mulle-sde test run ${executablename}.${PROJECT_EXTENSIONS%%:*}"
    fi
 }
@@ -302,7 +302,7 @@ sde::run::main()
       shift
    done
 
-   if [ "${OPTION_CRAFT}" = 'DEFAULT' ]
+   if [ "${OPTION_CRAFT}" = 'DEFAULT' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
       OPTION_CRAFT="${MULLE_SDE_CRAFT_BEFORE_RUN:-NO}"
    fi

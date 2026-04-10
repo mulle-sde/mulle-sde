@@ -642,6 +642,7 @@ sde::init::add_to_sourcetree()
 #   log_debug
 
    MULLE_VIRTUAL_ROOT="" \
+   MULLE_VIRTUAL_ROOT_ID="" \
       exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                      -N \
                      ${MULLE_TECHNICAL_FLAGS} \
@@ -2847,7 +2848,7 @@ sde::init::validate_projecttype()
 
             rexekutor mudo -f mulle-menu --title "Choose language and library set:" \
                                          --final-title "" \
-                                         --timeout 10 \
+                                         --timeout ${MULLE_SDE_AI_TIMEOUT:-10} \
                                          --options "${options}"
             row=$?
             r_line_at_index "${options}" "${row}"
@@ -3157,7 +3158,7 @@ sde::init::_run_common()
 
       rexekutor mudo -f mulle-menu --title "Choose a project type:" \
                                    --final-title "" \
-                                   --timeout 10 \
+                                   --timeout ${MULLE_SDE_AI_TIMEOUT:-10} \
                                    "executable" \
                                    "library" \
                                    "none (choose for existing projects)"
@@ -3278,7 +3279,9 @@ sde::init::check_dot_init()
          if sde::init::_check_file "${MULLE_SDE_SHARE_DIR}/.init"
          then
             fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"${PWD}\". \
-It looks like an init gone bad."
+It looks like an init gone bad.
+${C_INFO}To clean up and retry:
+${C_RESET_BOLD}   chmod -R +rwX .mulle && rm -rf .mulle"
          fi
 
          fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"${PWD}\".
@@ -4189,21 +4192,43 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
 
       if [ -z "${OPTION_DIRECTORY}" ]
       then
-         local seconds
-
+         MULLE_SDE_AI_TIMEOUT=${MULLE_SDE_AI_TIMEOUT:-10}
          # AI needs a timeout to not get stuck and reading input for a project name would be sticky again
          log_info "You did not specify a project name with ${C_RESET_BOLD}-d <projectname>${C_INFO}"
          log_info "So mulle-sde will initialize the current directory."
-         log_warning "If you don't want your project in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_WARNING}, you have 10s timeout to hit CTRL-C and bail out."
-         seconds=10
+         log_warning "If you don't want your project in ${C_RESET_BOLD}${PWD#${MULLE_USER_PWD}/}${C_WARNING}, you have ${MULLE_SDE_AI_TIMEOUT}s to hit CTRL-C and bail out."
 
-         while (( seconds > 0 ))
-         do
-             printf "." >&2
-             (( seconds = seconds - 1 ))
-             sleep 1
-         done
-         printf "\n" >&2
+         # Only show interactive prompt if stdin is a terminal
+         if [ -t 0 ]
+         then
+            log_info "Press RETURN to continue immediately."
+
+            # Show dots while waiting, but exit early if user hits return
+            local i=0
+            while [ $i -lt ${MULLE_SDE_AI_TIMEOUT} ]
+            do
+               if read -t 1 -r
+               then
+                  # User hit return - disable AI timeouts for rest of session
+                  MULLE_SDE_AI_TIMEOUT=0
+                  break
+               fi
+               printf "." >&2
+               i=$((i + 1))
+            done
+            printf "\n" >&2
+         else
+            # Non-interactive (AI/piped) - just do the countdown
+            local seconds=${MULLE_SDE_AI_TIMEOUT:-10}
+
+            while (( seconds > 0 ))
+            do
+                printf "." >&2
+                (( seconds = seconds - 1 ))
+                sleep 1
+            done
+            printf "\n" >&2
+         fi
       fi
    fi
 

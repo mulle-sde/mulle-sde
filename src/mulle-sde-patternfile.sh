@@ -161,8 +161,8 @@ sde::patternfile::main()
          if ! MULLE_PATTERNFILE_EDITOR=$(command  -v "${name}")
          then
             fail "\"${name}\" not installed.
-${C_INFO}You can get ${C_RESET_BOLD}mulle-patternfile-editor${C_INFO} from
-${C_RESET}   https://github.com/mulle-sde/mulle-patternfile-editor"
+${C_INFO}You can install ${C_RESET_BOLD}mulle-patternfile-editor${C_INFO} with:
+${C_RESET}   npm install -g mulle-patternfile-editor"
          fi
          rexekutor "${MULLE_PATTERNFILE_EDITOR}" "$@"
       ;;

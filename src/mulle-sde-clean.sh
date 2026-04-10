@@ -98,6 +98,12 @@ sde::clean::r_craft_targets()
 
    cachefile="${MULLE_SDE_VAR_DIR}/cache/targets"
 
+   # remove stale empty cache so we re-query the sourcetree
+   if [ -f "${cachefile}" ] && [ ! -s "${cachefile}" ]
+   then
+      remove_file_if_present "${cachefile}"
+   fi
+
    local targets
 
    if [ ! -f "${cachefile}" ]
@@ -128,10 +134,15 @@ sde::clean::r_craft_targets()
       .done
 
       r_mkdir_parent_if_missing "${cachefile}"
-      redirect_exekutor "${cachefile}" sort <<< "${text}"
+      if [ -z "${text}" ]
+      then
+         remove_file_if_present "${cachefile}"
+      else
+         redirect_exekutor "${cachefile}" sort <<< "${text}"
+      fi
    fi
 
-   RVAL="`rexekutor cat "${cachefile}"`"
+   RVAL="`rexekutor cat "${cachefile}" 2>/dev/null`"
 }
 
 
@@ -242,11 +253,7 @@ sde::clean::craftinfo()
 {
    log_entry "sde::clean::craftinfo" "$@"
 
-   if [ -z "${MULLE_SDE_CRAFTINFO_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-craftinfo.sh" || \
-         _internal_fail "missing file"
-   fi
+   include "sde::craftinfo"
 
    local craftinfos
 
@@ -443,11 +450,7 @@ sde::clean::subproject()
 {
    log_entry "sde::clean::subproject" "$@"
 
-   if [ -z "${MULLE_SDE_SUBPROJECT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-subproject.sh" || \
-         _internal_fail "missing file"
-   fi
+   include "sde::subproject"
 
    local subprojects
 

@@ -86,6 +86,7 @@ sde::test::link_args_get_link_command()
                ${MULLE_SDE_FLAGS:-} \
                ${MULLE_FWD_FLAGS:-} \
                --defines "${MULLE_DEFINE_FLAGS:-}" \
+               -DMULLE_VIBECODING=NO \
             link-args \
                --output-format ld \
                --output-no-final-lf \
@@ -220,7 +221,8 @@ sde::test::link_args_main()
 
    if [ -z "${OPTION_DEPENDENCY_DIR}" ]
    then
-      OPTION_DEPENDENCY_DIR=$(rexekutor mulle-env -E -d "${OPTION_DIRECTORY}" exec mulle-craft dependency-dir) || exit 1
+      eval "$(rexekutor mulle-env -E -d "${OPTION_DIRECTORY}" exec mulle-craft tool-env craft)" || exit 1
+      OPTION_DEPENDENCY_DIR="${DEPENDENCY_DIR}"
    fi
 
    [ -z "${OPTION_DEPENDENCY_DIR}" ] && _fail "dependency dir is still empty"

@@ -576,7 +576,7 @@ sde::list::main()
          fi
          spacer="echo"
       else
-         log_warning "No files listed in \"none\" projects.
+         _log_warning "No files listed in \"none\" projects.
 ${C_INFO}Use -f flag to force listing"
       fi
    fi

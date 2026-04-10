@@ -64,17 +64,40 @@ sde::vibecoding::check_craft_vs_test_craft()
 
    .foreachpath dir in ${test_directories}
    .do
-      if [ -d "${dir}" ]
+      if [ -d "${dir}" -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
       then
-         fail "This project has a test folder.
-In vibecoding mode, use:
-   ${C_RESET_BOLD}mulle-sde test craft${C_ERROR}
+         fail "Crafting disabled as ${C_MAGENTA}${C_BOLD}vibecoding${C_ERROR} is enabled and a test folder exists.
+${C_INFO}Vibecoding is test-driven development. So use this instead:
+   ${C_RESET_BOLD}mulle-sde test craft"
+      fi
+   .done
+}
 
-instead of:
-   ${C_RESET_BOLD}mulle-sde craft${C_ERROR}
 
-This ensures the test environment is properly set up and dependencies
-are built for testing."
+# Check if log should be redirected to test log in vibecoding mode
+# This is called from the PROJECT directory (not test directory)
+#
+sde::vibecoding::check_log_vs_test_log()
+{
+   log_entry "sde::vibecoding::check_log_vs_test_log" "$@"
+
+   [ "${MULLE_VIBECODING}" != 'YES' ] && return 0
+
+   # Check if test directories exist
+   local test_directories
+
+   test_directories="$(mulle-env environment get MULLE_SDE_TEST_PATH 2>/dev/null)"
+   test_directories="${test_directories:-test}"
+
+   local dir
+
+   .foreachpath dir in ${test_directories}
+   .do
+      if [ -d "${dir}" -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+      then
+         fail "Log disabled as ${C_MAGENTA}${C_BOLD}vibecoding${C_ERROR} is enabled and a test folder exists.
+${C_INFO}Vibecoding is test-driven development. So use this instead:
+   ${C_RESET_BOLD}mulle-sde test log"
       fi
    .done
 }

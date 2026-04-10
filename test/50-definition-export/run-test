@@ -67,6 +67,36 @@ main()
    log_verbose "----- #1 Setup PASSED -----"
 
    #
+   # Test that 'set' without flags emits the additive info message,
+   # and that any flag suppresses it.
+   #
+   (
+      cd "${original}" || exit 1
+
+      # default: should print info about appending
+      output="$(run_mulle_sde definition set CFLAGS "-g" 2>&1)"
+      case "${output}" in
+         *appended*) ;;
+         *) fail "Expected additive info message, got: ${output}" ;;
+      esac
+
+      # --clobber: should be silent
+      output="$(run_mulle_sde definition set --clobber CC clang 2>&1)"
+      case "${output}" in
+         *appended*) fail "--clobber should suppress info message" ;;
+      esac
+
+      # --ifempty: should be silent
+      output="$(run_mulle_sde definition set --ifempty CFLAGS "-O0" 2>&1)"
+      case "${output}" in
+         *appended*) fail "--ifempty should suppress info message" ;;
+      esac
+
+   ) || exit 1
+
+   log_verbose "----- #2 additive info message PASSED -----"
+
+   #
    # Export definitions to a script
    #
    (
@@ -76,7 +106,7 @@ main()
 
    [ ! -f "${directory}/export.sh" ] && fail "export.sh not created"
 
-   log_verbose "----- #2 Export PASSED -----"
+   log_verbose "----- #3 Export PASSED -----"
 
    #
    # Create mirror project and import definitions
@@ -89,7 +119,7 @@ main()
       bash "${directory}/export.sh" || exit 1
    ) || exit 1
 
-   log_verbose "----- #3 Import PASSED -----"
+   log_verbose "----- #4 Import PASSED -----"
 
    #
    # Compare the definition directories
@@ -148,7 +178,7 @@ ${diff_output}"
       ;;
    esac
 
-   log_verbose "----- #4 Comparison PASSED -----"
+   log_verbose "----- #5 Comparison PASSED -----"
 
    #
    # Test platform-specific export
@@ -176,7 +206,7 @@ ${diff_output}"
          ;;
       esac
 
-      log_verbose "----- #5 Platform-specific PASSED -----"
+      log_verbose "----- #6 Platform-specific PASSED -----"
    fi
 
    log_info "----- ALL PASSED -----"

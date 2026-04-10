@@ -54,9 +54,14 @@ Usage:
 
    Example:
       mulle-sde definition set CFLAGS '-DNO_REMORSE=1848'
+      mulle-sde definition set --clobber CC mulle-clang
 
    > To change settings of a dependency use \`mulle-sde dependency craftinfo\`
    > instead.
+
+   The default for \`set\` is to append to any existing value (e.g. CFLAGS).
+   Use --clobber to replace instead (e.g. CC). Run \`mulle-make definition set --help\`
+   for the full list of set options (--clobber, --ifempty, --concat, etc.).
 
 Options:
    --definition-dir <dir> : specify the definition directory to manipulate
@@ -845,6 +850,12 @@ sde::definition::main()
 
    [ $# -ne 0 ] && shift
 
+   # For 'set': if no flags given, inform user that append is the default.
+   local user_specified_set_flag='NO'
+   case "$1" in
+      -*) user_specified_set_flag='YES' ;;
+   esac
+
    case "${cmd}" in
       search)
          MULLE_USAGE_NAME="mulle-sde" \
@@ -862,6 +873,10 @@ sde::definition::main()
       ;;
 
      set)
+         if [ "${user_specified_set_flag}" = 'NO' ]
+         then
+            log_info "\"$1\" will be appended to any existing value (e.g. CFLAGS). Use --clobber to replace instead (e.g. CC)."
+         fi
          MULLE_FLAG_LOG_TERSE="${terse}" \
             sde::definition::set "${scope}" \
                                  "${flags}" \

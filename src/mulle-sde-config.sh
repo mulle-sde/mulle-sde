@@ -99,8 +99,12 @@ Usage:
    It is necessary to "clean tidy" and "reflect" the project after the
    change.
 
+   Tip: use \`mulle-sde dependency config <dep> <name>\` as a shorthand for
+        \`mulle-sde config switch -d <dep> <name>\`.
+
 Options:
    -d <dependency> : change configuration of a dependency instead
+                     (shorthand: mulle-sde dependency config <dep> <name>)
    -p              : print current configuration name
 
 EOF
@@ -420,6 +424,7 @@ sde::config::list()
    sde::project::set_name_variables
 
    result="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+            MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
                rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            -s \
@@ -449,6 +454,7 @@ sde::config::remove()
 
    MULLE_USAGE_NAME="mulle-sde" \
    MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+   MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
       rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         -N \
                         ${MULLE_TECHNICAL_FLAGS} \
@@ -486,6 +492,7 @@ sde::config::copy()
 
    MULLE_USAGE_NAME="mulle-sde" \
    MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+   MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
       rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                         -N \
                         ${MULLE_TECHNICAL_FLAGS} \
@@ -536,6 +543,7 @@ sde::config::switch_local()
       log_info "${C_CYAN}*${C_INFO} Set ${C_RESET_BOLD}MULLE_SOURCETREE_CONFIG_NAME${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} to ${C_RESET_BOLD}${name}${C_INFO}"
 
       MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -547,6 +555,7 @@ sde::config::switch_local()
       log_info "${C_CYAN}*${C_INFO} Remove ${C_RESET_BOLD}MULLE_SOURCETREE_CONFIG_NAME${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
 
       MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -627,6 +636,7 @@ ${C_INFO}Use -f to force the switch"
       log_info "${C_CYAN}*${C_INFO} Set ${C_RESET_BOLD}${varname}${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO} to ${C_RESET_BOLD}${name}${C_INFO}"
 
       MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -638,6 +648,7 @@ ${C_INFO}Use -f to force the switch"
       log_info "${C_CYAN}*${C_INFO} Remove ${C_RESET_BOLD}${varname}${C_INFO} in ${C_MAGENTA}${C_BOLD}${PROJECT_NAME}${C_INFO}"
 
       MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
          rexekutor "${MULLE_ENV:-mulle-env}" \
                            -N \
                            ${MULLE_TECHNICAL_FLAGS} \
@@ -670,6 +681,7 @@ sde::config::print()
    local value
 
    value="`MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
+           MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
             rexekutor "${MULLE_ENV:-mulle-env}" \
                         -N \
                         ${MULLE_TECHNICAL_FLAGS} \
@@ -869,11 +881,12 @@ sde::config::main()
       get)
          MULLE_USAGE_NAME="mulle-sde" \
          MULLE_VIRTUAL_ROOT="${MULLE_VIRTUAL_ROOT}" \
-         rexekutor "${MULLE_ENV:-mulle-env}" \
-                           -N \
-                           ${MULLE_TECHNICAL_FLAGS} \
-                           ${MULLE_ENV_FLAGS:-} \
-                        environment get "$@"  || exit 1
+         MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID}" \
+            rexekutor "${MULLE_ENV:-mulle-env}" \
+                              -N \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              ${MULLE_ENV_FLAGS:-} \
+                           environment get "$@"  || exit 1
       ;;
 
       copy|remove|list|show|switch)

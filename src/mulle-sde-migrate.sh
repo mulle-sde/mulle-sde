@@ -370,6 +370,8 @@ sde::migrate::do()
    if [ -f ".mulle/share/env/include-environment.sh" ]
    then
       export MULLE_VIRTUAL_ROOT="`pwd -P`"
+      export MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
 
       log_fluff "Rereading settings in subshell"
       . ".mulle/share/env/include-environment.sh"
@@ -508,10 +510,7 @@ sde::migrate::main()
 
    [ $# -ne 0 ] && sde::migrate::usage "Supeflous arguments \"$*\""
 
-   if [ -z "${MULLE_SDE_INIT_SH}" ]
-   then
-      . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-init.sh"
-   fi
+   include "sde::init"
 
    if [ -z "${oldversion}" ]
    then

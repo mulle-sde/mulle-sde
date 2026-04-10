@@ -1,2 +1,5 @@
 # Todo List
-toolchainfile for test, needs to be copied from the main project ?
+fix generate and test linkorder and the like
+check that build scripts can potentially cross-compile
+NSArchiverStreaming needs to be put to the test
+./run-test does not execute via wine

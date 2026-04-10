@@ -336,6 +336,9 @@ sde::common::_set_userinfo_field()
    r_assoc_array_set "${userinfo}" "${field}" "${value}"
    userinfo="${RVAL}"
 
+   # keep sorted
+   userinfo="$(sort <<< "${userinfo}")"
+
    exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                       --virtual-root \
                      ${MULLE_TECHNICAL_FLAGS}  \
@@ -495,13 +498,25 @@ sde::common::update_git_if_needed()
       return
    fi
 
-   # use an AI timeout of 10s
-   log_info "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
-   (
-      exekutor cd "${directory}" \
-      && exekutor mulle-timeout 10 git pull \
-      && exekutor touch "${git_dir}"
-   )
+   # use an AI timeout (default 10s, 0 to disable)
+   local timeout="${MULLE_SDE_AI_TIMEOUT:-10}"
+   
+   if [ "${timeout}" -eq 0 ]
+   then
+      log_info "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+      (
+         exekutor cd "${directory}" \
+         && exekutor git pull \
+         && exekutor touch "${git_dir}"
+      )
+   else
+      log_info "Updating craftinfos ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+      (
+         exekutor cd "${directory}" \
+         && exekutor mulle-timeout "${timeout}" git pull \
+         && exekutor touch "${git_dir}"
+      )
+   fi
 }
 
 
