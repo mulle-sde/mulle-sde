@@ -1,0 +1,202 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+#
+# Check that no file or directory name contains the given string
+#
+assert_no_filename_match()
+{
+   local directory="$1"
+   local badstring="$2"
+   local context="$3"
+
+   local found
+
+   found="`find "${directory}" -name "*${badstring}*" ! -path "*/.mulle/*" -print 2>/dev/null`"
+   if [ ! -z "${found}" ]
+   then
+      fail "${context}: found '${badstring}' in filenames:
+${found}"
+   fi
+}
+
+
+#
+# Check that no file content contains the given string (outside .mulle)
+#
+assert_no_content_match()
+{
+   local directory="$1"
+   local badstring="$2"
+   local context="$3"
+
+   local found
+
+   found="`grep -r -l "${badstring}" "${directory}" 2>/dev/null \
+            | grep -v '/.mulle/'`"
+   if [ ! -z "${found}" ]
+   then
+      fail "${context}: found '${badstring}' in file contents:
+${found}"
+   fi
+}
+
+
+#
+# Check that at least one filename contains the given string
+#
+assert_filename_exists()
+{
+   local directory="$1"
+   local goodstring="$2"
+   local context="$3"
+
+   local found
+
+   found="`find "${directory}" -name "*${goodstring}*" ! -path "*/.mulle/*" -print 2>/dev/null`"
+   if [ -z "${found}" ]
+   then
+      fail "${context}: expected '${goodstring}' in some filename but found none"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   MULLE_SDE_EXTENSION_PATH="${PWD}"
+   export MULLE_SDE_EXTENSION_PATH
+
+   local directory
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   #
+   # Test: rename MulleUI -> MulleUIWidgetsBase
+   # The new name contains the old name as a prefix. This used to produce
+   # double-replaced filenames like MulleUIWidgetsBaseWidgetsBase.
+   #
+   log_verbose "Creating project MulleUI"
+
+   run_mulle_sde -s init --no-post-init \
+                    -d "${directory}" \
+                    --project-name "MulleUI" \
+                    --style mulle/wild \
+                    none
+
+   [ ! -d "${directory}/.mulle" ] && fail "init failed"
+
+   # create source files with old project name in filenames and contents
+   cat > "${directory}/MulleUI.h" <<EOF
+#ifndef MULLE_UI_H
+#define MULLE_UI_H
+
+#import "_MulleUI-import.h"
+
+uint32_t   MulleUI_get_version( void);
+
+#endif
+EOF
+
+   cat > "${directory}/_MulleUI-import.h" <<EOF
+#ifndef _MULLE_UI_IMPORT_H
+#define _MULLE_UI_IMPORT_H
+
+/* underscore prefixed header */
+
+#endif
+EOF
+
+   cat > "${directory}/MulleUI.c" <<EOF
+#include "MulleUI.h"
+
+uint32_t   MulleUI_get_version( void)
+{
+   return( 0);
+}
+EOF
+
+   log_verbose "Renaming MulleUI -> MulleUIWidgetsBase"
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde -s project rename --no-tests MulleUIWidgetsBase
+   ) || fail "rename failed"
+
+   # --- filename checks ---
+
+   assert_no_filename_match "${directory}" "MulleUIWidgetsBaseWidgetsBase" \
+      "#1 double-replacement in filenames"
+   log_verbose "----- #1 PASSED (no double-replacement in filenames) -----"
+
+   assert_filename_exists "${directory}" "MulleUIWidgetsBase" \
+      "#2 renamed files should exist"
+   log_verbose "----- #2 PASSED (renamed files exist) -----"
+
+   # --- content checks ---
+
+   assert_no_content_match "${directory}" "MulleUIWidgetsBaseWidgetsBase" \
+      "#3 double-replacement in file contents"
+   log_verbose "----- #3 PASSED (no double-replacement in contents) -----"
+
+   # --- underscore-prefixed checks ---
+
+   assert_filename_exists "${directory}" "_MulleUIWidgetsBase" \
+      "#4 underscore-prefixed filename should be renamed"
+   log_verbose "----- #4 PASSED (underscore-prefixed filename renamed) -----"
+
+   assert_no_filename_match "${directory}" "_MulleUI-import.h" \
+      "#5 old underscore-prefixed filename should not exist"
+   log_verbose "----- #5 PASSED (old underscore-prefixed filename gone) -----"
+
+   if ! grep -q "#import \"_MulleUIWidgetsBase-import.h\"" "${directory}/MulleUIWidgetsBase.h"
+   then
+      fail "#6 underscore-prefixed import should be renamed in content"
+   fi
+   log_verbose "----- #6 PASSED (underscore-prefixed content renamed) -----"
+
+   log_info "----- ALL PASSED -----"
+   cd /
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

@@ -28,3 +28,7 @@ dox/reference/*.html
 dox.unreleased
 __pycache__
 .graveyard.old
+kitchen/
+.kiro
+.roam/
+plan/

@@ -121,7 +121,16 @@ Usage:
    style tests.
 
 Options:
-   --test : run tests after craft (if a "test" folder is available)
+   --test           : run tests after craft (if a "test" folder is available)
+   --global         : write to global scope
+   --this-os        : write to current OS scope
+   --this-host      : write to current host scope
+   --this-user      : write to current user scope
+   --this-os-user   : write to current user+OS scope (default)
+   --os <name>      : write to named OS scope
+   --host <name>    : write to named host scope
+   --user <name>    : write to named user scope
+   --scope <name>   : write to an arbitrary named scope
 
 Environment:
    MULLE_SDE_CLEAN_BEFORE_CRAFT   : set to ON for vibecoding
@@ -135,13 +144,13 @@ EOF
 
 sde::vibecoding::env_set()
 {
-   local scope="$1"
+   local scope_flags="$1"
    local variable="$2"
    local flag="$3"
 
    rexekutor mulle-env --search-here ${MULLE_TECHNICAL_FLAGS}  \
-                       env --scope "${scope}"           \
-                           set "${variable}" "${flag}"
+                       env ${scope_flags}               \
+                            set "${variable}" "${flag}"
 }
 
 
@@ -208,7 +217,7 @@ sde::vibecoding::main()
 
    local cmd="$1" # vibecoding or sweatcoding
 
-   local OPTION_SCOPE="user-${MULLE_USERNAME}"
+   local OPTION_SCOPE="--this-os-user"
    local OPTION_TEST='NO'
 
    shift 
@@ -220,20 +229,20 @@ sde::vibecoding::main()
             sde::vibecoding::usage
          ;;
 
-         --global)
-            OPTION_SCOPE="${1#--}"
-         ;;
+         --global|--this-os|--this-host|--this-user|--this-os-user)
+            OPTION_SCOPE="$1"
+          ;;
 
          --test)
             OPTION_TEST='YES'
          ;;
 
-         --scope)
-            [ $# -eq 1 ] && sde::product::usage "Missing argument to \"$1\""
-            shift
+         --os|--host|--user|--scope)
+            [ $# -eq 1 ] && sde::vibecoding::usage "Missing argument to \"$1\""
 
-            OPTION_SCOPE="$1"
-         ;;
+            OPTION_SCOPE="$1 $2"
+            shift
+          ;;
 
          -*)
             sde::vibecoding::usage "Unknown option \"$1\""

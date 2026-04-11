@@ -1,0 +1,160 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! grep -q "${pattern}" <<< "${text}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+expect_not_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if grep -q "${pattern}" <<< "${text}"
+   then
+      fail "Unexpected pattern \"${pattern}\" found in output:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+   local platform
+
+   platform="bogusplatform"
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      run_mulle_sde -s test init || fail "test init failed"
+
+      #
+      # Case 0: MULLE_TEST_PLATFORMS can narrow but not widen MULLE_CRAFT_PLATFORMS
+      #
+      run_mulle_sde -s -d test environment --scope project \
+         set MULLE_CRAFT_PLATFORMS "\${MULLE_UNAME}" \
+      || fail "set MULLE_CRAFT_PLATFORMS for intersection test failed"
+
+      run_mulle_sde -s -d test environment --scope project \
+         set MULLE_TEST_PLATFORMS "${platform}" \
+      || fail "set MULLE_TEST_PLATFORMS for intersection test failed"
+
+      output="`run_mulle_sde -s test run 2>&1`"
+      [ $? -eq 0 ] && fail "test run should fail when MULLE_TEST_PLATFORMS widens beyond MULLE_CRAFT_PLATFORMS"
+
+      expect_line "MULLE_TEST_PLATFORMS narrows MULLE_CRAFT_PLATFORMS, but there is no overlap" "${output}"
+      expect_line "${platform}" "${output}"
+
+      #
+      # Case 1: No MULLE_TEST_PLATFORMS override, fallback is MULLE_CRAFT_PLATFORMS
+      #
+      run_mulle_sde -s -d test environment --scope project \
+         set MULLE_TEST_PLATFORMS "\${MULLE_UNAME}" \
+      || fail "prime MULLE_TEST_PLATFORMS failed"
+
+      run_mulle_sde -s -d test environment --scope project \
+         remove MULLE_TEST_PLATFORMS \
+      || fail "remove MULLE_TEST_PLATFORMS failed"
+
+      run_mulle_sde -s -d test environment --scope project \
+         set MULLE_CRAFT_PLATFORMS "\${MULLE_UNAME}:${platform}" \
+      || fail "set MULLE_CRAFT_PLATFORMS failed"
+
+      output="`run_mulle_sde -s test --platform "${platform}" run 2>&1`"
+      [ $? -eq 0 ] && fail "test run should fail for missing ${platform} toolchain (craft fallback case)"
+
+      expect_line "Cross-compilation to platform '${platform}' requires a toolchain in /opt/mulle-clang-project-${platform}" "${output}"
+      expect_line "Effective test platforms are resolved as MULLE_CRAFT_PLATFORMS, optionally narrowed by MULLE_TEST_PLATFORMS." "${output}"
+      expect_line "MULLE_TEST_PLATFORMS=''" "${output}"
+      expect_line "MULLE_CRAFT_PLATFORMS='" "${output}"
+      expect_line "${platform}" "${output}"
+      expect_line "mulle-sde platform disable ${platform}" "${output}"
+      expect_not_line "mulle-sde test --platform all retest" "${output}"
+
+      #
+      # Case 2: explicit --platform still reports where command-line platform hint comes from
+      #
+      run_mulle_sde -s environment --scope project \
+         set MULLE_TEST_PLATFORMS "\${MULLE_UNAME}:${platform}" \
+      || fail "set MULLE_TEST_PLATFORMS failed"
+
+      run_mulle_sde -s environment --scope project \
+         set MULLE_CRAFT_PLATFORMS "\${MULLE_UNAME}" \
+      || fail "reset MULLE_CRAFT_PLATFORMS failed"
+
+      output="`run_mulle_sde -s test --platform "${platform}" run 2>&1`"
+      [ $? -eq 0 ] && fail "test run should fail for missing ${platform} toolchain (test override case)"
+
+      expect_line "Cross-compilation to platform '${platform}' requires a toolchain in /opt/mulle-clang-project-${platform}" "${output}"
+      expect_line "MULLE_TEST_PLATFORMS='" "${output}"
+      expect_line "MULLE_CRAFT_PLATFORMS='" "${output}"
+      expect_line "${platform}" "${output}"
+      expect_line "mulle-sde test --platform all retest" "${output}"
+      expect_not_line "mulle-sde platform disable ${platform}" "${output}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

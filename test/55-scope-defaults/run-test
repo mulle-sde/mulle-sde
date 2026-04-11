@@ -1,0 +1,127 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_contains()
+{
+   local needle="$1"
+   local text="$2"
+
+   if ! grep -q "${needle}" <<< "${text}"
+   then
+      fail "Expected '${needle}' in '${text}'"
+   fi
+}
+
+
+expect_not_contains()
+{
+   local needle="$1"
+   local text="$2"
+
+   if grep -q "${needle}" <<< "${text}"
+   then
+      fail "Did not expect '${needle}' in '${text}'"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local host
+   local result
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   host="`mulle-bashfunctions uname`"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable || exit 1
+   cd "${directory}" || exit 1
+
+   mkdir -p cmake || exit 1
+   cat > "cmake/toolchain--${host}-scopewin--x86_64-scope--test-compiler.cmake" <<EOF
+# test toolchain
+set(CMAKE_SYSTEM_NAME ScopeOS)
+EOF
+
+   run_mulle_sde -s platform add --no-uname scopewin || fail "platform add failed"
+
+   result="`run_mulle_sde environment --this-os-user get MULLE_CRAFT_PLATFORMS`"
+   expect_contains "scopewin" "${result}"
+   result="`run_mulle_sde environment --this-os-user get MULLE_SOURCETREE_PLATFORMS`"
+   expect_contains "scopewin" "${result}"
+
+   result="`run_mulle_sde environment --global get MULLE_CRAFT_PLATFORMS`"
+   [ -z "${result}" ] || fail "Expected no global craft platforms, got '${result}'"
+   result="`run_mulle_sde environment --global get MULLE_SOURCETREE_PLATFORMS`"
+   [ -z "${result}" ] || fail "Expected no global sourcetree platforms, got '${result}'"
+
+   result="`run_mulle_sde environment --this-host get MULLE_CRAFT_TOOLCHAIN__SCOPEWIN`"
+   [ ! -z "${result}" ] || fail "Expected host-scoped toolchain entry"
+   result="`run_mulle_sde environment --global get MULLE_CRAFT_TOOLCHAIN__SCOPEWIN`"
+   [ -z "${result}" ] || fail "Expected no global toolchain entry, got '${result}'"
+
+   run_mulle_sde -s platform set scopewin root /tmp/scope-root || fail "platform set failed"
+   result="`run_mulle_sde environment --this-host get MULLE_CRAFT_CROSS_COMPILER_ROOT__SCOPEWIN`"
+   [ "${result}" = "/tmp/scope-root" ] || fail "Expected host root '/tmp/scope-root', got '${result}'"
+   result="`run_mulle_sde environment --global get MULLE_CRAFT_CROSS_COMPILER_ROOT__SCOPEWIN`"
+   [ -z "${result}" ] || fail "Expected no global root entry, got '${result}'"
+
+   run_mulle_sde -s environment --global set MULLE_CRAFT_PLATFORMS '${MULLE_UNAME}:scopewin' || fail "global setup failed"
+   run_mulle_sde -s platform disable scopewin || fail "platform disable failed"
+
+   result="`run_mulle_sde environment --global get MULLE_CRAFT_PLATFORMS`"
+   expect_contains "scopewin" "${result}"
+   result="`run_mulle_sde environment --this-os-user get MULLE_CRAFT_PLATFORMS`"
+   expect_not_contains "scopewin" "${result}"
+
+   run_mulle_sde -s vibecoding on || fail "vibecoding on failed"
+   result="`run_mulle_sde environment --this-os-user get MULLE_VIBECODING`"
+   [ "${result}" = "YES" ] || fail "Expected os-user vibecoding YES, got '${result}'"
+   result="`run_mulle_sde environment --global get MULLE_VIBECODING`"
+   [ -z "${result}" ] || fail "Expected no global vibecoding value, got '${result}'"
+
+   run_mulle_sde -s vibecoding --global off || fail "vibecoding --global off failed"
+   result="`run_mulle_sde environment --global get MULLE_VIBECODING`"
+   [ "${result}" = "NO" ] || fail "Expected global vibecoding NO, got '${result}'"
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
