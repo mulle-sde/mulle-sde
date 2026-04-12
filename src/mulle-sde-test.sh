@@ -1520,6 +1520,11 @@ sde::test::main()
       test*)
          # read PROJECT_TYPE from parent project, not the test subproject (which is 'none')
          PROJECT_TYPE="$(rexekutor "${MULLE_ENV:-mulle-env}" -d "${test_root}/.." get --output-eval PROJECT_TYPE 2>/dev/null)"
+         if [ -z "${PROJECT_TYPE}" ]
+         then
+            # standalone test checkouts have no parent environment
+            PROJECT_TYPE="$(rexekutor "${MULLE_ENV:-mulle-env}" -d "${test_root}" get --output-eval PROJECT_TYPE 2>/dev/null)"
+         fi
       ;;
       *)
          PROJECT_TYPE="$(rexekutor "${MULLE_ENV:-mulle-env}" get --output-eval PROJECT_TYPE 2>/dev/null)"
