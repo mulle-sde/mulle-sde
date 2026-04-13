@@ -856,33 +856,44 @@ sde::main()
          cmd='sweatcoding'
       ;;
    esac
-   
    # Set current command for vibecoding help on failure
    MULLE_SDE_CURRENT_CMD="${cmd}"
    export MULLE_SDE_CURRENT_CMD
    
-   # Set up EXIT trap for vibecoding help
-   if [ "${MULLE_VIBECODING:-}" = 'YES' ]
-   then
-      trap 'sde::vibecoding_help_on_exit "$?" "${MULLE_SDE_CURRENT_CMD}"' EXIT
 
-      # Detect AI attempts to fake platform by overriding host identity variables
-      local _real_uname
-      _real_uname="$(PATH=/bin:/usr/bin uname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-      local _real_hostname
-      _real_hostname="$(PATH=/bin:/usr/bin hostname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-      local _real_username
-      _real_username="$(PATH=/bin:/usr/bin id -un 2>/dev/null)"
+   #
+   # for CI tests we need to fake it, so turn the check off when
+   # we disable vibecoding now...
+   #
+   case "${MULLE_SDE_CURRENT_CMD}" in
+      'vibecoding'|'sweatcoding')
+      ;;
 
-      if [ -n "${MULLE_UNAME:-}" -a "${MULLE_UNAME}" != "${_real_uname}" ] || \
-         [ -n "${MULLE_HOSTNAME:-}" -a "${MULLE_HOSTNAME}" != "${_real_hostname}" ] || \
-         [ -n "${MULLE_USERNAME:-}" -a "${MULLE_USERNAME}" != "${_real_username}" ]
-      then
-         fail "Do not override MULLE_HOSTNAME, MULLE_UNAME or MULLE_USERNAME to fake a platform.
-${C_INFO}To craft for another platform use:
-${C_RESET_BOLD}   mulle-sde test --platform <platform> craft"
-      fi
-   fi
+      *)
+         # Set up EXIT trap for vibecoding help
+         if [ "${MULLE_VIBECODING:-}" = 'YES' ]
+         then
+            trap 'sde::vibecoding_help_on_exit "$?" "${MULLE_SDE_CURRENT_CMD}"' EXIT
+
+            # Detect AI attempts to fake platform by overriding host identity variables
+            local _real_uname
+            _real_uname="$(PATH=/bin:/usr/bin uname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+            local _real_hostname
+            _real_hostname="$(PATH=/bin:/usr/bin hostname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+            local _real_username
+            _real_username="$(PATH=/bin:/usr/bin id -un 2>/dev/null)"
+
+            if [ -n "${MULLE_UNAME:-}" -a "${MULLE_UNAME}" != "${_real_uname}" ] || \
+               [ -n "${MULLE_HOSTNAME:-}" -a "${MULLE_HOSTNAME}" != "${_real_hostname}" ] || \
+               [ -n "${MULLE_USERNAME:-}" -a "${MULLE_USERNAME}" != "${_real_username}" ]
+            then
+               fail "Do not override MULLE_HOSTNAME, MULLE_UNAME or MULLE_USERNAME to fake a platform.
+      ${C_INFO}To craft for another platform use:
+      ${C_RESET_BOLD}   mulle-sde test --platform <platform> craft"
+            fi
+         fi
+      ;;
+   esac
 
    if [ "${FLAG_OUTSIDE_ENV}" = 'YES' ]
    then
