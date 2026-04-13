@@ -1,3 +1,15 @@
+## 3.8.0
+
+* Allow fakery when setting vibecoding flags
+* Add LSP configuration support and scoped platform settings
+* Enhance API search and craftinfo CLI with new commands and options
+* Redid testing; mulle-sde now contains most of the test smarts, mulle-test is just a runner
+* Add `--full` flag for api and craft commands
+* Make `asset` a known directory via `PROJECT_ASSET_DIR` with supporting rules
+* fetch no longer does the quick check; craft goes its own route for fewer surprises
+* Fix PROJECT_TYPE lookup for standalone test checkouts
+* Various fixes and improvements
+
 ### 3.6.1
 
 Various small improvements
