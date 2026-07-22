@@ -1,0 +1,131 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_equal()
+{
+   local expected="$1"
+   local value="$2"
+   local name="$3"
+
+   if [ "${value}" != "${expected}" ]
+   then
+      fail "Expected ${name}='${expected}', got '${value}'"
+   fi
+}
+
+
+expect_empty()
+{
+   local value="$1"
+   local name="$2"
+
+   if [ ! -z "${value}" ]
+   then
+      fail "Expected ${name} to be empty, got '${value}'"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local result
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable || fail "init failed"
+   cd "${directory}" || exit 1
+
+   run_mulle_sde -s test init || fail "test init failed"
+   run_mulle_sde -s vibecoding off || fail "vibecoding off failed"
+
+   run_mulle_sde -s environment --global set MULLE_SDE_RUN_TIMEOUT 77 || fail "global timeout setup failed"
+   run_mulle_sde -s environment --this-os-user set MULLE_SDE_RUN_TIMEOUT 123 || fail "set os-user timeout failed"
+   run_mulle_sde -s environment --this-os-user remove MULLE_SDE_RUN_TIMEOUT || fail "remove os-user timeout failed"
+   run_mulle_sde -s environment --this-os-user set MULLE_SDE_CLEAN_BEFORE_CRAFT MAYBE || fail "set os-user clean-before-craft failed"
+
+   run_mulle_sde -s -d test environment --global set MULLE_TEST_CLEAN_BEFORE_RUN NO || fail "test global clean-before-run setup failed"
+   run_mulle_sde -s -d test environment --this-os-user set MULLE_TEST_CLEAN_BEFORE_RUN MAYBE || fail "set test os-user clean-before-run failed"
+   run_mulle_sde -s -d test environment --this-os-user remove MULLE_TEST_CLEAN_BEFORE_RUN || fail "remove test os-user clean-before-run failed"
+
+   run_mulle_sde -s vibecoding on || fail "vibecoding on failed"
+
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_VIBECODING_BACKUP__MULLE_SDE_CLEAN_BEFORE_CRAFT`"
+   expect_equal "MAYBE" "${result}" "backup before repeated on"
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_VIBECODING_BACKUP__MULLE_SDE_RUN_TIMEOUT`"
+   expect_empty "${result}" "timeout backup before repeated on"
+
+   run_mulle_sde -s vibecoding on || fail "second vibecoding on failed"
+
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_VIBECODING_BACKUP__MULLE_SDE_CLEAN_BEFORE_CRAFT`"
+   expect_equal "MAYBE" "${result}" "backup after repeated on"
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_VIBECODING_BACKUP__MULLE_SDE_RUN_TIMEOUT`"
+   expect_empty "${result}" "timeout backup after repeated on"
+
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_RUN_TIMEOUT`"
+   expect_equal "5" "${result}" "MULLE_SDE_RUN_TIMEOUT (os-user, on)"
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_CLEAN_BEFORE_CRAFT`"
+   expect_equal "YES" "${result}" "MULLE_SDE_CLEAN_BEFORE_CRAFT (os-user, on)"
+   result="`run_mulle_sde -d test environment --this-os-user get MULLE_TEST_CLEAN_BEFORE_RUN`"
+   expect_equal "YES" "${result}" "MULLE_TEST_CLEAN_BEFORE_RUN (test os-user, on)"
+
+   run_mulle_sde -s vibecoding off || fail "vibecoding off failed"
+
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_RUN_TIMEOUT`"
+   expect_empty "${result}" "MULLE_SDE_RUN_TIMEOUT (os-user, off)"
+   result="`run_mulle_sde environment get MULLE_SDE_RUN_TIMEOUT`"
+   expect_equal "77" "${result}" "MULLE_SDE_RUN_TIMEOUT (resolved, off)"
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_CLEAN_BEFORE_CRAFT`"
+   expect_equal "MAYBE" "${result}" "MULLE_SDE_CLEAN_BEFORE_CRAFT (os-user, off)"
+
+   result="`run_mulle_sde -d test environment --this-os-user get MULLE_TEST_CLEAN_BEFORE_RUN`"
+   expect_empty "${result}" "MULLE_TEST_CLEAN_BEFORE_RUN (test os-user, off)"
+   result="`run_mulle_sde -d test environment get MULLE_TEST_CLEAN_BEFORE_RUN`"
+   expect_equal "NO" "${result}" "MULLE_TEST_CLEAN_BEFORE_RUN (test resolved, off)"
+
+   result="`run_mulle_sde environment --this-os-user get MULLE_SDE_VIBECODING_BACKUP__MULLE_SDE_RUN_TIMEOUT`"
+   expect_empty "${result}" "backup key cleanup (project)"
+   result="`run_mulle_sde -d test environment --this-os-user get MULLE_SDE_VIBECODING_BACKUP__MULLE_TEST_CLEAN_BEFORE_RUN`"
+   expect_empty "${result}" "backup key cleanup (test)"
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

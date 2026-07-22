@@ -1,0 +1,104 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+expect_count()
+{
+   local pattern="$1"
+   local count="$2"
+   local text="$3"
+   local found
+
+   found="`printf "%s\n" "${text}" | grep -c "${pattern}"`"
+   if [ "${found}" != "${count}" ]
+   then
+      fail "Expected ${count} matches for \"${pattern}\", found ${found}:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      run_mulle_sde -s test init || fail "test init failed"
+      cp -R test xtest || fail "copy test to xtest failed"
+
+      run_mulle_sde -s environment --scope project \
+         set MULLE_SDE_TEST_PATH "test:xtest" \
+      || fail "set MULLE_SDE_TEST_PATH failed"
+
+      output="`run_mulle_sde -s test test-dir 2>&1`" || fail "test-dir failed"
+      expect_line "^test:xtest$" "${output}"
+
+      output="`run_mulle_sde -v test clean 2>&1`" || fail "test clean failed"
+      expect_count "Cleaning target" "2" "${output}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

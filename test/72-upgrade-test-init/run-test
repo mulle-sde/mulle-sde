@@ -1,0 +1,65 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable || fail "project init failed"
+   cd "${directory}" || exit 1
+
+   run_mulle_sde -s init -d test none || fail "test init failed"
+   [ -d "test/.mulle/share/sde" ] || fail "missing test/.mulle/share/sde"
+
+   if run_mulle_sde -s init -d test none >/dev/null 2>&1
+   then
+      fail "plain re-init of test unexpectedly succeeded"
+   fi
+
+   MULLE_SDE_EXTENSION_INIT_UPGRADE=YES \
+      run_mulle_sde -s init -d test none \
+      || fail "upgrade-mode extension init should reuse existing test/.mulle/share/sde"
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

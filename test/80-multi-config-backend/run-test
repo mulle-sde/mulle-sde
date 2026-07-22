@@ -1,0 +1,155 @@
+#! /bin/bash
+#
+# Test multi-config reflection:
+#   - Per-config reflect creates correct reflect.<config> directories
+#   - Each config gets its own dependencies reflected
+#   - config list/get/show work correctly
+#   - config craft iterates all configs
+#
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TEST_DIR="${SCRIPT_DIR}/tmp-multi-config-backend-test.$$"
+
+cleanup()
+{
+   if [ -d "${TEST_DIR}" ]
+   then
+      chmod -R u+rwx "${TEST_DIR}" 2>/dev/null || :
+      rm -rf "${TEST_DIR}"
+   fi
+}
+
+trap cleanup EXIT
+
+fail()
+{
+   echo "FAILED: $*" >&2
+   exit 1
+}
+
+
+echo "=== Creating test directory ${TEST_DIR} ==="
+mkdir -p "${TEST_DIR}"
+cd "${TEST_DIR}"
+
+
+echo "=== Creating library with multi-config ==="
+mulle-sde init -d mylib -m mulle-sde/c-developer library > /dev/null 2>&1
+
+(
+   cd mylib
+
+   # Add a dependency for the default config
+   mulle-sde environment --this-host set MULLE_FETCH_SEARCH_PATH "${TEST_DIR}" 2>/dev/null
+
+   mulle-sde dependency add --address foo \
+      'https://example.com/foo.tar.gz' > /dev/null 2>&1
+   mulle-sourcetree set foo userinfo "include=foo/foo.h" 2>/dev/null
+)
+
+# Create alt sourcetree config with bar instead of foo
+cat > mylib/.mulle/etc/sourcetree/alt << 'EOF'
+bar;${BAR_NODETYPE:-tar};;A1B2C3D4-1234-5678-9012-ABCDEF123456;${BAR_URL:-https://example.com/bar.tar.gz};${BAR_BRANCH};${MULLE_TAG};;include=bar/bar.h
+EOF
+
+echo "=== Setting up multi-config (config:alt) ==="
+(
+   cd mylib
+   mulle-sde config reflect-configs "config:alt" > /dev/null 2>&1
+)
+
+
+echo "=== Testing config get ==="
+RESULT="$(cd mylib && mulle-sde config get 2>&1)"
+[ "${RESULT}" = "config" ] || fail "config get: expected 'config', got '${RESULT}'"
+echo "   config get = config ✓"
+
+
+echo "=== Testing config show ==="
+RESULT="$(cd mylib && mulle-sde config show 2>&1)"
+case "${RESULT}" in
+   *"config"*"alt"*) ;;
+   *) fail "config show should list config and alt: ${RESULT}" ;;
+esac
+echo "   config show lists config and alt ✓"
+
+
+echo "=== Testing config list --project ==="
+RESULT="$(cd mylib && mulle-sde config list --project 2>&1)"
+case "${RESULT}" in
+   *"config, alt"*) ;;
+   *) fail "config list --project should show 'config, alt': ${RESULT}" ;;
+esac
+echo "   config list --project shows available configs ✓"
+
+
+echo "=== Reflecting with config ==="
+(
+   cd mylib
+   mulle-sde -DMULLE_SOURCETREE_CONFIG_NAME=config reflect > /dev/null 2>&1
+)
+
+[ -d "mylib/cmake/reflect.config" ] || fail "cmake/reflect.config not created"
+[ -d "mylib/src/reflect.config" ]   || fail "src/reflect.config not created"
+echo "   reflect.config dirs created ✓"
+
+# Verify correct include
+grep -q "foo/foo.h" mylib/src/reflect.config/_mylib-include.h \
+   || fail "reflect.config should include foo/foo.h"
+echo "   reflect.config includes foo ✓"
+
+
+echo "=== Reflecting with alt ==="
+(
+   cd mylib
+   mulle-sde -DMULLE_SOURCETREE_CONFIG_NAME=alt reflect > /dev/null 2>&1
+)
+
+[ -d "mylib/cmake/reflect.alt" ] || fail "cmake/reflect.alt not created"
+[ -d "mylib/src/reflect.alt" ]   || fail "src/reflect.alt not created"
+echo "   reflect.alt dirs created ✓"
+
+# Verify correct include
+grep -q "bar/bar.h" mylib/src/reflect.alt/_mylib-include.h \
+   || fail "reflect.alt should include bar/bar.h"
+echo "   reflect.alt includes bar ✓"
+
+
+echo "=== Verifying configs are independent ==="
+# config should NOT have bar
+if grep -q "bar/bar.h" mylib/src/reflect.config/_mylib-include.h 2>/dev/null; then
+   fail "reflect.config should NOT include bar"
+fi
+# alt should NOT have foo
+if grep -q "foo/foo.h" mylib/src/reflect.alt/_mylib-include.h 2>/dev/null; then
+   fail "reflect.alt should NOT include foo"
+fi
+echo "   configs are independent ✓"
+
+
+echo "=== Testing reflect-configs marker file ==="
+[ -f "mylib/.mulle/etc/sde/reflect-configs" ] \
+   || fail "reflect-configs marker file not created"
+RESULT="$(cat mylib/.mulle/etc/sde/reflect-configs)"
+[ "${RESULT}" = "config:alt" ] \
+   || fail "reflect-configs marker should be 'config:alt', got '${RESULT}'"
+echo "   reflect-configs marker correct ✓"
+
+
+echo "=== Testing cmake _Dependencies.cmake per config ==="
+[ -f "mylib/cmake/reflect.config/_Dependencies.cmake" ] \
+   || fail "cmake/reflect.config/_Dependencies.cmake not created"
+[ -f "mylib/cmake/reflect.alt/_Dependencies.cmake" ] \
+   || fail "cmake/reflect.alt/_Dependencies.cmake not created"
+
+grep -q "foo" mylib/cmake/reflect.config/_Dependencies.cmake \
+   || fail "_Dependencies.cmake for config should reference foo"
+grep -q "bar" mylib/cmake/reflect.alt/_Dependencies.cmake \
+   || fail "_Dependencies.cmake for alt should reference bar"
+echo "   per-config _Dependencies.cmake correct ✓"
+
+
+echo ""
+echo "=== ALL TESTS PASSED ==="

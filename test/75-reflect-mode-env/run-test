@@ -1,0 +1,83 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+   local projectname
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+   projectname="${directory##*/}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      run_mulle_sde -s reflect || fail "default reflect failed"
+      [ -f "cmake/reflect/_Dependencies.cmake" ] || fail "default reflect did not produce cmake/reflect/_Dependencies.cmake"
+      [ -f "src/reflect/_${projectname}-include.h" ] || fail "default reflect did not produce src/reflect/_${projectname}-include.h"
+
+      # empty MULLE_SDE_REFLECT_CONFIGS = legacy single behavior
+      run_mulle_sde -s environment --scope project set MULLE_SDE_REFLECT_CONFIGS "" \
+      || fail "set empty reflect configs failed"
+      run_mulle_sde -s reflect || fail "empty configs reflect failed"
+
+      # set to config (single entry still uses reflect.<name>)
+      run_mulle_sde -s environment --scope project set MULLE_SDE_REFLECT_CONFIGS "config" \
+      || fail "set config reflect configs failed"
+      run_mulle_sde -s reflect || fail "config reflect failed"
+      [ -f "cmake/reflect.config/_Dependencies.cmake" ] || fail "config reflect did not produce cmake/reflect.config/_Dependencies.cmake"
+      [ -f "src/reflect.config/_${projectname}-include.h" ] || fail "config reflect did not produce src/reflect.config/_${projectname}-include.h"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

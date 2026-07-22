@@ -1,0 +1,139 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+expect_not_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Unexpected pattern \"${pattern}\" found in output:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+   local api_output
+   local fake_roam
+   local fake_stash_dir
+   local rc
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      fake_roam="${PWD}/fake-roam"
+      cat <<EOF > "${fake_roam}" || fail "failed to create fake roam"
+#! /bin/sh
+exit 1
+EOF
+      chmod +x "${fake_roam}" || fail "failed to chmod fake roam"
+
+      run_mulle_sde -s environment --scope project set MULLE_SDE_ROAM "${fake_roam}" \
+         || fail "failed to set project MULLE_SDE_ROAM"
+
+      fake_stash_dir="${PWD}/fake-stash"
+      mkdir -p "${fake_stash_dir}/DepRepo/src" || fail "failed to create fake stash repo"
+      cat <<EOF > "${fake_stash_dir}/DepRepo/src/render.m" || fail "failed to create fake stash source"
+- (void) createRenderQueue
+{
+}
+EOF
+      export MULLE_SOURCETREE_STASH_DIR="${fake_stash_dir}"
+
+      output="`run_mulle_sde code search \"VfL Bochum %lu\" 2>&1`" \
+         || fail "code search should fall back without roam"
+      case "${output}" in
+         *"basic grep search"*)
+         ;;
+         *)
+            fail "Expected fallback message in output:
+${output}"
+         ;;
+      esac
+      expect_line "src/main.c" "${output}"
+
+      output="`run_mulle_sde code search createRenderQueue 2>&1`" \
+         || fail "code search should find symbols in stash fallback"
+      expect_line "basic grep search" "${output}"
+      expect_line "fake-stash/DepRepo/src/render.m" "${output}"
+      expect_line "createRenderQueue" "${output}"
+
+      output="`run_mulle_sde howto list 2>&1`" \
+         || fail "howto list failed without roam"
+      expect_not_line "mulle-roam/roam is not installed" "${output}"
+
+      api_output="`run_mulle_sde api list 2>&1`"
+      rc=$?
+      [ "${rc}" -gt 1 ] && fail "api list returned unexpected rc=${rc} without roam:
+${api_output}"
+      expect_not_line "mulle-roam/roam is not installed" "${api_output}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

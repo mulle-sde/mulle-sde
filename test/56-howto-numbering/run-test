@@ -1,0 +1,251 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_contains()
+{
+   local label="$1"
+   local needle="$2"
+   local text="$3"
+
+   if ! echo "${text}" | grep -qE "${needle}"
+   then
+      fail "${label}: expected pattern '${needle}' not found in:
+${text}"
+   fi
+}
+
+
+expect_not_contains()
+{
+   local label="$1"
+   local needle="$2"
+   local text="$3"
+
+   if echo "${text}" | grep -qE "${needle}"
+   then
+      fail "${label}: unexpected pattern '${needle}' found in:
+${text}"
+   fi
+}
+
+
+# Extract the number assigned to a howto name in `howto list` output.
+# Matches lines like:  " 3. my-howto   [keywords] (label)"
+# or subdir form:      " 7. test/my-howto   ..."
+get_howto_number()
+{
+   local name="$1"
+   local list_output="$2"
+
+   echo "${list_output}" \
+      | grep -E "^[[:space:]]*[0-9]+\. (([^/]+/)?${name})[[:space:]]" \
+      | sed 's/^[[:space:]]*\([0-9]*\)\..*/\1/' \
+      | head -1
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local list_output
+   local show_output
+   local num
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   # Ensure vibecoding is off so we get a clean, dependency-free list
+   export MULLE_VIBECODING=NO
+
+   #
+   # Populate howto files across the scopes the code actually checks.
+   #
+   # 1. extension scope  (.mulle/share/howto) — most common source
+   mkdir -p ".mulle/share/howto"
+   cat > ".mulle/share/howto/zz-alpha-guide.md" <<'EOF'
+<!-- keywords: alpha, guide, sentinel-alpha -->
+# Alpha Guide
+SENTINEL_ALPHA_CONTENT
+EOF
+
+   cat > ".mulle/share/howto/aa-beta-tips.md" <<'EOF'
+<!-- keywords: beta, tips, sentinel-beta -->
+# Beta Tips
+SENTINEL_BETA_CONTENT
+EOF
+
+   # 2. asset scope (asset/howto) — local project howtos, distinct from extension scope
+   mkdir -p "asset/howto"
+   cat > "asset/howto/mm-gamma-notes.md" <<'EOF'
+<!-- keywords: gamma, notes, sentinel-gamma -->
+# Gamma Notes
+SENTINEL_GAMMA_CONTENT
+EOF
+
+   # 3. subdir scope (test/.mulle/share/howto) — only checked for 'demo' and 'test' subdirs
+   mkdir -p "test/.mulle/share/howto"
+   cat > "test/.mulle/share/howto/delta-howto.md" <<'EOF'
+<!-- keywords: delta, subdir, sentinel-delta -->
+# Delta Howto
+SENTINEL_DELTA_CONTENT
+EOF
+
+   #
+   # Test 1: howto list runs without error and finds all files
+   #
+   list_output="`run_mulle_sde howto list 2>&1`" || fail "howto list failed"
+
+   expect_contains     "list: zz-alpha-guide present"   "zz-alpha-guide"  "${list_output}"
+   expect_contains     "list: aa-beta-tips present"     "aa-beta-tips"    "${list_output}"
+   expect_contains     "list: mm-gamma-notes present"   "mm-gamma-notes"  "${list_output}"
+   expect_contains     "list: delta-howto present"      "delta-howto"     "${list_output}"
+
+   #
+   # Test 2: labels are correct per scope
+   #
+   expect_contains     "alpha has no label"      "zz-alpha-guide.*\[alpha"    "${list_output}"
+   expect_not_contains "alpha no extension label" "zz-alpha-guide.*extension"  "${list_output}"
+   expect_contains     "beta has no label"       "aa-beta-tips.*\[beta"       "${list_output}"
+   expect_contains     "gamma label: local"      "mm-gamma-notes.*\(local\)"      "${list_output}"
+   # subdir howtos get prefixed display_name, no label: "test/delta-howto"
+   expect_contains     "delta subdir prefix"     "test/delta-howto"               "${list_output}"
+   expect_not_contains "delta no spurious label" "test/delta-howto.*(extension|local|global)" "${list_output}"
+
+   #
+   # Test 3: show <N> is consistent with list — the core regression check
+   #
+   # The list output is sorted alphabetically by path, so the order is:
+   #   .mulle/etc/howto/mm-gamma-notes.md       (.mulle/etc sorts before .mulle/share)
+   #   .mulle/share/howto/aa-beta-tips.md
+   #   .mulle/share/howto/zz-alpha-guide.md
+   #   test/.mulle/share/howto/delta-howto.md   (relative paths sort after local absolute)
+   # (Plus whatever the c-developer extension installs.)
+   # We don't hard-code exact numbers; instead we extract them from list output.
+   for name in zz-alpha-guide aa-beta-tips mm-gamma-notes
+   do
+      num="`get_howto_number "${name}" "${list_output}"`"
+      [ -z "${num}" ] && fail "Could not find number for '${name}' in list output"
+
+      show_output="`run_mulle_sde howto show "${num}" 2>&1`" \
+         || fail "howto show ${num} (for ${name}) failed"
+
+      # Each file has a unique sentinel; verify the right one is shown
+      case "${name}" in
+         zz-alpha-guide) sentinel="SENTINEL_ALPHA_CONTENT" ;;
+         aa-beta-tips)   sentinel="SENTINEL_BETA_CONTENT"  ;;
+         mm-gamma-notes) sentinel="SENTINEL_GAMMA_CONTENT" ;;
+      esac
+
+      expect_contains "show ${num} matches list entry '${name}'" \
+         "${sentinel}" "${show_output}"
+   done
+
+   # Subdir howto: show by subdir/name form
+   show_output="`run_mulle_sde howto show test/delta-howto 2>&1`" \
+      || fail "howto show test/delta-howto failed"
+   expect_contains "show by subdir/name returns delta content" \
+      "SENTINEL_DELTA_CONTENT" "${show_output}"
+
+   #
+   # Test 4: show by bare filename (no extension) still works
+   #
+   show_output="`run_mulle_sde howto show mm-gamma-notes 2>&1`" \
+      || fail "howto show mm-gamma-notes (by name) failed"
+   expect_contains "show by name returns gamma content" \
+      "SENTINEL_GAMMA_CONTENT" "${show_output}"
+
+   show_output="`run_mulle_sde -v howto show mm-gamma-notes 2>&1`" \
+      || fail "verbose howto show mm-gamma-notes failed"
+   expect_contains "verbose show logs source path" \
+      "Showing howto from asset/howto/mm-gamma-notes.md" "${show_output}"
+
+   #
+   # Test 5: list with keyword filter — filtered list numbers must also be
+   #         consistent with show
+   #
+   list_output="`run_mulle_sde howto list alpha 2>&1`" \
+      || fail "howto list alpha failed"
+   expect_contains     "keyword list: alpha present"   "zz-alpha-guide"  "${list_output}"
+   expect_not_contains "keyword list: beta absent"     "aa-beta-tips"    "${list_output}"
+   expect_not_contains "keyword list: gamma absent"    "mm-gamma-notes"  "${list_output}"
+
+   num="`get_howto_number "zz-alpha-guide" "${list_output}"`"
+   [ -z "${num}" ] && fail "zz-alpha-guide not found in keyword-filtered list"
+
+   show_output="`run_mulle_sde howto show "${num}" 2>&1`" \
+      || fail "howto show ${num} (alpha keyword result) failed"
+   expect_contains "keyword-filtered show returns alpha content" \
+      "SENTINEL_ALPHA_CONTENT" "${show_output}"
+
+   #
+   # Test 6: show by keyword fallback returns matching content directly
+   #
+   show_output="`run_mulle_sde howto show sentinel-alpha 2>&1`" \
+      || fail "howto show sentinel-alpha failed"
+   expect_contains "show sentinel-alpha returns alpha content" \
+      "SENTINEL_ALPHA_CONTENT" "${show_output}"
+   expect_not_contains "show sentinel-alpha does not list candidates" \
+      "zz-alpha-guide" "${show_output}"
+   expect_not_contains "show sentinel-alpha no suggestion text" \
+      "No exact match for 'sentinel-alpha'" "${show_output}"
+
+   #
+   # Test 7: show --keyword works independently
+   #
+   show_output="`run_mulle_sde howto show --keyword sentinel-delta 2>&1`" \
+      || fail "howto show --keyword sentinel-delta failed"
+   expect_contains "show --keyword sentinel-delta finds delta howto" \
+      "SENTINEL_DELTA_CONTENT" "${show_output}"
+
+   log_info "----- ALL PASSED -----"
+
+   cd /
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

@@ -1,0 +1,101 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+expect_not_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Unexpected pattern \"${pattern}\" found in output:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      output="`run_mulle_sde -N edit --json-env 2>&1`" \
+         || fail "edit --json-env with -N failed"
+      expect_not_line ": /.mulle/share/env/include-environment.sh" "${output}"
+      expect_line "\"DEPENDENCY_DIR\"" "${output}"
+
+      rm -f ".mulle/share/env/include-environment.sh" || fail "remove include-environment failed"
+
+      output="`run_mulle_sde -N edit --json-env 2>&1`" \
+         || fail "edit --json-env with missing include-environment failed"
+      expect_line "Project environment looks incomplete" "${output}"
+      expect_not_line ": /.mulle/share/env/include-environment.sh" "${output}"
+      expect_line "\"KITCHEN_DIR\"" "${output}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

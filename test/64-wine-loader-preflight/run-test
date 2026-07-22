@@ -1,0 +1,117 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+create_pe32plus_executable()
+{
+   local filename="$1"
+
+   exekutor dd if=/dev/zero of="${filename}" bs=1 count=512 > /dev/null 2>&1
+   exekutor printf '\x4d\x5a' | dd of="${filename}" bs=1 seek=0 conv=notrunc > /dev/null 2>&1
+   exekutor printf '\x80\x00\x00\x00' | dd of="${filename}" bs=1 seek=60 conv=notrunc > /dev/null 2>&1
+   exekutor printf '\x50\x45\x00\x00' | dd of="${filename}" bs=1 seek=128 conv=notrunc > /dev/null 2>&1
+   exekutor printf '\x0b\x02' | dd of="${filename}" bs=1 seek=152 conv=notrunc > /dev/null 2>&1
+   exekutor chmod +x "${filename}"
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local exefile
+   local stubdir
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      exefile="${PWD}/kitchen/windows/Debug/fake-test.exe"
+      exekutor mkdir -p "${PWD}/kitchen/windows/Debug"
+      create_pe32plus_executable "${exefile}" || fail "could not create PE32+ executable fixture"
+
+      stubdir="${PWD}/stubbin"
+      exekutor mkdir -p "${stubdir}"
+      cat <<EOF > "${stubdir}/wine32"
+#!/bin/sh
+exit 99
+EOF
+      exekutor chmod +x "${stubdir}/wine32"
+
+      run_mulle_sde -s environment --scope project set MULLE_EMULATOR__WINDOWS wine32 \
+      || fail "could not set emulator"
+
+      if output="`PATH="${stubdir}:${PATH}" run_mulle_sde -s run "${exefile}" 2>&1`"
+      then
+         fail "run unexpectedly succeeded"
+      fi
+
+      expect_line "Cannot run 64-bit Windows test" "${output}"
+      expect_line "configured emulator is wine32" "${output}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

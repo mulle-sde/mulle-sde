@@ -1,0 +1,89 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+   local testfile
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      run_mulle_sde -s test init || fail "test init failed"
+      [ -f "test/10-first/hello.args" ] || fail "hello.args missing after test init"
+      testfile="${PWD}/test/10-first/hello.args"
+
+      output="`sed -n '1,80p' test/.mulle/etc/sourcetree/config 2>/dev/null`"
+      expect_line "no-link" "${output}"
+
+      run_mulle_sde -s test run "${testfile}" || fail "args test run failed"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

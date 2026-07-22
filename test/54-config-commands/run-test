@@ -1,0 +1,220 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_output()
+{
+   local expected="$1"
+   local actual="$2"
+   local description="$3"
+
+   if [ "${actual}" != "${expected}" ]
+   then
+      fail "${description}
+Expected: ${expected}
+Actual:   ${actual}"
+   fi
+}
+
+
+expect_match()
+{
+   local pattern="$1"
+   local actual="$2"
+   local description="$3"
+
+   case "${actual}" in
+      *${pattern}*)
+      ;;
+
+      *)
+         fail "${description}
+Expected pattern: ${pattern}
+Actual:   ${actual}"
+      ;;
+   esac
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   #
+   # Create a project with a multi-config dependency
+   #
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      #-----------------------------------------------------------
+      # Test: config get (default)
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config get`"
+      expect_output "config" "${output}" "config get should return 'config' by default"
+
+      #-----------------------------------------------------------
+      # Test: bare config (same as get)
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config`"
+      expect_output "config" "${output}" "bare config should return 'config' by default"
+
+      #-----------------------------------------------------------
+      # Test: config list --project (single-config, no multi)
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config list --project 2>&1`"
+      expect_match "= config" "${output}" "config list --project should show config"
+
+      #-----------------------------------------------------------
+      # Set up multi-config: create configs and set reflect-configs
+      #-----------------------------------------------------------
+      mkdir_if_missing ".mulle/etc/sourcetree"
+      exekutor touch ".mulle/etc/sourcetree/config"
+      exekutor touch ".mulle/etc/sourcetree/glfw"
+      exekutor touch ".mulle/etc/sourcetree/sdl"
+
+      run_mulle_sde config reflect-configs "glfw:sdl" \
+         || fail "reflect-configs failed"
+
+      #-----------------------------------------------------------
+      # Test: config get still returns config (not yet switched)
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config get`"
+      expect_output "config" "${output}" "config get should still return 'config'"
+
+      #-----------------------------------------------------------
+      # Test: config list --project shows multi-config
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config list --project 2>&1`"
+      expect_match "glfw, sdl" "${output}" "config list should show available configs"
+
+      #-----------------------------------------------------------
+      # Test: config show lists available configs
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config show 2>&1`"
+      expect_match "glfw" "${output}" "config show should include glfw"
+      expect_match "sdl" "${output}" "config show should include sdl"
+
+      #-----------------------------------------------------------
+      # Set up a fake multi-config dependency in stash
+      #-----------------------------------------------------------
+      local stash_dir
+
+      stash_dir="`run_mulle_sde exec sh -c 'echo ${MULLE_SOURCETREE_STASH_DIR}'`"
+
+      # If stash_dir uses variables, evaluate it
+      if [ -z "${stash_dir}" ]
+      then
+         # fallback: create a stash dir manually
+         stash_dir="${directory}/.mulle/var/stash"
+      fi
+      mkdir_if_missing "${stash_dir}/FakeDep/.mulle/etc/sde"
+      printf "x11:wayland\n" > "${stash_dir}/FakeDep/.mulle/etc/sde/reflect-configs"
+
+      # Set the env var for the dependency config
+      run_mulle_sde environment --this-os set MULLE_SOURCETREE_CONFIG_NAME_FAKE_DEP "x11" \
+         || fail "env set failed"
+
+      #-----------------------------------------------------------
+      # Test: config list shows dependency section
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config list 2>&1`"
+      expect_match "FakeDep" "${output}" "config list should show FakeDep"
+      expect_match "x11" "${output}" "config list should show x11 value"
+      expect_match "x11, wayland" "${output}" "config list should show available options"
+
+      #-----------------------------------------------------------
+      # Test: config list --dependency
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config list --dependency 2>&1`"
+      expect_match "FakeDep" "${output}" "config list --dependency should show FakeDep"
+
+      #-----------------------------------------------------------
+      # Test: config dependency list
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config dependency list 2>&1`"
+      expect_match "FakeDep" "${output}" "config dependency list should show FakeDep"
+      expect_match "x11, wayland" "${output}" "config dependency list should show options"
+
+      #-----------------------------------------------------------
+      # Test: config dependency get
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config dependency get FakeDep`"
+      expect_output "x11" "${output}" "config dependency get FakeDep should return x11"
+
+      #-----------------------------------------------------------
+      # Test: config dependency get (unknown dep returns default)
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config dependency get UnknownDep`"
+      expect_output "config" "${output}" "config dependency get unknown should return config"
+
+      #-----------------------------------------------------------
+      # Test: config help shows new commands
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config help 2>&1`" || :
+      expect_match "dependency" "${output}" "config help should mention dependency"
+      expect_match "craft" "${output}" "config help should mention craft"
+      expect_match "get" "${output}" "config help should mention get"
+      expect_match "set" "${output}" "config help should mention set"
+
+      #-----------------------------------------------------------
+      # Test: config dependency help
+      #-----------------------------------------------------------
+      output="`run_mulle_sde config dependency help 2>&1`" || :
+      expect_match "list" "${output}" "dependency help should mention list"
+      expect_match "get" "${output}" "dependency help should mention get"
+      expect_match "set" "${output}" "dependency help should mention set"
+
+      log_info "----- ALL PASSED -----"
+   ) || exit 1
+
+   cd /tmp
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

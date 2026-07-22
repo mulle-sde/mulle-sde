@@ -1,0 +1,262 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_contains()
+{
+   local label="$1"
+   local needle="$2"
+   local text="$3"
+
+   if ! echo "${text}" | grep -qE "${needle}"
+   then
+      fail "${label}: expected pattern '${needle}' not found in:
+${text}"
+   fi
+}
+
+
+expect_not_contains()
+{
+   local label="$1"
+   local needle="$2"
+   local text="$3"
+
+   if echo "${text}" | grep -qE "${needle}"
+   then
+      fail "${label}: unexpected pattern '${needle}' found in:
+${text}"
+   fi
+}
+
+
+expect_order()
+{
+   local label="$1"
+   local first="$2"
+   local second="$3"
+   local text="$4"
+   local first_line
+   local second_line
+
+   first_line="`echo "${text}" | grep -n "${first}" | sed 's/:.*//' | head -1`"
+   second_line="`echo "${text}" | grep -n "${second}" | sed 's/:.*//' | head -1`"
+
+   [ -z "${first_line}" ] && fail "${label}: '${first}' not found"
+   [ -z "${second_line}" ] && fail "${label}: '${second}' not found"
+
+   if [ "${first_line}" -ge "${second_line}" ]
+   then
+      fail "${label}: '${first}' does not appear before '${second}'"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                     -d "${directory}" \
+                     -m mulle-sde/c-developer \
+                     executable \
+   || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   export MULLE_VIBECODING=NO
+
+   mkdir -p "asset/howto/coder/mulle-event"
+   cat > "asset/howto/coder/mulle-event/index.md" <<'EOF'
+<!-- keywords: event, coding, sharedkw -->
+# Mulle Event Index
+SENTINEL_EVENT_INDEX
+EOF
+
+   cat > "asset/howto/coder/mulle-event/quirks.md" <<'EOF'
+<!-- keywords: event, quirks -->
+# Mulle Event Quirks
+SENTINEL_EVENT_QUIRKS
+Watch for leaks during teardown.
+EOF
+
+   cat > "asset/howto/coder/mulle-event/patterns.md" <<'EOF'
+<!-- keywords: event, patterns -->
+# Mulle Event Patterns
+SENTINEL_EVENT_PATTERNS
+EOF
+
+   cat > "asset/howto/coder/test-helper.md" <<'EOF'
+<!-- keywords: helper, test -->
+# Test Helper
+SENTINEL_TEST_HELPER
+EOF
+
+   mkdir -p "asset/howto/debugger"
+   cat > "asset/howto/debugger/gdb-stacktrace.md" <<'EOF'
+<!-- keywords: gdb, stacktrace, sharedkw -->
+# GDB Stacktrace
+SENTINEL_GDB_STACKTRACE
+EOF
+
+   mkdir -p ".mulle/share/howto/verifier/trace-playback"
+   cat > ".mulle/share/howto/verifier/trace-playback/index.md" <<'EOF'
+<!-- keywords: verifier, trace -->
+# Trace Playback
+SENTINEL_TRACE_PLAYBACK
+EOF
+
+   cat > ".mulle/share/howto/legacy-flat.md" <<'EOF'
+<!-- keywords: legacy, flat -->
+# Legacy Flat
+SENTINEL_LEGACY_FLAT
+EOF
+
+   output="`run_mulle_sde howto roles 2>&1`" || fail "howto roles failed"
+   expect_contains "roles coder"    "^coder$"    "${output}"
+   expect_contains "roles debugger" "^debugger$" "${output}"
+   expect_contains "roles verifier" "^verifier$" "${output}"
+
+   output="`run_mulle_sde howto topics 2>&1`" || fail "howto topics failed"
+   expect_contains "topics all coder header"    "coder"              "${output}"
+   expect_contains "topics all coder topic"     "^   mulle-event$"   "${output}"
+   expect_not_contains "topics all coder no colon" "^coder:$"        "${output}"
+   expect_contains "topics groups separated by blank line" "^$"      "${output}"
+   expect_contains "topics all debugger header" "debugger"           "${output}"
+   expect_contains "topics all debugger topic"  "^   gdb-stacktrace$" "${output}"
+   expect_contains "topics all verifier header" "verifier"           "${output}"
+   expect_contains "topics all verifier topic"  "^   trace-playback$" "${output}"
+
+   output="`run_mulle_sde howto topics --role coder 2>&1`" || fail "howto topics --role coder failed"
+   expect_contains "topics --role coder" "^mulle-event$" "${output}"
+
+   output="`run_mulle_sde howto topics coder 2>&1`" || fail "howto topics coder failed"
+   expect_contains "coder topic" "^mulle-event$" "${output}"
+
+   output="`run_mulle_sde howto files --role coder --topic mulle-event 2>&1`" || fail "howto files --role coder --topic mulle-event failed"
+   expect_contains "files --role index"    "^index$"    "${output}"
+   expect_contains "files --role quirks"   "^quirks$"   "${output}"
+   expect_contains "files --role patterns" "^patterns$" "${output}"
+
+   output="`run_mulle_sde howto files coder mulle-event 2>&1`" || fail "howto files coder mulle-event failed"
+   expect_contains "files index"    "^index$"    "${output}"
+   expect_contains "files quirks"   "^quirks$"   "${output}"
+   expect_contains "files patterns" "^patterns$" "${output}"
+
+   output="`run_mulle_sde howto show --role coder --topic mulle-event 2>&1`" || fail "howto show --role coder --topic mulle-event failed"
+   expect_contains "show --role default member" "SENTINEL_EVENT_INDEX" "${output}"
+
+   output="`run_mulle_sde howto show coder mulle-event 2>&1`" || fail "howto show coder mulle-event failed"
+   expect_contains "show default member" "SENTINEL_EVENT_INDEX" "${output}"
+
+   output="`run_mulle_sde howto show --role coder --topic mulle-event --file quirks 2>&1`" || fail "howto show --role coder --topic mulle-event --file quirks failed"
+   expect_contains "show --role quirks member" "SENTINEL_EVENT_QUIRKS" "${output}"
+
+   output="`run_mulle_sde howto show coder mulle-event quirks 2>&1`" || fail "howto show coder mulle-event quirks failed"
+   expect_contains "show quirks member" "SENTINEL_EVENT_QUIRKS" "${output}"
+
+   output="`run_mulle_sde howto load --role coder --topic mulle-event 2>&1`" || fail "howto load --role coder --topic mulle-event failed"
+   expect_contains "load --role index"    "SENTINEL_EVENT_INDEX"    "${output}"
+   expect_contains "load --role quirks"   "SENTINEL_EVENT_QUIRKS"   "${output}"
+   expect_contains "load --role patterns" "SENTINEL_EVENT_PATTERNS" "${output}"
+
+   output="`run_mulle_sde howto load coder mulle-event 2>&1`" || fail "howto load coder mulle-event failed"
+   expect_contains "load index"    "SENTINEL_EVENT_INDEX"    "${output}"
+   expect_contains "load quirks"   "SENTINEL_EVENT_QUIRKS"   "${output}"
+   expect_contains "load patterns" "SENTINEL_EVENT_PATTERNS" "${output}"
+   expect_order    "load order index->quirks"    "SENTINEL_EVENT_INDEX"  "SENTINEL_EVENT_QUIRKS"   "${output}"
+   expect_order    "load order quirks->patterns" "SENTINEL_EVENT_QUIRKS" "SENTINEL_EVENT_PATTERNS" "${output}"
+
+   output="`run_mulle_sde howto list 2>&1`" || fail "legacy howto list failed"
+   expect_contains "bundle list shows unique topic/role name" "mulle-event/coder" "${output}"
+   expect_contains "single-file topic list" "gdb-stacktrace" "${output}"
+   expect_contains "share bundle list shows unique topic/role name" "trace-playback/verifier" "${output}"
+   expect_contains "legacy list" "legacy-flat" "${output}"
+   expect_not_contains "bundle list hides member file names" "patterns" "${output}"
+   expect_not_contains "bundle list hides index file name" "index" "${output}"
+
+   output="`run_mulle_sde howto show mulle-event 2>&1`" || fail "howto show mulle-event failed"
+   expect_contains "show topic by name" "SENTINEL_EVENT_INDEX" "${output}"
+
+   output="`run_mulle_sde howto list test 2>&1`" || fail "howto list test failed"
+   expect_contains "list test resolves shortcut entry" "testing/verifier" "${output}"
+   expect_not_contains "list test does not fall back to keyword helper" "test-helper" "${output}"
+
+   output="`run_mulle_sde howto show sharedkw 2>&1`" || fail "howto show sharedkw failed"
+   expect_contains "show sharedkw prefers coder role" "SENTINEL_EVENT_INDEX" "${output}"
+   expect_not_contains "show sharedkw skips debugger when coder exists" "SENTINEL_GDB_STACKTRACE" "${output}"
+   expect_not_contains "show sharedkw no suggestion list" "No exact match for 'sharedkw'" "${output}"
+
+   output="`run_mulle_sde howto show debugger gdb-stacktrace 2>&1`" || fail "howto show debugger gdb-stacktrace failed"
+   expect_contains "single-file topic show" "SENTINEL_GDB_STACKTRACE" "${output}"
+
+   output="`run_mulle_sde howto topics verifier 2>&1`" || fail "howto topics verifier failed"
+   expect_contains "verifier topic" "^trace-playback$" "${output}"
+
+   output="`run_mulle_sde howto show legacy-flat 2>&1`" || fail "legacy howto show failed"
+   expect_contains "legacy show" "SENTINEL_LEGACY_FLAT" "${output}"
+
+   output="`run_mulle_sde howto grep SENTINEL_EVENT_QUIRKS 2>&1`" || fail "howto grep bundle member failed"
+   expect_contains "grep bundle member header" "mulle-event/coder/quirks" "${output}"
+   expect_contains "grep bundle member" "SENTINEL_EVENT_QUIRKS" "${output}"
+   expect_not_contains "grep hides raw asset path" "asset/howto/coder/mulle-event/quirks.md" "${output}"
+
+   output="`run_mulle_sde howto apropos \"event quirks\" 2>&1`" || fail "howto apropos failed"
+   expect_contains "apropos lists bundle topic" "mulle-event/coder" "${output}"
+   expect_not_contains "apropos hides raw content" "SENTINEL_EVENT_QUIRKS" "${output}"
+   expect_not_contains "apropos hides raw asset path" "asset/howto/coder/mulle-event/quirks.md" "${output}"
+
+   output="`run_mulle_sde howto apropos leaks 2>&1`" || fail "howto apropos leaks failed"
+   expect_contains "apropos finds topic from body content" "mulle-event/coder" "${output}"
+   expect_not_contains "apropos leaks hides raw body line" "Watch for leaks during teardown" "${output}"
+
+   output="`run_mulle_sde howto keywords 2>&1`" || fail "howto keywords failed"
+   expect_contains "keywords include bundle member" "^patterns$" "${output}"
+
+   log_info "----- ALL PASSED -----"
+
+   cd /
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
