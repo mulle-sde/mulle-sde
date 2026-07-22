@@ -581,7 +581,7 @@ sde::init::read_template_expanded_file()
       PROJECT_DIALECT="${PROJECT_DIALECT:-objc}" \
          template::generate::main csed-script `" || exit $?
 
-   eval_rexekutor sed -f "${scriptfile}" "${filename}" | grep -E -v '^#'
+   rexekutor sed -f "${scriptfile}" "${filename}" | grep -E -v '^#'
 
    remove_file_if_present "${scriptfile}"
 }
@@ -853,6 +853,7 @@ sde::init::run_init()
 
    eval_cmdline="\
 OPTION_UPGRADE='${OPTION_UPGRADE}' \
+MULLE_SDE_EXTENSION_INIT_UPGRADE='${OPTION_UPGRADE}' \
 OPTION_REINIT='${OPTION_REINIT}' \
 OPTION_INIT_TYPE='${OPTION_INIT_TYPE}' \
 GITHUB_USER='${GITHUB_USER}' \
@@ -3276,6 +3277,12 @@ sde::init::check_dot_init()
    then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
       then
+         if [ "${MULLE_SDE_EXTENSION_INIT_UPGRADE}" = 'YES' ]
+         then
+            log_verbose "Reusing existing ${MULLE_SDE_SHARE_DIR} during extension init in upgrade mode"
+            return 0
+         fi
+
          if sde::init::_check_file "${MULLE_SDE_SHARE_DIR}/.init"
          then
             fail "There is already a ${MULLE_SDE_SHARE_DIR} folder in \"${PWD}\". \
@@ -3424,6 +3431,12 @@ sde::init::run()
 
    log_verbose "Init start"
 
+   # Remember if .mulle existed before we started, so we don't wipe
+   # pre-existing content on failure (e.g. when init is called on an
+   # existing directory during an upgrade context).
+   local mulle_existed='NO'
+   [ -d ".mulle" ] && mulle_existed='YES'
+
    sde::init::start
 
    local rc
@@ -3434,15 +3447,23 @@ sde::init::run()
 
    if [ $rc != 0 ]
    then
-      rmdir_safer ".mulle"
+      if [ "${mulle_existed}" = 'YES' ]
+      then
+         log_warning "Init failed in existing directory, leaving .mulle intact (${PWD#${MULLE_USER_PWD}/})"
+      else
+         rmdir_safer ".mulle"
+      fi
 
       if [ "${PURGE_PWD_ON_ERROR}" = 'YES' ]
       then
-         local dir
-
-         dir="${PWD}"
-         cd "${MULLE_USER_PWD:-/}"
-         rmdir_safer "${dir}"
+         # For safety, do not remove the whole project directory on error.
+         # Previously this could delete the entire project if an init/upgrade
+         # failed. Instead only remove the .mulle folder that was created.
+         log_warning "PURGE_PWD_ON_ERROR set but skipping purge of project directory for safety (${PWD#${MULLE_USER_PWD}/})"
+         # If desired, remove only the newly created OPTION_DIRECTORY or other tmp dirs.
+         # dir="${PWD}"
+         # cd "${MULLE_USER_PWD:-/}"
+         # rmdir_safer "${dir}"
       fi
    fi
 

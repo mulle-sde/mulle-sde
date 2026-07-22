@@ -58,7 +58,7 @@
 #### Automatic Reflection Chain
 **Behavior**: File changes trigger complete reflection cascade
 - **Trigger**: Source file modifications (*.c, *.h, *.m, etc.)
-- **Chain**: Filesystem ’ Callback ’ Task ’ Reflect ’ Craft
+- **Chain**: Filesystem ï¿½ Callback ï¿½ Task ï¿½ Reflect ï¿½ Craft
 - **Coalescence**: Multiple rapid changes are batched (default 1s delay)
 - **Parallelism**: Subproject reflection runs in parallel by default
 
@@ -338,7 +338,7 @@ sleep 2
 mulle-monitor task status
 
 # Verify reflection occurred
-cat etc/reflect
+mulle-sde config name
 ls -la CMakeLists.txt
 ```
 

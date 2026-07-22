@@ -90,7 +90,7 @@ Commands:
    add        : add a dependency to the sourcetree
    insert     : like add, but move the new entry to the top of the sourcetree
    binaries   : list all binaries in the built dependencies folder
-   config     : switch sourcetree configuration of a dependency (e.g. glfw vs sdl backend)
+   config     : manage configuration of dependencies (list, get, set)
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
    etcs       : list all etc files in the built dependencies folder
@@ -109,6 +109,7 @@ Commands:
    remove     : remove a dependency from the sourcetree
    set        : change a dependency settings in the sourcetree
    shares     : list all share files in the built dependencies folder
+   show       : show repositories available in MULLE_FETCH_SEARCH_PATH
    stashes    : list downloaded dependencies
    toc        : read table of contents for vibecoding
    source-dir : find the source location of a dependency
@@ -184,6 +185,24 @@ Options:
 
 EOF
   exit 1
+}
+
+
+sde::dependency::fail_if_vibecoding_symlink_nodetype()
+{
+   log_entry "sde::dependency::fail_if_vibecoding_symlink_nodetype" "$@"
+
+   local nodetype="$1"
+
+   [ "${MULLE_VIBECODING}" = 'YES' ] || return 0
+
+   case "${nodetype}" in
+      symlink)
+         fail "Using ${C_RESET_BOLD}--nodetype symlink${C_ERROR} is disabled in ${C_MAGENTA}${C_BOLD}vibecoding${C_ERROR}.
+Use a regular nodetype (for example git or tar) instead.
+If a matching local project is found through ${C_RESET_BOLD}MULLE_FETCH_SEARCH_PATH${C_ERROR}, it will be symlinked automatically unless symlink use has been explicitly disabled."
+      ;;
+   esac
 }
 
 
@@ -296,6 +315,130 @@ Keys:
 
 EOF
   exit 1
+}
+
+
+sde::dependency::show_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency show [options]
+
+   List repositories available in MULLE_FETCH_SEARCH_PATH that could be
+   added as dependencies. Each entry is annotated with markers:
+
+      [git] : has a .git directory
+      [sde] : has a .mulle directory (mulle-sde project)
+      [ai]  : has an AGENTS.md file
+
+Options:
+   --filter <marker> : only show entries with this marker (git, sde, ai)
+
+Environment:
+   MULLE_FETCH_SEARCH_PATH : colon-separated list of directories to search
+
+EOF
+   exit 1
+}
+
+
+sde::dependency::show_main()
+{
+   log_entry "sde::dependency::show_main" "$@"
+
+   local filter=""
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::dependency::show_usage
+         ;;
+
+         --filter)
+            [ $# -eq 1 ] && sde::dependency::show_usage "Missing argument to \"$1\""
+            shift
+            filter="$1"
+         ;;
+
+         -*)
+            sde::dependency::show_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   if [ -z "${MULLE_FETCH_SEARCH_PATH}" ]
+   then
+      log_warning "MULLE_FETCH_SEARCH_PATH is not set"
+      return 0
+   fi
+
+   local directory
+   local name
+   local markers
+   local line
+
+   .foreachpath directory in ${MULLE_FETCH_SEARCH_PATH}
+   .do
+      if [ ! -d "${directory}" ]
+      then
+         .continue
+      fi
+
+      local printed_header
+      printed_header='NO'
+
+      local entries
+      entries="$(ls -1 "${directory}" 2>/dev/null | sort)"
+
+      local entry
+      .foreachline entry in ${entries}
+      .do
+         local fullpath="${directory}/${entry}"
+
+         [ -d "${fullpath}" ] || .continue
+
+         markers=""
+
+         if [ -d "${fullpath}/.git" ]
+         then
+            r_concat "${markers}" "[git]" " " && markers="${RVAL}"
+         else
+            r_concat "${markers}" "     " " " && markers="${RVAL}"
+         fi
+         [ -d "${fullpath}/.mulle" ]    && r_concat "${markers}" "[sde]" " " && markers="${RVAL}"
+         [ -f "${fullpath}/AGENTS.md" ] && r_concat "${markers}" "[ai]"  " " && markers="${RVAL}"
+
+         # apply filter
+         if [ -n "${filter}" ]
+         then
+            case "${markers}" in
+               *"[${filter}]"*)
+               ;;
+               *)
+                  .continue
+               ;;
+            esac
+         fi
+
+         if [ "${printed_header}" = 'NO' ]
+         then
+            printf "%s:\n" "${directory}"
+            printed_header='YES'
+         fi
+
+         printf "   %-40s %s\n" "${entry}" "${markers}"
+      .done
+
+      [ "${printed_header}" = 'YES' ] && echo
+   .done
 }
 
 
@@ -1254,12 +1397,10 @@ sde::dependency::add_main()
    local OPTION_EMBEDDED='NO'
    local OPTION_ENHANCE='YES'     # enrich URL
    local OPTION_EXECUTABLE='NO'
-   local OPTION_FETCH='YES'
    local OPTION_LATEST='NO'
    local OPTION_MARKS
    local OPTION_OPTIONAL='NO'
    local OPTION_PRIVATE='NO'
-   local OPTION_SHARE='YES'
    local OPTION_SINGLEPHASE=
    local OPTION_STARTUP='DEFAULT'
    local OPTION_JSON='NO'
@@ -1268,7 +1409,6 @@ sde::dependency::add_main()
    local OPTION_BRANCH
    local OPTION_BRANCH_SET
    local OPTION_DOMAIN
-   local OPTION_FILTER
    local OPTION_HOST
    local OPTION_NODETYPE
    local OPTION_FETCHOPTIONS
@@ -1324,12 +1464,10 @@ sde::dependency::add_main()
          --amalgamated)
             OPTION_AMALGAMATED='YES'
             OPTION_EMBEDDED='YES'
-            OPTION_FETCH='NO'
          ;;
 
          --embedded)
             OPTION_EMBEDDED='YES'
-            OPTION_FETCH='NO'
          ;;
 
          --executable)
@@ -1355,13 +1493,6 @@ sde::dependency::add_main()
             shift
 
             OPTION_REPO="$1"
-         ;;
-
-         --filter)
-            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
-            shift
-
-            OPTION_FILTER="$1"
          ;;
 
          --fetchoptions)
@@ -1455,10 +1586,6 @@ sde::dependency::add_main()
             OPTION_NODETYPE="$1"
          ;;
 
-         --no-fetch)
-            OPTION_FETCH='NO'
-         ;;
-
          --objc|-m)
             OPTION_DIALECT='objc'
          ;;
@@ -1499,12 +1626,21 @@ sde::dependency::add_main()
             then
                OPTION_DOMAIN="${domain}"
                OPTION_USER="${1%/*}"
-               OPTION_REPO="${OPTION_REPO:-"${1##*/}"}"
+               case "$1" in
+                  */*)
+                     OPTION_REPO="${OPTION_REPO:-"${1##*/}"}"
+                  ;;
+               esac
             else
                # unknown domain, must be some other option
                r_concat "${OPTION_OPTIONS}" "--${domain} '$1'"
                OPTION_OPTIONS="${RVAL}"
             fi
+
+            log_setting "OPTION_DOMAIN:   ${OPTION_DOMAIN}"
+            log_setting "OPTION_USER:      ${OPTION_USER}"
+            log_setting "OPTION_REPO:      ${OPTION_REPO}"
+            log_setting "OPTION_OPTIONS:   ${OPTION_OPTIONS}"
          ;;
 
          *)
@@ -1866,6 +2002,8 @@ mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
          esac
       fi
    fi
+
+   sde::dependency::fail_if_vibecoding_symlink_nodetype "${nodetype}"
 
    local options
 
@@ -2830,13 +2968,14 @@ rcopy
 remove
 set
 shares
+show
 source-dir
 unmark"
       ;;
 
       config)
          include "sde::config"
-         sde::config::switch -d "$@"
+         sde::config::dependency "$@"
          return $?
       ;;
 
@@ -2941,6 +3080,10 @@ platform-excludes"
 
          sde::dependency:reflect_on_demand $rc
          return $rc
+      ;;
+
+      show)
+         sde::dependency::show_main "$@"
       ;;
 
       source-dir)

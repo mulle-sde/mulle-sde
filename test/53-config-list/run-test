@@ -44,9 +44,9 @@ main()
                     executable \
    || fail "init failed"
 
-   (
-      cd "${directory}" || exit 1
-      output="`run_mulle_sde config list 2>&1`" || fail "config list failed"
+    (
+       cd "${directory}" || exit 1
+       output="`run_mulle_sde config list 2>&1`" || fail "config list failed"
 
       case "${output}" in
          *"syntax error near unexpected token"*)
@@ -55,14 +55,56 @@ ${output}"
          ;;
       esac
 
-      case "${output}" in
-         *"MULLE_SOURCETREE_CONFIG_NAME=config"*) ;;
-         *)
-            fail "config list output missing default config line:
+       case "${output}" in
+          *"= config"*) ;;
+          *)
+             fail "config list output missing default config line:
 ${output}"
-         ;;
-      esac
-   ) || exit 1
+          ;;
+       esac
+
+       mkdir_if_missing ".mulle/etc/sourcetree" || fail "mkdir sourcetree failed"
+       exekutor touch ".mulle/etc/sourcetree/config" || fail "touch config failed"
+       exekutor touch ".mulle/etc/sourcetree/x11" || fail "touch x11 failed"
+       exekutor touch ".mulle/etc/sourcetree/wayland" || fail "touch wayland failed"
+       exekutor touch ".mulle/etc/sourcetree/macos" || fail "touch macos failed"
+
+       output="`run_mulle_sde config show 2>&1`" || fail "config show failed"
+
+       local projectline
+       projectline="`printf "%s\n" "${output}" \
+                    | grep '^MULLE_SOURCETREE_CONFIG_NAME=' \
+                    | head -n 1`"
+
+       [ -z "${projectline}" ] && fail "config show output missing project line:
+${output}"
+
+       case "${projectline}" in
+          *"config"*) ;;
+          *) fail "config show project line missing \"config\": ${projectline}" ;;
+       esac
+
+       case "${projectline}" in
+          *"x11"*) ;;
+          *) fail "config show project line missing \"x11\": ${projectline}" ;;
+       esac
+
+       case "${projectline}" in
+          *"wayland"*) ;;
+          *) fail "config show project line missing \"wayland\": ${projectline}" ;;
+       esac
+
+       case "${projectline}" in
+          *"macos"*) ;;
+          *) fail "config show project line missing \"macos\": ${projectline}" ;;
+       esac
+
+       case "${projectline}" in
+          *"default"*)
+             fail "config show project line should not synthesize \"default\": ${projectline}"
+          ;;
+       esac
+    ) || exit 1
 
    log_info "----- ALL PASSED -----"
 

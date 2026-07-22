@@ -413,7 +413,9 @@ echo "Craftorder style: ${MULLE_SDE_CRAFTORDER_STYLE:-${MULLE_SDE_CRAFT_STYLE:-D
 This occurs when a dependency is configured with a different sourcetree config name than expected.
 ```bash
 # Check current config
-mulle-sde config list -d <dependency>
+mulle-sde config list
+# Check available config names inside the dependency
+cd <dependency-path> && mulle-sde config show
 # Switch to expected config
 mulle-sde config switch -d <dependency> <expected-config>
 ```

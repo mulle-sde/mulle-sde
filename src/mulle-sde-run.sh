@@ -32,6 +32,150 @@
 MULLE_SDE_RUN_SH='included'
 
 
+sde::run::r_read_hexbytes()
+{
+   log_entry "sde::run::r_read_hexbytes" "$@"
+
+   local executable="$1"
+   local offset="$2"
+   local count="$3"
+   local value
+
+   value="`dd if="${executable}" bs=1 skip="${offset}" count="${count}" 2> /dev/null \
+               | od -An -v -t x1 2> /dev/null \
+               | tr -d '[:space:]'`"
+   if [ "${#value}" -ne $(( count * 2 )) ]
+   then
+      return 1
+   fi
+
+   RVAL="${value}"
+}
+
+
+sde::run::r_windows_executable_arch()
+{
+   log_entry "sde::run::r_windows_executable_arch" "$@"
+
+   local executable="$1"
+   local bytes
+
+   if ! sde::run::r_read_hexbytes "${executable}" 0 2
+   then
+      return 1
+   fi
+   bytes="${RVAL}"
+
+   case "${bytes}" in
+      4d5a)
+      ;;
+      *)
+         return 1
+      ;;
+   esac
+
+   if ! sde::run::r_read_hexbytes "${executable}" 60 4
+   then
+      return 1
+   fi
+
+   local pe_offset
+
+   pe_offset=$(( 16#${RVAL:6:2}${RVAL:4:2}${RVAL:2:2}${RVAL:0:2} ))
+
+   if ! sde::run::r_read_hexbytes "${executable}" "${pe_offset}" 4
+   then
+      return 1
+   fi
+
+   case "${RVAL}" in
+      50450000)
+      ;;
+      *)
+         return 1
+      ;;
+   esac
+
+   if ! sde::run::r_read_hexbytes "${executable}" "$(( pe_offset + 24 ))" 2
+   then
+      return 1
+   fi
+
+   case "${RVAL}" in
+      0b02)
+         RVAL='64'
+         return 0
+      ;;
+      0b01)
+         RVAL='32'
+         return 0
+      ;;
+   esac
+
+   return 1
+}
+
+
+sde::run::preflight_windows_wine_loader()
+{
+   log_entry "sde::run::preflight_windows_wine_loader" "$@"
+
+   local executable="$1"
+   local executable_name="$2"
+   local emulator="$3"
+
+   local emulator_cmd
+   local emulator_name
+
+   emulator_cmd="${emulator%% *}"
+   r_basename "${emulator_cmd}"
+   emulator_name="${RVAL}"
+
+   case "${emulator_name}" in
+      wine|wine32|wine64)
+      ;;
+      *)
+         return 0
+      ;;
+   esac
+
+   if ! sde::run::r_windows_executable_arch "${executable}"
+   then
+      log_verbose "Skipping Windows Wine preflight for \"${executable_name}\": could not determine PE32/PE32+ architecture"
+      return 0
+   fi
+
+   local arch="${RVAL}"
+
+   case "${arch}" in
+      '64')
+         if [ "${emulator_name}" = 'wine32' ]
+         then
+            fail "Cannot run 64-bit Windows test \"${executable_name}\": configured emulator is wine32.
+Use wine64 for PE32+ executables (for example: MULLE_EMULATOR__WINDOWS=wine64)."
+         fi
+
+         if ! command -v wine64 > /dev/null 2>&1
+         then
+            fail "Cannot run 64-bit Windows test \"${executable_name}\": wine64 is not installed.
+Install it with: sudo apt install wine64"
+         fi
+      ;;
+
+      '32')
+         if ! command -v wine32 > /dev/null 2>&1
+         then
+            if ! command -v wine > /dev/null 2>&1
+            then
+               fail "Cannot run 32-bit Windows test \"${executable_name}\": wine32 is not installed.
+Install it with: sudo apt install wine32"
+            fi
+         fi
+      ;;
+   esac
+}
+
+
 sde::run::r_emulator_for_platform()
 {
    log_entry "sde::run::r_emulator_for_platform" "$@"
@@ -83,7 +227,15 @@ Usage:
 
    Run the main executable of the given project, with the arguments given.
    The executable will run within the mulle-sde environment unless -e is
-   given.
+   given. Use standard \`${MULLE_USAGE_NAME}\` flags to define ephemeral environment
+   settings for the run:
+
+      mulle-sde -DTRACE=YES run
+
+   In demo and other projects multiple executables may be built. Then specify
+   the name of the executable without .exe:
+
+      mulle-sde run mydemo
 
 Options:
    --                   : pass remaining options as arguments
@@ -92,6 +244,16 @@ Options:
    --timeout <s>        : run executable but stop after 's' seconds
    --mulleui-frames <n> : run mulleui executable for <n> frames from start (0)
    --mulleui-trace <nr> : trace drawing calls starting at frame <nr>
+EOF
+
+   if [ "${MULLE_VIBECODING}" != 'YES' -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+   then
+      cat <<EOF >&2
+   --mulleui-debug      : select UIWindow debugging flags interactively
+EOF
+   fi
+
+   cat <<EOF >&2
 
 Environment:
    MULLE_SDE_RUN         : command to run: use \${EXECUTABLE} as variable
@@ -251,9 +413,7 @@ sde::run::main()
          ;;
 
          --mulleui-debug|--mulle-ui-debug)
-            [ $# -eq 1 ] && sde::run::usage "Missing argument to \"$1\""
-            shift
-            OPTION_MULLEUI_DEBUG="$1"
+            OPTION_MULLEUI_DEBUG='YES'
          ;;
 
          --objc-trace-leak|--leak|--trace-leak)
@@ -345,9 +505,50 @@ sde::run::main()
 
    if [ "${OPTION_MULLEUI_DEBUG}" = 'YES' ]
    then
-      r_concat "${OPTION_ENVIRONMENT}" "UIWindowDebuggingFlags=0x8008"
-      r_concat "${RVAL}" "CGContextDebuggingFlags=08008"
-      OPTION_ENVIRONMENT="${RVAL}"
+      local debugflags
+
+      if [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
+      then
+         log_info "Vibecoding: setting UIDebuggingFlags=0xf (Debug+Event+Layout+Render)"
+         log_info "Use mulle-sde -DUIDebuggingFlags=0x<hex> run for specific flags"
+         debugflags="0xf"
+      else
+         debugflags="$("${MULLE_OPTION:-mulle-option}" \
+            --final-title "" \
+            --title "Select UIWindow debugging flags:" \
+            "Debug=0x1" \
+            "Event=0x2" \
+            "Layout=0x4" \
+            "Render=0x8" \
+            "Thread=0x10" \
+            "WindowEvent=0x20" \
+            "DisplayBits=0x40" \
+            "RefreshBits=0x80" \
+            "Backend=0x100" \
+            "Swap=0x400" \
+            "Resource=0x800" \
+            "Verbose=0x1000" \
+            "EventVerbose=0x2000" \
+            "DisplayBitsVerbose=0x4000" \
+            "RenderVerbose=0x8000" \
+            "ThreadVerbose=0x10000" \
+            "MouseMotionEvent=0x1000000" \
+            "MouseTrackingEvent=0x2000000" \
+            "TraceDrawCalls=0x4000000" \
+            "DumpFrameToFile=0x8000000" \
+            "RenderDisplayBits=0x10000000" \
+            "FramebufferIdRect=0x20000000" \
+            "RenderFrameInfo=0x40000000" \
+            "AbortOnEventOverflow=0x80000000")" || return 1
+      fi
+
+      if [ ! -z "${debugflags}" -a "${debugflags}" != "0x0" ]
+      then
+         r_concat "${OPTION_ENVIRONMENT}" "UIDebuggingFlags=${debugflags}"
+         OPTION_ENVIRONMENT="${RVAL}"
+
+         log_info "Will execute with ${C_RESET_BOLD}-DUIDebuggingFlags=${debugflags}"
+      fi
    fi
 
 
@@ -483,6 +684,11 @@ sde::run::main()
       emulator="${RVAL}"
    else
       fail "Cannot run ${platform} executable: emulator not configured or not found in PATH"
+   fi
+
+   if [ "${platform}" = 'windows' ]
+   then
+      sde::run::preflight_windows_wine_loader "${EXECUTABLE}" "${EXECUTABLE_NAME}" "${emulator}"
    fi
 
    local rc

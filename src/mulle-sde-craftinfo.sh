@@ -495,6 +495,14 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
 
    if [ ! -d "${subprojectdir}" ]
    then
+      #
+      # craftinfo-all is special: it's just a plain definitions directory,
+      # not a full craftinfo subproject
+      #
+      if [ "${name}" = '__ALL__' ]
+      then
+         mkdir_if_missing "${subprojectdir}/definition"
+      else
       (
 #         local ptype
 
@@ -520,6 +528,7 @@ sde::craftinfo::add_craftinfo_subproject_if_needed()
                                             --oneshot-name "${name}" \
                                             mulle-sde/craftinfo
       ) || return 1
+      fi
       [ -d "${subprojectdir}" ] || \
          _internal_fail "did not produce \"${subprojectdir}\""
 
@@ -577,11 +586,27 @@ sde::craftinfo::__vars_with_url_or_address()
                               "${url}"`"
    if [ -z "${_address}" ]
    then
-      if [ "${emptyok}" != 'YES' ]
+      #
+      # Not a direct dependency. Try recursive lookup in fetched subdeps.
+      #
+      _address="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                                 --virtual-root \
+                                 --recurse \
+                                 -s \
+                                 ${MULLE_TECHNICAL_FLAGS} \
+                                 ${MULLE_SOURCETREE_FLAGS:-} \
+                              get \
+                                 "${url}"`"
+      if [ -z "${_address}" ]
       then
-         fail "Dependency with url \"${url}\" is unknown"
+         if [ "${emptyok}" != 'YES' ]
+         then
+            fail "Dependency with url \"${url}\" is unknown"
+         fi
+         _address="${url}"
+      else
+         log_verbose "\"${url}\" found as transitive dependency"
       fi
-      _address="${url}"
    fi
 
    [ -z "${_address}" ] && fail "Empty url or address"
@@ -590,6 +615,7 @@ sde::craftinfo::__vars_with_url_or_address()
 
    marks="`rexekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
                               --virtual-root \
+                              --recurse \
                               -s \
                               ${MULLE_TECHNICAL_FLAGS} \
                               ${MULLE_SOURCETREE_FLAGS:-} \

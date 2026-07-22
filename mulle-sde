@@ -78,6 +78,7 @@ function sde::print_commands()
       SHOWN_COMMANDS="\
    add            : create a source file from templates
    api            : show API documentation from dependencies
+   check          : syntax-check project sources (fast, no link)
    clean          : clean various parts of the project
    craft          : craft the project using mulle-craft
    craftinfo      : show build flags of dependencies
@@ -184,6 +185,8 @@ Usage:
 
    Read the "De Re mulle-sde" guide:
       https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
+
+   Try to avoid running mulle-sde commands in parallel.
 
 EOF
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
@@ -574,8 +577,39 @@ already ($physdir)"
    MULLE_VIRTUAL_ROOT="${PWD}"
 
    # also need to change ID then
-   MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
-   MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+   local computed_id
+   local legacy_id
+
+   r_fnv1a_32  "${MULLE_VIRTUAL_ROOT}"
+   printf -v computed_id "%08x" "${RVAL}"
+
+   # Backward compatibility:
+   # older mulle-env environments persisted MULLE_VIRTUAL_ROOT_ID as a
+   # 12-char sha256-derived value. Accept that format for the same root and
+   # upgrade in-place to the current 8-char fnv1a id.
+   if command -v shasum > /dev/null 2>&1
+   then
+      legacy_id="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
+      legacy_id="${legacy_id:1:12}"
+   fi
+
+   if [ ! -z "${MULLE_VIRTUAL_ROOT_ID}" -a "${MULLE_VIRTUAL_ROOT_ID}" != "${computed_id}" ]
+   then
+      if [ "${cmd}" = "upgrade" ]
+      then
+         log_warning "Ignoring MULLE_VIRTUAL_ROOT_ID mismatch during upgrade (have \"${MULLE_VIRTUAL_ROOT_ID}\", expected \"${computed_id}\")"
+      elif [ ! -z "${legacy_id}" -a "${MULLE_VIRTUAL_ROOT_ID}" = "${legacy_id}" ]
+      then
+         log_verbose "Legacy MULLE_VIRTUAL_ROOT_ID detected (${MULLE_VIRTUAL_ROOT_ID}), updating to ${computed_id}"
+      else
+      fail "MULLE_VIRTUAL_ROOT_ID mismatch (have \"${MULLE_VIRTUAL_ROOT_ID}\", \
+expected \"${computed_id}\").
+${C_INFO}Your environment.sh is outdated. Fix with:
+${C_RESET_BOLD}   mulle-sde upgrade"
+      fi
+   fi
+
+   MULLE_VIRTUAL_ROOT_ID="${computed_id}"
 }
 
 
@@ -901,8 +935,8 @@ sde::main()
       [ "${MULLE_VIRTUAL_ROOT}" = "/" ] && fail "MULLE_VIRTUAL_ROOT can't be /"
       export MULLE_VIRTUAL_ROOT
 
-      MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
-      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+      r_fnv1a_32  "${MULLE_VIRTUAL_ROOT}"
+      printf -v MULLE_VIRTUAL_ROOT_ID "%08x" "${RVAL}"
       export MULLE_VIRTUAL_ROOT_ID
    else
       #
@@ -917,7 +951,7 @@ sde::main()
             # commands that have a help text, we want to show this even
             # if there is no environment around
             #
-            api|callback|clean|config|craft|craftinfo|craftorder|craftstatus|\
+            api|callback|check|clean|config|craft|craftinfo|craftorder|craftstatus|\
 code|\
 craft-status|definition|dep|dependency|doctor|donefile|export|\
 fetch|file|files|filename|find|headerorder|howto|ignore|json|library|\
@@ -947,7 +981,7 @@ kitchen-dir|tool-env|stash-dir|todo)
 env-identifier|edit|ext|extension|get|init|init-and-enter|install|reinit|\
 status|hostname|remove|uname|show|version|libexec-dir|library-path|project-dir|\
 retest|set|source-dir|steal|symlink|test|upgrade|username|source-tree|\
-project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval)
+project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
             ;;
 
             #
@@ -1008,9 +1042,8 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval)
    # think about having a second MULLE_VIRTUAL_ROOT so that the project can
    # be read only and we keep the bookkeeping somewhere on the outside
    #
-   log_setting "MULLE_VIRTUAL_ROOT    = \"${MULLE_VIRTUAL_ROOT}\""
-   log_setting "MULLE_VIRTUAL_ROOT_ID = \"${MULLE_VIRTUAL_ROOT_ID}\""
    log_setting "MULLE_TECHNICAL_FLAGS = \"${MULLE_TECHNICAL_FLAGS}\""
+   log_setting "MULLE_VIRTUAL_ROOT    = \"${MULLE_VIRTUAL_ROOT}\""
 
    if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a -z "${MULLE_VIRTUAL_ROOT_ID}" ]
    then
@@ -1019,18 +1052,17 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval)
       envfilename="${MULLE_VIRTUAL_ROOT}/.mulle/etc/env/environment.sh"
       if [ -e "${envfilename}" ]
       then
-         _log_warning "The environment.sh file \"${envfilename}\" is outdated and needs to set MULLE_VIRTUAL_ROOT_ID:
-MULLE_VIRTUAL_ROOT_ID=\"\$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< \"\${MULLE_VIRTUAL_ROOT}\")
-MULLE_VIRTUAL_ROOT_ID=\"\${MULLE_VIRTUAL_ROOT_ID:1:12}
-export MULLE_VIRTUAL_ROOT_ID"
+         _log_warning "The environment.sh file \"${envfilename}\" is outdated and needs to set MULLE_VIRTUAL_ROOT_ID"
       else
          log_warning "The environment in \"${MULLE_VIRTUAL_ROOT}\" is outdated and needs a mulle-sde upgrade"
       fi
 
-      MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
-      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+      r_fnv1a_32  "${MULLE_VIRTUAL_ROOT}"
+      printf -v MULLE_VIRTUAL_ROOT_ID "%08x" "${RVAL}"
       export MULLE_VIRTUAL_ROOT_ID
    fi
+
+   log_setting "MULLE_VIRTUAL_ROOT_ID = \"${MULLE_VIRTUAL_ROOT_ID}\""
 
    if ! sde::is_non_environment_commandline "$@"
    then
@@ -1068,11 +1100,10 @@ export MULLE_VIRTUAL_ROOT_ID"
          local cmdidentifier
          local value
 
-         # problem here is that cmdidentifier is not validate to be sane
-
          if [ "${BASH_VERSINFO[0]}" -ge 4 ]
          then
-            cmdidentifier="${cmd^^}"
+            r_identifier "${cmd}"
+            cmdidentifier="${RVAL^^}"
             cmdidentifier="${cmdidentifier//-/_}"
 
             hook="MULLE_SDE_${cmdidentifier}_PRELUDE"
@@ -1095,6 +1126,38 @@ export MULLE_VIRTUAL_ROOT_ID"
    log_setting "MULLE_VIBECODING      = ${MULLE_VIBECODING:-NO}"
 
    case "${cmd}" in
+      *'::'*)   # eval
+         local directory
+
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%%:*}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+
+         log_verbose "Evaluating in ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+
+         cmd="${cmd#*::}"
+         set -- "${cmd}" "$@"
+         ( cd "${directory}" && exekutor "$@" )
+      ;;
+
+      *':'*)   # exec
+         local directory
+
+         directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
+                                             ${MULLE_TECHNICAL_FLAGS} \
+                                             "${cmd%%:*}-dir" `"
+         [ ! -d "${directory}" ] && fail "\"${directory}\" does not (yet) exist"
+
+
+         cmd="${cmd#*:}"
+         set -- "${cmd}" "$@"
+
+         log_verbose "Executing in ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
+         ( cd "${directory}" && eval_exekutor "$@" )
+      ;;
+
+
       *-eval)
          local directory
 
@@ -1106,6 +1169,7 @@ export MULLE_VIRTUAL_ROOT_ID"
          log_verbose "Executing in ${C_RESET_BOLD}${directory#${MULLE_USER_PWD}/}"
          ( cd "${directory}" && eval_exekutor "$@" )
       ;;
+
 
       *-exec)
          local directory
@@ -1246,6 +1310,7 @@ api - show API documentation from dependencies (help: yes)
 code - search and navigate dependency source code (help: yes)
 bash-completion - deprecated, bash completion no longer supported (help: no)
 callback - manage reflection callbacks (help: yes)
+check - syntax-check project sources (fast, no link) (help: yes)
 clean - clean various parts of the project (help: yes)
 commands - list of all available commands (some undocumented) (help: no)
 common-unames - list supported platform names (help: yes)
@@ -1384,6 +1449,16 @@ EOF
          include "sde::config"
 
          sde::config::main "$@"
+      ;;
+
+      'check')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}"
+         fi
+
+         include "sde::craft"
+         sde::craft::check "$@"
       ;;
 
       'craft'|'recraft')

@@ -50,6 +50,11 @@ Examples:
 Commands:
       list               : list available API documentation from dependencies
       cat <name>         : show API doc by number or dependency name
+      symbols <lib>      : list all symbols from a library's headers
+      functions <lib>    : list C functions from a library's headers
+      methods <lib>      : list ObjC methods from a library's headers
+      factories <lib>    : list ObjC class (+) methods from a library's headers
+      grep <pattern>     : search symbols across all dependency headers
       context            : dump all API docs to stdout (pipe to AI tool)
       apropos <question> : keyword search through API docs
 
@@ -102,42 +107,9 @@ EOF
 #
 sde::api::ensure_dependencies_crafted()
 {
-   log_entry "sde::api::ensure_dependencies_crafted" "$@"
+   include "sde::vibecoding"
 
-   local purpose="${1:-API information}"
-
-   # Only auto-craft in vibecoding mode
-   if [ "${MULLE_VIBECODING}" != 'YES' ]
-   then
-      return 0
-   fi
-
-   # Check if dependencies are already built
-   local state
-
-   state="$(rexekutor ${MULLE_TECHNICAL_FLAGS:--s} quickstatus -p 2>/dev/null)" || state=""
-
-   if [ "${state}" = "complete" ]
-   then
-      log_debug "Dependencies already crafted"
-      return 0
-   fi
-
-   # Dependencies not complete, try to craft
-   log_info "Crafting dependencies to get ${purpose}..."
-
-   # Capture exit code to prevent error cascade
-   local rc
-
-   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS:--s} -DMULLE_VIBECODING=NO craft --no-clean craftorder
-   rc=$?
-
-   if [ $rc -ne 0 ]
-   then
-      log_warning "Failed to craft dependencies"
-   fi
-
-   return 0  # Always succeed, we'll show what we have
+   sde::vibecoding::ensure_dependencies_crafted "API information"
 }
 
 
@@ -565,6 +537,290 @@ sde::api::cat()
          ;;
       esac
    fi
+}
+
+
+sde::api::symbols_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} api symbols [options] <library>
+   ${MULLE_USAGE_NAME} api functions [options] <library>
+   ${MULLE_USAGE_NAME} api methods [options] <library>
+
+   List symbols from a dependency's installed headers using ctags.
+
+   symbols   : all symbol kinds (functions, methods, types, macros)
+   functions : C functions only
+   methods   : Objective-C methods only
+
+Options:
+   --grep <pattern>   : filter output by symbol name pattern
+
+Examples:
+   ${MULLE_USAGE_NAME} api functions MulleCG
+   ${MULLE_USAGE_NAME} api functions --grep Fill MulleCG
+   ${MULLE_USAGE_NAME} api methods MulleUIWindow
+   ${MULLE_USAGE_NAME} api symbols MulleCG
+
+EOF
+   exit 1
+}
+
+
+#
+# Shared implementation for symbols/functions/methods
+#
+sde::api::_list_symbols()
+{
+   log_entry "sde::api::_list_symbols" "$@"
+
+   local kinds="$1"
+   shift
+
+   local OPTION_GREP=""
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::api::symbols_usage
+         ;;
+         --grep)
+            shift
+            OPTION_GREP="${1}"
+         ;;
+         -*)
+            sde::api::symbols_usage "Unknown option $1"
+         ;;
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   local library="$1"
+
+   [ -z "${library}" ] && sde::api::symbols_usage "Missing library name"
+
+   if ! command -v ctags >/dev/null 2>&1
+   then
+      fail "ctags is not installed (needed for symbol extraction)"
+   fi
+
+   sde::api::ensure_dependencies_crafted "API symbols"
+
+   local dependency_dir
+   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
+
+   [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ] && \
+      fail "No dependency directory found (run 'mulle-sde craft' first)"
+
+   # Search for the include directory matching the library name
+   local include_dir=""
+   local subdir
+
+   # dependency-dir may already contain the build type, check directly first
+   if [ -d "${dependency_dir}/include/${library}" ]
+   then
+      include_dir="${dependency_dir}/include/${library}"
+   else
+      # Try parent with explicit build types
+      local parent_dir
+      r_dirname "${dependency_dir}"
+      parent_dir="${RVAL}"
+
+      local searchpath="Debug:Release:"
+      .foreachpath subdir in ${searchpath}
+      .do
+         if [ -d "${parent_dir}/${subdir}/include/${library}" ]
+         then
+            include_dir="${parent_dir}/${subdir}/include/${library}"
+            .break
+         fi
+      .done
+   fi
+
+   if [ -z "${include_dir}" ]
+   then
+      # Try case-insensitive match
+      local candidate
+      candidate="$(find "${dependency_dir}/include" -maxdepth 1 -iname "${library}" -type d 2>/dev/null | head -1)"
+      [ ! -z "${candidate}" ] && include_dir="${candidate}"
+   fi
+
+   [ -z "${include_dir}" ] && fail "No include directory found for '${library}'"
+
+   # Run ctags on all headers
+   local output
+   output="$(ctags -x --language-force=ObjectiveC --kinds-ObjectiveC="${kinds}" "${include_dir}"/*.h 2>/dev/null)"
+
+   if [ -z "${output}" ]
+   then
+      log_info "No symbols found in ${library} headers"
+      return 0
+   fi
+
+   # Apply grep filter if specified
+   if [ ! -z "${OPTION_GREP}" ]
+   then
+      output="$(printf '%s\n' "${output}" | grep -i "${OPTION_GREP}")"
+      [ -z "${output}" ] && { log_info "No symbols matching '${OPTION_GREP}' in ${library}"; return 0; }
+   fi
+
+   printf '%s\n' "${output}"
+}
+
+
+sde::api::symbols()
+{
+   sde::api::_list_symbols "fpmicsteCeM" "$@"
+}
+
+
+sde::api::functions()
+{
+   sde::api::_list_symbols "fp" "$@"
+}
+
+
+sde::api::methods()
+{
+   sde::api::_list_symbols "mc" "$@"
+}
+
+
+sde::api::factories()
+{
+   log_entry "sde::api::factories" "$@"
+
+   [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "help" ] && {
+      cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} api factories <library>
+
+   List class factory methods (+ methods) from a library's headers.
+
+Examples:
+   ${MULLE_USAGE_NAME} api factories MulleAudio
+   ${MULLE_USAGE_NAME} api factories MulleUIWindow
+
+EOF
+      exit 1
+   }
+
+   sde::api::_list_symbols "c" "$@"
+}
+
+
+sde::api::grep()
+{
+   log_entry "sde::api::grep" "$@"
+
+   local OPTION_FULL='NO'
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} api grep [options] <pattern>
+
+   Search for symbols matching <pattern> across all dependency headers.
+   Finds functions, methods, types, macros in all installed libraries.
+
+Options:
+   --full   : show complete multi-line declarations (not just first line)
+
+Examples:
+   ${MULLE_USAGE_NAME} api grep keyDown
+   ${MULLE_USAGE_NAME} api grep --full CGContextFormatInRect
+   ${MULLE_USAGE_NAME} api grep UIKeyboardEvent
+
+EOF
+            exit 1
+         ;;
+         --full)
+            OPTION_FULL='YES'
+         ;;
+         -*)
+            fail "Unknown option $1"
+         ;;
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   local pattern="$1"
+
+   [ -z "${pattern}" ] && fail "Missing pattern"
+
+   if ! command -v ctags >/dev/null 2>&1
+   then
+      fail "ctags is not installed (needed for symbol extraction)"
+   fi
+
+   sde::api::ensure_dependencies_crafted "API grep"
+
+   local dependency_dir
+   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
+
+   [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ] && \
+      fail "No dependency directory found (run 'mulle-sde craft' first)"
+
+   local include_base="${dependency_dir}/include"
+   [ ! -d "${include_base}" ] && fail "No include directory in ${dependency_dir}"
+
+   # Run ctags on all headers, filter by pattern on symbol name (col 1)
+   local output
+   output="$(find "${include_base}" -name '*.h' -print0 2>/dev/null | \
+      xargs -0 ctags -x --language-force=ObjectiveC --kinds-ObjectiveC=fpmicsteCeM 2>/dev/null | \
+      awk -v pat="${pattern}" 'BEGIN{IGNORECASE=1} $1 ~ pat')"
+
+   if [ -z "${output}" ]
+   then
+      log_info "No symbols matching '${pattern}'"
+      return 1
+   fi
+
+   if [ "${OPTION_FULL}" = 'NO' ]
+   then
+      printf '%s\n' "${output}"
+      return 0
+   fi
+
+   # --full mode: for each match, extract the complete declaration from the header
+   local file lineno name kind rest prev_file=""
+
+   while IFS= read -r line
+   do
+      # ctags -x format: NAME KIND LINE FILE CONTENT...
+      name="$(echo "${line}" | awk '{print $1}')"
+      kind="$(echo "${line}" | awk '{print $2}')"
+      lineno="$(echo "${line}" | awk '{print $3}')"
+      file="$(echo "${line}" | awk '{print $4}')"
+
+      [ -z "${file}" ] || [ ! -f "${file}" ] && continue
+
+      # Print header separator when file changes
+      if [ "${file}" != "${prev_file}" ]
+      then
+         [ ! -z "${prev_file}" ] && echo ""
+         r_basename "$(dirname "${file}")"
+         echo "--- ${RVAL} ---"
+         prev_file="${file}"
+      fi
+
+      # Extract from line until we hit a semicolon or closing brace
+      sed -n "${lineno},\$p" "${file}" | sed '/[;{]$/q' | sed '/^$/q'
+      echo ""
+   done <<< "${output}"
 }
 
 
@@ -1077,6 +1333,26 @@ sde::api::main()
       
       'find')
          sde::api::find "$@"
+      ;;
+
+      'functions')
+         sde::api::functions "$@"
+      ;;
+
+      'methods')
+         sde::api::methods "$@"
+      ;;
+
+      'factories')
+         sde::api::factories "$@"
+      ;;
+
+      'symbols')
+         sde::api::symbols "$@"
+      ;;
+
+      'grep')
+         sde::api::grep "$@"
       ;;
       
       'apropos')

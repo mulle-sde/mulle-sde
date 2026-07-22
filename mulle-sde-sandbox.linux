@@ -39,17 +39,26 @@ home="${home:-/home/${USERNAME}}"
 MULLE_SDE_SANDBOX_SRC_DIR="${MULLE_SDE_SANDBOX_SRC_DIR:-${home}/src}"
 MULLE_SDE_SANDBOX_VAR_DIR="${MULLE_SDE_SANDBOX_VAR_DIR:-${home}/.mulle}"
 MULLE_SDE_SANDBOX_CACHE_DIR="${MULLE_SDE_SANDBOX_CACHE_DIR:-${home}/.cache}"
+MULLE_SDE_SANDBOX_CONFIG_DIR="${MULLE_SDE_SANDBOX_CONFIG_DIR:-${home}/.config}"
+MULLE_SDE_SANDBOX_SHARE_DIR="${MULLE_SDE_SANDBOX_SHARE_DIR:-${home}/.local/share}"
 
 # zfs="/mnt/zfs/nat"
 #
 # special needs stuff
-MULLE_SDE_SANDBOX_CODEBUFF_DIR="${MULLE_SDE_SANDBOX_CODEBUFF_DIR:-${home}/.config/manicode}"
+# SHOULD GIVE EACH LLM A "FAKE" HOME and symlink in the stuff they need from
+# real home
+#
+MULLE_SDE_SANDBOX_AGENTS_DIR="${MULLE_SDE_SANDBOX_AGENTS_DIR:-${home}/.agents}"
+MULLE_SDE_SANDBOX_GEMINI_DIR="${MULLE_SDE_SANDBOX_GEMINI_DIR:-${home}/.gemini}"
+MULLE_SDE_SANDBOX_GEMINI_DIR2="${MULLE_SDE_SANDBOX_GEMINI_DIR2:-${home}/paperless-personal}"
 MULLE_SDE_SANDBOX_DISTROBOX_DIR="${MULLE_SDE_SANDBOX_DISTROBOX_DIR:-${home}/.distrobox}"
 MULLE_SDE_SANDBOX_MLTERM_DIR="${MULLE_SDE_SANDBOX_MLTERM_DIR:-${home}/.mlterm}"
-MULLE_SDE_SANDBOX_PULSE_DIR="${MULLE_SDE_SANDBOX_PULSE_DIR:-${home}/.config/pulse}"
+MULLE_SDE_SANDBOX_COPILOT_DIR="${MULLE_SDE_SANDBOX_COPILOT_DIR:-${home}/.copilot}"
+MULLE_SDE_SANDBOX_KIRO_DIR="${MULLE_SDE_SANDBOX_KIRO_DIR:-${home}/.kiro}"
+
 
 # motherfucking claude needs to write into home, fing assholes
-MULLE_SDE_SANDBOX_CLAUDE_DIR="${MULLE_SDE_SANDBOX_CLAUDE_DIR:-${home}}"
+#MULLE_SDE_SANDBOX_CLAUDE_DIR="${MULLE_SDE_SANDBOX_CLAUDE_DIR:-${home}}"
 MULLE_SDE_SANDBOX_NPM_DIR="${MULLE_SDE_SANDBOX_NPM_DIR:-${home}/.nvm}"
 MULLE_SDE_SANDBOX_OTHER_DIR="${MULLE_SDE_SANDBOX_OTHER_DIR:-/home/src-old}"
 MULLE_SDE_SANDBOX_EMSCRIPTEN_DIR="${MULLE_SDE_SANDBOX_EMSCRIPTEN_DIR:-/opt/emsdk}"
@@ -146,9 +155,29 @@ then
    set -- -crw "${MULLE_SDE_SANDBOX_CLAUDE_DIR}" "$@"
 fi
 
-if [ -d "${MULLE_SDE_SANDBOX_PULSE_DIR}" ]
+if [ -d "${MULLE_SDE_SANDBOX_AGENTS_DIR}" ]
 then
-   set -- -crw "${MULLE_SDE_SANDBOX_PULSE_DIR}" "$@"
+   set -- -crw "${MULLE_SDE_SANDBOX_AGENTS_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_GEMINI_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_GEMINI_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_GEMINI_DIR2}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_GEMINI_DIR2}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_KIRO_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_KIRO_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_COPILOT_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_COPILOT_DIR}" "$@"
 fi
 
 if [ -d "${MULLE_SDE_SANDBOX_MLTERM_DIR}" ]
@@ -174,6 +203,17 @@ fi
 if [ -d "${MULLE_SDE_SANDBOX_CODEBUFF_DIR}" ]
 then
    set -- -crw "${MULLE_SDE_SANDBOX_CODEBUFF_DIR}" "$@"
+fi
+
+
+if [ -d "${MULLE_SDE_SANDBOX_SHARE_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_SHARE_DIR}" "$@"
+fi
+
+if [ -d "${MULLE_SDE_SANDBOX_CONFIG_DIR}" ]
+then
+   set -- -crw "${MULLE_SDE_SANDBOX_CONFIG_DIR}" "$@"
 fi
 
 if [ -d "${MULLE_SDE_SANDBOX_CACHE_DIR}" ]

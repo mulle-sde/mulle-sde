@@ -67,6 +67,7 @@ Return value:
 
 Environment:
    MULLE_SDE_REFLECT_CALLBACKS   : callbacks used for reflect
+   MULLE_SDE_REFLECT_CONFIGS     : colon-separated configs to reflect (empty=legacy)
 EOF
    exit 1
 }
@@ -322,6 +323,53 @@ sde::reflect::_subprojects()
 }
 
 
+sde::reflect::configure_paths_for_config()
+{
+   log_entry "sde::reflect::configure_paths_for_config" "$@"
+
+   local config_name="$1"
+
+   local reflectdir
+   local projectname
+
+   config_name="${config_name:-config}"
+   reflectdir="reflect.${config_name}"
+   projectname="${PROJECT_NAME:-project}"
+
+   MULLE_SOURCETREE_TO_CMAKE_DEPENDENCIES_FILE="cmake/${reflectdir}/_Dependencies.cmake"
+   MULLE_SOURCETREE_TO_CMAKE_LIBRARIES_FILE="cmake/${reflectdir}/_Libraries.cmake"
+   MULLE_MATCH_TO_CMAKE_HEADERS_FILE="cmake/${reflectdir}/_Headers.cmake"
+   MULLE_MATCH_TO_CMAKE_SOURCES_FILE="cmake/${reflectdir}/_Sources.cmake"
+   MULLE_MATCH_TO_CMAKE_RESOURCES_FILE="cmake/${reflectdir}/_Resources.cmake"
+
+   MULLE_SOURCETREE_TO_C_INCLUDE_FILE="src/${reflectdir}/_${projectname}-include.h"
+   MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE="src/${reflectdir}/_${projectname}-include-private.h"
+   MULLE_SOURCETREE_TO_C_IMPORT_FILE="src/${reflectdir}/_${projectname}-import.h"
+   MULLE_SOURCETREE_TO_C_PRIVATEIMPORT_FILE="src/${reflectdir}/_${projectname}-import-private.h"
+   MULLE_SOURCETREE_TO_C_OBJC_DEPS_FILE="DISABLE"
+   MULLE_MATCH_TO_C_C_HEADERS_FILE="src/${reflectdir}/_${projectname}-provide.h"
+   MULLE_MATCH_TO_C_OBJC_HEADERS_FILE="src/${reflectdir}/_${projectname}-export.h"
+
+   export MULLE_SOURCETREE_TO_CMAKE_DEPENDENCIES_FILE
+   export MULLE_SOURCETREE_TO_CMAKE_LIBRARIES_FILE
+   export MULLE_MATCH_TO_CMAKE_HEADERS_FILE
+   export MULLE_MATCH_TO_CMAKE_SOURCES_FILE
+   export MULLE_MATCH_TO_CMAKE_RESOURCES_FILE
+   export MULLE_SOURCETREE_TO_C_INCLUDE_FILE
+   export MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE
+   export MULLE_SOURCETREE_TO_C_IMPORT_FILE
+   export MULLE_SOURCETREE_TO_C_PRIVATEIMPORT_FILE
+   export MULLE_SOURCETREE_TO_C_OBJC_DEPS_FILE
+   export MULLE_MATCH_TO_C_C_HEADERS_FILE
+   export MULLE_MATCH_TO_C_OBJC_HEADERS_FILE
+
+   MULLE_SOURCETREE_CONFIG_NAME="${config_name}"
+   export MULLE_SOURCETREE_CONFIG_NAME
+
+   log_fluff "Reflecting config \"${config_name}\" into \"${reflectdir}\""
+}
+
+
 sde::reflect::worker()
 {
    log_entry "sde::reflect::worker" "$@"
@@ -331,27 +379,6 @@ sde::reflect::worker()
 
    shift 2
 
-   local donefile
-   local previous
-
-   # If we have multiple sourcetrees, we want to remember for what sourcetree
-   # we reflected. If the sourcetree is "config", which is the default we
-   # don't have to remember it. (That means absence of the reflect file
-   # indicates a repository with only a single "config" sourcetree!)
-   #
-   # We persist the reflection and therefore also what the current reflection
-   # is, so don't place in var.
-   #
-   donefile="${MULLE_SDE_ETC_DIR}/reflect"
-   previous="`grep -E -v '^#' "${donefile}" 2> /dev/null`"
-
-   # remember what we reflected
-   #
-   # we keep all names, so we can quickly decide if a match happens
-   # we don't want to look for sourcetrees individually
-   #
-   local names
-
    if [ -z "${PROJECT_UPCASE_IDENTIFIER}" ]
    then
       include "case"
@@ -360,30 +387,7 @@ sde::reflect::worker()
       PROJECT_UPCASE_IDENTIFIER="${RVAL}"
    fi
 
-   var="MULLE_SOURCETREE_CONFIG_NAME_${PROJECT_UPCASE_IDENTIFIER}"
-
-   r_shell_indirect_expand "${var}"
-   names="${RVAL}"
-   names="${names:-config}"
-
-   if [ "${if_needed}" = 'YES' ]
-   then
-      if [ -z "${previous}" ]
-      then
-         log_fluff "Nothing needs to be reflected for $names in $PROJECT_NAME"
-         return
-      fi
-
-      # if its the same as top pick of names, then we are happy too
-      # in a foo:bar:baz scenario, bar loses out and will affect a
-      # reflect
-
-      if [ "${previous}" = "${names%%:*}" ]
-      then
-         log_fluff "Already reflected for \"${previous}\""
-         return
-      fi
-   fi
+   [ "${if_needed}" = 'YES' ] && log_fluff "if-needed is handled by task status and environment only"
 
    log_fluff "Reflect callbacks: \"${MULLE_SDE_REFLECT_CALLBACKS:-}\""
 
@@ -395,44 +399,39 @@ sde::reflect::worker()
       fi
    fi
 
-   if ! sde::reflect::_main "$@"
+   local configs
+
+   configs="${MULLE_SDE_REFLECT_CONFIGS}"
+
+   if [ -z "${configs}" ]
    then
-      return 1
-   fi
+      #
+      # Empty means default single-config behavior: just reflect with
+      # whatever the current config is, no path rewriting
+      #
+      if ! sde::reflect::_main "$@"
+      then
+         return 1
+      fi
+   else
+      #
+      # Multi-config: reflect only the active config. Use
+      # `mulle-sde config craft` to iterate over all configs.
+      #
+      local config_name
 
-   #
-   # If there is only "config" possible, we don't save anything. Subprojects
-   # can't go crazy here! They will have to have the same configs.
-   #
-   local current_name
+      config_name="${MULLE_SOURCETREE_CONFIG_NAME}"
+      if [ -z "${config_name}" ]
+      then
+         fail "MULLE_SOURCETREE_CONFIG_NAME must be set for multi-config projects"
+      fi
 
-   # get list of possible known names (but current name may not be in there
-   # if there is no config for that name)
-   names="`rexekutor "${MULLE_SDE:-mulle-sourcetree}" config list --no-warn -n`"
-   if [ -z "${names}" -o "${names}" = "config" ]
-   then
-      remove_file_if_present "${donefile}"
-      return 0
-   fi
+      sde::reflect::configure_paths_for_config "${config_name}"
 
-   # this extra call, pains a little
-   current_name="`rexekutor "${MULLE_SDE:-mulle-sde}" config name`"
-
-   log_info "Reflected ${C_RESET_BOLD}${current_name}${C_INFO} sourcetree"
-
-   # It's also inconvenient for git, if this file timestamp fluctuates.
-   # So try to keep it stable.
-   #
-   if [ "${current_name}" != "${previous}" ]
-   then
-      r_mkdir_parent_if_missing "${donefile}"
-
-      redirect_exekutor "${donefile}" cat <<EOF
-# This file is produced during reflection, when multiple sourcetrees are
-# available. You should put it into git.
-${current_name}
-EOF
-      return 2
+      if ! sde::reflect::_main "$@"
+      then
+         return 1
+      fi
    fi
 }
 
@@ -448,6 +447,8 @@ sde::reflect::main()
    local runner
 
    runner="sde::reflect::task_run"
+
+   export MULLE_SDE_REFLECT_CONFIGS
    #
    # handle options
    #

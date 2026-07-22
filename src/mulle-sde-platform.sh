@@ -136,14 +136,11 @@ Options:
    --this-host         : write all values to current host scope
    --this-user         : write all values to current user scope
    --this-os-user      : write all values to current user+OS scope
+   --this-user-host    : write all values to current user+host scope (default)
    --os <name>         : write all values to named OS scope
    --host <name>       : write all values to named host scope
    --user <name>       : write all values to named user scope
    --scope <name>      : write all values to arbitrary named scope
-
-Defaults:
-   platform lists      : --this-os-user
-   toolchain/root/emulator : --this-host
 EOF
    exit 1
 }
@@ -164,18 +161,16 @@ Options:
    --uname             : remove the current host OS name as a platform
    --no-uname          : don't implicitly include/remove \${MULLE_UNAME}
    --global            : write all values to global scope
+   --same-scope        : write to scope where value is defined (default)
    --this-os           : write all values to current OS scope
    --this-host         : write all values to current host scope
    --this-user         : write all values to current user scope
    --this-os-user      : write all values to current user+OS scope
+   --this-user-host    : write all values to current user+host scope
    --os <name>         : write all values to named OS scope
    --host <name>       : write all values to named host scope
    --user <name>       : write all values to named user scope
    --scope <name>      : write all values to arbitrary named scope
-
-Defaults:
-   platform lists      : --this-os-user
-   toolchain/root/emulator : --this-host
 EOF
    exit 1
 }
@@ -200,9 +195,10 @@ Usage:
 Options:
    --global        : write to the global scope
    --this-os       : write to the current OS scope
-   --this-host     : write to the current host scope (default)
+   --this-host     : write to the current host scope
    --this-user     : write to the current user scope
    --this-os-user  : write to the current user+OS scope
+   --this-user-host: write to the current user+host scope (default)
    --os <name>     : write to the named OS scope
    --host <name>   : write to the named host scope
    --user <name>   : write to the named user scope
@@ -236,6 +232,7 @@ Options:
    --this-host     : read only from the current host scope
    --this-user     : read only from the current user scope
    --this-os-user  : read only from the current user+OS scope
+   --this-user-host: read only from the current user+host scope
    --os <name>     : read only from the named OS scope
    --host <name>   : read only from the named host scope
    --user <name>   : read only from the named user scope
@@ -257,15 +254,18 @@ Usage:
    been added with 'platform add' first. Enabling adds the platform back to
    MULLE_CRAFT_PLATFORMS without touching the sourcetree.
 
-   By default the change is written to the user+OS-specific scope (--this-os-user).
-   Use --global or another scope option to override.
+   By default the change is written to the scope where MULLE_CRAFT_PLATFORMS
+   is currently defined (--same-scope). Use --global or another scope option
+   to override.
 
 Options:
    --global        : write to the global scope
+   --same-scope    : write to scope where value is defined (default)
    --this-os       : write to the current OS scope
    --this-host     : write to the current host scope
    --this-user     : write to the current user scope
-   --this-os-user  : write to the current user+OS scope (default)
+   --this-os-user  : write to the current user+OS scope
+   --this-user-host: write to the current user+host scope
    --os <name>     : write to the named OS scope
    --host <name>   : write to the named host scope
    --user <name>   : write to the named user scope
@@ -287,15 +287,18 @@ Usage:
    the sourcetree. Dependencies for the platform are kept. Re-enable later with
    'platform enable <platform>'.
 
-   By default the change is written to the user+OS-specific scope (--this-os-user).
-   Use --global or another scope option to override.
+   By default the change is written to the scope where MULLE_CRAFT_PLATFORMS
+   is currently defined (--same-scope). Use --global or another scope option
+   to override.
 
 Options:
    --global        : write to the global scope
+   --same-scope    : write to scope where value is defined (default)
    --this-os       : write to the current OS scope
    --this-host     : write to the current host scope
    --this-user     : write to the current user scope
-   --this-os-user  : write to the current user+OS scope (default)
+   --this-os-user  : write to the current user+OS scope
+   --this-user-host: write to the current user+host scope
    --os <name>     : write to the named OS scope
    --host <name>   : write to the named host scope
    --user <name>   : write to the named user scope
@@ -527,7 +530,7 @@ sde::platform::emulator_setup()
    log_entry "sde::platform::emulator_setup" "$@"
 
    local platform="$1"
-   local write_scope_flags="${2:---this-host}"
+   local write_scope_flags="${2:---this-user-host}"
 
    # Try to get default emulator for this platform
    local emulator
@@ -548,7 +551,7 @@ sde::platform::cross_compiler_root_setup()
 
    local platform="$1"
    local compiler="$2"
-   local write_scope_flags="${3:---this-host}"
+   local write_scope_flags="${3:---this-user-host}"
 
    local root
 
@@ -572,7 +575,7 @@ sde::platform::platform_setup()
    log_entry "sde::platform::platform_setup" "$@"
 
    local platform="$1"
-   local write_scope_flags="${2:---this-host}"
+   local write_scope_flags="${2:---this-user-host}"
 
    # If host and platform are the same, no toolchain needed (native build)
    [ "${platform}" = "'${MULLE_UNAME}'" ] && _internal_fail "wrong platform"
@@ -647,8 +650,8 @@ sde::platform::add()
    local platform="$1"
    local use_uname="$2"
    local read_scope_flags="${3:-}"
-   local write_scope_flags="${4:---this-os-user}"
-   local machine_scope_flags="${5:---this-host}"
+   local write_scope_flags="${4:---this-user-host}"
+   local machine_scope_flags="${5:---this-user-host}"
 
    local value
    local need_uname='NO'
@@ -761,7 +764,7 @@ sde::platform::add_main()
             OPTION_TOOLCHAIN_FILE="$1"
          ;;
 
-         --global|--this-os|--this-host|--this-user|--this-os-user)
+         --global|--this-os|--this-host|--this-user|--this-os-user|--this-user-host|--this-host-user)
             scope_flags="$1"
             has_scope='YES'
          ;;
@@ -795,8 +798,8 @@ sde::platform::add_main()
       machine_scope_flags="${scope_flags}"
    else
       read_scope_flags=""
-      write_scope_flags="--this-os-user"
-      machine_scope_flags="--this-host"
+      write_scope_flags="--this-user-host"
+      machine_scope_flags="--this-user-host"
    fi
 
    sde::platform::add "${platform}"          \
@@ -815,8 +818,8 @@ sde::platform::remove()
    local platform="$1"
    local use_uname="$2"
    local read_scope_flags="${3:-}"
-   local write_scope_flags="${4:---this-os-user}"
-   local machine_scope_flags="${5:---this-host}"
+   local write_scope_flags="${4:---same-scope}"
+   local machine_scope_flags="${5:---same-scope}"
    local shadow_empty="${6:-NO}"
 
    local key
@@ -924,7 +927,7 @@ sde::platform::remove_main()
             use_uname='NO'
           ;;
 
-         --global|--this-os|--this-host|--this-user|--this-os-user)
+         --global|--same-scope|--this-os|--this-host|--this-user|--this-os-user|--this-user-host|--this-host-user)
             scope_flags="$1"
             has_scope='YES'
           ;;
@@ -958,8 +961,8 @@ sde::platform::remove_main()
       machine_scope_flags="${scope_flags}"
    else
       read_scope_flags=""
-      write_scope_flags="--this-os-user"
-      machine_scope_flags="--this-host"
+      write_scope_flags="--same-scope"
+      machine_scope_flags="--same-scope"
       shadow_empty='YES'
    fi
 
@@ -980,7 +983,7 @@ sde::platform::set()
    local platform="$1"
    local key="$2"
    local value="$3"
-   local write_scope_flags="${4:---this-host}"
+   local write_scope_flags="${4:---this-user-host}"
    local platform_expanded
    
    case "${key}" in
@@ -1019,7 +1022,7 @@ sde::platform::set_main()
             sde::platform::set_usage
          ;;
 
-         --global|--this-os|--this-host|--this-user|--this-os-user)
+         --global|--this-os|--this-host|--this-user|--this-os-user|--this-user-host|--this-host-user)
             scope_flags="$1"
             has_scope='YES'
          ;;
@@ -1053,7 +1056,7 @@ sde::platform::set_main()
    then
       write_scope_flags="${scope_flags}"
    else
-      write_scope_flags="--this-host"
+      write_scope_flags="--this-user-host"
    fi
 
    sde::platform::set "${platform}" "${key}" "${value}" "${write_scope_flags}"
@@ -1110,7 +1113,7 @@ sde::platform::get_main()
             sde::platform::get_usage
          ;;
 
-         --global|--this-os|--this-host|--this-user|--this-os-user)
+         --global|--this-os|--this-host|--this-user|--this-os-user|--this-user-host|--this-host-user)
             scope_flags="$1"
             has_scope='YES'
          ;;
@@ -1157,14 +1160,14 @@ sde::platform::enable()
 
    local platform="$1"
    local read_scope_flags="${2:-}"
-   local write_scope_flags="${3:---this-os-user}"
+   local write_scope_flags="${3:---same-scope}"
 
    local craft_platforms
    local sourcetree_platforms
 
    # Read literal values from environment (not expanded)
    craft_platforms="`rexekutor mulle-sde environment ${read_scope_flags} get MULLE_CRAFT_PLATFORMS`"
-   sourcetree_platforms="`rexekutor mulle-sde environment get MULLE_SOURCETREE_PLATFORMS`"
+   sourcetree_platforms="`rexekutor mulle-sde environment ${read_scope_flags} get MULLE_SOURCETREE_PLATFORMS`"
 
    if [ -z "${platform}" ]
    then
@@ -1207,7 +1210,7 @@ sde::platform::enable_main()
             sde::platform::enable_usage
          ;;
 
-         --global|--this-os|--this-host|--this-user|--this-os-user)
+         --global|--same-scope|--this-os|--this-host|--this-user|--this-os-user|--this-user-host|--this-host-user)
             scope_flags="$1"
             has_scope='YES'
          ;;
@@ -1243,7 +1246,7 @@ sde::platform::enable_main()
       write_scope_flags="${scope_flags}"
    else
       read_scope_flags=""
-      write_scope_flags="--this-os-user"
+      write_scope_flags="--same-scope"
    fi
 
    sde::platform::enable "${platform}" "${read_scope_flags}" "${write_scope_flags}"
@@ -1257,7 +1260,7 @@ sde::platform::disable()
 
    local platform="$1"
    local read_scope_flags="${2:-}"
-   local write_scope_flags="${3:---this-os-user}"
+   local write_scope_flags="${3:---same-scope}"
    local shadow_empty="${4:-NO}"
 
    local craft_platforms
@@ -1309,7 +1312,7 @@ sde::platform::disable_main()
             sde::platform::disable_usage
          ;;
 
-         --global|--this-os|--this-host|--this-user|--this-os-user)
+         --global|--same-scope|--this-os|--this-host|--this-user|--this-os-user|--this-user-host|--this-host-user)
             scope_flags="$1"
             has_scope='YES'
          ;;
@@ -1345,7 +1348,7 @@ sde::platform::disable_main()
       write_scope_flags="${scope_flags}"
    else
       read_scope_flags=""
-      write_scope_flags="--this-os-user"
+      write_scope_flags="--same-scope"
       shadow_empty='YES'
    fi
 

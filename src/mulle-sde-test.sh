@@ -58,13 +58,21 @@ Options:
    --platform <name> : run tests for this platform only (use 'all' to reset)
    --sdk <name>      : use this SDK
    --configuration   : use this configuration (default: Debug)
+   --valgrind        : use valgrind to run
+   --sanitize-address   : use address sanitizer
+   --sanitize-thread    : use thread sanitizer
+   --sanitize-undefined : use undefined sanitizer
+   --coverage        : produce coverage information
+   --gdb             : use gdb to run
    See \`mulle-test help\` for more options
 
    Note: --platform, --sdk, --configuration must be placed BEFORE the command.
    e.g.: ${MULLE_USAGE_NAME} test --platform windows craft
+   e.g.: ${MULLE_USAGE_NAME} test --valgrind run
 
 Command:
    clean      : clean tests and or dependencies
+   config     : run mulle-sde config command in test directories
    craft      : craft library
    craftorder : show order of dependencies being crafted
    coverage   : do a coverage run
@@ -384,8 +392,8 @@ sde::test::coverage()
 
       sde::test::r_test_directories
       testdir="${RVAL%%:*}"
-
-      # Auto-detect compiler mode from PROJECT_DIALECT if not forced
+      testdir="${testdir:-$PWD}"
+:-# Auto-detect compiler mode from PROJECT_DIALECT if not forced
       local compiler
       compiler="${OPTION_COMPILER}"
       if [ -z "${compiler}" ]
@@ -501,6 +509,23 @@ sde::test::r_init()
       return 1
    fi
 
+   if [ "${projecttype}" = "executable" ]
+   then
+      local test_project_name
+
+      test_project_name="`rexekutor "${MULLE_ENV:-mulle-env}" -d test environment get --output-eval TEST_PROJECT_NAME 2>/dev/null`"
+      test_project_name="${test_project_name:-${PROJECT_NAME}}"
+
+      if [ ! -z "${test_project_name}" ]
+      then
+         rexekutor "${MULLE_SDE:-mulle-sde}" \
+                      ${MULLE_TECHNICAL_FLAGS} \
+                      ${MULLE_SDE_FLAGS} \
+                      -d test \
+                   dependency mark "${test_project_name}" no-link || exit 1
+      fi
+   fi
+
    log_info "Added ${C_RESET_BOLD}test${C_INFO} folder"
 
    local value
@@ -545,6 +570,10 @@ MULLE_SOURCETREE_PLATFORMS"
    local varname
 
    platforms="`rexekutor "${MULLE_ENV:-mulle-env}" environment get MULLE_CRAFT_PLATFORMS`"
+
+   # expand shell variables like ${MULLE_UNAME} that may be in the value
+   r_expanded_string "${platforms}"
+   platforms="${RVAL}"
 
    if [ ! -z "${platforms}" ]
    then
@@ -934,6 +963,8 @@ exekutor_mulle_env()
    local directory="$1"
    shift
 
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
+
    exekutor "${MULLE_ENV:-mulle-env}" \
                   --style 'mulle/inherit' \
                   -d "${directory}" \
@@ -950,6 +981,8 @@ exekutor_mulle_sde()
 {
    local directory="$1"
    shift
+
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
 
    exekutor "${MULLE_SDE:-mulle-sde}" \
                   --no-test-check \
@@ -969,6 +1002,8 @@ exekutor_mulle_test()
 {
    local directory="$1"
    shift
+
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
 
    exekutor_mulle_env "${directory}" mulle-test ${MULLE_TECHNICAL_FLAGS} \
                                                 ${MULLE_TEST_FLAGS} \
@@ -1016,7 +1051,7 @@ sde::test::auto_clean()
          set -- --sdk "${OPTION_SDK}" "$@"
       fi
 
-      log_fluff "Cleaning in ${directory:-${PWD}}"
+      log_fluff "Cleaning in ${directory}"
 
       exekutor_mulle_sde "${directory}" clean "$@" ${target}
    )
@@ -1030,6 +1065,8 @@ sde::test::craft()
 
    local directory="$1"
    shift
+
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
 
    (
       local OPTION_CLEAN='NO'
@@ -1180,7 +1217,7 @@ Either install the cross-compilation toolchain or remove '${OPTION_PLATFORM}' fr
          fi
       fi
 
-      log_fluff "Crafting dependencies in ${directory:-${PWD}}"
+      log_fluff "Crafting dependencies in ${directory}"
 
       local line
 
@@ -1239,6 +1276,8 @@ sde::test::postprocess()
    local directory="$1"
    shift
 
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
+
    (
       local OPTION_CLEAN='NO'
       local OPTION_PARALLEL='NO'
@@ -1247,7 +1286,7 @@ sde::test::postprocess()
 
       test::options::r_parse "$@"
 
-      log_fluff "Postprocessing headers in ${directory:-${PWD}}"
+      log_fluff "Postprocessing headers in ${directory}"
 
       include "sde::test-postprocess"
 
@@ -1265,6 +1304,8 @@ sde::test::link_args()
 
    local directory="$1"
    shift
+
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
 
    case "${PROJECT_TYPE}" in
       library|framework)
@@ -1284,7 +1325,7 @@ sde::test::link_args()
       test::options::r_parse "$@"
       shift $RVAL
 
-      log_fluff "Perform link-args command in ${directory:-${PWD}}"
+      log_fluff "Perform link-args command in ${directory}"
 
       include "sde::test-link-args"
 
@@ -1304,6 +1345,8 @@ sde::test::update_link_args()
    local directory="$1"
    shift
 
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
+
    case "${PROJECT_TYPE}" in
       library|framework|executable)
       ;;
@@ -1322,7 +1365,7 @@ sde::test::update_link_args()
       test::options::r_parse "$@"
       shift $RVAL
 
-      log_fluff "Perform link-args command in ${directory:-${PWD}}"
+      log_fluff "Perform link-args command in ${directory}"
 
       include "sde::test-link-args"
 
@@ -1334,6 +1377,7 @@ sde::test::update_link_args()
                                 "$@"
    )
 }
+
 
 
 
@@ -1441,6 +1485,30 @@ sde::test::main()
             OPTION_CONFIGURATION="$1"
          ;;
 
+         --release)
+            OPTION_CONFIGURATION='Release'
+         ;;
+
+         --debug)
+            OPTION_CONFIGURATION='Debug'
+         ;;
+
+         --valgrind|--valgrind-no-leaks|--coverage|--objc-coverage|\
+         --gdb|--sanitize-address|--sanitize-thread|--sanitize-undefined|\
+         --testallocator|--zombie|--no-sanitizer)
+            r_concat "${MULLE_TEST_FLAGS}" "$1"
+            MULLE_TEST_FLAGS="${RVAL}"
+         ;;
+
+         --add-sanitizer|--sanitizer)
+            [ $# -eq 1 ] && sde::test::usage "Missing argument to \"$1\""
+            r_concat "${MULLE_TEST_FLAGS}" "$1"
+            MULLE_TEST_FLAGS="${RVAL}"
+            shift
+            r_concat "${MULLE_TEST_FLAGS}" "$1"
+            MULLE_TEST_FLAGS="${RVAL}"
+         ;;
+
          *)
             break
          ;;
@@ -1475,6 +1543,16 @@ sde::test::main()
             [ $# -lt 2 ] && sde::test::usage "Missing argument to \"$1\""
             shift
             OPTION_CONFIGURATION="$1"
+            shift
+         ;;
+         --release)
+            OPTION_CONFIGURATION='Release'
+            _filtered_args+=( "$1" )
+            shift
+         ;;
+         --debug)
+            OPTION_CONFIGURATION='Debug'
+            _filtered_args+=( "$1" )
             shift
          ;;
          -h|--help|help)
@@ -1544,8 +1622,23 @@ sde::test::main()
    # Some commands need to run inside the project environment (platform variables)
    case "${cmd:-crun}" in
       clean)
-         r_colon_concat "${cmdchain}" "clean"
-         cmdchain="${RVAL}"
+         if [ "${MULLE_VIBECODING}" = 'YES' ]
+         then
+            # vibecoding always escalates clean to tidy
+            r_colon_concat "${cmdchain}" "auto-clean"
+            cmdchain="${RVAL}"
+            cleanargs='tidy'
+         elif [ $# -eq 0 ]
+         then
+            # Bare "mulle-sde test clean" should invalidate the tested dependency
+            # instead of only cleaning the test project directory.
+            r_colon_concat "${cmdchain}" "auto-clean"
+            cmdchain="${RVAL}"
+            cleanargs='project'
+         else
+            r_colon_concat "${cmdchain}" "clean"
+            cmdchain="${RVAL}"
+         fi
       ;;
 
       recraft|reccrun)
@@ -1635,6 +1728,26 @@ sde::test::main()
             ;;
          esac
          return $?
+      ;;
+
+      config)
+         local testdirs
+         local testdir
+
+         sde::test::r_test_directories "" "ignore"
+         testdirs="${RVAL}"
+         if [ -z "${testdirs}" ]
+         then
+            log_warning "No test directories found"
+            return 0
+         fi
+
+         .foreachpath testdir in ${testdirs}
+         .do
+            log_info "Running config ${1} in ${C_RESET_BOLD}${testdir}"
+            exekutor_mulle_sde "${testdir}" config "$@" || return $?
+         .done
+         return 0
       ;;
 
       *)
@@ -1968,6 +2081,9 @@ sde::test::main()
                log_info "🔹🔹🔹 Test ${C_MAGENTA}${C_BOLD}${platform_part}${C_INFO} 🔸🔸🔸"
             fi
 
+            # TODO: this is manual fix in this vibecode.. not really sure...
+            directory="${PWD}"
+
             case "${cmd_part}" in
                'auto-clean')
                   if [ "${cleanargs}" = 'tidy' -a "${tidy_done}" = 'YES' ]
@@ -1985,7 +2101,7 @@ sde::test::main()
                         target="${cleanargs}"
                      fi
 
-                     if ! sde::test::auto_clean "" "${target:-all}" --platform "${platform_part}" "$@"
+                     if ! sde::test::auto_clean "${directory}" "${target:-all}" --platform "${platform_part}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then
@@ -2001,7 +2117,7 @@ sde::test::main()
                ;;
 
                'clean')
-                  if ! sde::test::generic "" "${cmd_part}" --platform "${platform_part}" "$@"
+                  if ! sde::test::generic "${directory}" "${cmd_part}" --platform "${platform_part}" "$@"
                   then
                      if [ "${OPTION_LENIENT}" != 'YES' ]
                      then
@@ -2011,7 +2127,7 @@ sde::test::main()
                ;;
 
                'craft'|'postprocess'|'update-link-args'|'link-args')
-                  if ! sde::test::${cmd_part//-/_} "" --platform "${platform_part}" "$@"
+                  if ! sde::test::${cmd_part//-/_} "${directory}" --platform "${platform_part}" "$@"
                   then
                      if [ "${OPTION_LENIENT}" != 'YES' ]
                      then

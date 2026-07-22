@@ -65,6 +65,7 @@ Options:
    --analyze               : run clang analyzer when crafting the project
    --build-style <style>   : known configurations: Debug/Release/Test/RelDebug
    --c-build-style <style> : set separate configuration for dependencies
+   --check                 : syntax-only compile of project sources (fast)
    --clean                 : clean before crafting (see: mulle-sde clean)
    --cppcheck              : run cppcheck after crafting the project
    --from <domain>         : clean specific depenency before crafting (s.a)
@@ -163,6 +164,17 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
          .continue
       fi
 
+      #
+      # If the dependency has a reflect-configs marker, all configs are
+      # pre-reflected. No need to check or switch — the consumer just picks
+      # which config to use at build time via MULLE_SOURCETREE_CONFIG_NAME.
+      #
+      if [ -f "${repository}/.mulle/etc/sde/reflect-configs" ]
+      then
+         log_fluff "${repository#"${MULLE_USER_PWD}/"} has multi-config reflection, skip config check"
+         .continue
+      fi
+
       r_basename "${repository}"
       dependencyname="${RVAL}"
 
@@ -197,9 +209,38 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
       if [ "${actual}" != "${configname}" ]
       then
-         fail "Need config switch for ${repository#"${MULLE_USER_PWD}/"} - currently set to \"${actual}\" - to reflect as \"${configname}\"
+         local reason
+         local projectname
+
+         projectname="${PROJECT_NAME:-current project}"
+         availableconfigs="`(
+            MULLE_VIRTUAL_ROOT=
+            MULLE_VIRTUAL_ROOT_ID=
+            rexekutor cd "${repository}" &&
+            rexekutor ls -1 .mulle/etc/sourcetree 2> /dev/null |
+            grep -E -v '^graph$' |
+            paste -sd ',' -
+         )`"
+
+         case ",${availableconfigs}," in
+            *,"${configname}",*)
+               reason="project \"${projectname}\" sets \"${configname}\" via ${key}, but dependency is currently on \"${actual}\""
+               remedy="mulle-sde config switch -d ${dependencyname} ${configname}"
+            ;;
+            *)
+               reason="project \"${projectname}\" sets \"${configname}\" via ${key}, but this is not a valid config name for this dependency"
+               remedy="Check ${key} and set it to one of: ${availableconfigs:-config}"
+            ;;
+         esac
+
+         fail "Need config switch for ${repository#"${MULLE_USER_PWD}/"}
+${C_ERROR}   ${reason}
+${C_ERROR}   dependency current config : \"${actual}\"
+${C_ERROR}   dependency config names   : ${availableconfigs:-unknown}
 ${C_INFO}Suggested remedy:
-${C_RESET_BOLD}   mulle-sde config switch -d ${dependencyname} ${configname}"
+${C_RESET_BOLD}   ${remedy}
+${C_INFO}Valid values:
+${C_RESET_BOLD}   ${availableconfigs:-unknown}"
       fi
 
       log_fluff "${repository#"${MULLE_USER_PWD}/"} may need reflection"
@@ -722,7 +763,7 @@ sde::craft::run_tests()
       return
    fi
 
-   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test crun || exit 1
+   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} test crun || return 1
 }
 
 
@@ -730,6 +771,18 @@ sde::craft::run_tests()
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
 #
+sde::craft::check()
+{
+   log_entry "sde::craft::check" "$@"
+
+   exekutor "${MULLE_CRAFT:-mulle-craft}" \
+               ${MULLE_TECHNICAL_FLAGS} \
+               --no-motd \
+            project \
+               --syntax-check
+}
+
+
 sde::craft::main()
 {
    log_entry "sde::craft::main" "$@"
@@ -831,6 +884,11 @@ sde::craft::main()
             OPTION_CPPCHECK='YES'
          ;;
 
+         --check|--syntax-only)
+            sde::craft::check
+            return $?
+         ;;
+
          --dump-env)
             echo ">>>>>>>>>>>>>>>>>> [ ENV ] >>>>>>>>>>>>>>>>>>>>>>>>" >&2
             rexekutor env | sort >&2
@@ -923,6 +981,16 @@ sde::craft::main()
    target="${target:-all}"
 
    #
+   # Lock to prevent parallel craft/fetch collisions (e.g. AI running
+   # multiple mulle-sde commands concurrently)
+   #
+   local _lockdir
+
+   _lockdir="${MULLE_VIRTUAL_ROOT}/.mulle/var/craft.lock"
+   include "lock"
+   lock::acquire "${_lockdir}" 300
+
+   #
    # our craftorder is specific to a host
    #
    [ -z "${PROJECT_TYPE}" ] && _internal_fail "PROJECT_TYPE is undefined"
@@ -946,6 +1014,7 @@ sde::craft::main()
    #  4. possibly clean build
    #
    local dbrval
+   local rc
 
    if [ "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
    then
@@ -1253,28 +1322,33 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
    r_concat "${arguments}" "${craftorder_arguments}"
    craftorder_arguments="${RVAL}"
 
+   rc=0
+
    sde::craft::target "${target}"  \
                       "${project_cmdline}" \
                       "${craftorder_cmdline}" \
                       "${_craftorderfile}" \
                       "${flags}" \
                       "${project_arguments}" \
-                      "${craftorder_arguments}" || return 1
+                      "${craftorder_arguments}" || rc=$?
 
-   log_verbose "Craft was successful"
-
-   if [ "${OPTION_TEST}" = 'DEFAULT' -a "${MULLE_SDE_TEST_AFTER_CRAFT}" = 'YES' ] \
-      || [ "${OPTION_TEST}" = 'YES' ]
+   if [ ${rc} -eq 0 ]
    then
-      sde::craft::run_tests
+      log_verbose "Craft was successful"
+
+      if [ "${OPTION_TEST}" = 'DEFAULT' -a "${MULLE_SDE_TEST_AFTER_CRAFT}" = 'YES' ] \
+         || [ "${OPTION_TEST}" = 'YES' ]
+      then
+         sde::craft::run_tests || rc=$?
+      fi
    fi
 
-   if [ "${OPTION_CPPCHECK}" = 'YES' ]
+   if [ ${rc} -eq 0 -a "${OPTION_CPPCHECK}" = 'YES' ]
    then
-      sde::craft::run_cppcheck "${buildstyle}"
+      sde::craft::run_cppcheck "${buildstyle}" || rc=$?
    fi
 
-   if [ "${OPTION_RUN}" = 'YES' ]
+   if [ ${rc} -eq 0 -a "${OPTION_RUN}" = 'YES' ]
    then
       local executable
 
@@ -1286,11 +1360,15 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
       executable="${KITCHEN_DIR:-kitchen}/${runstyle:-Debug}/${PROJECT_NAME}"
       if [ -x "${executable}" ]
       then
-         exekutor "${executable}"
+         exekutor "${executable}" || rc=$?
       else
-         fail "Can't find executable to run (${executable})"
+         log_error "Can't find executable to run (${executable})"
+         rc=1
       fi
    fi
+
+   lock::release "${_lockdir}"
+   return ${rc}
 }
 
 

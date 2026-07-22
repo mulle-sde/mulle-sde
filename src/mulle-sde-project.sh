@@ -734,6 +734,7 @@ sde::project::edit_old_to_new_content()
    local filename="$1"
    local grep_statement="$2"
    local sed_statement="$3"
+   local escaped_filename
 
    local permissions
 
@@ -742,14 +743,17 @@ sde::project::edit_old_to_new_content()
       return
    fi
 
-   if eval_rexekutor "${grep_statement}" "${filename}"
+   r_escaped_eval_arguments "${filename}"
+   escaped_filename="${RVAL}"
+
+   if eval_rexekutor "${grep_statement} ${escaped_filename}"
    then
       log_verbose "Editing \"${filename}\""
 
       permissions="`lso "${filename}"`"
       rexekutor chmod +w "${filename}"
 
-      eval_exekutor "$sed_statement" "${filename}" || exit 1
+      eval_exekutor "${sed_statement} ${escaped_filename}" || exit 1
 
       rexekutor chmod "${permissions}" "${filename}"
    fi
@@ -1403,4 +1407,3 @@ sde::project::initialize()
 sde::project::initialize
 
 :
-

@@ -176,6 +176,15 @@ sde::fetch::main()
    local rc
    local dbstatus
 
+   #
+   # Lock to prevent parallel fetch collisions
+   #
+   local _lockdir
+
+   _lockdir="${MULLE_VIRTUAL_ROOT}/.mulle/var/craft.lock"
+   include "lock"
+   lock::acquire "${_lockdir}" 300
+
    if [ "${OPTION_QUICK_CHECK}" = 'YES'  ]
    then
       do_update='NO'
@@ -190,6 +199,7 @@ sde::fetch::main()
 
       if [ ${rc} -eq 0 ]
       then
+         lock::release "${_lockdir}"
          return 0  # Quick exit, everything is uptodate
       fi
       
@@ -221,16 +231,20 @@ sde::fetch::main()
 
    if [ "${do_update}" = 'YES' ]
    then
+      rc=0
       sde::fetch::do_sync_sourcetree "${OPTION_SERIAL}" "$@"
       rc=$?
       if [ $rc -eq 0 ]
       then
          include 'sde::reflect'
 
-         sde::reflect::main
+         sde::reflect::main || rc=$?
       fi
-      return $?
+      lock::release "${_lockdir}"
+      return ${rc}
    else
       log_verbose "Nothing to do"
    fi
+
+   lock::release "${_lockdir}"
 }

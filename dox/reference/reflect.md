@@ -30,6 +30,13 @@
   - **Set with**: `export MULLE_SDE_REFLECT_CALLBACKS="source sourcetree custom-task"`
   - **Use case**: When you have custom reflection tasks or want to skip default ones
 
+- **MULLE_SDE_REFLECT_CONFIGS**: Colon-separated list of configs to reflect (empty=legacy)
+  - **Default**: `SINGLE`
+  - **Allowed values**: `SINGLE`, `MULTI`
+  - **Set with**: `mulle-sde config reflect-mode MULTI`
+  - **Behavior**: `MULTI` writes generated files to config-specific folders like
+    `cmake/reflect.<config>/` and `src/reflect.<config>/`
+
 - **MULLE_SDE_REFLECT_BEFORE_CRAFT**: Forces reflect before craft operations
   - **Default**: `NO`
   - **Set with**: `export MULLE_SDE_REFLECT_BEFORE_CRAFT=YES`
@@ -74,9 +81,8 @@
 
 ### Sourcetree Change Detection
 **Behavior**: Automatic detection of sourcetree configuration changes
-- **Mechanism**: Maintains a reflection state file in `etc/reflect`
-- **Content**: Stores the last reflected sourcetree configuration name
-- **Trigger**: Changes in `MULLE_SOURCETREE_CONFIG_NAME` or equivalent
+- **Mechanism**: Uses configuration environment variables
+- **Trigger**: Changes in `MULLE_SOURCETREE_CONFIG_NAME` and `MULLE_SDE_REFLECT_CONFIGS`
 - **Example**: 
   ```bash
   # Initial state (config)
@@ -88,14 +94,14 @@
   ```
 
 ### Multi-Sourcetree Management
-**Behavior**: Projects with multiple sourcetree configurations track which was last reflected
-- **File location**: `etc/reflect` (relative to project root)
-- **Format**: Single line with configuration name
-- **Git integration**: File should be committed to git for team consistency
+**Behavior**: Projects with multiple sourcetree configurations are selected by environment
+- **Selection**: `MULLE_SOURCETREE_CONFIG_NAME` (and per-dependency variants)
+- **Reflect mode**: `mulle-sde config reflect-mode SINGLE|MULTI`
 - **Example**:
   ```bash
-  # After reflecting with different configs
-  cat etc/reflect  # Shows: debug
+  mulle-sde config switch debug
+  mulle-sde config reflect-mode MULTI
+  mulle-sde reflect
   ```
 
 ### Reflection Task Persistence
@@ -243,9 +249,9 @@ mulle-sde reflect  # Uses appropriate config for each project
 - **Alternative**: Use `@` suffix for specific problem tasks: `mulle-sde reflect source@`
 
 #### "Wrong configuration being reflected"
-- **Problem**: `etc/reflect` file has stale configuration
-- **Solution**: `rm etc/reflect && mulle-sde reflect`
-- **Prevention**: Ensure `etc/reflect` is committed to git
+- **Problem**: Environment selects a different config/mode than expected
+- **Solution**: `mulle-sde config switch <name> && mulle-sde config reflect-mode <SINGLE|MULTI> && mulle-sde reflect`
+- **Prevention**: Keep config/mode changes explicit via `mulle-sde config ...`
 
 #### "Custom reflection tasks not running"
 - **Problem**: `MULLE_SDE_REFLECT_CALLBACKS` not set or overwritten
@@ -282,6 +288,7 @@ mulle-monitor task reset source
 # Force specific task
 mulle-sde reflect source
 
-# Check reflection history
-cat etc/reflect 2>/dev/null || echo "No reflection history"
+# Check selected config and mode
+mulle-sde config name
+mulle-sde config reflect-mode
 ```

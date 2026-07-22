@@ -48,20 +48,18 @@ Commands:
    search <query>   : find symbols by name (roam)
    find <type> <nm> : find header/library/symbol in dependencies
    symbol [opts]    : list symbols from headers/sources (ctags)
+   cs <args>        : run cs directly with args
+   lsp              : emit resolved lsp.json for the project
+   roam <args>      : run roam directly with args
+   ws <cmd>         : roam workspace commands
 
-   Roam commands (semantic analysis):
+Roam commands (semantic analysis):
    understand       : AI-powered code understanding
    preflight <sym>  : pre-change impact analysis
    callers <sym>    : show who calls this symbol
    callees <sym>    : show what this symbol calls
    refs <sym>       : show all references to symbol
    map              : show project skeleton with key symbols
-   
-   Direct tool access:
-   cs <args>        : run cs directly with args
-   lsp              : emit resolved lsp.json for the project
-   roam <args>      : run roam directly with args
-   ws <cmd>         : roam workspace commands
 
 Examples:
    ${MULLE_USAGE_NAME} code grep "mulle_allocator"
@@ -90,6 +88,7 @@ Usage:
    Find symbols by name using semantic search (roam).
    Searches symbol names (functions, types, variables) in your project and 
    all crafted dependencies. Uses substring matching on symbol names.
+   If roam is unavailable, falls back to a basic grep search.
 
    For full-text search in code/comments, use: ${MULLE_USAGE_NAME} code grep
 
@@ -109,18 +108,9 @@ EOF
 
 sde::code::ensure_dependencies_crafted()
 {
-   local state
+   include "sde::vibecoding"
 
-   state="$(rexekutor mulle-craft -s quickstatus -p 2>/dev/null)" || state=""
-   [ "${state}" = "complete" ] && return 0
-
-   log_info "Crafting dependencies..."
-
-   local rc
-   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS:--s} -DMULLE_VIBECODING=NO craft --no-clean craftorder
-   rc=$?
-   [ $rc -ne 0 ] && log_warning "Failed to craft dependencies"
-   return 0
+   sde::vibecoding::ensure_dependencies_crafted "code search"
 }
 
 
@@ -232,6 +222,24 @@ sde::code::r_roam_exe()
 }
 
 
+sde::code::r_usable_roam_exe()
+{
+   log_entry "sde::code::r_usable_roam_exe" "$@"
+
+   sde::code::r_roam_exe || return 1
+
+   local roam_exe="${RVAL}"
+   if ! "${roam_exe}" --help >/dev/null 2>&1
+   then
+      RVAL=""
+      return 1
+   fi
+
+   RVAL="${roam_exe}"
+   return 0
+}
+
+
 sde::code::doctor()
 {
    log_entry "sde::code::doctor" "$@"
@@ -304,12 +312,24 @@ sde::code::doctor()
    
    if command -v mulle-roam >/dev/null 2>&1
    then
-      log_info "mulle-roam: $(command -v mulle-roam) ✓"
-      roam_found='YES'
+      if mulle-roam --help >/dev/null 2>&1
+      then
+         log_info "mulle-roam: $(command -v mulle-roam) ✓"
+         roam_found='YES'
+      else
+         log_warning "mulle-roam: found but not working (try: pipx install --force mulle-roam-code)"
+         ok='NO'
+      fi
    elif command -v roam >/dev/null 2>&1
    then
-      log_info "roam: $(command -v roam) ✓"
-      roam_found='YES'
+      if roam --help >/dev/null 2>&1
+      then
+         log_info "roam: $(command -v roam) ✓"
+         roam_found='YES'
+      else
+         log_warning "roam: found but not working"
+         ok='NO'
+      fi
    elif command -v mudo >/dev/null 2>&1
    then
       local mudo_roam
@@ -464,23 +484,12 @@ sde::code::grep()
 }
 
 
-sde::code::r_project_root()
-{
-   log_entry "sde::code::r_project_root" "$@"
 
-   # walk up to find the mulle-sde project root (has .mulle dir)
-   local dir="${PWD}"
-   while [ "${dir}" != "/" ]
-   do
-      if [ -d "${dir}/.mulle" ]
-      then
-         RVAL="${dir}"
-         return 0
-      fi
-      r_dirname "${dir}"
-      dir="${RVAL}"
-   done
-   RVAL="${PWD}"
+sde::code::r_roam_db_dir()
+{
+   local var_dir="${MULLE_SDE_VAR_DIR:-${MULLE_VIRTUAL_ROOT}/.mulle/var}"
+
+   RVAL="${var_dir}/roam"
 }
 
 
@@ -488,22 +497,12 @@ sde::code::init()
 {
    log_entry "sde::code::init" "$@"
 
-   sde::code::r_roam_exe || fail "mulle-roam/roam is not installed. Run: ${MULLE_USAGE_NAME} code doctor"
+   sde::code::r_usable_roam_exe || fail "mulle-roam/roam is not installed or not working. Run: ${MULLE_USAGE_NAME} code doctor"
    local roam_exe="${RVAL}"
-
-   sde::code::r_project_root
-   local project_root="${RVAL}"
-
-   # Use mulle var dir for all roam indexes - keeps source dirs clean
-   local var_dir
-   var_dir="${MULLE_SDE_VAR_DIR:-${project_root}/.mulle/var}"
-   local roam_db_dir="${var_dir}/roam"
-
-   mkdir -p "${roam_db_dir}" || fail "Could not create roam db dir: ${roam_db_dir}"
 
    sde::code::r_stash_realpaths
    local stash_root="${RVAL}"
-   
+
    # Ensure dependencies are crafted if stash is empty
    if [ -z "${stash_root}" ]
    then
@@ -512,58 +511,63 @@ sde::code::init()
       stash_root="${RVAL}"
    fi
 
-   # Index project itself
-   log_verbose "Indexing project..."
-   (
-      cd "${project_root}" || exit 1
-      ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" index
-   )
+   sde::code::r_roam_db_dir
+   local roam_db_dir="${RVAL}"
+   local ws_dir="${roam_db_dir}/ws"
 
-   # Index each stash entry
+   # Clean previous workspace
+   rm -rf "${ws_dir}"
+   mkdir -p "${ws_dir}" || fail "Could not create ${ws_dir}"
+
+   # Symlink project source files
+   if [ -d "src" ]
+   then
+      mkdir -p "${ws_dir}/project"
+      find "$(pwd)/src" \( -name "*.h" -o -name "*.m" -o -name "*.mm" \
+                           -o -name "*.aam" -o -name "*.c" \) \
+         -exec ln -sf {} "${ws_dir}/project/" \; 2>/dev/null
+   fi
+
+   # Symlink each stash entry's source files
    local dir
+
    for dir in "${stash_root}"/*
    do
-      if [ -d "${dir}/.git" ]
-      then
-         r_basename "${dir}"
-         log_verbose "Indexing ${RVAL}..."
-         (
-            cd "${dir}" || exit 1
-            ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" index
-         )
-      fi
+      [ -d "${dir}/src" ] || continue
+      r_basename "${dir}"
+      mkdir -p "${ws_dir}/${RVAL}"
+      find "${dir}/src" \( -name "*.h" -o -name "*.m" -o -name "*.mm" \
+                           -o -name "*.aam" -o -name "*.c" \) \
+         -exec ln -sf {} "${ws_dir}/${RVAL}/" \; 2>/dev/null
    done
 
-   # Build workspace linking project + stash entries
-   log_verbose "Building roam workspace..."
-   set -- "${project_root}"
-   for dir in "${stash_root}"/*
-   do
-      [ -d "${dir}/.git" ] && set -- "$@" "${dir}"
-   done
-
-   r_basename "${project_root}"
-   local project_name="${RVAL}"
-
-   ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" ws init "$@" --name "${project_name}"
-   
-   # After workspace init, index all repos in the workspace
-   log_verbose "Indexing workspace repos..."
+   # Create a git repo so roam's file discovery works
    (
-      cd "${project_root}" || exit 1
-      ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" index
-   )
-   
-   for dir in "${stash_root}"/*
-   do
-      if [ -d "${dir}/.git" ]
-      then
-         (
-            cd "${dir}" || exit 1
-            ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" index
-         )
-      fi
-   done
+      cd "${ws_dir}" || exit 1
+      git init -q
+      git add -A
+      git commit -q -m "ws" --allow-empty
+   ) || fail "Failed to create git index"
+
+   # Configure and index
+   (
+      cd "${ws_dir}" || exit 1
+      case "${PROJECT_DIALECT}" in
+         'objc')
+            "${roam_exe}" config --c-dialect mulle-objc
+         ;;
+      esac
+      "${roam_exe}" config --exclude "test/**"
+      "${roam_exe}" config --exclude "tests/**"
+      "${roam_exe}" config --exclude "demo/**"
+      "${roam_exe}" index --force
+   ) || fail "Failed to index"
+
+   # Move the index.db to roam_db_dir, discard the rest
+   mv "${ws_dir}/.roam/index.db" "${roam_db_dir}/index.db" || fail "Failed to move index.db"
+   rm -rf "${ws_dir}"
+
+   log_info "Index complete: ${roam_db_dir}/index.db"
 }
 
 
@@ -579,6 +583,7 @@ sde::code::ensure_workspace_indexed()
 
    # Find repos listed as NOT INDEXED in the workspace
    local ws_output
+
    ws_output="$(ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" ws 2>/dev/null)"
    
    [ -z "${ws_output}" ] && return 0
@@ -614,30 +619,195 @@ sde::code::ensure_workspace_indexed()
 }
 
 
-sde::code::search()
+sde::code::basic_search()
 {
-   log_entry "sde::code::search" "$@"
+   log_entry "sde::code::basic_search" "$@"
 
-   [ $# -eq 0 ] && sde::code::search_usage "Missing query"
-   [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "help" ] && sde::code::search_usage
+   local query="$1"
+   local output_json="${2:-NO}"
 
-   sde::code::r_roam_exe || fail "mulle-roam/roam is not installed. Run: ${MULLE_USAGE_NAME} code doctor"
-   local roam_exe="${RVAL}"
+   [ -z "${query}" ] && fail "Missing query"
 
    sde::code::r_project_root
    local project_root="${RVAL}"
 
-   local var_dir="${MULLE_SDE_VAR_DIR:-${project_root}/.mulle/var}"
-   local roam_db_dir="${var_dir}/roam"
+   sde::code::r_stash_realpaths
+   local stash_root="${RVAL}"
 
-   # auto-init if no index yet
-   if [ ! -d "${roam_db_dir}" ]
+   local matches=""
+   local root
+   local root_matches
+   local search_roots
+
+   if [ -z "${stash_root}" ]
    then
-      log_info "Initializing roam workspace..."
-      sde::code::init
+     sde::code::ensure_dependencies_crafted
+     sde::code::r_stash_realpaths
+     stash_root="${RVAL}"
    fi
 
-   sde::code::ensure_workspace_indexed "${roam_exe}" "${roam_db_dir}"
+   r_add_line "${search_roots}" "${project_root}"
+   search_roots="${RVAL}"
+
+   if [ ! -z "${stash_root}" ] && [ -d "${stash_root}" ]
+   then
+     for root in "${stash_root}"/*
+     do
+        [ -d "${root}" ] || continue
+        r_add_line "${search_roots}" "${root}"
+        search_roots="${RVAL}"
+     done
+   fi
+
+   while IFS= read -r root
+   do
+     [ -z "${root}" ] && continue
+     [ ! -d "${root}" ] && continue
+
+     root_matches="$(
+         LC_ALL=C grep -R -n -H -i -F \
+            --exclude-dir='.git' \
+            --exclude-dir='.mulle' \
+            --exclude-dir='build' \
+            --exclude-dir='kitchen' \
+            --exclude-dir='dependency' \
+            --exclude-dir='stash' \
+            --include='*.h' \
+            --include='*.hh' \
+            --include='*.hpp' \
+            --include='*.c' \
+            --include='*.cc' \
+            --include='*.cpp' \
+            --include='*.m' \
+            --include='*.mm' \
+            --include='*.swift' \
+            --include='*.go' \
+            --include='*.rs' \
+            --include='*.java' \
+            --include='*.js' \
+            --include='*.ts' \
+            --include='*.tsx' \
+            --include='*.sh' \
+            -- "${query}" "${root}" 2>/dev/null
+      )"
+
+      if [ ! -z "${root_matches}" ]
+      then
+         matches="${matches}${matches:+$'\n'}${root_matches}"
+      fi
+   done <<EOF
+${search_roots}
+EOF
+
+   if [ -z "${matches}" ]
+   then
+      if [ "${output_json}" = 'YES' ]
+      then
+         printf '[]\n'
+      else
+         log_info "No results found for: ${query}"
+      fi
+      return 1
+   fi
+
+   if [ "${output_json}" = 'YES' ]
+   then
+      local first='YES'
+      local line path lineno content
+
+      printf '['
+      while IFS= read -r line
+      do
+         [ -z "${line}" ] && continue
+
+         path="${line%%:*}"
+         line="${line#*:}"
+         lineno="${line%%:*}"
+         content="${line#*:}"
+
+         content="${content//\\/\\\\}"
+         content="${content//\"/\\\"}"
+         content="${content//$'\t'/\\t}"
+
+         [ "${first}" = 'NO' ] && printf ','
+         first='NO'
+         printf '{"location":"%s","line_number":%s,"content":"%s"}' "${path}" "${lineno}" "${content}"
+      done <<< "${matches}"
+      printf ']\n'
+      return 0
+   fi
+
+   local prev_path=""
+   local line path lineno content
+   while IFS= read -r line
+   do
+      [ -z "${line}" ] && continue
+
+      path="${line%%:*}"
+      line="${line#*:}"
+      lineno="${line%%:*}"
+      content="${line#*:}"
+
+      if [ "${path}" != "${prev_path}" ]
+      then
+         printf "\n  %s\n" "${path}"
+         prev_path="${path}"
+      fi
+      printf "    %s: %s\n" "${lineno}" "${content}"
+   done <<< "${matches}"
+}
+
+
+sde::code::search()
+{
+   log_entry "sde::code::search" "$@"
+
+   local output_json='NO'
+   [ "${MULLE_VIBECODING}" = 'YES' ] && output_json='YES'
+
+   [ $# -eq 0 ] && sde::code::search_usage "Missing query"
+   [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "help" ] && sde::code::search_usage
+
+   local fallback_query=""
+   local arg
+   for arg in "$@"
+   do
+      case "${arg}" in
+         --json)
+            output_json='YES'
+         ;;
+         --no-json)
+            output_json='NO'
+         ;;
+         -*)
+         ;;
+         *)
+            fallback_query="${fallback_query:+${fallback_query} }${arg}"
+         ;;
+      esac
+   done
+
+   [ -z "${fallback_query}" ] && fallback_query="$*"
+   [ -z "${fallback_query}" ] && sde::code::search_usage "Missing query"
+
+   if ! sde::code::r_usable_roam_exe
+   then
+      log_warning "mulle-roam/roam is unavailable; falling back to basic grep search"
+      sde::code::basic_search "${fallback_query}" "${output_json}"
+      return $?
+   fi
+
+   local roam_exe="${RVAL}"
+
+   sde::code::r_roam_db_dir
+   local roam_db_dir="${RVAL}"
+
+   # auto-init if no index yet
+   if [ ! -f "${roam_db_dir}/index.db" ]
+   then
+      log_info "Initializing roam index..."
+      sde::code::init
+   fi
 
    ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" search "$@"
 }
@@ -650,23 +820,18 @@ sde::code::roam()
    [ $# -eq 0 ] && sde::code::roam_usage
    [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "help" ] && sde::code::roam_usage
 
-   sde::code::r_roam_exe || fail "mulle-roam/roam is not installed. Run: ${MULLE_USAGE_NAME} code doctor"
+   sde::code::r_usable_roam_exe || fail "mulle-roam/roam is not installed or not working. Run: ${MULLE_USAGE_NAME} code doctor"
    local roam_exe="${RVAL}"
 
-   sde::code::r_project_root
-   local project_root="${RVAL}"
-
-   local var_dir="${MULLE_SDE_VAR_DIR:-${project_root}/.mulle/var}"
-   local roam_db_dir="${var_dir}/roam"
+   sde::code::r_roam_db_dir
+   local roam_db_dir="${RVAL}"
 
    # auto-init if no index yet
-   if [ ! -d "${roam_db_dir}" ]
+   if [ ! -f "${roam_db_dir}/index.db" ]
    then
-      log_info "Initializing roam workspace..."
+      log_info "Initializing roam index..."
       sde::code::init
    fi
-
-   sde::code::ensure_workspace_indexed "${roam_exe}" "${roam_db_dir}"
 
    ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" "$@"
 }
@@ -687,6 +852,7 @@ sde::code::find()
    [ $# -ne 0 ] && fail "Superflous arguments $*"
 
    local dependency_dir
+
    dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
 
    [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ] && \
@@ -756,6 +922,46 @@ sde::code::symbol()
    # Delegate to mulle-sde-symbol
    include "sde::symbol"
    sde::symbol::main "$@"
+}
+
+
+sde::code::class()
+{
+   log_entry "sde::code::class" "$@"
+
+   [ $# -eq 0 ] && fail "Missing class name"
+
+   local name="$1"
+
+   sde::code::r_usable_roam_exe || fail "mulle-roam/roam is not installed or not working"
+   local roam_exe="${RVAL}"
+
+   sde::code::r_roam_db_dir
+   local roam_db_dir="${RVAL}"
+
+   if [ ! -f "${roam_db_dir}/index.db" ]
+   then
+      log_info "Initializing roam index..."
+      sde::code::init
+   fi
+
+   # Show class: superclass, subclasses, methods
+   printf "=== %s ===\n\n" "${name}"
+
+   printf "%s\n" "--- Hierarchy ---"
+   ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" symbol "${name}" 2>/dev/null
+   printf "\n%s\n" "--- Subclasses / Consumers ---"
+   ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" uses "${name}" 2>/dev/null
+
+   # Find the .m file and show methods
+   local file
+   file="$(ROAM_DB_DIR="${roam_db_dir}" "${roam_exe}" --json symbol "${name}" 2>/dev/null \
+           | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('location','').split(':')[0])" 2>/dev/null)"
+   if [ -n "${file}" ]
+   then
+      printf "\n%s\n" "--- Methods ---"
+      ROAM_DB_DIR="${roam_db_dir}" rexekutor "${roam_exe}" file "${file}" 2>/dev/null
+   fi
 }
 
 
@@ -832,10 +1038,14 @@ sde::code::main()
       shift
    done
 
+   [ -z "${MULLE_VIRTUAL_ROOT}" ] && _internal_fail "wrong"
+
    # Always operate from main project, not test subdir
-   if [ -f ".mulle/share/test/mulle-test" ]
+   # AI loves this apparently..
+   if [ "${MULLE_VIBECODING}" = 'YES' -a -f ".mulle/share/test/mulle-test" ]
    then
       local parent_dir
+
       r_dirname "${PWD}"
       parent_dir="${RVAL}"
       log_debug "In test directory, running code from parent: ${parent_dir}"
@@ -844,6 +1054,7 @@ sde::code::main()
    fi
 
    local cmd="${1:-help}"
+
    [ $# -ne 0 ] && shift
 
    case "${cmd}" in
@@ -851,6 +1062,7 @@ sde::code::main()
       grep)       sde::code::grep "$@" ;;
       search)     sde::code::search "$@" ;;
       find)       sde::code::find "$@" ;;
+      class)      sde::code::class "$@" ;;
       symbol)     sde::code::symbol "$@" ;;
       callers)    sde::code::callers "$@" ;;
       callees)    sde::code::callees "$@" ;;
@@ -858,11 +1070,14 @@ sde::code::main()
       map)        sde::code::map "$@" ;;
       cs)         sde::code::cs "$@" ;;
       roam)       sde::code::roam "$@" ;;
+      init|reset) sde::code::init "$@" ;;
       understand|preflight|ws) sde::code::roam "${cmd}" "$@" ;;
       lsp)
          include "sde::lsp"
          sde::lsp::main "$@"
       ;;
-      *)          sde::code::usage "Unknown command '${cmd}'" ;;
+      *)
+         sde::code::usage "Unknown command '${cmd}'"
+      ;;
    esac
 }

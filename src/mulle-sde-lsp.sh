@@ -38,7 +38,7 @@ sde::lsp::usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} lsp [options]
+   ${MULLE_USAGE_NAME} code lsp [options]
 
    Emit or install LSP configuration for the current project.
 
@@ -59,6 +59,7 @@ Options:
    --configuration <c>        : build configuration (default: Debug)
    --debug                    : shortcut for --configuration Debug
    --release                  : shortcut for --configuration Release
+   --no-merge-dependencies    : do not merge dependency compile_commands.json
    --tool <name> [<file>]     : write config for tool to <file> or default path
                                 (can be repeated for multiple tools)
 
@@ -183,6 +184,81 @@ sde::lsp::r_find_bash_lsp_command()
 
    RVAL=""
    return 1
+}
+
+
+#
+# Merge all compile_commands.json files (main project + dependencies) into
+# a single file. Returns the directory containing the merged file in RVAL.
+# Falls back to the original kitchen_dir if jq is not available or no
+# dependency compile_commands exist.
+#
+sde::lsp::r_merge_compile_commands()
+{
+   log_entry "sde::lsp::r_merge_compile_commands" "$@"
+
+   local kitchen_dir="$1"
+   local configuration="$2"
+
+   local main_cc="${kitchen_dir}/compile_commands.json"
+   local craftorder_dir="${kitchen_dir}/../.craftorder/${configuration}"
+
+   # need jq and at least the main compile_commands.json
+   if ! command -v jq > /dev/null 2>&1
+   then
+      log_verbose "jq not found, skipping compile_commands merge"
+      RVAL="${kitchen_dir}"
+      return 0
+   fi
+
+   if [ ! -f "${main_cc}" ]
+   then
+      fail "No compile_commands.json found (not crafted yet?). Run 'mulle-sde craft' first."
+   fi
+
+   # collect all compile_commands.json files
+   local files="${main_cc}"
+   local dep_cc
+
+   if [ -d "${craftorder_dir}" ]
+   then
+      for dep_cc in "${craftorder_dir}"/*/compile_commands.json
+      do
+         [ -f "${dep_cc}" ] && files="${files} ${dep_cc}"
+      done
+   fi
+
+   # if only the main file exists, no merge needed
+   local file_count
+   # shellcheck disable=SC2086
+   set -- ${files}
+   file_count=$#
+
+   if [ "${file_count}" -le 1 ]
+   then
+      log_verbose "No dependency compile_commands to merge"
+      RVAL="${kitchen_dir}"
+      return 0
+   fi
+
+   local merged_dir="${kitchen_dir}/.lsp-merged"
+   local merged_file="${merged_dir}/compile_commands.json"
+
+   mkdir -p "${merged_dir}" 2>/dev/null
+
+   # shellcheck disable=SC2086
+   if jq -s 'add' ${files} > "${merged_file}.tmp" 2>/dev/null
+   then
+      mv "${merged_file}.tmp" "${merged_file}"
+      log_verbose "Merged ${file_count} compile_commands.json files into ${merged_file}"
+      RVAL="${merged_dir}"
+      return 0
+   fi
+
+   rm -f "${merged_file}.tmp" 2>/dev/null
+   log_warning "Failed to merge compile_commands.json, using main project only"
+   RVAL="${kitchen_dir}"
+   return 0
 }
 
 
@@ -370,7 +446,7 @@ sde::lsp::splice_opencode_json()
       '.lsp[$lang] = {
          "command":        [$cmd, "--background-index", ("--compile-commands-dir=" + $kdir)],
          "extensions":     $exts,
-         "initialization": { ($name): { "fallbackFlags": [$flags] } }
+         "initialization": { "fallbackFlags": [$flags] }
       }
       | .lsp["clangd"] = { "disabled": true }')" \
    || fail "jq failed to build opencode lsp entry"
@@ -379,9 +455,8 @@ sde::lsp::splice_opencode_json()
    if [ -n "${bash_command}" ]
    then
       updated="$(printf '%s' "${updated}" | jq \
-         --arg cmd "${bash_command}" \
          '.lsp["bash"] = {
-            "command":    [$cmd, "start"],
+            "command":    ["bash-language-server", "start"],
             "extensions": ["sh","bash","zsh"]
          }')" \
       || fail "jq failed to add bash lsp entry"
@@ -725,6 +800,7 @@ sde::lsp::main()
    log_entry "sde::lsp::main" "$@"
 
    local OPTION_CONFIGURATION="Debug"
+   local OPTION_MERGE_DEPENDENCIES='YES'
    local tool_entries=""   # newline-separated list of "toolname:filepath"
 
    while [ $# -ne 0 ]
@@ -746,6 +822,10 @@ sde::lsp::main()
 
          --release)
             OPTION_CONFIGURATION="Release"
+         ;;
+
+         --no-merge-dependencies)
+            OPTION_MERGE_DEPENDENCIES='NO'
          ;;
 
          --tool)
@@ -837,11 +917,23 @@ sde::lsp::main()
 
    local kitchen_dir
 
-   kitchen_dir="$(rexekutor mulle-craft \
+   kitchen_dir="$(rexekutor mulle-sde \
                               ${MULLE_TECHNICAL_FLAGS} \
-                              --configuration "${OPTION_CONFIGURATION}" \
                               kitchen-dir)" \
    || fail "Could not determine kitchen directory"
+
+   # If a non-default configuration was requested, adjust the path
+   if [ "${OPTION_CONFIGURATION}" != "Debug" ]
+   then
+      kitchen_dir="${kitchen_dir%/Debug}/${OPTION_CONFIGURATION}"
+   fi
+
+   # Merge main + dependency compile_commands.json for full navigation
+   if [ "${OPTION_MERGE_DEPENDENCIES}" = 'YES' ]
+   then
+      sde::lsp::r_merge_compile_commands "${kitchen_dir}" "${OPTION_CONFIGURATION}"
+      kitchen_dir="${RVAL}"
+   fi
 
    log_setting "lsp_command : ${lsp_command}"
    log_setting "lsp_name    : ${lsp_name}"

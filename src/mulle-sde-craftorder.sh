@@ -56,9 +56,9 @@ EOF
 
 sde::craftorder::__get_info()
 {
-   [ -z "${DEPENDENCY_DIR}" ] && _log_warning "DEPENDENCY_DIR is not set.
-${C_INFO}This command must be run inside a mulle-sde virtual environment.
-${C_RESET_BOLD}   mulle-sde craft"
+#   [ -z "${DEPENDENCY_DIR}" ] && _log_warning "DEPENDENCY_DIR is not set.
+#${C_INFO}This command must be run inside a mulle-sde virtual environment.
+#${C_RESET_BOLD}   mulle-sde craft"
 
    _cachedir="${DEPENDENCY_DIR:-dependency}/etc"
    _craftorderfile="${_cachedir}/craftorder"

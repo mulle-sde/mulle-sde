@@ -189,28 +189,53 @@ sde::edit::main()
    local DEPENDENCY_DIR
    local KITCHEN_DIR
    local STASH_DIR
+   local include_environment_file
 
    if sde::r_determine_project_dir
    then
-      MULLE_VIRTUAL_ROOT="${RVAL}"
-      MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
-      MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+      directory="${RVAL}"
 
-      log_debug "Sourcing environment from ${MULLE_VIRTUAL_ROOT#${MULLE_USER_PWD}/}..."
+      if [ -z "${directory}" -o "${directory}" = "/" ]
+      then
+         log_warning "Could not determine a valid project root for editor environment setup"
+      else
+         if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+         then
+            MULLE_VIRTUAL_ROOT="${directory}"
+            export MULLE_VIRTUAL_ROOT
+         fi
 
-      . "${MULLE_VIRTUAL_ROOT}/.mulle/share/env/include-environment.sh"
+         r_fnv1a_32  "${MULLE_VIRTUAL_ROOT}"
+         printf -v MULLE_VIRTUAL_ROOT_ID "%08x" "${RVAL}"
+         export MULLE_VIRTUAL_ROOT_ID
 
-      #
-      # gather KITCHEN_DIR
-      # gather STASH_DIR
-      # gather DEPENDENCY_DIR
-      # gather ADDICTION_DIR
-      # and pass as environment
-      #
-      ADDICTION_DIR="`mulle-craft addiction-dir`"
-      DEPENDENCY_DIR="`mulle-craft dependency-dir`"
-      KITCHEN_DIR="`mulle-craft kitchen-dir`"
-      STASH_DIR="`mulle-sourcetree stash-dir`"
+         include_environment_file="${directory}/.mulle/share/env/include-environment.sh"
+         if [ -f "${include_environment_file}" ]
+         then
+            log_debug "Sourcing environment from ${directory#${MULLE_USER_PWD}/}..."
+            . "${include_environment_file}"
+
+            #
+            # gather KITCHEN_DIR
+            # gather STASH_DIR
+            # gather DEPENDENCY_DIR
+            # gather ADDICTION_DIR
+            # and pass as environment
+            #
+            ADDICTION_DIR="`mulle-craft addiction-dir`"
+            DEPENDENCY_DIR="`mulle-craft dependency-dir`"
+            KITCHEN_DIR="`mulle-craft kitchen-dir`"
+            STASH_DIR="`mulle-sourcetree stash-dir`"
+         else
+            log_warning "Project environment looks incomplete: missing ${include_environment_file#${MULLE_USER_PWD}/}"
+            log_warning "Continuing with fallback editor paths; run 'mulle-sde upgrade' to repair the environment"
+         fi
+      fi
+   fi
+
+   if [ ! -z "${MULLE_VIRTUAL_ROOT}" -a -z "${PROJECT_SOURCE_DIR}" ]
+   then
+      PROJECT_SOURCE_DIR="src"
    fi
 
    if [ "${OPTION_JSON_ENV}" = 'YES' ]

@@ -42,6 +42,13 @@ sde::vibecoding::check_craft_vs_test_craft()
 
    [ "${MULLE_VIBECODING}" != 'YES' ] && return 0
 
+   # Relax for executables: they have no independently testable library API,
+   # so blocking craft is too painful. Enforce for libraries etc.
+   local project_type
+
+   project_type="$(mulle-env environment get PROJECT_TYPE 2>/dev/null)"
+   [ "${project_type}" = 'executable' ] && return 0
+
    # Check if --mulle-test is already in the arguments
    local arg
 
@@ -82,6 +89,13 @@ sde::vibecoding::check_log_vs_test_log()
    log_entry "sde::vibecoding::check_log_vs_test_log" "$@"
 
    [ "${MULLE_VIBECODING}" != 'YES' ] && return 0
+
+   # Relax for executables: they have no independently testable library API,
+   # so blocking log is too painful. Enforce for libraries etc.
+   local project_type
+
+   project_type="$(mulle-env environment get PROJECT_TYPE 2>/dev/null)"
+   [ "${project_type}" = 'executable' ] && return 0
 
    # Check if test directories exist
    local test_directories
@@ -149,8 +163,178 @@ sde::vibecoding::env_set()
    local flag="$3"
 
    rexekutor mulle-env --search-here ${MULLE_TECHNICAL_FLAGS}  \
+                        env ${scope_flags}               \
+                             set "${variable}" "${flag}"
+}
+
+
+sde::vibecoding::r_env_get()
+{
+   local scope_flags="$1"
+   local variable="$2"
+
+   RVAL="`rexekutor mulle-env --search-here ${MULLE_TECHNICAL_FLAGS} \
+                              env ${scope_flags}               \
+                                  get --lenient "${variable}"`"
+}
+
+
+sde::vibecoding::env_remove()
+{
+   local scope_flags="$1"
+   local variable="$2"
+
+   sde::vibecoding::r_env_get "${scope_flags}" "${variable}"
+   [ -z "${RVAL}" ] && return 0
+
+   rexekutor mulle-env --search-here ${MULLE_TECHNICAL_FLAGS} \
                        env ${scope_flags}               \
-                            set "${variable}" "${flag}"
+                           remove "${variable}"
+}
+
+
+sde::vibecoding::r_backup_value_variable()
+{
+   local variable="$1"
+
+   RVAL="MULLE_SDE_VIBECODING_BACKUP__${variable}"
+}
+
+
+sde::vibecoding::backup_scope_values()
+{
+   local scope_flags="$1"
+   shift
+
+   local variable
+   local value
+   local backup_value_variable
+
+   for variable in "$@"
+   do
+      sde::vibecoding::r_env_get "${scope_flags}" "${variable}"
+      value="${RVAL}"
+
+      sde::vibecoding::r_backup_value_variable "${variable}"
+      backup_value_variable="${RVAL}"
+
+      if [ ! -z "${value}" ]
+      then
+         sde::vibecoding::env_set "${scope_flags}" "${backup_value_variable}" "${value}"
+      else
+         sde::vibecoding::env_remove "${scope_flags}" "${backup_value_variable}"
+      fi
+   done
+}
+
+
+sde::vibecoding::restore_scope_values()
+{
+   local scope_flags="$1"
+   shift
+
+   local variable
+   local value
+   local current
+   local backup_value_variable
+   local do_restore='NO'
+
+   for variable in "$@"
+   do
+      sde::vibecoding::r_backup_value_variable "${variable}"
+      backup_value_variable="${RVAL}"
+
+      sde::vibecoding::r_env_get "${scope_flags}" "${backup_value_variable}"
+      value="${RVAL}"
+      [ -z "${value}" ] && continue
+
+      sde::vibecoding::r_env_get "${scope_flags}" "${variable}"
+      current="${RVAL}"
+      if [ "${value}" != "${current}" ]
+      then
+         do_restore='YES'
+         break
+      fi
+   done
+
+   for variable in "$@"
+   do
+      sde::vibecoding::env_remove "${scope_flags}" "${variable}"
+   done
+
+   for variable in "$@"
+   do
+      sde::vibecoding::r_backup_value_variable "${variable}"
+      backup_value_variable="${RVAL}"
+
+      sde::vibecoding::r_env_get "${scope_flags}" "${backup_value_variable}"
+      value="${RVAL}"
+
+      if [ ! -z "${value}" -a "${do_restore}" = 'YES' ]
+      then
+         sde::vibecoding::env_set "${scope_flags}" "${variable}" "${value}"
+      fi
+      sde::vibecoding::env_remove "${scope_flags}" "${backup_value_variable}"
+   done
+}
+
+
+sde::vibecoding::apply_values()
+{
+   local scope_flags="$1"
+   local flag="$2"
+   shift 2
+
+   local assignments="$*"
+   local assignment
+   local variable
+   local value
+   local variables
+
+   for assignment in ${assignments}
+   do
+      variable="${assignment%%=*}"
+      r_concat "${variables}" "${variable}"
+      variables="${RVAL}"
+   done
+
+   case "${flag}" in
+      YES)
+         sde::vibecoding::r_env_get "${scope_flags}" "MULLE_VIBECODING"
+         if [ "${RVAL}" != 'YES' ]
+         then
+            sde::vibecoding::backup_scope_values "${scope_flags}" ${variables}
+         fi
+
+         for assignment in ${assignments}
+         do
+            variable="${assignment%%=*}"
+            value="${assignment#*=}"
+            sde::vibecoding::env_set "${scope_flags}" "${variable}" "${value}"
+         done
+      ;;
+
+      NO)
+         sde::vibecoding::restore_scope_values "${scope_flags}" ${variables}
+      ;;
+   esac
+
+   #
+   # migrate: remove stale values from legacy --this-user scope if we are
+   # now using --this-os-user (scope changed from user to user+os)
+   #
+   if [ "${scope_flags}" = "--this-os-user" ]
+   then
+      local backup_value_variable
+
+      for assignment in ${assignments}
+      do
+         variable="${assignment%%=*}"
+         sde::vibecoding::env_remove "--this-user" "${variable}"
+         sde::vibecoding::r_backup_value_variable "${variable}"
+         sde::vibecoding::env_remove "--this-user" "${RVAL}"
+      done
+   fi
 }
 
 
@@ -311,7 +495,7 @@ sde::vibecoding::main()
    case "${flag}" in
       'YES')
          verb="vibecoding"
-         timeout=5
+         timeout=10
       ;;
 
       'NO')
@@ -322,14 +506,14 @@ sde::vibecoding::main()
 
    log_info "Set ${C_RESET_BOLD}${PROJECT_NAME}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
 
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          "${timeout}"
-
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     "${OPTION_TEST}"
-   sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    "${flag}"
+   sde::vibecoding::apply_values "${OPTION_SCOPE}" "${flag}" \
+      "MULLE_VIBECODING=${flag}" \
+      "MULLE_SDE_CLEAN_BEFORE_CRAFT=${flag}" \
+      "MULLE_SDE_REFLECT_BEFORE_CRAFT=${flag}" \
+      "MULLE_SDE_CRAFT_BEFORE_RUN=${flag}" \
+      "MULLE_SDE_RUN_TIMEOUT=${timeout}" \
+      "MULLE_SDE_TEST_AFTER_CRAFT=${OPTION_TEST}" \
+      "MULLE_TEST_CLEAN_BEFORE_RUN=${flag}"
 
    local dir
 
@@ -340,18 +524,18 @@ sde::vibecoding::main()
       if [ -d "${dir}" ]
       then
       (
-         rexekutor cd "${dir}"
+          rexekutor cd "${dir}"
 
-         log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     "${flag}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' "${flag}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'          "${timeout}"
-
-         # ok demos have no tests
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     'NO'
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    'NO'
+          log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
+         # demos have no tests
+         sde::vibecoding::apply_values "${OPTION_SCOPE}" "${flag}" \
+            "MULLE_VIBECODING=${flag}" \
+            "MULLE_SDE_CLEAN_BEFORE_CRAFT=${flag}" \
+            "MULLE_SDE_CRAFT_BEFORE_RUN=${flag}" \
+            "MULLE_SDE_REFLECT_BEFORE_CRAFT=${flag}" \
+            "MULLE_SDE_RUN_TIMEOUT=${timeout}" \
+            "MULLE_SDE_TEST_AFTER_CRAFT=NO" \
+            "MULLE_TEST_CLEAN_BEFORE_RUN=NO"
       )
       fi
    .done
@@ -363,21 +547,55 @@ sde::vibecoding::main()
       if [ -d "${dir}" ]
       then
       (
-         rexekutor cd "${dir}"
+          rexekutor cd "${dir}"
 
-         log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_VIBECODING'               "${flag}"
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CLEAN_BEFORE_CRAFT'   "${flag}"
-         # test does this differently
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_CRAFT_BEFORE_RUN'     'YES'
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_REFLECT_BEFORE_CRAFT' 'NO'
-         # test does this differently too,
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_RUN_TIMEOUT'           $(( timeout * 20 ))
-
-         # tests have no tests
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_SDE_TEST_AFTER_CRAFT'     'NO'
-         sde::vibecoding::env_set "${OPTION_SCOPE}" 'MULLE_TEST_CLEAN_BEFORE_RUN'    "${flag}"
+          log_info "Set ${C_RESET_BOLD}${dir}${C_INFO} to ${C_MAGENTA}${C_BOLD}${verb}"
+         # tests have fixed defaults for some values
+         sde::vibecoding::apply_values "${OPTION_SCOPE}" "${flag}" \
+            "MULLE_VIBECODING=${flag}" \
+            "MULLE_SDE_CLEAN_BEFORE_CRAFT=${flag}" \
+            "MULLE_SDE_CRAFT_BEFORE_RUN=YES" \
+            "MULLE_SDE_REFLECT_BEFORE_CRAFT=NO" \
+            "MULLE_SDE_RUN_TIMEOUT=$(( timeout * 20 ))" \
+            "MULLE_SDE_TEST_AFTER_CRAFT=NO" \
+            "MULLE_TEST_CLEAN_BEFORE_RUN=${flag}"
       )
       fi
    .done
+}
+
+
+#
+# Shared helper for api/howto/code commands that need dependencies crafted.
+# Waits if another craft is already running (parallel AI command safety).
+#
+sde::vibecoding::ensure_dependencies_crafted()
+{
+   log_entry "sde::vibecoding::ensure_dependencies_crafted" "$@"
+
+   local purpose="${1:-dependencies}"
+
+   local state
+
+   state="$(rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS:--s} quickstatus -p 2>/dev/null)" || state=""
+   [ "${state}" = "complete" ] && return 0
+
+   # If another process is already crafting, just wait for it
+   local _lockdir
+
+   _lockdir="${MULLE_VIRTUAL_ROOT}/.mulle/var/craft.lock"
+   if [ -d "${_lockdir}" ]
+   then
+      log_verbose "Another craft is running, waiting for ${purpose}..."
+      include "lock"
+      lock::acquire "${_lockdir}" 300
+      lock::release "${_lockdir}"
+
+      state="$(rexekutor mulle-craft ${MULLE_TECHNICAL_FLAGS:--s} quickstatus -p 2>/dev/null)" || state=""
+      [ "${state}" = "complete" ] && return 0
+   fi
+
+   log_verbose "Crafting dependencies to get ${purpose}..."
+   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS:--s} -DMULLE_VIBECODING=NO craft --no-clean craftorder
+   return 0
 }

@@ -222,8 +222,8 @@ sde::upgrade::main()
          MULLE_VIRTUAL_ROOT="`pwd -P`"
          export MULLE_VIRTUAL_ROOT
 
-         MULLE_VIRTUAL_ROOT_ID="$(PATH='/bin:/usr/bin:/usr/local/bin' shasum -a 256 <<< "${MULLE_VIRTUAL_ROOT}")"
-         MULLE_VIRTUAL_ROOT_ID="${MULLE_VIRTUAL_ROOT_ID:1:12}"
+         r_fnv1a_32  "${MULLE_VIRTUAL_ROOT}"
+         printf -v MULLE_VIRTUAL_ROOT_ID "%08x" "${RVAL}"
          export MULLE_VIRTUAL_ROOT_ID
 
          eval `"${MULLE_ENV:-mulle-env}" --search-as-is mulle-tool-env sde` || exit 1
