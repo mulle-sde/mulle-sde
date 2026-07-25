@@ -1721,7 +1721,7 @@ sde::test::main()
                   "${log_args[@]}"
             ;;
             test*)
-               sde::test::generic "" "${test_cmd}" \
+               sde::test::generic "${test_root}" "${test_cmd}" \
                   --platform "${OPTION_PLATFORM}" \
                   --configuration "${OPTION_CONFIGURATION:-Debug}" \
                   "${log_args[@]}"
