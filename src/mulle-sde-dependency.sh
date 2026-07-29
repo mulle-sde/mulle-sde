@@ -90,6 +90,7 @@ Commands:
    add        : add a dependency to the sourcetree
    insert     : like add, but move the new entry to the top of the sourcetree
    binaries   : list all binaries in the built dependencies folder
+   comment    : add a comment above a dependency in the sourcetree
    config     : manage configuration of dependencies (list, get, set)
    duplicate  : duplicate a dependency, usually for OS specific settings
    craftinfo  : change build options for a dependency
@@ -2298,6 +2299,80 @@ sde::dependency::insert_main()
 }
 
 
+sde::dependency::comment_usage()
+{
+   [ "$#" -ne 0 ] &&  log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} dependency comment [options] <dep> <text>
+
+   Add a comment above a dependency in the sourcetree.
+
+Examples:
+      ${MULLE_USAGE_NAME} dependency comment zlib "Windows specific libraries"
+      ${MULLE_USAGE_NAME} dependency comment mulle-freetype "TODO: check if still needed"
+
+Options:
+   -h  : show this help
+EOF
+  exit 1
+}
+
+
+sde::dependency::comment_main()
+{
+   log_entry "sde::dependency::comment_main" "$@"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h|--help|help)
+            sde::dependency::comment_usage
+         ;;
+
+         -*)
+            sde::dependency::comment_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+
+      shift
+   done
+
+   local dependency="$1"
+   local text="$2"
+
+   if [ -z "${dependency}" ]
+   then
+      sde::dependency::comment_usage "Missing dependency name"
+   fi
+
+   if [ -z "${text}" ]
+   then
+      sde::dependency::comment_usage "Missing comment text"
+   fi
+
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  --silent-but-warn \
+               add \
+                  --nodetype comment \
+                  "${text}" || return 1
+
+   exekutor "${MULLE_SOURCETREE:-mulle-sourcetree}" \
+                  --virtual-root \
+                  ${MULLE_TECHNICAL_FLAGS} \
+                  --silent-but-warn \
+               move \
+                  "${text}" before "${dependency}" || return 1
+}
+
+
 sde::dependency::get_sourcetree_node_value()
 {
    log_entry "sde::dependency::get_node_value" "$@"
@@ -2943,10 +3018,16 @@ sde::dependency::main()
          return $rc
       ;;
 
+      comment)
+         sde::dependency::comment_main "$@"
+         return $?
+      ;;
+
       commands)
          echo "\
 add
 binaries
+comment
 config
 craftinfo
 duplicate

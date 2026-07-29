@@ -570,6 +570,42 @@ sde::platform::cross_compiler_root_setup()
 
 
 
+#
+# Find the cmake toolchain file for a cross-compilation platform on disk.
+# Looks in "cmake" first, then "cmake/share".
+# Naming format: toolchain--<build>-<host>--<triplet>--<compiler>.cmake
+#
+# Returns 0 and RVAL=<path> if found, 1 and RVAL="" otherwise.
+#
+# TODO: what about non-cmake ??
+#
+sde::platform::r_toolchain_file()
+{
+   log_entry "sde::platform::r_toolchain_file" "$@"
+
+   local platform="$1"
+
+   [ -z "${platform}" ] && _internal_fail "empty platform"
+
+   local dir
+
+   for dir in cmake cmake/share
+   do
+      if [ -d "${dir}" ]
+      then
+         RVAL="`rexekutor find "${dir}" -maxdepth 1 -name "toolchain--${MULLE_UNAME}-${platform}--*--*.cmake" | head -1`"
+         if [ ! -z "${RVAL}" ]
+         then
+            return 0
+         fi
+      fi
+   done
+
+   RVAL=""
+   return 1
+}
+
+
 sde::platform::platform_setup()
 {
    log_entry "sde::platform::platform_setup" "$@"
@@ -581,31 +617,18 @@ sde::platform::platform_setup()
    [ "${platform}" = "'${MULLE_UNAME}'" ] && _internal_fail "wrong platform"
    [ -z "${platform}" ] && _internal_fail "empty platform"
 
-   # Find matching toolchain file (prefer cmake/ over cmake/share/)
-   # New format: toolchain--<build>-<host>--<triplet>--<compiler>.cmake
-   #
-   # TODO: what about non-cmake ??
-   #
    local toolchain_file
 
+   # an explicitly given toolchain file wins over discovery
    toolchain_file="${OPTION_TOOLCHAIN_FILE}"
 
-   local dir
-
-   if [ -z "${toolchains}" ]
+   if [ -z "${toolchain_file}" ]
    then
-      for dir in cmake cmake/share
-      do
-         if [ -d "${dir}" ]
-         then
-            toolchain_file="`rexekutor find "${dir}" -maxdepth 1 -name "toolchain--${MULLE_UNAME}-${platform}--*--*.cmake" | head -1`"
-            if [ ! -z "${toolchain_file}" ]
-            then
-               OPTION_TOOLCHAIN_FILE="${toolchain_file}"
-               break
-            fi
-         fi
-      done
+      if sde::platform::r_toolchain_file "${platform}"
+      then
+         toolchain_file="${RVAL}"
+         OPTION_TOOLCHAIN_FILE="${toolchain_file}"
+      fi
    fi
 
    if [ -z "${toolchain_file}" ]
@@ -708,24 +731,29 @@ sde::platform::add()
    log_setting "sourcetree_platforms : ${sourcetree_platforms}"
    log_setting "craft_platforms      : ${craft_platforms}"
    
-    if [ "${platforms_before}" != "${sourcetree_platforms}" ]
-    then
-      exekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
-      exekutor mulle-sde environment ${write_scope_flags} set MULLE_SOURCETREE_PLATFORMS "${sourcetree_platforms}"
-   else
+   if [ "${platforms_before}" = "${sourcetree_platforms}" ]
+   then
       if [ "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
       then
          fail "Platform ${C_MAGENTA}${C_BOLD}${platform}${C_WARNING} already present"
       fi
    fi
 
-    if [ "${value}" != '${MULLE_UNAME}' ]
-    then
-       if [ "${platforms_before}" != "${sourcetree_platforms}" -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
-       then
-           sde::platform::platform_setup "${platform}" "${machine_scope_flags}"
-       fi
-    fi
+   # Validate toolchain BEFORE persisting platform to env vars, so a
+   # failure here doesn't leave the platform half-configured
+   if [ "${value}" != '${MULLE_UNAME}' ]
+   then
+      if [ "${platforms_before}" != "${sourcetree_platforms}" -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+      then
+         sde::platform::platform_setup "${platform}" "${machine_scope_flags}"
+      fi
+   fi
+
+   if [ "${platforms_before}" != "${sourcetree_platforms}" ]
+   then
+      exekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
+      exekutor mulle-sde environment ${write_scope_flags} set MULLE_SOURCETREE_PLATFORMS "${sourcetree_platforms}"
+   fi
 }
 
 
@@ -843,14 +871,16 @@ sde::platform::remove()
 
    local varname
 
-   # Check if platform exists
+   # Check if platform exists in sourcetree
    if ! find_item "${sourcetree_platforms}" "${platform}" ":"
    then
-      log_warning "Platform \"${platform}\" is not configured"
-      return 0
+      if ! find_item "${craft_platforms}" "${platform}" ":"
+      then
+         log_warning "Platform \"${platform}\" is not in platform lists, cleaning up remnants"
+      fi
    fi
 
-   # Remove from platforms
+   # Remove from platforms (best effort, even if not found)
    r_colon_remove "${craft_platforms}" "${platform}"
    craft_platforms="${RVAL}"
 
@@ -1190,6 +1220,45 @@ sde::platform::enable()
    r_colon_concat_if_missing "${craft_platforms}" "${platform}"
    craft_platforms="${RVAL}"
    rexekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
+
+   # A cross-compilation platform needs a toolchain. The variable may be
+   # missing although a toolchain file is present, e.g. because "platform add"
+   # wrote it into a user/host scoped environment of a different project.
+   # Repair it from the toolchain file on disk, so that enable/disable is a
+   # usable way to get back to a working configuration.
+   if [ "${platform}" != "${MULLE_UNAME}" ]
+   then
+      local toolchain_varname
+
+      include "case"
+      r_uppercase "${platform}"
+      toolchain_varname="MULLE_CRAFT_TOOLCHAIN__${RVAL}"
+      r_shell_indirect_expand "${toolchain_varname}"
+      if [ -z "${RVAL}" ]
+      then
+         local toolchain_scope_flags
+         local OPTION_TOOLCHAIN_FILE
+
+         # toolchain paths are machine specific, so keep them out of the
+         # shared scope unless the user asked for a specific scope
+         toolchain_scope_flags="${write_scope_flags}"
+         if [ "${toolchain_scope_flags}" = '--same-scope' ]
+         then
+            toolchain_scope_flags='--this-user-host'
+         fi
+
+         if sde::platform::r_toolchain_file "${platform}"
+         then
+            log_info "Configuring toolchain ${C_RESET_BOLD}${RVAL}${C_INFO} for platform '${platform}'"
+
+            OPTION_TOOLCHAIN_FILE="${RVAL}"
+            sde::platform::platform_setup "${platform}" "${toolchain_scope_flags}"
+         else
+            log_warning "Platform '${platform}' has no toolchain configured (${toolchain_varname} is empty)."
+            log_warning "Cross-compilation will fail. Use 'mulle-sde platform set ${platform} toolchain <name>' to configure."
+         fi
+      fi
+   fi
 
    log_info "Platform '${platform}' enabled"
 }

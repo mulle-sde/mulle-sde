@@ -393,8 +393,11 @@ sde::test::coverage()
       sde::test::r_test_directories
       testdir="${RVAL%%:*}"
       testdir="${testdir:-$PWD}"
-:-# Auto-detect compiler mode from PROJECT_DIALECT if not forced
+
+      # Auto-detect compiler mode from PROJECT_DIALECT if not forced
+
       local compiler
+
       compiler="${OPTION_COMPILER}"
       if [ -z "${compiler}" ]
       then
@@ -806,7 +809,7 @@ sde::test::r_test_directories()
       then
          if [ "${missing}" = "ignore" ]
          then
-            continue
+            .continue
          fi
          fail "Test directory ${C_RESET_BOLD}${dir}${C_ERROR} is missing ($PWD)"
       fi

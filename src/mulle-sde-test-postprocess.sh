@@ -229,31 +229,42 @@ sde::test::postprocess_headers()
    local platform="$3"
    local configuration="$4"
 
-   local PROJECT_NAME="${PROJECT_NAME}"
-   local TEST_PROJECT_NAME="${TEST_PROJECT_NAME}"
-   local PROJECT_LANGUAGE="${PROJECT_LANGUAGE}"
-   local PROJECT_DIALECT="${PROJECT_DIALECT}"
+   local PROJECT_NAME
+   local TEST_PROJECT_NAME
+   local PROJECT_LANGUAGE
+   local PROJECT_DIALECT
+
+   log_setting "PWD               : ${PWD}"
+   log_setting "MULLE_USER_PWD    : ${MULLE_USER_PWD}"
 
    # for post processing we "just" get the environment of the test folder
    # wholesale
+   PROJECT_NAME="$(rexekutor mulle-env -E get --output-eval PROJECT_NAME)"
    if [ -z "${PROJECT_NAME}" ]
    then
-      PROJECT_NAME="$(rexekutor mulle-env -E get --output-eval PROJECT_NAME)"
-
-      if [ -z "${PROJECT_NAME}" ]
-      then
-         log_warning "PROJECT_NAME not set, skipping post-processing"
-         exit 0
-      fi
-      TEST_PROJECT_NAME="$(rexekutor mulle-env -E get --output-eval TEST_PROJECT_NAME)"
-      PROJECT_LANGUAGE="$(rexekutor mulle-env -E get --output-eval PROJECT_LANGUAGE)"
-      PROJECT_DIALECT="$(rexekutor mulle-env -E get --output-eval PROJECT_DIALECT)"
+      log_warning "PROJECT_NAME not set, skipping post-processing"
+      exit 0
    fi
+
+   TEST_PROJECT_NAME="$(rexekutor mulle-env -E get --output-eval TEST_PROJECT_NAME)"
+   PROJECT_LANGUAGE="$(rexekutor mulle-env -E get --output-eval PROJECT_LANGUAGE)"
+   PROJECT_DIALECT="$(rexekutor mulle-env -E get --output-eval PROJECT_DIALECT)"
 
    log_setting "PROJECT_NAME      : ${PROJECT_NAME}"
    log_setting "TEST_PROJECT_NAME : ${TEST_PROJECT_NAME}"
    log_setting "PROJECT_LANGUAGE  : ${PROJECT_LANGUAGE}"
    log_setting "PROJECT_DIALECT   : ${PROJECT_DIALECT}"
+
+   # short cut out if we don't know the language
+   case "${PROJECT_LANGUAGE}" in
+      'c')
+      ;;
+
+      *)
+         log_verbose "Unsupported language \"${PROJECT_LANGUAGE}\" for include/import.h. header generation"
+         return
+      ;;
+   esac
 
    local guard_name
 
