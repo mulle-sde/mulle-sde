@@ -89,7 +89,7 @@ main()
    expect_empty "${result}" "timeout backup after repeated on"
 
    result="`run_mulle_sde environment --this-os-user get MULLE_SDE_RUN_TIMEOUT`"
-   expect_equal "5" "${result}" "MULLE_SDE_RUN_TIMEOUT (os-user, on)"
+   expect_equal "10" "${result}" "MULLE_SDE_RUN_TIMEOUT (os-user, on)"
    result="`run_mulle_sde environment --this-os-user get MULLE_SDE_CLEAN_BEFORE_CRAFT`"
    expect_equal "YES" "${result}" "MULLE_SDE_CLEAN_BEFORE_CRAFT (os-user, on)"
    result="`run_mulle_sde -d test environment --this-os-user get MULLE_TEST_CLEAN_BEFORE_RUN`"

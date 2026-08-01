@@ -78,4 +78,11 @@ main()
 }
 
 
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
 main "$@"

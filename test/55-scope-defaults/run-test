@@ -72,9 +72,9 @@ EOF
 
    run_mulle_sde -s platform add --no-uname scopewin || fail "platform add failed"
 
-   result="`run_mulle_sde environment --this-os-user get MULLE_CRAFT_PLATFORMS`"
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_PLATFORMS`"
    expect_contains "scopewin" "${result}"
-   result="`run_mulle_sde environment --this-os-user get MULLE_SOURCETREE_PLATFORMS`"
+   result="`run_mulle_sde environment --this-user-host get MULLE_SOURCETREE_PLATFORMS`"
    expect_contains "scopewin" "${result}"
 
    result="`run_mulle_sde environment --global get MULLE_CRAFT_PLATFORMS`"
@@ -82,14 +82,14 @@ EOF
    result="`run_mulle_sde environment --global get MULLE_SOURCETREE_PLATFORMS`"
    [ -z "${result}" ] || fail "Expected no global sourcetree platforms, got '${result}'"
 
-   result="`run_mulle_sde environment --this-host get MULLE_CRAFT_TOOLCHAIN__SCOPEWIN`"
-   [ ! -z "${result}" ] || fail "Expected host-scoped toolchain entry"
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_TOOLCHAIN__SCOPEWIN`"
+   [ ! -z "${result}" ] || fail "Expected user-host-scoped toolchain entry"
    result="`run_mulle_sde environment --global get MULLE_CRAFT_TOOLCHAIN__SCOPEWIN`"
    [ -z "${result}" ] || fail "Expected no global toolchain entry, got '${result}'"
 
    run_mulle_sde -s platform set scopewin root /tmp/scope-root || fail "platform set failed"
-   result="`run_mulle_sde environment --this-host get MULLE_CRAFT_CROSS_COMPILER_ROOT__SCOPEWIN`"
-   [ "${result}" = "/tmp/scope-root" ] || fail "Expected host root '/tmp/scope-root', got '${result}'"
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_CROSS_COMPILER_ROOT__SCOPEWIN`"
+   [ "${result}" = "/tmp/scope-root" ] || fail "Expected user-host root '/tmp/scope-root', got '${result}'"
    result="`run_mulle_sde environment --global get MULLE_CRAFT_CROSS_COMPILER_ROOT__SCOPEWIN`"
    [ -z "${result}" ] || fail "Expected no global root entry, got '${result}'"
 
@@ -98,7 +98,7 @@ EOF
 
    result="`run_mulle_sde environment --global get MULLE_CRAFT_PLATFORMS`"
    expect_contains "scopewin" "${result}"
-   result="`run_mulle_sde environment --this-os-user get MULLE_CRAFT_PLATFORMS`"
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_PLATFORMS`"
    expect_not_contains "scopewin" "${result}"
 
    run_mulle_sde -s vibecoding on || fail "vibecoding on failed"
@@ -109,7 +109,7 @@ EOF
 
    run_mulle_sde -s vibecoding --global off || fail "vibecoding --global off failed"
    result="`run_mulle_sde environment --global get MULLE_VIBECODING`"
-   [ "${result}" = "NO" ] || fail "Expected global vibecoding NO, got '${result}'"
+   [ -z "${result}" ] || fail "Expected empty global vibecoding (restore clears), got '${result}'"
 
    log_info "----- ALL PASSED -----"
    cd ..

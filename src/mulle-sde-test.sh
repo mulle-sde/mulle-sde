@@ -653,7 +653,8 @@ MULLE_SOURCETREE_PLATFORMS"
                   ${MULLE_ENV_FLAGS} \
                   -d test \
                environment set MULLE_SOURCETREE_GRAVEYARD_ENABLED NO
-   # memo: not running in environment there fore no log_vibe
+
+   # memo: not running in environment therefore no log_vibe
    log_info "Run ${C_RESET_BOLD}mulle-sde howto show testing${C_INFO} for more info (if available)"
 
    RVAL='DONE'

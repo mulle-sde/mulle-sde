@@ -423,7 +423,15 @@ sde::reflect::worker()
       config_name="${MULLE_SOURCETREE_CONFIG_NAME}"
       if [ -z "${config_name}" ]
       then
-         fail "MULLE_SOURCETREE_CONFIG_NAME must be set for multi-config projects"
+         case "${configs}" in
+            *:*)
+               fail "MULLE_SOURCETREE_CONFIG_NAME must be set for multi-config projects"
+            ;;
+
+            *)
+               config_name="${configs}"
+            ;;
+         esac
       fi
 
       sde::reflect::configure_paths_for_config "${config_name}"

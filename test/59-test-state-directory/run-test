@@ -12,6 +12,10 @@ export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
 
 run_mulle_sde()
 {
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
    (
       MULLE_EXECUTABLE="${MULLE_SDE}"
       MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
@@ -35,41 +39,42 @@ ${text}"
 
 
 run_case()
-{
+(
    local projecttype="$1"
    local projectdir="$2"
-   local output
 
-   run_mulle_sde -s init \
-                    -d "${projectdir}" \
-                    -m mulle-sde/c-developer \
-                    "${projecttype}" \
+   run_mulle_sde init \
+                 -d "${projectdir}" \
+                 -m mulle-sde/c-developer \
+                 "${projecttype}" \
    || fail "${projecttype} init failed"
 
    (
-      cd "${projectdir}" || exit 1
+      cd "${projectdir}" || fail "no project dir found"
 
-      run_mulle_sde -s test init || fail "${projecttype} test init failed"
-
+      run_mulle_sde test init || fail "${projecttype} test init failed"
       (
-         cd test || exit 1
+         cd test || fail "no test dir found"
 
-         output="`run_mulle_sde -v test clean 2>&1`" || fail "${projecttype} test clean in test dir failed"
-         expect_line "Cleaning target" "${output}"
+         if [ -f '10-first/hello.stdout' ]
+         then
+            case "${projecttype}" in
+               'library')
+                  redirect_exekutor '10-first/hello.stdout' echo 'VfL Bochum <missing number, please fix>'
+               ;;
 
-         case "${projecttype}" in
-            executable)
-               output="`run_mulle_sde -v test run 2>&1`" || fail "${projecttype} test run in test dir failed:
-${output}"
-               expect_line "Run tests" "${output}"
-            ;;
-            library)
-               run_mulle_sde -s test craft || fail "${projecttype} test craft in test dir failed"
-            ;;
-         esac
+               *)
+                  redirect_exekutor '10-first/hello.stdout' echo 'VfL Bochum 1848'
+               ;;
+            esac
+         fi
+
+         run_mulle_sde test clean || fail "${projecttype} test clean in test dir failed"
+         run_mulle_sde test craft || fail "${projecttype} test craft in test dir failed"
+         run_mulle_sde test run   || fail "${projecttype} test run  in test dir failed"
       ) || exit 1
-   ) || exit 1
-}
+   )
+)
 
 
 main()
@@ -85,7 +90,12 @@ main()
    directory="${directory:-/tmp/build}"
 
    run_case executable "${directory}/executable" || exit 1
+
+   log_verbose "----- #1 PASSED -----"
+
    run_case library "${directory}/library" || exit 1
+
+   log_verbose "----- #2 PASSED -----"
 
    log_info "----- ALL PASSED -----"
 

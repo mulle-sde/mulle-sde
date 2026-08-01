@@ -50,7 +50,7 @@ cd myproject
 ### Look at project
 
 ``` sh
-tree .               # or ls -R if tree is not installed
+tree .
 mulle-sde file
 mulle-sde view
 mulle-sde dependency
@@ -69,6 +69,18 @@ mulle-sde edit
 You don't have to use `mulle-sde edit` though, it's a mere convenience.
 
 
+#### Add a file
+
+``` sh
+mulle-sde add src/MyClass.m
+mulle-sde file
+mulle-sde ignore src/MyClass.m src/MyClass.h
+mulle-sde file --unmatched
+mulle-sde reflect
+```
+
+#### Craft the project run and debug
+
 ``` sh
 mulle-sde definition set CFLAGS "-DFOO=1"
 mulle-sde craft
@@ -76,12 +88,19 @@ mulle-sde log
 mulle-sde product
 mulle-sde run
 mulle-sde debug
-mulle-sde add src/MyClass.m
-mulle-sde ignore src/MyClass.m src/MyClass.h
-mulle-sde reflect
-mulle-sde clean
-mulle-sde clean all
+```
+
+### Look around <project
+
+```
 mulle-sde clean tidy
+mulle-sde status
+mulle-sde craft
+mulle-sde status
+mulle-sde clean all
+mulle-sde status
+mulle-sde clean tidy
+mulle-sde status
 ```
 
 
@@ -156,16 +175,12 @@ Usage:
    Read the "De Re mulle-sde" guide:
       https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
 
-   ⚠️  mulle-sde is AI and noob friendly! Use:
-      `mulle-sde commands` to see all commands with descriptions
-      `mulle-sde <cmd> help` for detailed help (if marked help: yes)
-      `mulle-sde howto help` for development topics
-      `mulle-sde api help` for API info
+   Try to avoid running mulle-sde commands in parallel.
 
    Start a project with `mulle-sde init` or enter an existing mulle-sde
    project with `mulle-sde <directory>`. Get a quick view over the
    project with `mulle-sde view` and `mulle-sde files`. Manage external
-   dependencies or add files with `mulle-sde add`.
+   dependencies `mulle-sde dependency\ or add files with `mulle-sde add`.
 
 Flags:
    --style <val>  : see `mulle-env help` for style description
@@ -181,6 +196,7 @@ Flags:
 Commands:
    add            : create a source file from templates
    api            : show API documentation from dependencies
+   code           : search and navigate dependency source code
    commands       : list of all available commands (some undocumented)
    extension      : manage language and buildtool extensions
    howto          : show list of development topics for more extensive help
@@ -209,11 +225,7 @@ Usage:
    Read the "De Re mulle-sde" guide:
       https://www.mulle-kybernetik.com/de-re-mulle-sde/book.html
 
-   ⚠️  mulle-sde is AI and noob friendly! Use:
-      `mulle-sde commands` to see all commands with descriptions
-      `mulle-sde <cmd> help` for detailed help (if marked help: yes)
-      `mulle-sde howto help` for development topics
-      `mulle-sde api help` for API info
+   Try to avoid running mulle-sde commands in parallel.
 
    Edit source files in 'src'. If you add, delete, rename or move
    source files run `mulle-sde reflect`. Use `mulle-sde craft` to craft your
@@ -235,6 +247,7 @@ Commands:
    api            : show API documentation from dependencies
    callback       : manage reflection callbacks
    cd             : change directory to dependency,kitchen et al.
+   check          : syntax-check project sources (fast, no link)
    clean          : clean various parts of the project
    commands       : list of all available commands (some undocumented)
    config         : show multiple sourcetree configurations
@@ -246,7 +259,7 @@ Commands:
    definition     : change projects craft options like CFLAGS
    dependency     : manage third party components (like GitHub projects)
    donefile       : show contents of donefiles
-   editors        : run various GUI tools (needs node.js)
+   editor         : run various GUI tools (needs node.js)
    env-identifier : get variable name MULLE_UIOS for a name like MulleUIOS
    environment    : manage environment variables (project settings)
    exec           : run a command in a subshell
@@ -259,12 +272,13 @@ Commands:
    init           : create a new project
    json           : show dependencies and libraries as JSON
    library        : manage second party (OS) libraries (like pthread)
-   linkorder      : show linkorder of dependencies and libraries
+   link-args      : show linker arguments to link dependencies and libraries
    list           : list project files (files matching patternfiles)
    log            : show craft results
    match          : experiment with patternfiles
    monitor        : monitor project files, run reflect and craft
    patternfile    : manage patternfiles
+   platform       : manage cross-compilation platforms
    product        : location of main executable or library, heuristic
    project        : rename a project and its files
    project-dir    : print project root directory

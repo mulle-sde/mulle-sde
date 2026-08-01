@@ -628,8 +628,7 @@ sde::code::basic_search()
 
    [ -z "${query}" ] && fail "Missing query"
 
-   sde::code::r_project_root
-   local project_root="${RVAL}"
+   local project_root="${MULLE_VIRTUAL_ROOT}"
 
    sde::code::r_stash_realpaths
    local stash_root="${RVAL}"

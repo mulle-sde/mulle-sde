@@ -32,3 +32,5 @@ kitchen/
 .kiro
 .roam/
 plan/
+log
+BUG-*
