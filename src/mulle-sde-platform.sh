@@ -374,9 +374,6 @@ sde::platform::list_active()
    .done
 
    local has_disabled='NO'
-   local toolchain
-   local varname
-   local platform_expanded
 
    # Show disabled platforms (in sourcetree but not in craft)
    .foreachpath platform in ${MULLE_SOURCETREE_PLATFORMS}

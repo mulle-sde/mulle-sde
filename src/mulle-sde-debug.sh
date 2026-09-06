@@ -202,6 +202,36 @@ sde::debug::r_debugger()
 }
 
 
+# Return the resolver-backed dependency library searchpath in RVAL.
+#
+sde::debug::r_dependency_library_searchpath()
+{
+   log_entry "sde::debug::r_dependency_library_searchpath" "$@"
+
+   local dependency_dir="$1"
+   local sdk="$2"
+   local platform="$3"
+   local configuration="$4"
+
+   [ -z "${dependency_dir}" ] && return 1
+   [ -z "${sdk}" ] && sdk="${MULLE_CRAFT_SDK:-Default}"
+   [ -z "${platform}" ] && platform="${MULLE_PLATFORM:-${MULLE_UNAME}}"
+   [ -z "${configuration}" ] && configuration='Debug'
+
+   RVAL="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     --dependency-dir "${dependency_dir}" \
+                  searchpath \
+                     --no-addiction \
+                     --if-exists \
+                     --sdk "${sdk}" \
+                     --platform "${platform}" \
+                     --configuration "${configuration}" \
+                     library`"
+   [ -n "${RVAL}" ]
+}
+
+
 
 sde::debug::run_main()
 {
@@ -547,6 +577,9 @@ sde::debug::main()
 
    local cmd="${1:-}"
 
+   local executable
+   local kitchen_dir
+
    [ $# -ne 0 ] && shift
 
    case "${cmd}" in
@@ -558,8 +591,6 @@ sde::debug::main()
             return 1
          fi
 
-         local executable
-
          executable="${RVAL}"
 
          if ! sde::debug::r_debugger "$@"
@@ -570,8 +601,6 @@ sde::debug::main()
          local debugger_path
 
          debugger_path="${RVAL}"
-
-         local kitchen_dir
 
          kitchen_dir="`rexekutor mulle-sde kitchen-dir`"
 
@@ -588,8 +617,6 @@ if .settings == null then .settings = {} else . end \
 
          if sde::product::r_executable  "$@"
          then
-            local executable
-
             executable="${RVAL}"
 
             local executable_name
@@ -597,13 +624,18 @@ if .settings == null then .settings = {} else . end \
             r_basename "${executable}"
             executable_name="${RVAL%${MULLE_EXE_EXTENSION}}"
 
-            local kitchen_dir
-
             kitchen_dir="`rexekutor mulle-sde kitchen-dir`"
 
             local dependency_dir
+            local dependency_library_searchpath
 
-            dependency_dir="`rexekutor mulle-sde dependency-dir`"
+            dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+            sde::debug::r_dependency_library_searchpath \
+               "${dependency_dir}" \
+               "${OPTION_SDK:-${MULLE_CRAFT_SDK:-Default}}" \
+               "${MULLE_PLATFORM:-${MULLE_UNAME}}" \
+               "${OPTION_CONFIGURATION:-Debug}"
+            dependency_library_searchpath="${RVAL}"
 
             local debugger
 
@@ -636,7 +668,7 @@ if .settings == null then .settings = {} else . end \
             "args": [],
             "environment": [],
             "cwd": "${kitchen_dir}",
-            "additionalSOLibSearchPath": "${dependency_dir}/Debug/lib:${dependency_dir}/dependency/lib",
+            "additionalSOLibSearchPath": "${dependency_library_searchpath}",
             "MIMode": "${mimode}",
             "miDebuggerPath": "${debugger}",
             "preLaunchTask": "Debug"

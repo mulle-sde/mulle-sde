@@ -1,0 +1,143 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+expect_match()
+{
+   local pattern="$1"
+   local actual="$2"
+   local description="$3"
+
+   case "${actual}" in
+      *"${pattern}"*)
+      ;;
+      *)
+         fail "${description}\nExpected pattern: ${pattern}\nActual: ${actual}"
+      ;;
+   esac
+}
+
+
+main()
+{
+   _options_mini_main "$@" && set -x
+
+   local repo_dir
+   local project_dir
+   local fakebin
+   local product_dir
+   local output
+   local rc
+
+   repo_dir="$(cd "$(dirname "$0")/../.." && pwd -P)"
+   r_make_tmp_directory || exit 1
+   project_dir="${RVAL}"
+   fakebin="${project_dir}/bin"
+   product_dir="${project_dir}/kitchen/lib"
+
+   mkdir_if_missing "${fakebin}"
+   mkdir_if_missing "${project_dir}/src"
+   mkdir_if_missing "${product_dir}"
+
+   cat > "${fakebin}/mulle-platform" <<'EOF'
+#! /bin/sh
+printf '%s\n' \
+   'MULLE_PLATFORM_LIBRARY_PREFIX=lib' \
+   'MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC=.a' \
+   'MULLE_PLATFORM_LIBRARY_SUFFIX_DYNAMIC=.so' \
+   'MULLE_PLATFORM_EXECUTABLE_SUFFIX='
+EOF
+
+   cat > "${fakebin}/mulle-craft" <<'EOF'
+#! /bin/sh
+case "$*" in
+   *searchpath*)
+      printf '%s\n' "${VERIFY_PRODUCT_DIR}"
+   ;;
+   *)
+      exit 1
+   ;;
+esac
+EOF
+
+   cat > "${fakebin}/mulle-match" <<'EOF'
+#! /bin/sh
+case "$*" in
+   *"--type-matches source"*)
+      printf '%s\n' 'src/main.c'
+   ;;
+   *"--type-matches header"*)
+      printf '%s\n' 'src/main.h'
+   ;;
+   *)
+      exit 1
+   ;;
+esac
+EOF
+   chmod +x "${fakebin}/mulle-platform" "${fakebin}/mulle-craft" "${fakebin}/mulle-match"
+
+   printf '%s\n' 'main source' > "${project_dir}/src/main.c"
+   printf '%s\n' 'main header' > "${project_dir}/src/main.h"
+   sleep 1
+   printf '%s\n' 'built product' > "${product_dir}/libmain.so"
+   ln -s libmain.so "${product_dir}/libmain.so.0"
+
+   MULLE_SDE_LIBEXEC_DIR="${repo_dir}/src"
+   MULLE_USER_PWD="${PWD}"
+   MULLE_USAGE_NAME="mulle-sde"
+   MULLE_UNAME="linux"
+   MULLE_CRAFT_SDK="Default"
+   PROJECT_NAME="main"
+   PROJECT_TYPE="library"
+   PROJECT_SOURCE_DIR="src"
+   OPTION_CONFIGURATION="Debug"
+   VERIFY_PRODUCT_DIR="${product_dir}"
+   MULLE_CRAFT="${fakebin}/mulle-craft"
+   MULLE_PLATFORM_TOOL="${fakebin}/mulle-platform"
+   PATH="${fakebin}:${PATH}"
+   export MULLE_SDE_LIBEXEC_DIR MULLE_USER_PWD MULLE_USAGE_NAME MULLE_UNAME
+   export MULLE_CRAFT_SDK PROJECT_NAME PROJECT_TYPE PROJECT_SOURCE_DIR
+   export OPTION_CONFIGURATION VERIFY_PRODUCT_DIR MULLE_CRAFT MULLE_PLATFORM_TOOL PATH
+   if [ -n "${ZSH_VERSION:-}" ]
+   then
+      rehash
+   fi
+
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-verify.sh"
+
+   output="`sde::verify::verify "${project_dir}" linux Default Debug 2>&1`"
+   rc=$?
+   [ "${rc}" -eq 0 ] || fail "fresh main project should verify successfully\n${output}"
+   expect_match "PROJECT VERIFY: main" "${output}" "project verify should identify the project"
+   expect_match "PRODUCT: main" "${output}" "project verify should inspect the product"
+   expect_match "libmain.so" "${output}" "project product path should be printed"
+   expect_match "conclusion: UPTODATE (mtime" "${output}" "fresh project should be up-to-date"
+   expect_match "products=1 matched=1" "${output}" "symlinked product aliases should be deduplicated"
+   expect_match "OVERALL: UPTODATE" "${output}" "fresh project should have an up-to-date overall status"
+
+   sleep 1
+   touch "${project_dir}/src/main.c"
+
+   output="`sde::verify::verify "${project_dir}" linux Default Debug 2>&1`"
+   rc=$?
+   [ "${rc}" -ne 0 ] || fail "newer main sources should fail verification\n${output}"
+   expect_match "OVERALL: STALE" "${output}" "newer project sources should be stale"
+   expect_match "NEWER SOURCE" "${output}" "stale project should identify newer sources"
+   expect_match "${project_dir}/src/main.c" "${output}" "stale source path should be absolute"
+   expect_match "mulle-sde craft --all" "${output}" "stale project should advise rebuilding the project"
+
+   log_info "----- ALL PASSED -----"
+   chmod -R u+w "${project_dir}" 2>/dev/null
+   rmdir_safer "${project_dir}"
+}
+
+
+main "$@"

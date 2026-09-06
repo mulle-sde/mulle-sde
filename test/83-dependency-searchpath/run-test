@@ -1,0 +1,194 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+expect_equal()
+{
+   local expected="$1"
+   local actual="$2"
+   local description="$3"
+
+   [ "${expected}" = "${actual}" ] || \
+      fail "${description}\nExpected: ${expected}\nActual: ${actual}"
+}
+
+
+main()
+{
+   _options_mini_main "$@" && set -x
+
+   local repo_dir
+   local directory
+   local fakebin
+   local store_dir
+   local qualified_dir
+   local release_qualified_dir
+   local header_dir
+   local library_dir
+   local binary_dir
+   local etc_dir
+   local share_dir
+   local craft_log
+   local tree_log
+   local output
+
+   repo_dir="$(cd "$(dirname "$0")/../.." && pwd -P)"
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+
+   fakebin="${directory}/bin"
+   store_dir="${directory}/dependency"
+   qualified_dir="${store_dir}/Default-linux/Debug"
+   release_qualified_dir="${store_dir}/Default-linux/Release"
+   header_dir="${qualified_dir}/include"
+   library_dir="${qualified_dir}/lib"
+   binary_dir="${qualified_dir}/bin"
+   etc_dir="${qualified_dir}/etc"
+   share_dir="${qualified_dir}/share"
+   craft_log="${directory}/mulle-craft.log"
+   tree_log="${directory}/tree.log"
+
+   mkdir_if_missing "${fakebin}"
+   mkdir_if_missing "${header_dir}" "${library_dir}" "${binary_dir}" \
+      "${etc_dir}" "${share_dir}" \
+      "${release_qualified_dir}/etc" "${release_qualified_dir}/share" \
+      "${directory}/stash"
+   printf '%s\n' 'header' > "${header_dir}/needle.h"
+   printf '%s\n' 'library' > "${library_dir}/libneedle.a"
+   printf '%s\n' 'binary' > "${binary_dir}/needle"
+
+   cat > "${fakebin}/mulle-platform" <<'EOF'
+#! /bin/sh
+printf '%s\n' \
+   'MULLE_PLATFORM_LIBRARY_PREFIX=lib' \
+   'MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC=.a' \
+   'MULLE_PLATFORM_LIBRARY_SUFFIX_DYNAMIC=.so'
+EOF
+
+   cat > "${fakebin}/mulle-craft" <<'EOF'
+#! /bin/sh
+printf '%s\n' "$*" >> "${VERIFY_CRAFT_LOG}"
+case "$*" in
+   *" searchpath "*" header")
+      printf '%s\n' "${VERIFY_HEADER_DIR}"
+   ;;
+   *" searchpath "*" library")
+      printf '%s\n' "${VERIFY_LIBRARY_DIR}"
+   ;;
+   *" searchpath "*" binary")
+      printf '%s\n' "${VERIFY_BINARY_DIR}"
+   ;;
+   *" dependency-dir")
+      case "$*" in
+         *"--configuration Debug"*)
+            printf '%s\n' "${VERIFY_DEBUG_DEPENDENCY_DIR}"
+         ;;
+         *)
+            printf '%s\n' "${VERIFY_RELEASE_DEPENDENCY_DIR}"
+         ;;
+      esac
+   ;;
+   *" header")
+      printf '%s\n' "${VERIFY_HEADER_DIR}"
+   ;;
+   *" library")
+      printf '%s\n' "${VERIFY_LIBRARY_DIR}"
+   ;;
+   *" binary")
+      printf '%s\n' "${VERIFY_BINARY_DIR}"
+   ;;
+   *)
+      exit 1
+   ;;
+esac
+EOF
+   cat > "${fakebin}/tree" <<'EOF'
+#! /bin/sh
+printf '%s\n' "$*" >> "${VERIFY_TREE_LOG}"
+EOF
+   chmod +x "${fakebin}/mulle-platform" "${fakebin}/mulle-craft" "${fakebin}/tree"
+
+   MULLE_SDE_LIBEXEC_DIR="${repo_dir}/src"
+   MULLE_SOURCETREE_STASH_DIR="${directory}/stash"
+   MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR="${store_dir}"
+   MULLE_CRAFT_CONFIGURATIONS="Debug:Release"
+   DEPENDENCY_DIR="${store_dir}/Debug"
+   MULLE_CRAFT="${fakebin}/mulle-craft"
+   VERIFY_CRAFT_LOG="${craft_log}"
+   VERIFY_HEADER_DIR="${header_dir}"
+   VERIFY_LIBRARY_DIR="${library_dir}"
+   VERIFY_BINARY_DIR="${binary_dir}"
+   VERIFY_DEBUG_DEPENDENCY_DIR="${qualified_dir}"
+   VERIFY_RELEASE_DEPENDENCY_DIR="${release_qualified_dir}"
+   VERIFY_TREE_LOG="${tree_log}"
+   PATH="${fakebin}:${PATH}"
+   export MULLE_SDE_LIBEXEC_DIR MULLE_SOURCETREE_STASH_DIR
+   export MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR DEPENDENCY_DIR
+   export MULLE_CRAFT VERIFY_CRAFT_LOG VERIFY_HEADER_DIR VERIFY_LIBRARY_DIR VERIFY_BINARY_DIR PATH
+   export VERIFY_DEBUG_DEPENDENCY_DIR VERIFY_RELEASE_DEPENDENCY_DIR VERIFY_TREE_LOG PATH
+   export MULLE_CRAFT_CONFIGURATIONS
+
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-dependency.sh"
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-code.sh"
+
+   output="`sde::dependency::find_main api needle.h`"
+   expect_equal "${header_dir}/needle.h" "${output}" \
+      "dependency find should use the resolver-provided header path"
+
+   output="`sde::code::find library needle`"
+   expect_equal "${library_dir}/libneedle.a" "${output}" \
+      "code find should use the resolver-provided library path"
+
+   sde::dependency::r_product_searchpath binary \
+      || fail "dependency binary searchpath resolver failed"
+   expect_equal "${binary_dir}" "${RVAL}" \
+      "dependency listings should use the resolver-provided binary path"
+
+   sde::dependency::headers_main \
+      || fail "dependency headers listing failed"
+   sde::dependency::libraries_main \
+      || fail "dependency libraries listing failed"
+   sde::dependency::binaries_main \
+      || fail "dependency binaries listing failed"
+   sde::dependency::etcs_main \
+      || fail "dependency etc listing failed"
+   sde::dependency::shares_main \
+      || fail "dependency share listing failed"
+
+   grep -F -- "${header_dir}" "${tree_log}" >/dev/null \
+      || fail "headers listing did not use the resolver-provided path"
+   grep -F -- "${library_dir}" "${tree_log}" >/dev/null \
+      || fail "libraries listing did not use the resolver-provided path"
+   grep -F -- "${binary_dir}" "${tree_log}" >/dev/null \
+      || fail "binaries listing did not use the resolver-provided path"
+   grep -F -- "${etc_dir}" "${tree_log}" >/dev/null \
+      || fail "etcs listing did not append to the resolver-provided path"
+   grep -F -- "${share_dir}" "${tree_log}" >/dev/null \
+      || fail "shares listing did not append to the resolver-provided path"
+   grep -F -- "${release_qualified_dir}/etc" "${tree_log}" >/dev/null \
+      || fail "etcs listing did not include the second resolved configuration"
+   grep -F -- "${release_qualified_dir}/share" "${tree_log}" >/dev/null \
+      || fail "shares listing did not include the second resolved configuration"
+
+   grep -F -- "--dependency-dir ${store_dir}" "${craft_log}" >/dev/null \
+      || fail "lookup commands did not pass the unqualified dependency directory"
+   if grep -F -- "--dependency-dir ${qualified_dir}" "${craft_log}" >/dev/null
+   then
+      fail "lookup commands passed the qualified dependency directory to mulle-craft"
+   fi
+
+   log_info "----- ALL PASSED -----"
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+main "$@"

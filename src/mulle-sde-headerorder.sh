@@ -132,8 +132,6 @@ sde::headerorder::do_emit_c_output()
       printf "%s %s\n" "-isystem" "'${RVAL}'"
    .done
 
-   local line
-
    for line in "$@"
    do
       IFS=";" read -r address marks include headerpath <<< "${line}"

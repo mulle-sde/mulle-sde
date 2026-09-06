@@ -1,0 +1,84 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+main()
+{
+   _options_mini_main "$@" && set -x
+
+   local repo_dir
+   local directory
+   local fakebin
+   local store_dir
+   local qualified_dir
+   local craft_log
+   local result
+
+   repo_dir="$(cd "$(dirname "$0")/../.." && pwd -P)"
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+
+   fakebin="${directory}/bin"
+   store_dir="${directory}/dependency"
+   qualified_dir="${store_dir}/SDK_A-platform_a/Release/lib"
+   craft_log="${directory}/mulle-craft.log"
+
+   mkdir_if_missing "${fakebin}" "${qualified_dir}"
+
+   cat > "${fakebin}/mulle-craft" <<'EOF'
+#! /bin/sh
+printf '%s\n' "$*" >> "${VERIFY_CRAFT_LOG}"
+printf '%s\n' "${VERIFY_LIBRARY_SEARCHPATH}"
+EOF
+   chmod +x "${fakebin}/mulle-craft"
+
+   MULLE_CRAFT="${fakebin}/mulle-craft"
+   MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR="${store_dir}"
+   DEPENDENCY_DIR="${store_dir}/Debug"
+   VERIFY_CRAFT_LOG="${craft_log}"
+   VERIFY_LIBRARY_SEARCHPATH="${qualified_dir}"
+   PATH="${fakebin}:${PATH}"
+   export MULLE_CRAFT MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR DEPENDENCY_DIR
+   export VERIFY_CRAFT_LOG VERIFY_LIBRARY_SEARCHPATH PATH
+
+   . "${repo_dir}/src/mulle-sde-debug.sh"
+
+   sde::debug::r_dependency_library_searchpath \
+      "${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR}" \
+      'SDK_A' \
+      'platform_a' \
+      'Release' \
+   || fail "debug dependency searchpath resolver failed"
+   result="${RVAL}"
+
+   [ "${result}" = "${qualified_dir}" ] || \
+      fail "debug resolver did not return mulle-craft's qualified path: ${result}"
+
+   grep -F -- "--dependency-dir ${store_dir}" "${craft_log}" >/dev/null \
+      || fail "debug resolver did not pass the unqualified dependency directory"
+   grep -F -- "--sdk SDK_A" "${craft_log}" >/dev/null \
+      || fail "debug resolver did not pass the selected SDK"
+   grep -F -- "--platform platform_a" "${craft_log}" >/dev/null \
+      || fail "debug resolver did not pass the selected platform"
+   grep -F -- "--configuration Release" "${craft_log}" >/dev/null \
+      || fail "debug resolver did not pass the selected configuration"
+   if grep -F -- "--dependency-dir ${store_dir}/Debug" "${craft_log}" >/dev/null
+   then
+      fail "debug resolver passed a hand-qualified dependency directory"
+   fi
+
+   log_info "----- ALL PASSED -----"
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+main "$@"

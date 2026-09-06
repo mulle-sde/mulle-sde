@@ -1546,6 +1546,9 @@ sde::craftinfo::export_other_files()
 
    # Find all non-definition, non-bin files
    shell_enable_nullglob
+   local f
+   local subpath
+
    for file in "${config_dir}"/*
    do
       r_basename "${file}"
@@ -1583,9 +1586,6 @@ sde::craftinfo::export_other_files()
                printf "#\n\n"
                has_files='YES'
             fi
-
-            local f
-            local subpath
 
             .foreachline f in ${files}
             .do
@@ -1743,8 +1743,6 @@ sde::craftinfo::export_main()
    done
 
    [ $# -ne 1 ] && sde::craftinfo::export_usage
-
-   local url
 
    url="$1"
 

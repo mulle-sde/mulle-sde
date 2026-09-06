@@ -97,15 +97,15 @@ main()
    #
    # Populate howto files across the scopes the code actually checks.
    #
-   # 1. extension scope  (.mulle/share/howto) — most common source
-   mkdir -p ".mulle/share/howto"
-   cat > ".mulle/share/howto/zz-alpha-guide.md" <<'EOF'
+   # 1. extension scope  (.mulle/share/sde/howto) — most common source
+   mkdir -p ".mulle/share/sde/howto"
+   cat > ".mulle/share/sde/howto/zz-alpha-guide.md" <<'EOF'
 <!-- keywords: alpha, guide, sentinel-alpha -->
 # Alpha Guide
 SENTINEL_ALPHA_CONTENT
 EOF
 
-   cat > ".mulle/share/howto/aa-beta-tips.md" <<'EOF'
+   cat > ".mulle/share/sde/howto/aa-beta-tips.md" <<'EOF'
 <!-- keywords: beta, tips, sentinel-beta -->
 # Beta Tips
 SENTINEL_BETA_CONTENT
@@ -119,9 +119,9 @@ EOF
 SENTINEL_GAMMA_CONTENT
 EOF
 
-   # 3. subdir scope (test/.mulle/share/howto) — only checked for 'demo' and 'test' subdirs
-   mkdir -p "test/.mulle/share/howto"
-   cat > "test/.mulle/share/howto/delta-howto.md" <<'EOF'
+   # 3. subdir scope (test/.mulle/share/sde/howto) — only checked for 'demo' and 'test' subdirs
+   mkdir -p "test/.mulle/share/sde/howto"
+   cat > "test/.mulle/share/sde/howto/delta-howto.md" <<'EOF'
 <!-- keywords: delta, subdir, sentinel-delta -->
 # Delta Howto
 SENTINEL_DELTA_CONTENT
@@ -153,9 +153,9 @@ EOF
    #
    # The list output is sorted alphabetically by path, so the order is:
    #   .mulle/etc/howto/mm-gamma-notes.md       (.mulle/etc sorts before .mulle/share)
-   #   .mulle/share/howto/aa-beta-tips.md
-   #   .mulle/share/howto/zz-alpha-guide.md
-   #   test/.mulle/share/howto/delta-howto.md   (relative paths sort after local absolute)
+   #   .mulle/share/sde/howto/aa-beta-tips.md
+   #   .mulle/share/sde/howto/zz-alpha-guide.md
+   #   test/.mulle/share/sde/howto/delta-howto.md   (relative paths sort after local absolute)
    # (Plus whatever the c-developer extension installs.)
    # We don't hard-code exact numbers; instead we extract them from list output.
    for name in zz-alpha-guide aa-beta-tips mm-gamma-notes

@@ -225,12 +225,10 @@ sde::product::r_executables()
    if [ ! -z "${motd_files}" ]
    then
       # Parse all motd files for multi-platform builds
-      local filename
-      
+      local motd_executables
+
       .foreachline filename in ${motd_files}
       .do
-         local motd_executables
-         
          motd_executables="`sed -n -e "s/"$'\033'"[^"$'\033'"]*$//g" \
                               -e 's/^.*[[:blank:]][[:blank:]][[:blank:]]\(.*\)/\1/p' \
                               "${filename}" `"
@@ -361,6 +359,15 @@ sde::product::r_user_choses_executable()
 
    if [ "${MULLE_VIBECODING}" = 'YES' -a "${MULLE_FLAG_MAGNUM_FORCE}" != 'YES' ]
    then
+      local formatted
+
+      formatted="`sed -e 's/^/   /' <<< "${names}" `"
+
+      log_error "Multiple executables are available, but none was specified.
+${C_INFO}Vibecoding can not prompt for a choice. Pick one and run it by name:
+${C_RESET_BOLD}${formatted}
+${C_INFO}For example:
+${C_RESET_BOLD}   mulle-sde run ${names%%$'\n'*}"
       RVAL=
       return 1
    fi

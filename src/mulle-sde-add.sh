@@ -761,6 +761,9 @@ sde::add::main()
    local scheme domain host user repo branch tag scm
    local flag
 
+   local flags
+   local type_defaults
+
    for filename in "$@"
    do
       r_filepath_concat "${OPTION_DIRECTORY}" "${filename}"
@@ -852,8 +855,6 @@ sde::add::main()
          # don't use post-init here, or otherwise we need to be able to allow
          # the user to turn it off, which complicates things and this is more
          # of a noob interface anyway
-         local flags
-
          if [ "${OPTION_POST_INIT}" = 'NO' ]
          then
             flags=--no-post-init
@@ -929,8 +930,6 @@ sde::add::main()
             return
          ;;
       esac
-
-      local type_defaults
 
       if [ "${PROJECT_DIALECT}" = 'objc' ]
       then

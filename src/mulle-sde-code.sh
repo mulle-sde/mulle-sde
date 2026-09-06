@@ -592,6 +592,7 @@ sde::code::ensure_workspace_indexed()
    local line
    local repo_name
    local stash_root
+   local repo_path
    
    sde::code::r_stash_realpaths
    stash_root="${RVAL}"
@@ -605,7 +606,7 @@ sde::code::ensure_workspace_indexed()
          [ -z "${repo_name}" ] && continue
          
          # Try to find the repo in stash
-         local repo_path="${stash_root}/${repo_name}"
+         repo_path="${stash_root}/${repo_name}"
          if [ -d "${repo_path}" ]
          then
             log_info "Indexing ${repo_name}..."
@@ -637,6 +638,7 @@ sde::code::basic_search()
    local root
    local root_matches
    local search_roots
+   local line filepath lineno content
 
    if [ -z "${stash_root}" ]
    then
@@ -712,14 +714,13 @@ EOF
    if [ "${output_json}" = 'YES' ]
    then
       local first='YES'
-      local line path lineno content
 
       printf '['
       while IFS= read -r line
       do
          [ -z "${line}" ] && continue
 
-         path="${line%%:*}"
+         filepath="${line%%:*}"
          line="${line#*:}"
          lineno="${line%%:*}"
          content="${line#*:}"
@@ -730,27 +731,26 @@ EOF
 
          [ "${first}" = 'NO' ] && printf ','
          first='NO'
-         printf '{"location":"%s","line_number":%s,"content":"%s"}' "${path}" "${lineno}" "${content}"
+         printf '{"location":"%s","line_number":%s,"content":"%s"}' "${filepath}" "${lineno}" "${content}"
       done <<< "${matches}"
       printf ']\n'
       return 0
    fi
 
    local prev_path=""
-   local line path lineno content
    while IFS= read -r line
    do
       [ -z "${line}" ] && continue
 
-      path="${line%%:*}"
+      filepath="${line%%:*}"
       line="${line#*:}"
       lineno="${line%%:*}"
       content="${line#*:}"
 
-      if [ "${path}" != "${prev_path}" ]
+      if [ "${filepath}" != "${prev_path}" ]
       then
-         printf "\n  %s\n" "${path}"
-         prev_path="${path}"
+         printf "\n  %s\n" "${filepath}"
+         prev_path="${filepath}"
       fi
       printf "    %s: %s\n" "${lineno}" "${content}"
    done <<< "${matches}"
@@ -852,12 +852,12 @@ sde::code::find()
 
    local dependency_dir
 
-   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
 
    [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ] && \
    {
       sde::code::ensure_dependencies_crafted
-      dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
+      dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
       [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ] && fail "Need to craft dependencies first"
    }
 
@@ -868,10 +868,22 @@ sde::code::find()
 
       case "${type}" in
          'h'|'header'|'s'|'symbol')
-            paths="${dependency_dir}/Debug/include:${dependency_dir}/Release/include:${dependency_dir}/include"
+            paths="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              --dependency-dir "${dependency_dir}" \
+                           searchpath \
+                              --no-addiction \
+                              --configurations "Debug:Release" \
+                              header`"
          ;;
          'l'|'library')
-            paths="${dependency_dir}/Debug/lib:${dependency_dir}/Release/lib:${dependency_dir}/lib"
+            paths="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              --dependency-dir "${dependency_dir}" \
+                           searchpath \
+                              --no-addiction \
+                              --configurations "Debug:Release" \
+                              library`"
          ;;
          *)
             fail "Unknown type \"${type}\" (use: header, library, symbol)"

@@ -69,7 +69,9 @@ Options:
    --clean                 : clean before crafting (see: mulle-sde clean)
    --cppcheck              : run cppcheck after crafting the project
    --from <domain>         : clean specific depenency before crafting (s.a)
+   --platform <name>       : craft for this platform
    --run                   : attempt to run produced executable
+   --sdk <name>            : craft with this sdk
    --serial                : compile one file at a time
 
 Targets:
@@ -150,6 +152,9 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
    local lines
 
+   local reason
+   local projectname
+
    lines="`sed -e 's/^\([^;]*\).*/\1/' "${craftorderfile}" `"
    .foreachline repository in ${lines}
    .do
@@ -209,9 +214,6 @@ sde::craft::r_perform_craftorder_reflects_if_needed()
 
       if [ "${actual}" != "${configname}" ]
       then
-         local reason
-         local projectname
-
          projectname="${PROJECT_NAME:-current project}"
          availableconfigs="`(
             MULLE_VIRTUAL_ROOT=
@@ -395,6 +397,8 @@ sde::craft::perform_clean_if_needed()
    esac
 
    include "sde::clean"
+
+   cleandomain="${cleandomain:-${MULLE_SDE_CLEAN_DEFAULT}}"
 
    log_info "Clean ${C_RESET_BOLD}${cleandomain}"
    sde::clean::main --no-test ${cleandomain}
@@ -775,6 +779,15 @@ sde::craft::check()
 {
    log_entry "sde::craft::check" "$@"
 
+   local dependency_dir
+
+   dependency_dir="${DEPENDENCY_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR}}"
+   if [ ! -z "${dependency_dir}" -a ! -d "${dependency_dir}" ]
+   then
+      log_info "Dependencies not yet crafted, building them first"
+      sde::craft::main craftorder || return 1
+   fi
+
    exekutor "${MULLE_CRAFT:-mulle-craft}" \
                ${MULLE_TECHNICAL_FLAGS} \
                --no-motd \
@@ -795,6 +808,8 @@ sde::craft::main()
    local OPTION_SYNCFLAGS=""
    local OPTION_ANALYZE=""
    local OPTION_CPPCHECK='NO'
+   local OPTION_PLATFORM=""
+   local OPTION_SDK=""
 
    log_debug "PROJECT_TYPE=${PROJECT_TYPE}"
 
@@ -866,6 +881,20 @@ sde::craft::main()
             shift
 
             buildstyle="$1"
+         ;;
+
+         --platform)
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_PLATFORM="$1"
+         ;;
+
+         --sdk)
+            [ $# -eq 1 ] && sde::craft::usage "Missing argument to \"$1\""
+            shift
+
+            OPTION_SDK="$1"
          ;;
 
          --c-build-type|--c-build-style|--craftorder-build-type|--craftorder-build-style)
@@ -1096,6 +1125,23 @@ ${C_INFO}You may need to make multiple clean all/craft cycles to pick them all u
 #   fi
 
    project_cmdline="'${MULLE_CRAFT:-mulle-craft}' ${flags}"
+
+   #
+   # --platform and --sdk are main-level mulle-craft options, so they must
+   # appear before the craftorder/project subcommand. Forward them to both
+   # cmdlines.
+   #
+   if [ ! -z "${OPTION_PLATFORM}" ]
+   then
+      craftorder_cmdline="${craftorder_cmdline} --platform '${OPTION_PLATFORM}'"
+      project_cmdline="${project_cmdline} --platform '${OPTION_PLATFORM}'"
+   fi
+
+   if [ ! -z "${OPTION_SDK}" ]
+   then
+      craftorder_cmdline="${craftorder_cmdline} --sdk '${OPTION_SDK}'"
+      project_cmdline="${project_cmdline} --sdk '${OPTION_SDK}'"
+   fi
 
    # keep flags around for no-memo-flags
 

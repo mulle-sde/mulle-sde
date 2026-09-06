@@ -2498,9 +2498,24 @@ add more with:
 
          local motd
 
+         #
+         # The motd is a persisted file, displayed later by mulle-env in a
+         # terminal. Its colors must not depend on whether *this* init/upgrade
+         # session had color enabled (e.g. stderr redirected during an upgrade
+         # would otherwise bake in a plain-text, color-less motd).
+         # So emit literal ANSI codes here rather than the session's C_*
+         # variables:
+         #   C_INFO       = \033[0;36m\033[1m  (cyan bold)
+         #   C_RESET_BOLD = \033[0m\033[1m     (reset + bold)
+         #   C_RESET      = \033[0m
+         #
+         local c_info=$'\033'"[0;36m"$'\033'"[1m"
+         local c_reset_bold=$'\033'"[0m"$'\033'"[1m"
+         local c_reset=$'\033'"[0m"
+
          motd="`printf "%b\n%b" \
-                       "${C_INFO}Run external commands with ${C_RESET_BOLD}mudo" \
-                       "${C_INFO}Project is ready to ${C_RESET_BOLD}craft${C_RESET}"`"
+                       "${c_info}Run external commands with ${c_reset_bold}mudo" \
+                       "${c_info}Project is ready to ${c_reset_bold}craft${c_reset}"`"
 
          if [ -z "${_MOTD}" ]
          then

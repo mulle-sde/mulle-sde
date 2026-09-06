@@ -840,6 +840,8 @@ sde::project::r_rename_current_project()
    local newname="$1"
 
    local changes
+   local _rename_pairs
+   local _old_test_id _old_test_dc _old_test_uc
 
    OLD_PROJECT_NAME="${PROJECT_NAME}"
    OLD_PROJECT_IDENTIFIER="${PROJECT_IDENTIFIER}"
@@ -943,7 +945,7 @@ sde::project::r_rename_current_project()
       # double-replacement when the new name contains the old name as a
       # substring (e.g. MulleUI -> MulleUIWidgetsBase).
       #
-      local _rename_pairs=""
+      _rename_pairs=""
 
       sde::project::add_rename_pair "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
       sde::project::add_rename_pair "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
@@ -955,7 +957,6 @@ sde::project::r_rename_current_project()
       # project. Include those pairs so #include "Foo.h" → #include "Bar.h".
       if [ -n "${OLD_TEST_PROJECT_NAME}" ] && [ "${OLD_TEST_PROJECT_NAME}" != "${OLD_PROJECT_NAME}" ]
       then
-         local _old_test_id _old_test_dc _old_test_uc
          r_identifier "${OLD_TEST_PROJECT_NAME}"
          _old_test_id="${RVAL}"
          r_smart_downcase_identifier "${_old_test_id}"
@@ -992,7 +993,7 @@ sde::project::r_rename_current_project()
       # so that sed -e expressions process more specific patterns before
       # shorter ones that could be substrings.
       #
-      local _rename_pairs=""
+      _rename_pairs=""
 
       sde::project::add_rename_pair "${OLD_PROJECT_NAME}" "${PROJECT_NAME}"
       sde::project::add_rename_pair "${OLD_PROJECT_IDENTIFIER}" "${PROJECT_IDENTIFIER}"
@@ -1007,7 +1008,6 @@ sde::project::r_rename_current_project()
       # renamed to #include "Bar.h".
       if [ -n "${OLD_TEST_PROJECT_NAME}" ] && [ "${OLD_TEST_PROJECT_NAME}" != "${OLD_PROJECT_NAME}" ]
       then
-         local _old_test_id _old_test_dc _old_test_uc
          r_identifier "${OLD_TEST_PROJECT_NAME}"
          _old_test_id="${RVAL}"
          r_smart_downcase_identifier "${_old_test_id}"
@@ -1250,6 +1250,9 @@ sde::project::rename_main()
             ;;
          esac
 
+         local _old_test_project_name
+         local _new_test_project_name
+
          .foreachline testdir in ${test_path}
          .do
             (
@@ -1262,8 +1265,6 @@ sde::project::rename_main()
                # main project rename into its current PROJECT_NAME (e.g.
                # "Foo-test" → "Bar-test"). PROJECT_NAME here is still the OLD
                # main project name because the rename ran in a subshell above.
-               local _old_test_project_name
-               local _new_test_project_name
                _old_test_project_name="$(cd "${testdir}" && \
                   mulle-sde -s env get PROJECT_NAME 2>/dev/null)"
                _new_test_project_name="${_old_test_project_name//${PROJECT_NAME}/${newname}}"

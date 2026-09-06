@@ -155,7 +155,7 @@ sde::linkorder::emit_file_output()
 {
    log_entry "sde::linkorder::emit_file_output" "$@"
 
-   shift 4
+   shift 5
 
    sde::linkorder::_emit_file_output " " "" "$@"
 }
@@ -165,7 +165,7 @@ sde::linkorder::emit_file_lf_output()
 {
    log_entry "sde::linkorder::emit_file_lf_output" "$@"
 
-   shift 4
+   shift 5
 
    sde::linkorder::_emit_file_output '$\n' "" "$@"
 }
@@ -175,14 +175,15 @@ sde::linkorder::_emit_ld_output()
 {
    log_entry "sde::linkorder::_emit_ld_output" "$@"
 
-   local sep="$1"
-   local quote="$2"
-   local withldpath="$3"
-   local withrpath="$4"
-   local preferredlibformat="$5"
-   local wholearchiveformat="$6"
+   local platform="$1"
+   local sep="$2"
+   local quote="$3"
+   local withldpath="$4"
+   local withrpath="$5"
+   local preferredlibformat="$6"
+   local wholearchiveformat="$7"
 
-   shift 6
+   shift 7
 
    [ -z "${wholearchiveformat}" ] && _internal_fail "wholearchiveformat is empty"
    [ -z "${preferredlibformat}" ] && _internal_fail "preferredlibformat is empty"
@@ -196,6 +197,7 @@ sde::linkorder::_emit_ld_output()
                                              "${wholearchiveformat}" \
                                              $'\n' \
                                              "'" \
+                                             "${platform}" \
                                              "$@" || exit 1
       if [ ! -z "${RVAL}" ]
       then
@@ -209,6 +211,7 @@ sde::linkorder::_emit_ld_output()
                                           "${wholearchiveformat}" \
                                           $'\n' \
                                           "" \
+                                          "${platform}" \
                                           "$@" || exit 1
 
    if [ "${OPTION_SIMPLIFY}" = 'YES' ]
@@ -226,6 +229,7 @@ sde::linkorder::_emit_ld_output()
                                              "${wholearchiveformat}" \
                                              $'\n' \
                                              "'" \
+                                             "${platform}" \
                                              "$@" || exit 1
       if [ ! -z "${RVAL}" ]
       then
@@ -264,7 +268,9 @@ sde::linkorder::emit_ld_output()
 {
    log_entry "sde::linkorder::emit_ld_output" "$@"
 
-   sde::linkorder::_emit_ld_output " " "" "$@"
+   local platform="$1"; shift
+
+   sde::linkorder::_emit_ld_output "${platform}" " " "" "$@"
 }
 
 
@@ -272,7 +278,9 @@ sde::linkorder::emit_ld_lf_output()
 {
    log_entry "sde::linkorder::emit_ld_lf_output" "$@"
 
-   sde::linkorder::_emit_ld_output $'\n' "" "$@"
+   local platform="$1"; shift
+
+   sde::linkorder::_emit_ld_output "${platform}" $'\n' "" "$@"
 }
 
 
@@ -280,7 +288,9 @@ sde::linkorder::emit_cmake_output()
 {
    log_entry "sde::linkorder::emit_cmake_output" "$@"
 
-   sde::linkorder::_emit_ld_output ";" " " "$@"
+   local platform="$1"; shift
+
+   sde::linkorder::_emit_ld_output "${platform}" ";" " " "$@"
 }
 
 
@@ -288,7 +298,7 @@ sde::linkorder::emit_csv_output()
 {
    log_entry "sde::linkorder::emit_csv_output" "$@"
 
-   shift 4
+   shift 5
 
    printf "%s" "$@"
 }
@@ -298,7 +308,7 @@ sde::linkorder::emit_node_output()
 {
    log_entry "sde::linkorder::emit_node_output" "$@"
 
-   shift 4
+   shift 5
 
    local line
 
@@ -640,7 +650,13 @@ sde::linkorder::r_collect()
    then
       if [ ! -z "${framework_searchpath}" ]
       then
+         # r_locate_framework expects (searchpath, platform, name...).
+         # The platform argument must be passed explicitly: without it the
+         # first alias name is consumed as the platform, and a single-alias
+         # dependency then leaves no name for platform::search, which
+         # _internal_fail's with "API mismatch".
          eval sde::linkorder::r_locate_framework "'${framework_searchpath}'" \
+                                                 "'${platform}'" \
                                                  "${aliasargs}"
          libpath="${RVAL}"
       fi
@@ -878,6 +894,8 @@ sde::linkorder::r_collect_emission_libs()
    local _standalone_load
    local node
    local rc
+   local _decoded
+   local _first_alias
 
    # Pre-pass: collect all node addresses so we can shirk aliased nodes
    # whose amalgam (first alias) is present in the list.
@@ -905,10 +923,8 @@ sde::linkorder::r_collect_emission_libs()
       # another node address, drop it — the amalgam covers it.
       case "${raw_userinfo}" in
          *aliases=*)
-            local _decoded
             sourcetree::node::r_decode_raw_userinfo "${raw_userinfo}"
             _decoded="${RVAL}"
-            local _first_alias
             _first_alias="${_decoded#*aliases=}"
             _first_alias="${_first_alias%%,*}"
             _first_alias="${_first_alias%%$'\n'*}"
@@ -1230,7 +1246,8 @@ sde::linkorder::main()
                                            "${OPTION_OUTPUT_OMIT}"
    dependency_libs="${RVAL}"
 
-   sde::linkorder::emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_LD_PATH}" \
+   sde::linkorder::emit_${OPTION_OUTPUT_FORMAT}_output "${OPTION_PLATFORM}" \
+                                                       "${OPTION_LD_PATH}" \
                                                        "${OPTION_RPATH}" \
                                                        "${OPTION_PREFERRED_LIBRARY_STYLE}" \
                                                        "${OPTION_WHOLE_ARCHIVE_FORMAT}" \

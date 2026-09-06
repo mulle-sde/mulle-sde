@@ -385,6 +385,10 @@ sde::dependency::show_main()
    local name
    local markers
    local line
+   local printed_header
+   local entries
+   local entry
+   local fullpath
 
    .foreachpath directory in ${MULLE_FETCH_SEARCH_PATH}
    .do
@@ -393,16 +397,13 @@ sde::dependency::show_main()
          .continue
       fi
 
-      local printed_header
       printed_header='NO'
 
-      local entries
       entries="$(ls -1 "${directory}" 2>/dev/null | sort)"
 
-      local entry
       .foreachline entry in ${entries}
       .do
-         local fullpath="${directory}/${entry}"
+         fullpath="${directory}/${entry}"
 
          [ -d "${fullpath}" ] || .continue
 
@@ -2637,15 +2638,17 @@ sde::dependency::find_main()
    [ $# -ne 0 ] && sde::dependency::find_usage "Superflous arguments $*"
 
    [ -z "${MULLE_SOURCETREE_STASH_DIR}" ] && _internal_fail "MULLE_SOURCETREE_STASH_DIR empty ?"
-   [ -z "${DEPENDENCY_DIR}" ] && _internal_fail "DEPENDENCY_DIR empty ?"
 
+   local dependency_dir
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+   [ -z "${dependency_dir}" ] && _internal_fail "dependency directory empty ?"
 
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   if [ ! -d "${dependency_dir}" ]
    then
       rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft
    fi
 
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   if [ ! -d "${dependency_dir}" ]
    then
       fail "Need to craft dependencies, to list available headers"
    fi
@@ -2662,7 +2665,13 @@ sde::dependency::find_main()
          'a'|'api'|'s'|'symbol')
             prefixes=
             suffixes=".h"
-            paths="${DEPENDENCY_DIR}/Debug/include:"${DEPENDENCY_DIR}/Release/include:"${DEPENDENCY_DIR}/include"
+            paths="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              --dependency-dir "${dependency_dir}" \
+                           searchpath \
+                              --no-addiction \
+                              --configurations "Debug:Release" \
+                              header`"
          ;;
 
 #         'h'|'header')
@@ -2679,7 +2688,13 @@ sde::dependency::find_main()
          'l'|'library')
             # prefixes="${MULLE_PLATFORM_LIBRARY_PREFIX}"
             # suffixes="${MULLE_PLATFORM_LIBRARY_SUFFIX_STATIC}:${MULLE_PLATFORM_LIBRARY_SUFFIX_DYNAMIC}"
-            paths="${DEPENDENCY_DIR}/Debug/lib:"${DEPENDENCY_DIR}/Release/lib:"${DEPENDENCY_DIR}/lib"
+            paths="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              --dependency-dir "${dependency_dir}" \
+                           searchpath \
+                              --no-addiction \
+                              --configurations "Debug:Release" \
+                              library`"
          ;;
 
          *)
@@ -2724,6 +2739,28 @@ sde::dependency::find_main()
 }
 
 
+sde::dependency::r_product_searchpath()
+{
+   log_entry "sde::dependency::r_product_searchpath" "$@"
+
+   local type="$1"
+   local dependency_dir
+
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+   [ -z "${dependency_dir}" ] && return 1
+
+   RVAL="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     --dependency-dir "${dependency_dir}" \
+                  searchpath \
+                     --no-addiction \
+                     --if-exists \
+                     --configurations "Debug:Release" \
+                     "${type}"`"
+   [ -n "${RVAL}" ]
+}
+
+
 sde::dependency::headers_main()
 {
 
@@ -2744,30 +2781,28 @@ sde::dependency::headers_main()
 
 
    local type=$1
+   local dependency_dir
 
    log_entry "sde::dependency::headers_main" "$@"
 
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+   if [ ! -d "${dependency_dir}" ]
    then
       rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} craft
    fi
 
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   if [ ! -d "${dependency_dir}" ]
    then
       fail "Need to craft dependencies, to list available headers"
    fi
 
    local directories
-   local directory
 
-   for directory in "${DEPENDENCY_DIR}/include" "${DEPENDENCY_DIR}/Debug/include"
-   do
-      if [ -d "${directory}" ]
-      then
-         r_concat "${directories}" "'${directory}'"
-         directories="${RVAL}"
-      fi
-   done
+   directories=""
+   if sde::dependency::r_product_searchpath header
+   then
+      directories="${RVAL}"
+   fi
 
    if [ -z "${directories}" ]
    then
@@ -2783,23 +2818,21 @@ sde::dependency::libraries_main()
 {
    log_entry "sde::dependency::libraries_main" "$@"
 
+   local dependency_dir
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
 
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   if [ ! -d "${dependency_dir}" ]
    then
       fail "Need to build dependencies, to list linkable libraries"
    fi
 
    local directories
-   local directory
 
-   for directory in "${DEPENDENCY_DIR}/lib" "${DEPENDENCY_DIR}/Debug/lib"
-   do
-      if [ -d  "${directory}" ]
-      then
-         r_concat "${directories}" "'${directory}'"
-         directories="${RVAL}"
-      fi
-   done
+   directories=""
+   if sde::dependency::r_product_searchpath library
+   then
+      directories="${RVAL}"
+   fi
 
    if [ -z "${directories}" ]
    then
@@ -2815,23 +2848,21 @@ sde::dependency::binaries_main()
 {
    log_entry "sde::dependency::binaries_main" "$@"
 
+   local dependency_dir
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
 
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   if [ ! -d "${dependency_dir}" ]
    then
       fail "Need to build dependencies, to list binaries"
    fi
 
    local directories
-   local directory
 
-   for directory in "${DEPENDENCY_DIR}/bin" "${DEPENDENCY_DIR}/Debug/bin"
-   do
-      if [ -d  "${directory}" ]
-      then
-         r_concat "${directories}" "'${directory}'"
-         directories="${RVAL}"
-      fi
-   done
+   directories=""
+   if sde::dependency::r_product_searchpath binary
+   then
+      directories="${RVAL}"
+   fi
 
    if [ -z "${directories}" ]
    then
@@ -2843,27 +2874,65 @@ sde::dependency::binaries_main()
 }
 
 
+sde::dependency::r_qualified_dependency_subdir_searchpath()
+{
+   log_entry "sde::dependency::r_qualified_dependency_subdir_searchpath" "$@"
+
+   local subdir="$1"
+   local dependency_dir
+   local configurations
+   local configuration
+   local qualified_dir
+   local directory
+   local directories
+
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+   [ -z "${dependency_dir}" ] && return 1
+
+   configurations="${MULLE_CRAFT_CONFIGURATIONS:-Debug:Release}"
+
+   .foreachpath configuration in ${configurations}
+   .do
+      qualified_dir="`rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                                ${MULLE_TECHNICAL_FLAGS} \
+                                --dependency-dir "${dependency_dir}" \
+                                --configuration "${configuration}" \
+                             dependency-dir 2>/dev/null`"
+      [ -z "${qualified_dir}" ] && .continue
+
+      r_filepath_concat "${qualified_dir}" "${subdir}"
+      directory="${RVAL}"
+
+      if [ -d "${directory}" ]
+      then
+         r_concat "${directories}" "'${directory}'"
+         directories="${RVAL}"
+      fi
+   .done
+
+   RVAL="${directories}"
+   [ -n "${RVAL}" ]
+}
+
+
 sde::dependency::etcs_main()
 {
    log_entry "sde::dependency::etcs_main" "$@"
 
-
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   local dependency_dir
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+   if [ ! -d "${dependency_dir}" ]
    then
       fail "Need to build dependencies, to list etc files"
    fi
 
    local directories
-   local directory
 
-   for directory in "${DEPENDENCY_DIR}/etc" "${DEPENDENCY_DIR}/Debug/etc"
-   do
-      if [ -d  "${directory}" ]
-      then
-         r_concat "${directories}" "'${directory}'"
-         directories="${RVAL}"
-      fi
-   done
+   directories=""
+   if sde::dependency::r_qualified_dependency_subdir_searchpath etc
+   then
+      directories="${RVAL}"
+   fi
 
    if [ -z "${directories}" ]
    then
@@ -2879,23 +2948,20 @@ sde::dependency::shares_main()
 {
    log_entry "sde::dependency::shares_main" "$@"
 
-
-   if [ ! -d "${DEPENDENCY_DIR}" ]
+   local dependency_dir
+   dependency_dir="${MULLE_CRAFT_DEPENDENCY_UNQUALIFIED_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${DEPENDENCY_DIR}}}"
+   if [ ! -d "${dependency_dir}" ]
    then
       fail "Need to build dependencies, to list share files"
    fi
 
    local directories
-   local directory
 
-   for directory in "${DEPENDENCY_DIR}/share" "${DEPENDENCY_DIR}/Debug/share"
-   do
-      if [ -d  "${directory}" ]
-      then
-         r_concat "${directories}" "'${directory}'"
-         directories="${RVAL}"
-      fi
-   done
+   directories=""
+   if sde::dependency::r_qualified_dependency_subdir_searchpath share
+   then
+      directories="${RVAL}"
+   fi
 
    if [ -z "${directories}" ]
    then

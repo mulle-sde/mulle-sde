@@ -136,16 +136,58 @@ sde::upgrade::test()
                            environment \
                               get MULLE_SDE_TEST_PATH 2> /dev/null`"
 
+   local project_name
+
+   project_name="`mulle-env \
+                        ${MULLE_TECHNICAL_FLAGS} \
+                        -s \
+                     environment \
+                        get PROJECT_NAME 2> /dev/null`"
+
+   local test_project_name
+
    IFS=':'
    for i in ${MULLE_SDE_TEST_PATH:-test}
    do
       IFS="${DEFAULT_IFS}"
       if [ -d "${i}" ]
       then
-         if [ -d "${i}/.mulle" -o -d "${i}/.mulle-env" ]
+         if [ -d "${i}/.mulle" ]
          then
             log_info "Upgrade test ${C_RESET_BOLD}${i}"
             ( cd "${i}"; mulle-sde ${MULLE_TECHNICAL_FLAGS} upgrade ) || exit 1
+
+            #
+            # Ensure auto-clean of parent dependency on test craft is set up.
+            # This was added after initial test init, so existing test projects
+            # may not have it.
+            #
+            test_project_name="$(mulle-env \
+                                    ${MULLE_TECHNICAL_FLAGS} \
+                                    -s \
+                                    -d "${i}" \
+                                 environment \
+                                    get MULLE_SDE_CLEAN_DEFAULT 2>/dev/null)"
+            if [ -z "${test_project_name}" ]
+            then
+               test_project_name="$(mulle-env \
+                                       ${MULLE_TECHNICAL_FLAGS} \
+                                       -s \
+                                       -d "${i}" \
+                                    environment \
+                                       get TEST_PROJECT_NAME 2>/dev/null)"
+               test_project_name="${test_project_name:-${project_name}}"
+               if [ ! -z "${test_project_name}" ]
+               then
+                  log_verbose "Setting MULLE_SDE_CLEAN_DEFAULT to \"${test_project_name}\" in ${i}"
+                  mulle-env ${MULLE_TECHNICAL_FLAGS} \
+                            -d "${i}" \
+                     environment set MULLE_SDE_CLEAN_DEFAULT "${test_project_name}"
+                  mulle-env ${MULLE_TECHNICAL_FLAGS} \
+                            -d "${i}" \
+                     environment set MULLE_SDE_CLEAN_BEFORE_CRAFT YES
+               fi
+            fi
          else
             log_verbose "Test directory \"$i\" doesn't look like a mulle-sde project"
          fi

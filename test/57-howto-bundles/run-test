@@ -131,14 +131,14 @@ EOF
 SENTINEL_GDB_STACKTRACE
 EOF
 
-   mkdir -p ".mulle/share/howto/verifier/trace-playback"
-   cat > ".mulle/share/howto/verifier/trace-playback/index.md" <<'EOF'
+   mkdir -p ".mulle/share/sde/howto/verifier/trace-playback"
+   cat > ".mulle/share/sde/howto/verifier/trace-playback/index.md" <<'EOF'
 <!-- keywords: verifier, trace -->
 # Trace Playback
 SENTINEL_TRACE_PLAYBACK
 EOF
 
-   cat > ".mulle/share/howto/legacy-flat.md" <<'EOF'
+   cat > ".mulle/share/sde/howto/legacy-flat.md" <<'EOF'
 <!-- keywords: legacy, flat -->
 # Legacy Flat
 SENTINEL_LEGACY_FLAT

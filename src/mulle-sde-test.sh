@@ -78,7 +78,11 @@ Command:
    coverage   : do a coverage run
    crun       : craft and run tests
    crerun     : craft and rerun failed tests
+   dep        : manage test project dependencies (alias: dependency)
+   verify     : verify dependency artifacts against stashed sources
+   stale-check: alias for verify
    init       : initialize a test directory
+   lib        : manage test project libraries (alias: library)
    link-args  : show library command for linking test executable (alias: linkorder)
    nrun       : run tests without crafting
    nrerun     : rerun failed tests without crafting
@@ -87,6 +91,7 @@ Command:
    rerun      : rerun failed tests
    retest     : clean tidy, craft and run tests. If --platform given, persists it in MULLE_TEST_PLATFORMS (use 'all' to reset)
    run        : run tests (crafts if MULLE_VIBECODING=YES)
+   status     : show test project status
    test-dir   : list test directories
 
 Environment:
@@ -145,13 +150,14 @@ Options:
       --craft    : skips step "clean"
       --gcc      : use system gcc for deps (default for C projects)
       --gcov     : use gcov instead of gcovr
+      --json     : output coverage summary as JSON to stdout
       --lines    : run --json and extract lines of code field (needs jq)
       --mulle    : create "coverage.html" with mulle style gcovr options
       --no-run   : stop after "run"
+      --output <f>  : write coverage output to file <f>
       --percent  : run --json and extract coverage percentage (needs jq)
       --rerun    : skips steps "clean" and "craft" then reruns failed tests
       --run      : skips steps "clean" and "craft"
-      --run      : skips steps "clean" and "craft" then runs all tests
       --show     : skips steps "clean" to "run"
       --tool <t> : use tool t instead of gcovr
       --         : pass remaining options to gcovr
@@ -315,6 +321,18 @@ sde::test::coverage()
 
          --mulle)
             GCOV_FLAGS="--html-self-contained --html-details coverage.html"
+         ;;
+
+         --output|-o)
+            [ $# -eq 1 ] && fail "Missing argument to \"$1\""
+            shift
+            case "${GCOV_FLAGS}" in
+               *" -o "*|*".html"*)
+                  fail "Do not combine --output with --mulle"
+               ;;
+            esac
+            r_concat "${GCOV_FLAGS}" "-o $1"
+            GCOV_FLAGS="${RVAL}"
          ;;
 
          --serial|--no-parallel|--parallel)
@@ -483,6 +501,8 @@ sde::test::coverage()
       then
          exekutor jq ".${JQ_KEY}" "${jsonfile}"
       fi
+
+      log_info "Dependencies are now instrumented for coverage. Run ${C_RESET_BOLD}mulle-sde test clean all${C_INFO} before running plain tests."
    ) || exit 1
 }
 
@@ -512,21 +532,18 @@ sde::test::r_init()
       return 1
    fi
 
-   if [ "${projecttype}" = "executable" ]
+   local test_project_name
+
+   test_project_name="`rexekutor "${MULLE_ENV:-mulle-env}" -d test environment get --output-eval TEST_PROJECT_NAME 2>/dev/null`"
+   test_project_name="${test_project_name:-${PROJECT_NAME}}"
+
+   if [ "${projecttype}" = "executable" -a ! -z "${test_project_name}" ]
    then
-      local test_project_name
-
-      test_project_name="`rexekutor "${MULLE_ENV:-mulle-env}" -d test environment get --output-eval TEST_PROJECT_NAME 2>/dev/null`"
-      test_project_name="${test_project_name:-${PROJECT_NAME}}"
-
-      if [ ! -z "${test_project_name}" ]
-      then
-         rexekutor "${MULLE_SDE:-mulle-sde}" \
-                      ${MULLE_TECHNICAL_FLAGS} \
-                      ${MULLE_SDE_FLAGS} \
-                      -d test \
-                   dependency mark "${test_project_name}" no-link || exit 1
-      fi
+      rexekutor "${MULLE_SDE:-mulle-sde}" \
+                   ${MULLE_TECHNICAL_FLAGS} \
+                   ${MULLE_SDE_FLAGS} \
+                   -d test \
+                dependency mark "${test_project_name}" no-link || exit 1
    fi
 
    log_info "Added ${C_RESET_BOLD}test${C_INFO} folder"
@@ -580,6 +597,8 @@ MULLE_SOURCETREE_PLATFORMS"
 
    if [ ! -z "${platforms}" ]
    then
+      local source_path
+
       .foreachpath platform in ${platforms}
       .do
          r_uppercase "${platform}"
@@ -624,8 +643,6 @@ MULLE_SOURCETREE_PLATFORMS"
          # Copy toolchain file if it exists
          if [ ! -z "${toolchain_file}" ]
          then
-            local source_path
-
             # Check both cmake/ and cmake/share/ locations
             if [ -f "cmake/${toolchain_file}.cmake" ]
             then
@@ -653,6 +670,21 @@ MULLE_SOURCETREE_PLATFORMS"
                   ${MULLE_ENV_FLAGS} \
                   -d test \
                environment set MULLE_SOURCETREE_GRAVEYARD_ENABLED NO
+
+   # make clean, rebuild parent project and do a clean before the craft
+   if [ ! -z "${test_project_name}" ]
+   then
+      rexekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} \
+                     -d test \
+                  environment set MULLE_SDE_CLEAN_DEFAULT "${test_project_name}"
+      rexekutor "${MULLE_ENV:-mulle-env}" \
+                     ${MULLE_TECHNICAL_FLAGS} \
+                     ${MULLE_ENV_FLAGS} \
+                     -d test \
+                  environment set MULLE_SDE_CLEAN_BEFORE_CRAFT YES
+   fi
 
    # memo: not running in environment therefore no log_vibe
    log_info "Run ${C_RESET_BOLD}mulle-sde howto show testing${C_INFO} for more info (if available)"
@@ -709,6 +741,10 @@ sde::test::r_validate_test_run_paths()
 
       local ext
       local extensions
+      local found
+      local IFS
+
+      IFS="${DEFAULT_IFS}"
 
       while [ $# -ne 0 ]
       do
@@ -730,12 +766,12 @@ sde::test::r_validate_test_run_paths()
             sde::test::r_get_test_project_extensions
             extensions="${RVAL}"
 
-            local found='NO'
+            found='NO'
 
             case "${extensions}" in
                *:*)
                   # Handle colon-separated extensions
-                  local IFS=':'
+                  IFS=':'
                   for ext in ${extensions}
                   do
                      if [ -e "${filename}.${ext}" ]
@@ -1016,6 +1052,37 @@ exekutor_mulle_test()
 
 
 
+sde::test::r_clean_target()
+{
+   local target="$1"
+   local test_dir_for_platform="$2"
+
+   local test_name
+   local name
+   local clean_default
+
+   # substitute clean_default if target is our project
+   clean_default="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'MULLE_SDE_CLEAN_DEFAULT')"
+   if [ ! -z "${clean_default}" ]
+   then
+      test_name="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
+
+      if [ "${target}" = "${test_name}" ]
+      then
+         target="${clean_default}"
+      else
+         name="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
+         if [ "${target}" = "${name}" ]
+         then
+            target="${clean_default}"
+         fi
+      fi
+   fi
+
+   RVAL="${target}"
+   [ ! -z "${RVAL}" ]
+}
+
 
 # used for 'crun' and friends
 sde::test::auto_clean()
@@ -1025,6 +1092,9 @@ sde::test::auto_clean()
    local directory="$1"
    local target="$2"
    shift 2
+
+   sde::test::r_clean_target "${target}" "${directory}"
+   target="${RVAL}"
 
    (
       include "test::options"
@@ -1456,6 +1526,557 @@ sde::test::persist_platform_setting()
 }
 
 
+sde::test::verify_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} test verify [<test-environment>]
+
+   Inspect the selected test environment's compiled dependency libraries and
+   compare them with source files in the sourcetree stash. The argument may be
+   a test environment directory, a test source path, or a test source basename,
+   with or without its extension. If there is exactly one test environment,
+   the argument may be omitted. Every artifact and newer source is printed with an
+   absolute path, modification time and size. The command returns failure when
+   an artifact is stale, missing, or cannot be checked completely.
+
+EOF
+   exit 1
+}
+
+
+sde::test::r_verify_directory()
+{
+   log_entry "sde::test::r_verify_directory" "$@"
+
+   local state="$1"
+   local test_root="$2"
+   local requested="$3"
+   local directories
+   local directory
+   local candidate_name
+   local test_project_name
+   local candidate
+   local filename
+
+   if [ -z "${requested}" ]
+   then
+      sde::test::verify_usage "Missing test name"
+   fi
+
+   case "${state}" in
+      test*)
+         directories="${test_root}"
+      ;;
+      *)
+         sde::test::r_test_directories "" "fail"
+         directories="${RVAL}"
+      ;;
+   esac
+
+   # An existing test file resolves to its containing test project.
+   if [ -f "${requested}" ]
+   then
+      sde::test::r_validate_test_run_paths "${requested}"
+      return $?
+   fi
+
+   # A nested test directory also resolves to the enclosing test project.
+   if [ -d "${requested}" ]
+   then
+      candidate="$(rexekutor mulle-env -s -d "${requested}" project-dir 2>/dev/null)"
+      if [ -n "${candidate}" ]
+      then
+         r_absolutepath "${candidate}"
+         return 0
+      fi
+   fi
+
+   # Resolve extensionless paths and basenames anywhere below a test root.
+   filename="${requested##*/}"
+   .foreachpath directory in ${directories}
+   .do
+      candidate="$(rexekutor find "${directory}" -type f \
+                              \( -name "${filename}" -o \
+                                 -name "${filename}.*" \) \
+                              -print -quit 2>/dev/null)"
+      if [ -n "${candidate}" ]
+      then
+         sde::test::r_validate_test_run_paths "${candidate}"
+         return $?
+      fi
+   .done
+
+   .foreachpath directory in ${directories}
+   .do
+      if [ "${directory}" = "${requested}" ]
+      then
+         r_absolutepath "${directory}"
+         return 0
+      fi
+
+      r_basename "${directory}"
+      candidate_name="${RVAL}"
+      if [ "${candidate_name}" = "${requested}" ]
+      then
+         r_absolutepath "${directory}"
+         return 0
+      fi
+
+      test_project_name="$(rexekutor mulle-env -s -d "${directory}" get --output-eval TEST_PROJECT_NAME 2>/dev/null)"
+      if [ "${test_project_name}" = "${requested}" ]
+      then
+         r_absolutepath "${directory}"
+         return 0
+      fi
+   .done
+
+   fail "Test environment \"${requested}\" was not found as a directory or source file. Available test environments: ${directories}"
+}
+
+
+sde::test::r_verify_artifact_stem()
+{
+   log_entry "sde::test::r_verify_artifact_stem" "$@"
+
+   local filename="$1"
+   local stem="${filename}"
+
+   case "${stem}" in
+      *.dylib.*) stem="${stem%%.dylib.*}" ;;
+      *.dylib)   stem="${stem%.dylib}" ;;
+      *.so.*)    stem="${stem%%.so.*}" ;;
+      *.so)      stem="${stem%.so}" ;;
+      *.a)       stem="${stem%.a}" ;;
+      *.dll)     stem="${stem%.dll}" ;;
+   esac
+
+   stem="${stem#lib}"
+   r_lowercase "${stem}"
+}
+
+
+sde::test::r_verify_no_link_marks()
+{
+   log_entry "sde::test::r_verify_no_link_marks" "$@"
+
+   local marks="$1"
+   local platform="$2"
+
+   r_lowercase "${platform}"
+   platform="${RVAL}"
+
+   case ",${marks}," in
+      *,no-link,*|*,no-${platform}-link,*|*,no-platform-${platform},*|*,no-platform-${platform}-link,*)
+         return 0
+      ;;
+
+      *,only-platform-${platform},*)
+         return 1
+      ;;
+
+      *,only-platform-*,*)
+         return 0
+      ;;
+   esac
+
+   return 1
+}
+
+
+sde::test::r_verify_dependency_list_marks()
+{
+   log_entry "sde::test::r_verify_dependency_list_marks" "$@"
+
+   local dependency_list="$1"
+   local source_name="$2"
+
+   RVAL="$(printf '%s\\n' "${dependency_list}" | awk -v name="${source_name}" '
+      $2 == name || substr($2, length($2) - length(name)) == "/" name {
+         if (marks != "")
+            marks=marks ","
+         marks=marks $3
+      }
+      END {
+         print marks
+      }')"
+   [ -n "${RVAL}" ]
+}
+
+
+sde::test::r_verify_expected_missing_artifact()
+{
+   log_entry "sde::test::r_verify_expected_missing_artifact" "$@"
+
+   local marks="$1"
+   local platform="$2"
+   local source_count="$3"
+   local project_type="$4"
+
+   if [ "${project_type}" = 'executable' ]
+   then
+      RVAL="executable project has no library artifact"
+      return 0
+   fi
+
+   if sde::test::r_verify_no_link_marks "${marks}" "${platform}"
+   then
+      RVAL="no link artifact required for platform ${platform}"
+      return 0
+   fi
+
+   if [ "${source_count}" -eq 0 ]
+   then
+      case ",${marks}," in
+         *,no-share-shirk,*)
+            RVAL="no sources in stash and no-share-shirk is set"
+            return 0
+         ;;
+      esac
+   fi
+
+   RVAL=
+   return 1
+}
+
+
+sde::test::verify_file_line()
+{
+   local prefix="$1"
+   local filepath="$2"
+   local mtime
+   local size
+   local absolute
+
+   r_absolutepath "${filepath}"
+   absolute="${RVAL}"
+   mtime="$(modification_timestamp "${filepath}" 2>/dev/null)"
+   size="$(file_size_in_bytes "${filepath}" 2>/dev/null)"
+   printf "      %s: %s mtime=%s size=%s bytes\n" \
+          "${prefix}" "${absolute}" "${mtime:-unknown}" "${size:-unknown}"
+}
+
+
+sde::test::verify()
+{
+   log_entry "sde::test::verify" "$@"
+
+   local directory="$1"
+   local requested="$2"
+   local platform="${3:-${MULLE_UNAME}}"
+   local sdk="${4:-Default}"
+   local configuration="${5:-Debug}"
+   local dependency_dir
+   local stash_dir
+   local dependency_list
+   local artifacts
+   local artifact
+   local artifact_physical
+   local unique_artifacts
+   local artifact_name
+   local artifact_stem
+   local source_dir
+   local source_name
+   local source_project_name
+   local source_project_type
+   local source_key
+   local source_files
+   local source_file
+   local artifact_mtime
+   local source_mtime
+   local newest_mtime
+   local newest_source
+   local artifact_count=0
+   local matched_count=0
+   local missing_count=0
+   local source_count
+   local newer_count
+   local stale_count=0
+   local incomplete_count=0
+   local found_artifact
+   local source_marks
+   local comparison
+   local nearby_executables
+   local nearby_executable
+   local nearby_executable_first
+   local nearby_executable_count=0
+   local stale_advice
+
+   if [ -z "${directory}" ]
+   then
+      _internal_fail "verify directory is empty"
+   fi
+
+   dependency_dir="$(rexekutor mulle-env -E -d "${directory}" exec \
+                              mulle-craft dependency dir \
+                                 --sdk "${sdk}" \
+                                 --platform "${platform}" \
+                                 --configuration "${configuration}" 2>/dev/null)"
+   if [ -z "${dependency_dir}" ]
+   then
+      dependency_dir="$(rexekutor mulle-env -E -d "${directory}" get --output-eval DEPENDENCY_DIR 2>/dev/null)"
+   fi
+
+   stash_dir="$(rexekutor mulle-env -E -d "${directory}" exec \
+                          mulle-sourcetree stash-dir 2>/dev/null)"
+
+   r_absolutepath "${directory}"
+   directory="${RVAL}"
+   if [ -n "${dependency_dir}" ]
+   then
+      r_absolutepath "${dependency_dir}"
+      dependency_dir="${RVAL}"
+   fi
+   if [ -n "${stash_dir}" ]
+   then
+      r_absolutepath "${stash_dir}"
+      stash_dir="${RVAL}"
+   fi
+
+   printf "TEST VERIFY: %s\n" "${requested}"
+   printf "  test directory: %s\n" "${directory}"
+   printf "  dependency directory: %s\n" "${dependency_dir}"
+   printf "  source stash: %s\n" "${stash_dir}"
+   printf "  style: sdk=%s platform=%s configuration=%s\n" \
+          "${sdk}" "${platform}" "${configuration}"
+
+   if [ -z "${dependency_dir}" -o ! -d "${dependency_dir}" ]
+   then
+      printf "  RESULT: INCOMPLETE -- dependency directory does not exist: %s\n" \
+             "${dependency_dir:-<empty>}"
+      printf "  OVERALL: INCOMPLETE\n"
+      return 1
+   fi
+
+   if [ -z "${stash_dir}" -o ! -d "${stash_dir}" ]
+   then
+      printf "  RESULT: INCOMPLETE -- source stash does not exist: %s\n" \
+             "${stash_dir:-<empty>}"
+      printf "  OVERALL: INCOMPLETE\n"
+      return 1
+   fi
+
+   artifacts="$(rexekutor find "${dependency_dir}" \( -type f -o -type l \) \
+      \( -name '*.a' -o -name '*.so' -o -name '*.so.*' \
+         -o -name '*.dylib' -o -name '*.dylib.*' -o -name '*.dll' \) \
+      -print 2>/dev/null)"
+
+   dependency_list="$(rexekutor "${MULLE_SDE:-mulle-sde}" \
+                              ${MULLE_TECHNICAL_FLAGS} \
+                              -d "${directory}" \
+                           dependency list -r -m 2>/dev/null)"
+
+   unique_artifacts=
+   while IFS= read -r artifact
+   do
+      [ -z "${artifact}" ] && continue
+      r_resolve_all_path_symlinks "${artifact}"
+      artifact_physical="${RVAL}"
+      r_add_unique_line "${unique_artifacts}" "${artifact_physical}"
+      unique_artifacts="${RVAL}"
+   done <<< "${artifacts}"
+   artifacts="${unique_artifacts}"
+
+   artifact_count=0
+   while IFS= read -r artifact
+   do
+      [ -z "${artifact}" ] && continue
+      artifact_count=$((artifact_count + 1))
+   done <<< "${artifacts}"
+
+   source_count=0
+   shell_enable_nullglob
+   for source_dir in "${stash_dir}"/*
+   do
+      [ -e "${source_dir}" ] || continue
+      [ -d "${source_dir}" ] || continue
+      if [ -L "${source_dir}" ]
+      then
+         r_physicalpath "${source_dir}"
+         source_dir="${RVAL}"
+      fi
+
+      r_absolutepath "${source_dir}"
+      source_dir="${RVAL}"
+      source_name="${source_dir##*/}"
+      source_project_name="$(rexekutor mulle-env -s -d "${source_dir}" get --output-eval PROJECT_NAME 2>/dev/null)"
+      source_project_name="${source_project_name:-${source_name}}"
+      source_project_type="$(rexekutor mulle-env -s -d "${source_dir}" get --output-eval PROJECT_TYPE 2>/dev/null)"
+      r_lowercase "${source_project_name#lib}"
+      source_key="${RVAL}"
+      source_marks=
+      if sde::test::r_verify_dependency_list_marks "${dependency_list}" "${source_name}"
+      then
+         source_marks="${RVAL}"
+      fi
+      if [ -z "${source_marks}" ]
+      then
+         source_marks="$(rexekutor mulle-env -E -d "${directory}" exec \
+                                   mulle-sourcetree --virtual-root \
+                                      get "${source_project_name}" marks 2>/dev/null)"
+      fi
+      if [ -z "${source_marks}" -a "${source_name}" != "${source_project_name}" ]
+      then
+         source_marks="$(rexekutor mulle-env -E -d "${directory}" exec \
+                                   mulle-sourcetree --virtual-root \
+                                      get "${source_name}" marks 2>/dev/null)"
+      fi
+      if [ -z "${source_marks}" -a "${source_dir}" != "${source_name}" ]
+      then
+         source_marks="$(rexekutor mulle-env -E -d "${directory}" exec \
+                                   mulle-sourcetree --virtual-root \
+                                      get "${source_dir}" marks 2>/dev/null)"
+      fi
+
+      source_files="$(rexekutor find "${source_dir}" -type f \
+         \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \
+            -o -name '*.h' -o -name '*.hh' -o -name '*.hpp' -o -name '*.hxx' \
+            -o -name '*.m' -o -name '*.mm' -o -name '*.inc' \
+            -o -name '*.swift' -o -name '*.s' -o -name '*.S' \) \
+         -not -path '*/.git/*' -not -path '*/.mulle/*' \
+         -not -path '*/build/*' -not -path '*/cmake/*' \
+         -not -path '*/kitchen/*' -print 2>/dev/null)"
+
+      source_count=0
+      while IFS= read -r source_file
+      do
+         [ -z "${source_file}" ] && continue
+         source_count=$((source_count + 1))
+      done <<< "${source_files}"
+
+      found_artifact='NO'
+      while IFS= read -r artifact
+      do
+         [ -z "${artifact}" ] && continue
+         artifact_name="${artifact##*/}"
+         sde::test::r_verify_artifact_stem "${artifact_name}"
+         artifact_stem="${RVAL}"
+
+         if [ "${artifact_stem}" != "${source_key}" ]
+         then
+            continue
+         fi
+
+         found_artifact='YES'
+         matched_count=$((matched_count + 1))
+         artifact_mtime="$(modification_timestamp "${artifact}" 2>/dev/null)"
+         printf "\n  DEPENDENCY: %s\n" "${source_project_name}"
+         sde::test::verify_file_line "artifact" "${artifact}"
+         printf "      source root: %s\n" "${source_dir}"
+
+         newer_count=0
+         newest_mtime=''
+         newest_source=''
+         while IFS= read -r source_file
+         do
+            [ -z "${source_file}" ] && continue
+            source_mtime="$(modification_timestamp "${source_file}" 2>/dev/null)"
+            if [ -z "${newest_mtime}" ] || [ "${source_mtime:-0}" -gt "${newest_mtime}" ]
+            then
+               newest_mtime="${source_mtime}"
+               newest_source="${source_file}"
+            fi
+            if [ "${source_mtime:-0}" -gt "${artifact_mtime:-0}" ]
+            then
+               newer_count=$((newer_count + 1))
+               stale_count=$((stale_count + 1))
+               sde::test::verify_file_line "NEWER SOURCE" "${source_file}"
+            fi
+         done <<< "${source_files}"
+
+         if [ "${source_count}" -eq 0 ]
+         then
+            incomplete_count=$((incomplete_count + 1))
+            printf "      conclusion: INCOMPLETE (no source files found)\n"
+         else
+            if [ -n "${newest_source}" ]
+            then
+               sde::test::verify_file_line "newest source" "${newest_source}"
+            fi
+
+            if [ "${newer_count}" -ne 0 ]
+            then
+               comparison='>'
+            elif [ "${newest_mtime:-0}" -eq "${artifact_mtime:-0}" ]
+            then
+               comparison='='
+            else
+               comparison='<'
+            fi
+            if [ "${newer_count}" -ne 0 ]
+            then
+               printf "      conclusion: STALE (mtime %s %s mtime %s)\n" \
+                      "${newest_mtime:-unknown}" "${comparison}" \
+                      "${artifact_mtime:-unknown}"
+            else
+               printf "      conclusion: UPTODATE (mtime %s %s mtime %s)\n" \
+                      "${newest_mtime:-unknown}" "${comparison}" \
+                      "${artifact_mtime:-unknown}"
+            fi
+         fi
+      done <<< "${artifacts}"
+
+      if [ "${found_artifact}" != 'YES' ]
+      then
+         printf "\n  DEPENDENCY: %s\n" "${source_project_name}"
+         printf "      source root: %s\n" "${source_dir}"
+         if sde::test::r_verify_expected_missing_artifact \
+               "${source_marks}" "${platform}" "${source_count}" \
+               "${source_project_type}"
+         then
+            missing_count=$((missing_count + 1))
+            printf "      conclusion: MISSING (expected: %s)\n" "${RVAL}"
+         else
+            missing_count=$((missing_count + 1))
+            incomplete_count=$((incomplete_count + 1))
+            printf "      conclusion: MISSING (no matching .a/.so/.dylib artifact found)\n"
+         fi
+      fi
+   done
+   shell_disable_nullglob
+
+   nearby_executables="$(rexekutor find "${directory}" \
+      \( -type f -o -type l \) -name '*.exe' -print 2>/dev/null)"
+   if [ "${platform}" != 'windows' -a -n "${nearby_executables}" ]
+   then
+      while IFS= read -r nearby_executable
+      do
+         [ -z "${nearby_executable}" ] && continue
+         if [ -z "${nearby_executable_first}" ]
+         then
+            nearby_executable_first="${nearby_executable}"
+         fi
+         nearby_executable_count=$((nearby_executable_count + 1))
+      done <<< "${nearby_executables}"
+
+      r_absolutepath "${nearby_executable_first}"
+      log_warning "Found ${nearby_executable_count} .exe executable(s) near the ${platform} test; first: ${RVAL}. This may indicate wrong-platform test artifacts."
+   fi
+
+   printf "\nSUMMARY: artifacts=%s matched=%s missing=%s stale=%s incomplete=%s\n" \
+          "${artifact_count}" "${matched_count}" "${missing_count}" \
+          "${stale_count}" "${incomplete_count}"
+   if [ "${stale_count}" -ne 0 ]
+   then
+      stale_advice="Stale dependencies detected. Run ${C_RESET_BOLD}mulle-sde test craft --all${C_INFO} to rebuild all test dependencies."
+      log_vibe "${stale_advice}"
+      log_warning "Advice: ${stale_advice}"
+      printf "OVERALL: STALE\n"
+      return 1
+   fi
+   if [ "${incomplete_count}" -ne 0 -o \( "${matched_count}" -eq 0 -a "${missing_count}" -eq 0 \) ]
+   then
+      printf "OVERALL: INCOMPLETE\n"
+      return 1
+   fi
+
+   printf "OVERALL: UPTODATE\n"
+   return 0
+}
+
+
 sde::test::main()
 {
    log_entry "sde::test::main" "$@"
@@ -1463,6 +2084,7 @@ sde::test::main()
    local OPTION_PLATFORM=
    local OPTION_SDK=
    local OPTION_CONFIGURATION=
+   local prepend
 
    while [ $# -ne 0 ]
    do
@@ -1692,10 +2314,12 @@ sde::test::main()
          # handled later
       ;;
 
-      craftorder|linkorder|link-args|log)
+      craftorder|craftstatus|linkorder|link-args|log|status|dep|dependency|lib|library)
          local test_cmd="${cmd}"
          case "${test_cmd}" in
             linkorder) test_cmd='link-args' ;;
+            dep)       test_cmd='dependency' ;;
+            lib)       test_cmd='library' ;;
          esac
          case "${test_cmd}" in
             link-args|linkorder)
@@ -1716,21 +2340,71 @@ sde::test::main()
          then
             log_args=( '*' )
          fi
+
+         local generic_flags=()
+         case "${test_cmd}" in
+            craftstatus|status|dependency|library)
+               # these don't accept --platform/--configuration
+            ;;
+            *)
+               generic_flags=( --platform "${OPTION_PLATFORM}" \
+                               --configuration "${OPTION_CONFIGURATION:-Debug}" )
+            ;;
+         esac
+
          case "${state}" in
             proj*)
                sde::test::r_test_directories
                sde::test::generic "${RVAL%%:*}" "${test_cmd}" \
-                  --platform "${OPTION_PLATFORM}" \
-                  --configuration "${OPTION_CONFIGURATION:-Debug}" \
+                  "${generic_flags[@]}" \
                   "${log_args[@]}"
             ;;
             test*)
                sde::test::generic "${test_root}" "${test_cmd}" \
-                  --platform "${OPTION_PLATFORM}" \
-                  --configuration "${OPTION_CONFIGURATION:-Debug}" \
+                  "${generic_flags[@]}" \
                   "${log_args[@]}"
             ;;
          esac
+         return $?
+      ;;
+
+      verify|stale-check)
+         local verify_directory
+         local verify_requested
+         local verify_directories
+
+         if [ $# -eq 0 ]
+         then
+            case "${state}" in
+               test*)
+                  verify_requested="${test_root}"
+               ;;
+               *)
+                  sde::test::r_test_directories "" "fail"
+                  verify_directories="${RVAL}"
+                  case "${verify_directories}" in
+                     *:*)
+                        sde::test::verify_usage "Specify a test environment. Available test environments: ${verify_directories}"
+                     ;;
+                     *)
+                        verify_requested="${verify_directories}"
+                     ;;
+                  esac
+               ;;
+            esac
+         elif [ $# -eq 1 ]
+         then
+            verify_requested="$1"
+         else
+            sde::test::verify_usage "Expected at most one test environment or source file"
+         fi
+
+         sde::test::r_verify_directory "${state}" "${test_root}" "${verify_requested}"
+         verify_directory="${RVAL}"
+         sde::test::verify "${verify_directory}" "${verify_requested}" \
+                           "${OPTION_PLATFORM:-${MULLE_UNAME}}" \
+                           "${OPTION_SDK:-Default}" \
+                           "${OPTION_CONFIGURATION:-Debug}"
          return $?
       ;;
 
@@ -1813,17 +2487,38 @@ sde::test::main()
       ;;
 
       *:craft:*|*:run:*)
+         local clean_before_craft
+
          case "${state}" in
             proj*)
+               clean_before_craft="$(mulle-env -s -E -d "${test_directories%%:*}" get --output-eval 'MULLE_SDE_CLEAN_BEFORE_CRAFT')"
                clean_before_run="$(mulle-env -s -E -d "${test_directories%%:*}" get --output-eval 'MULLE_TEST_CLEAN_BEFORE_RUN')"
             ;;
 
             test*)
+               clean_before_craft="$(mulle-env -s get --output-eval 'MULLE_SDE_CLEAN_BEFORE_CRAFT')"
                clean_before_run="$(mulle-env -s get --output-eval 'MULLE_TEST_CLEAN_BEFORE_RUN')"
             ;;
          esac
 
-         if [ "${clean_before_run:-}" = 'YES' ]
+         if [ "${clean_before_craft:-}" = 'YES' ]
+         then
+            local clean_default
+
+            case "${state}" in
+               proj*)
+                  clean_default="$(mulle-env -s -E -d "${test_directories%%:*}" get --output-eval 'MULLE_SDE_CLEAN_DEFAULT')"
+               ;;
+               test*)
+                  clean_default="$(mulle-env -s get --output-eval 'MULLE_SDE_CLEAN_DEFAULT')"
+               ;;
+            esac
+
+            r_colon_concat "auto-clean" "${cmdchain}"
+            cmdchain="${RVAL}"
+
+            cleanargs="${clean_default:-project}"
+         elif [ "${clean_before_run:-}" = 'YES' ]
          then
             r_colon_concat "auto-clean" "${cmdchain}"
             cmdchain="${RVAL}"
@@ -1879,6 +2574,7 @@ sde::test::main()
    local test_dir_for_platform
    local tidy_done='NO'
    local token
+   local run_directory
 
    case "${state}" in
       proj*)
@@ -1902,7 +2598,22 @@ sde::test::main()
             fi
 
 
-            dependency_dir="$(mulle-env -E -d "${test_dir_for_platform}" get --output-eval DEPENDENCY_DIR 2>/dev/null)"
+            #
+            # Resolve the *raw* dependency dir (no dispense/config subdir), so
+            # that the link-args file check below looks in "<dep>/etc", which is
+            # where the link-args writer (sde::test::link_args) and mulle-craft's
+            # own donefile logic place their files. Use `mulle-craft tool-env
+            # craft` (same source the writer uses); `mulle-craft dependency dir`
+            # would append the dispense subdir (e.g. /Debug) and point at a
+            # non-existent "<dep>/Debug/etc".
+            #
+            dependency_dir="$(rexekutor mulle-env -E -d "${test_dir_for_platform}" exec \
+                                        mulle-craft tool-env craft 2>/dev/null \
+                              | sed -n 's/^DEPENDENCY_DIR=.\(.*\).$/\1/p')"
+            if [ -z "${dependency_dir}" ]
+            then
+               dependency_dir="$(mulle-env -E -d "${test_dir_for_platform}" get --output-eval DEPENDENCY_DIR 2>/dev/null)"
+            fi
 
             sde::test::r_explode_cmdchain "${cmdchain}" \
                                           "${platforms}" \
@@ -1947,10 +2658,14 @@ sde::test::main()
                      else
                         if [ "${cleanargs}" = 'project' ]
                         then
-                           target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                           target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'MULLE_SDE_CLEAN_DEFAULT')"
                            if [ -z "${target}" ]
                            then
-                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
+                              target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'TEST_PROJECT_NAME')"
+                              if [ -z "${target}" ]
+                              then
+                                 target="$(mulle-env -d "${test_dir_for_platform}" -s get --output-eval 'PROJECT_NAME')"
+                              fi
                            fi
                         else
                            target="${cleanargs}"
@@ -2008,14 +2723,12 @@ sde::test::main()
                               log_debug "Link file missing for ${platform_part}, crafting first..."
                               r_colon_concat "${crafted_styles}" "${style_part}"
                               crafted_styles="${RVAL}"
-                              local prepend
                               prepend="craft.${style_part}:postprocess.${style_part}:update-link-args.${style_part}:${cmd_part}.${style_part}"
                               remaining="${prepend}${remaining:+:${remaining}}"
                               continue
                            ;;
                         esac
                      else
-                        local run_directory
                         run_directory=""
                         if ! sde::test::r_validate_test_run_paths "$@"
                         then
@@ -2051,7 +2764,19 @@ sde::test::main()
             platforms="${OPTION_PLATFORM}"
          fi
 
-         dependency_dir="$(mulle-env -E get --output-eval DEPENDENCY_DIR 2>/dev/null)"
+         #
+         # Resolve the *raw* dependency dir (no dispense/config subdir), matching
+         # the link-args writer (sde::test::link_args) so the link-file check
+         # below looks in "<dep>/etc" (not the non-existent "<dep>/Debug/etc").
+         # See the matching resolution in the 'proj*' branch above.
+         #
+         dependency_dir="$(rexekutor mulle-env -E -d "${test_root}" exec \
+                                     mulle-craft tool-env craft 2>/dev/null \
+                           | sed -n 's/^DEPENDENCY_DIR=.\(.*\).$/\1/p')"
+         if [ -z "${dependency_dir}" ]
+         then
+            dependency_dir="$(mulle-env -E -d "${test_root}" get --output-eval DEPENDENCY_DIR 2>/dev/null)"
+         fi
 
          sde::test::r_explode_cmdchain "${cmdchain}" \
                                        "${platforms}" \
@@ -2157,7 +2882,6 @@ sde::test::main()
                            log_debug "Link file missing for ${platform_part}, crafting first..."
                            r_colon_concat "${crafted_styles}" "${style_part}"
                            crafted_styles="${RVAL}"
-                           local prepend
                            prepend="craft.${style_part}:postprocess.${style_part}:update-link-args.${style_part}:${cmd_part}.${style_part}"
                            remaining="${prepend}${remaining:+:${remaining}}"
                            continue

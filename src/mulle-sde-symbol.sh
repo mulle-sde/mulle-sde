@@ -541,7 +541,6 @@ sde::symbol::main()
    local OPTION_XFORMAT
    local OPTION_KEEP_TMP='NO'
    local OPTION_SEPARATOR='|'
-   local OPTION_CATEGORY
    local OPTION_TYPE='header'
 
 #   local OPTION_CTAGS='YES'

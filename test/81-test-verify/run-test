@@ -1,0 +1,221 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+expect_match()
+{
+   local pattern="$1"
+   local actual="$2"
+   local description="$3"
+
+   case "${actual}" in
+      *"${pattern}"*)
+      ;;
+      *)
+         fail "${description}\nExpected pattern: ${pattern}\nActual: ${actual}"
+      ;;
+   esac
+}
+
+
+expect_not_match()
+{
+   local pattern="$1"
+   local actual="$2"
+   local description="$3"
+
+   case "${actual}" in
+      *"${pattern}"*)
+         fail "${description}\nUnexpected pattern: ${pattern}\nActual: ${actual}"
+      ;;
+   esac
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local fakebin
+   local stash
+   local source
+   local test_source
+   local no_link_source
+   local dependency
+   local output
+   local rc
+   local project_dir
+
+   project_dir="$(cd "$(dirname "$0")/../.." && pwd -P)"
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/verify-test}"
+
+   fakebin="${directory}/bin"
+   stash="${directory}/stash/fakedep/src"
+   dependency="${directory}/dependency"
+   source="${stash}/fakedep.c"
+   test_source="${directory}/test/MulleObject/10-first/test-instance.m"
+   no_link_source="${directory}/stash/nolinkdep/nolinkdep.c"
+
+   mkdir_if_missing "${fakebin}"
+   mkdir_if_missing "${stash}"
+   mkdir_if_missing "${directory}/stash/nolinkdep"
+   mkdir_if_missing "${directory}/stash/amalgamated"
+   mkdir_if_missing "${directory}/stash/executable"
+   mkdir_if_missing "${directory}/test/MulleObject/10-first"
+   mkdir_if_missing "${dependency}"
+
+   cat > "${fakebin}/mulle-env" <<'EOF'
+#! /bin/sh
+case "$*" in
+   *"mulle-craft dependency dir"*)
+      printf '%s\n' "${VERIFY_DEPENDENCY}"
+   ;;
+   *"mulle-sourcetree stash-dir"*)
+      printf '%s\n' "${VERIFY_STASH}"
+   ;;
+   *mulle-sourcetree*get\ nolinkdep\ marks*)
+      printf '%s\n' 'only-platform-windows'
+   ;;
+   *mulle-sourcetree*get\ amalgamated\ marks*)
+      printf '%s\n' 'no-share-shirk'
+   ;;
+   *amalgamated*PROJECT_NAME*)
+      printf '%s\n' 'amalgamated'
+   ;;
+   *executable*PROJECT_TYPE*)
+      printf '%s\n' 'executable'
+   ;;
+   *executable*PROJECT_NAME*)
+      printf '%s\n' 'executable'
+   ;;
+   *nolinkdep*PROJECT_NAME*)
+      printf '%s\n' 'nolinkdep'
+   ;;
+   *project-dir*)
+      printf '%s\n' "${VERIFY_TEST_ROOT:-$PWD}"
+   ;;
+   *MULLE_SDE_TEST_PATH*)
+      printf '%s\n' 'test'
+   ;;
+   *PROJECT_NAME*)
+      printf '%s\n' "fakedep"
+   ;;
+   *)
+      exit 1
+   ;;
+esac
+EOF
+   chmod +x "${fakebin}/mulle-env"
+
+   printf '%s\n' 'source' > "${source}"
+   printf '%s\n' 'test source' > "${test_source}"
+   printf '%s\n' 'source without a link artifact' > "${no_link_source}"
+   printf '%s\n' 'main executable source' > "${directory}/stash/executable/main.c"
+   sleep 1
+   printf '%s\n' 'archive' > "${dependency}/libfakedep.a"
+   printf '%s\n' 'shared' > "${dependency}/libfakedep.so"
+   ln -s "libfakedep.so" "${dependency}/libfakedep.so.0"
+   mkdir_if_missing "${stash}/kitchen"
+   sleep 1
+   printf '%s\n' 'generated compiler source' > "${stash}/kitchen/generated.c"
+   printf '%s\n' 'wrong platform executable' > "${directory}/wrong-platform.exe"
+
+   MULLE_SDE_LIBEXEC_DIR="${project_dir}/src"
+   MULLE_USER_PWD="${PWD}"
+   MULLE_USAGE_NAME="mulle-sde"
+   MULLE_UNAME="linux"
+   VERIFY_DEPENDENCY="${dependency}"
+   VERIFY_STASH="${directory}/stash"
+   VERIFY_TEST_ROOT="${directory}"
+   PROJECT_EXTENSIONS='m'
+   export MULLE_SDE_LIBEXEC_DIR MULLE_USER_PWD MULLE_USAGE_NAME MULLE_UNAME
+   export VERIFY_DEPENDENCY VERIFY_STASH VERIFY_TEST_ROOT PROJECT_EXTENSIONS
+
+   . "${MULLE_SDE_LIBEXEC_DIR}/mulle-sde-test.sh"
+
+   PATH="${fakebin}:${PATH}"
+   export PATH
+   sde::test::r_verify_directory test "${directory}" "test-instance"
+   [ "${RVAL}" = "${directory}" ] || fail "extensionless nested test basenames should resolve to the test project"
+   sde::test::r_verify_directory test "${directory}" "MulleObject/10-first/test-instance"
+   [ "${RVAL}" = "${directory}" ] || fail "nested test paths without the test prefix should resolve"
+
+   output="`cd "${directory}" && sde::test::main verify 2>&1`"
+   rc=$?
+   [ "${rc}" -eq 0 ] || fail "verify should use the only test environment when no argument is given\\n${output}"
+   expect_match "OVERALL: UPTODATE" "${output}" "verify without an argument should use the only test environment"
+
+   output="`PATH="${fakebin}:${PATH}" sde::test::verify "${directory}" fakedep linux Default Debug 2>&1`"
+   rc=$?
+   [ "${rc}" -eq 0 ] || fail "fresh artifacts should verify successfully\n${output}"
+   expect_match "OVERALL: UPTODATE" "${output}" "fresh artifacts should be reported as up-to-date"
+   expect_match "Found 1 .exe executable(s) near" "${output}" "nearby executables should produce a warning"
+   expect_match "${dependency}/libfakedep.a" "${output}" "the archive path should be printed"
+   expect_match "${dependency}/libfakedep.so" "${output}" "the shared library path should be printed"
+   expect_match "size=" "${output}" "artifact sizes should be printed"
+   expect_not_match "artifact mtime epoch" "${output}" "artifact mtime should not be printed twice"
+   expect_match "DEPENDENCY: nolinkdep" "${output}" "the no-link dependency should be listed"
+   expect_match "conclusion: MISSING (expected: no link artifact required for platform linux)" "${output}" \
+      "a platform-specific no-link should be expected"
+   expect_match "artifacts=2" "${output}" "versioned library symlinks should be deduplicated"
+   expect_match "missing=3" "${output}" "expected missing artifacts should be counted"
+   expect_match "executable project has no library artifact" "${output}" \
+      "an executable dependency should not require a library artifact"
+   expect_match "no sources in stash and no-share-shirk is set" "${output}" \
+      "an amalgamated constituent should explain its expected missing artifact"
+   expect_not_match "no matching .a/.so/.dylib artifact" "${output}" \
+      "a platform-specific no-link should not be incomplete"
+   expect_match "conclusion: UPTODATE (mtime" "${output}" "freshness should be shown as one mtime comparison"
+   expect_not_match "RESULT:" "${output}" "per-artifact status should use the conclusion line"
+   expect_not_match "generated.c" "${output}" "generated kitchen sources should not be scanned"
+
+   sleep 1
+   touch "${source}"
+
+   output="`PATH="${fakebin}:${PATH}" sde::test::verify "${directory}" fakedep linux Default Debug 2>&1`"
+   rc=$?
+   [ "${rc}" -ne 0 ] || fail "newer sources should fail verification\n${output}"
+   expect_match "OVERALL: STALE" "${output}" "newer sources should be called stale"
+   expect_match "${source}" "${output}" "the full source path should be printed"
+   expect_match "mtime=" "${output}" "source timestamps should be printed"
+   expect_match "conclusion: STALE (mtime" "${output}" "staleness should be shown as one mtime comparison"
+   expect_match "NEWER SOURCE" "${output}" "stale output should identify the newer source file"
+   expect_not_match "blaming mulle-sde" "${output}" "stale output should remain neutral"
+   expect_match "mulle-sde test craft --all" "${output}" "stale output should advise rebuilding all test dependencies"
+
+   mkdir_if_missing "${directory}/test"
+   output="`cd "${directory}" && \
+      PATH="${fakebin}:${PATH}" \
+      sde::test::main verify test 2>&1`"
+   rc=$?
+   [ "${rc}" -ne 0 ] || fail "the CLI should not hide a stale dependency"
+   expect_match "OVERALL: STALE" "${output}" "the CLI should dispatch verify to the stale check"
+
+   sleep 1
+   touch "${dependency}/libfakedep.a" "${dependency}/libfakedep.so"
+
+   output="`PATH="${fakebin}:${PATH}" sde::test::verify "${directory}" fakedep linux Default Debug 2>&1`"
+   rc=$?
+   [ "${rc}" -eq 0 ] || fail "rebuilt artifacts should verify successfully\n${output}"
+   expect_match "OVERALL: UPTODATE" "${output}" "rebuilt artifacts should be reported as not stale"
+
+   log_info "----- ALL PASSED -----"
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+main "$@"

@@ -272,6 +272,7 @@ sde::list::unmatched_files()
    # Step 2: Get items in MULLE_MATCH_PATH (basenames only)
    local match_items=""
    local item
+   local count
 
    .foreachpath item in ${MULLE_MATCH_PATH}
    .do
@@ -282,7 +283,7 @@ sde::list::unmatched_files()
          ;;
       esac
 
-      # Get basename if it's a path
+      # Get basename if it's a filepath
       r_basename "${item}"
       r_add_line "${match_items}" "${RVAL}"
       match_items="${RVAL}"
@@ -294,7 +295,6 @@ sde::list::unmatched_files()
 
    if [ ! -z "${not_searched}" ]
    then
-      local count
       count=$(echo "${not_searched}" | grep -c . 2>/dev/null || echo 0)
       log_info "${C_YELLOW}${C_BOLD}Not in MULLE_MATCH_PATH (${count}):"
       echo "${not_searched}" | while IFS= read -r item
@@ -339,16 +339,16 @@ sde::list::unmatched_files()
    local tmpfile_matched="/tmp/mulle-sde-matched.$$"
 
    (
-      local path
+      local filepath
       local IFS=':'
-      for path in ${search_paths}
+      for filepath in ${search_paths}
       do
-         if [ -d "${path}" ]
+         if [ -d "${filepath}" ]
          then
-            find "${path}" -type f 2>/dev/null | sed 's|^\./||'
-         elif [ -f "${path}" ]
+            find "${filepath}" -type f 2>/dev/null | sed 's|^\./||'
+         elif [ -f "${filepath}" ]
          then
-            echo "${path}"
+            echo "${filepath}"
          fi
       done
    ) | LC_ALL=C sort -u > "${tmpfile_all}"
@@ -369,6 +369,7 @@ sde::list::unmatched_files()
       local file
       local basename
       local matched_pattern
+      local pattern
 
       while IFS= read -r file
       do
@@ -384,7 +385,6 @@ sde::list::unmatched_files()
             matched_pattern='YES'
          else
             shell_disable_glob
-            local pattern
             .foreachpath pattern in ${MULLE_MATCH_FILENAMES}
             .do
                if [[ "${basename}" == ${pattern} ]]
@@ -416,7 +416,6 @@ sde::list::unmatched_files()
       # Display extension filtered
       if [ ! -z "${extension_filtered}" ]
       then
-         local count
          count=$(echo "${extension_filtered}" | grep -c . 2>/dev/null || echo 0)
          log_info "${C_YELLOW}${C_BOLD}Not in MULLE_MATCH_FILENAMES (${count}):"
          echo "${extension_filtered}" | while IFS= read -r file
@@ -430,7 +429,6 @@ sde::list::unmatched_files()
       # Display actively ignored
       if [ ! -z "${actively_ignored}" ]
       then
-         local count
          count=$(echo "${actively_ignored}" | grep -c . 2>/dev/null || echo 0)
          log_info "${C_YELLOW}${C_BOLD}Actively ignored by patternfile (${count}):"
          echo "${actively_ignored}" | while IFS= read -r file
@@ -444,7 +442,6 @@ sde::list::unmatched_files()
       # Display no patternfile match
       if [ ! -z "${no_match}" ]
       then
-         local count
          count=$(echo "${no_match}" | grep -c . 2>/dev/null || echo 0)
          log_info "${C_YELLOW}${C_BOLD}No patternfile match (${count}):"
          echo "${no_match}" | while IFS= read -r file

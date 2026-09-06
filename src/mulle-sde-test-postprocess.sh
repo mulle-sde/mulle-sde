@@ -56,7 +56,7 @@ sde::test::emit_include_h()
 
    emit_line()
    {
-      local path="$1"
+      local filepath="$1"
       local is_objc="$2"
 
       if [ "${dialect}" = "c" ]   && [ "${is_objc}" = "yes" ];  then return 0; fi
@@ -66,14 +66,35 @@ sde::test::emit_include_h()
       # memo as the include/import headers are in the dependency include now
       # we can use "" instead of <>
       if [ "${dialect}" = "objc" ] && [ "${is_objc}" = "yes" ]; then
-         printf "#import \"%s\"\n" "${path}"
+         printf "#import \"%s\"\n" "${filepath}"
       else
-         printf "#include \"%s\"\n" "${path}"
+         printf "#include \"%s\"\n" "${filepath}"
       fi
    }
 
+   #
+   # Flat (top-level) headers are emitted in alphabetical order. Some libraries
+   # install non-standalone sub-headers next to their umbrella header (e.g.
+   # libpng's "pngconf.h"/"pnglibconf.h", zlib's "zconf.h"). These must not be
+   # included on their own: they rely on the umbrella header including them in
+   # a specific order. Emitting them alphabetically breaks that contract (e.g.
+   # "pngconf.h" before "pnglibconf.h" hides <stdio.h>/<setjmp.h>).
+   #
+   # The exclusion list is taken from the MULLE_SDE_TEST_INCLUDE_H_EXCLUDE
+   # environment variable (space separated basenames or globs). Set it in the
+   # test project's own environment, e.g. from within the test/ directory:
+   #
+   #    mulle-sde environment --scope project set \
+   #       MULLE_SDE_TEST_INCLUDE_H_EXCLUDE "pngconf.h pnglibconf.h zconf.h"
+   #
+   local exclude_headers
+
+   exclude_headers="${MULLE_SDE_TEST_INCLUDE_H_EXCLUDE:-}"
+
    local hdr
    local rel
+   local pattern
+   local skip
 
    for hdr in $(find "$INC_ROOT" -maxdepth 1 -type f -name '*.h' | sort)
    do
@@ -83,6 +104,24 @@ sde::test::emit_include_h()
             continue
          ;;
       esac
+
+      skip='NO'
+      for pattern in ${exclude_headers}
+      do
+         case "${rel}" in
+            ${pattern})
+               skip='YES'
+               break
+            ;;
+         esac
+      done
+
+      if [ "${skip}" = 'YES' ]
+      then
+         printf "%s\n" "// skipped \"${rel}\" (non-standalone header, see MULLE_SDE_TEST_INCLUDE_H_EXCLUDE)"
+         log_debug "Skip non-standalone header \"${rel}\""
+         continue
+      fi
 
       emit_line "${rel}" "no"
    done
@@ -233,27 +272,34 @@ sde::test::postprocess_headers()
    local TEST_PROJECT_NAME
    local PROJECT_LANGUAGE
    local PROJECT_DIALECT
+   local MULLE_SDE_TEST_INCLUDE_H_EXCLUDE
 
    log_setting "PWD               : ${PWD}"
    log_setting "MULLE_USER_PWD    : ${MULLE_USER_PWD}"
 
-   # for post processing we "just" get the environment of the test folder
-   # wholesale
-   PROJECT_NAME="$(rexekutor mulle-env -E get --output-eval PROJECT_NAME)"
+   #
+   # Post-processing must read the *test* project's environment, not whatever
+   # environment mulle-sde happens to run in (this step runs outside any
+   # virtual environment). Resolve everything against "${test_directory}" so
+   # test-only variables like MULLE_SDE_TEST_INCLUDE_H_EXCLUDE are visible.
+   #
+   PROJECT_NAME="$(rexekutor mulle-env -E -d "${test_directory}" get --output-eval PROJECT_NAME)"
    if [ -z "${PROJECT_NAME}" ]
    then
       log_warning "PROJECT_NAME not set, skipping post-processing"
       exit 0
    fi
 
-   TEST_PROJECT_NAME="$(rexekutor mulle-env -E get --output-eval TEST_PROJECT_NAME)"
-   PROJECT_LANGUAGE="$(rexekutor mulle-env -E get --output-eval PROJECT_LANGUAGE)"
-   PROJECT_DIALECT="$(rexekutor mulle-env -E get --output-eval PROJECT_DIALECT)"
+   TEST_PROJECT_NAME="$(rexekutor mulle-env -E -d "${test_directory}" get --output-eval TEST_PROJECT_NAME)"
+   PROJECT_LANGUAGE="$(rexekutor mulle-env -E -d "${test_directory}" get --output-eval PROJECT_LANGUAGE)"
+   PROJECT_DIALECT="$(rexekutor mulle-env -E -d "${test_directory}" get --output-eval PROJECT_DIALECT)"
+   MULLE_SDE_TEST_INCLUDE_H_EXCLUDE="$(rexekutor mulle-env -E -d "${test_directory}" get --output-eval MULLE_SDE_TEST_INCLUDE_H_EXCLUDE)"
 
    log_setting "PROJECT_NAME      : ${PROJECT_NAME}"
    log_setting "TEST_PROJECT_NAME : ${TEST_PROJECT_NAME}"
    log_setting "PROJECT_LANGUAGE  : ${PROJECT_LANGUAGE}"
    log_setting "PROJECT_DIALECT   : ${PROJECT_DIALECT}"
+   log_setting "MULLE_SDE_TEST_INCLUDE_H_EXCLUDE : ${MULLE_SDE_TEST_INCLUDE_H_EXCLUDE:-}"
 
    # short cut out if we don't know the language
    case "${PROJECT_LANGUAGE}" in

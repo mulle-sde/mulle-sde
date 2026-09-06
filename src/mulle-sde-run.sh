@@ -317,7 +317,6 @@ sde::run::main()
    local OPTION_SDE_RUN_ENV='YES'
    local MUDO_FLAGS="-E"
    local OPTION_BACKGROUND='DEFAULT'
-   local OPTION_SDE_RUN_ENV='YES'
    local OPTION_DEBUG_ENV='DEFAULT'
    local OPTION_TIMEOUT='DEFAULT'
    local OPTION_CRAFT='DEFAULT'
@@ -585,7 +584,13 @@ sde::run::main()
       then
          if [ -z "${OPTION_NAME}" ]
          then
-            log_error "Could not find an executable product"
+            # In vibecoding, r_user_choses_executable already emitted a
+            # detailed message listing the available executables, so don't
+            # print the misleading "no executable product" on top of it.
+            if [ "${MULLE_VIBECODING}" != 'YES' -o "${MULLE_FLAG_MAGNUM_FORCE}" = 'YES' ]
+            then
+               log_error "Could not find an executable product"
+            fi
             return 1
          fi
 

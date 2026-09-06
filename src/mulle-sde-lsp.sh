@@ -802,6 +802,8 @@ sde::lsp::main()
    local OPTION_CONFIGURATION="Debug"
    local OPTION_MERGE_DEPENDENCIES='YES'
    local tool_entries=""   # newline-separated list of "toolname:filepath"
+   local _file
+   local _tool
 
    while [ $# -ne 0 ]
    do
@@ -831,8 +833,8 @@ sde::lsp::main()
          --tool)
             [ $# -eq 1 ] && sde::lsp::usage "Missing argument to \"$1\""
             shift
-            local _tool="$1"
-            local _file=""
+            _tool="$1"
+            _file=""
             if [ $# -gt 1 ] && [ "${2:0:1}" != "-" ] && [ "$2" != "help" ]
             then
                shift
@@ -849,7 +851,7 @@ sde::lsp::main()
 
          # --- deprecated aliases ---
          --save)
-            local _file=""
+            _file=""
             if [ $# -gt 1 ] && [ "${2:0:1}" != "-" ] && [ "$2" != "help" ]
             then
                shift
@@ -861,7 +863,7 @@ sde::lsp::main()
          ;;
 
          --kiro)
-            local _file=""
+            _file=""
             if [ $# -gt 1 ] && [ "${2:0:1}" != "-" ] && [ "$2" != "help" ]
             then
                shift
@@ -873,7 +875,7 @@ sde::lsp::main()
          ;;
 
          --opencode)
-            local _file=""
+            _file=""
             if [ $# -gt 1 ] && [ "${2:0:1}" != "-" ] && [ "$2" != "help" ]
             then
                shift

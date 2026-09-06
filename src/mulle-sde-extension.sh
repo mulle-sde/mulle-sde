@@ -51,6 +51,7 @@ Usage:
 
 Commands:
    add        : add an extra extension to your project
+   change     : change installed extensions to another vendor/name (then upgrade)
    find       : find extensions bases on vendor/name or type
    list       : list installed extensions
    meta       : print the installed meta extension
@@ -207,6 +208,95 @@ EOF
 
    sde::extension::show_main extra >&2
 
+   exit 1
+}
+
+
+sde::extension::change_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension change [options] <command>
+
+   Change installed extensions to a different vendor (or a different name).
+   This only rewrites the list of installed extensions in \`.mulle/share/sde\`;
+   it does NOT regenerate any files.
+
+   The intended workflow is manual: change one or more extensions, review with
+   \`${MULLE_USAGE_NAME} extension list\`, then run \`${MULLE_USAGE_NAME} upgrade\`
+   yourself when you are ready to regenerate the files. This is a lighter
+   alternative to a full \`${MULLE_USAGE_NAME} reinit\`.
+
+   A common scenario is migrating a project created with
+   \`mulle-sde/c-developer\` to \`mulle-c/c-developer\` for cross-platform
+   builds (which changes the installed cmake files after upgrade):
+
+      ${MULLE_USAGE_NAME} extension change meta mulle-c/c-developer
+      ${MULLE_USAGE_NAME} extension list
+      ${MULLE_USAGE_NAME} upgrade
+
+Options:
+   --dry-run    : show what would change, but change nothing
+
+Commands:
+   meta <new-meta>          : change the meta extension. The runtime, buildtool
+                              and inherited extras are re-resolved from the new
+                              meta on the next \`${MULLE_USAGE_NAME} upgrade\`
+   extension <old> <new>    : change a single installed extension. <old> and
+                              <new> are \`vendor/name\` (e.g.
+                              mulle-sde/c-cmake mulle-c/c-cmake)
+EOF
+   exit 1
+}
+
+
+sde::extension::change_meta_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension change meta [options] <new-meta>
+
+   Change the installed meta extension to <new-meta> (a \`vendor/name\` like
+   \`mulle-c/c-developer\`). This only rewrites the installed extension list;
+   the meta's inherited runtime, buildtool and extra extensions are re-resolved
+   from the new meta on the next \`${MULLE_USAGE_NAME} upgrade\`, which you run
+   manually.
+
+   This is a lighter alternative to \`${MULLE_USAGE_NAME} reinit -m <new-meta>\`
+   that keeps your environment and non-share project files intact.
+
+Options:
+   --dry-run    : show what would change, but change nothing
+EOF
+   exit 1
+}
+
+
+sde::extension::change_extension_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+    cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} extension change extension [options] <old> <new>
+
+   Change a single installed extension from <old> to <new>, where both are
+   given as \`vendor/name\`. The extension type (meta, runtime, buildtool,
+   extra) is preserved. Use this for surgical, pinpoint changes, e.g.:
+
+      ${MULLE_USAGE_NAME} extension change extension mulle-sde/c-cmake mulle-c/c-cmake
+
+   This only rewrites the installed extension list. Run
+   \`${MULLE_USAGE_NAME} upgrade\` manually afterwards to regenerate the
+   \`share\` files from the new extension.
+
+Options:
+   --dry-run    : show what would change, but change nothing
+EOF
    exit 1
 }
 
@@ -2052,6 +2142,427 @@ sde::extension::remove_main()
 
 
 
+#
+# Rewrite the installed extension tracking file and relocate version files.
+#
+# This does NOT run an upgrade. The workflow is deliberately manual: change,
+# then `extension list` to review, possibly change again, and finally run
+# `mulle-sde upgrade` by hand to regenerate the share files. The upgrade path
+# re-reads the (rewritten) "extension" file via
+# sde::init::get_installed_extensions and reinstalls from it - re-resolving a
+# meta extension into its runtime/buildtool/extra set.
+#
+# input:
+#   $1 : new contents for the "extension" file (vendor/name;type lines)
+#   $2 : newline separated list of "old_vendor/old_name new_vendor/new_name"
+#        version-file moves (may be empty)
+#   OPTION_DRY_RUN controls whether anything is actually written
+#
+sde::extension::change_apply()
+{
+   log_entry "sde::extension::change_apply" "$@"
+
+   local newcontents="$1"
+   local moves="$2"
+
+   include "file"
+
+   # remove duplicate lines (keep first occurrence, preserve order), which can
+   # arise when a change target already exists in the installed set
+   local deduped
+   local line
+
+   deduped=""
+   IFS=$'\n'; shell_disable_glob
+   for line in ${newcontents}
+   do
+      [ -z "${line}" ] && continue
+      r_add_unique_line "${deduped}" "${line}"
+      deduped="${RVAL}"
+   done
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
+   newcontents="${deduped}"
+
+   if [ "${OPTION_DRY_RUN}" = 'YES' ]
+   then
+      log_info "Would change installed extensions to:"
+      printf "%s\n" "${newcontents}" >&2
+      return 0
+   fi
+
+   # make share writable, rewrite tracking file, move version files, relock
+   exekutor find "${MULLE_SDE_SHARE_DIR}" -type f -exec chmod +w {} \;
+
+   redirect_exekutor "${MULLE_SDE_SHARE_DIR}/extension" printf "%s\n" "${newcontents}" || return 1
+
+   local move
+   local old
+   local new
+   local old_vendor
+   local new_vendor
+
+   IFS=$'\n'; shell_disable_glob
+   for move in ${moves}
+   do
+      [ -z "${move}" ] && continue
+      old="${move%% *}"
+      new="${move##* }"
+      old_vendor="${old%%/*}"
+      new_vendor="${new%%/*}"
+
+      if [ -f "${MULLE_SDE_SHARE_DIR}/version/${old}" ]
+      then
+         mkdir_if_missing "${MULLE_SDE_SHARE_DIR}/version/${new_vendor}"
+         exekutor mv -f "${MULLE_SDE_SHARE_DIR}/version/${old}" \
+                        "${MULLE_SDE_SHARE_DIR}/version/${new}"
+         rmdir_if_empty "${MULLE_SDE_SHARE_DIR}/version/${old_vendor}"
+      fi
+   done
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
+
+   exekutor find "${MULLE_SDE_SHARE_DIR}" -type f -exec chmod a-w {} \;
+
+   log_info "Changed the pending list of installed extensions."
+   log_info "Run ${C_RESET_BOLD}${MULLE_USAGE_NAME} upgrade${C_INFO} to re-resolve and regenerate the files."
+   log_verbose "Until you upgrade, ${C_RESET_BOLD}${MULLE_USAGE_NAME} extension list${C_VERBOSE} still shows the currently installed files, not the pending change."
+}
+
+
+#
+# Read the installed extension file into RVAL, failing if none is installed.
+#
+sde::extension::r_read_installed()
+{
+   log_entry "sde::extension::r_read_installed" "$@"
+
+   if [ ! -f "${MULLE_SDE_SHARE_DIR}/extension" ]
+   then
+      RVAL=
+      return 1
+   fi
+
+   RVAL="`rexekutor grep -E -v '^#' "${MULLE_SDE_SHARE_DIR}/extension"`"
+   [ ! -z "${RVAL}" ]
+}
+
+
+#
+# assert that vendor/name exists as an extension of the expected type on the
+# searchpath, so we don't rewrite the tracking file to point at a non-existing
+# extension.
+#
+sde::extension::assert_available()
+{
+   log_entry "sde::extension::assert_available" "$@"
+
+   local vendor="$1"
+   local name="$2"
+   local wanted_type="$3"   # optional
+
+   local extdir
+   local foundtype
+
+   if ! sde::extension::r_find "${vendor}" "${name}"
+   then
+      fail "Extension ${C_RESET_BOLD}${vendor}/${name}${C_ERROR} not found on the extension searchpath"
+   fi
+   extdir="${RVAL}"
+
+   if [ ! -z "${wanted_type}" ]
+   then
+      foundtype="`rexekutor cat "${extdir}/type" 2>/dev/null`"
+      if [ ! -z "${foundtype}" -a "${foundtype}" != "${wanted_type}" ]
+      then
+         fail "Extension ${C_RESET_BOLD}${vendor}/${name}${C_ERROR} is of type ${C_RESET_BOLD}${foundtype}${C_ERROR}, but a ${C_RESET_BOLD}${wanted_type}${C_ERROR} extension is required here"
+      fi
+   fi
+}
+
+
+sde::extension::change_meta_main()
+{
+   log_entry "sde::extension::change_meta_main" "$@"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::extension::change_meta_usage
+         ;;
+
+         --dry-run)
+            OPTION_DRY_RUN='YES'
+         ;;
+
+         -*)
+            sde::extension::change_meta_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   [ $# -eq 0 ] && sde::extension::change_meta_usage "Missing <new-meta> argument"
+   [ $# -gt 1 ] && sde::extension::change_meta_usage "Superfluous arguments \"$*\""
+
+   local new_meta="$1"
+
+   case "${new_meta}" in
+      */*) ;;
+      *)   sde::extension::change_meta_usage "Meta extension must be given as vendor/name" ;;
+   esac
+
+   local new_vendor="${new_meta%%/*}"
+   local new_name="${new_meta##*/}"
+
+   local installed
+
+   if ! sde::extension::r_read_installed
+   then
+      fail "No extensions are installed (nothing to change)"
+   fi
+   installed="${RVAL}"
+
+   local old_meta
+
+   old_meta="`printf "%s\n" "${installed}" | rexekutor grep -E -e ';meta$' | head -1 | cut -d';' -f1`"
+   if [ -z "${old_meta}" ]
+   then
+      fail "No meta extension is installed. Use ${C_RESET_BOLD}${MULLE_USAGE_NAME} reinit -m ${new_meta}${C_ERROR} instead."
+   fi
+
+   if [ "${old_meta}" = "${new_meta}" ]
+   then
+      log_info "Meta extension is already ${C_RESET_BOLD}${new_meta}"
+      return 0
+   fi
+
+   # validate the new meta actually exists before mutating anything
+   sde::extension::assert_available "${new_vendor}" "${new_name}" "meta"
+
+   #
+   # Re-resolve: the new meta expands into its own runtime/buildtool/inherited
+   # set. We therefore keep only the installed "extra" lines that are not
+   # provided by the old meta family, and let the upgrade re-derive the rest.
+   #
+   # Simplest robust approach: reduce the tracking file to just the new meta
+   # line plus any extra extensions whose vendor is NOT the old meta's vendor
+   # (i.e. extras the user added explicitly). The upgrade then re-expands the
+   # meta.
+   #
+   local old_vendor="${old_meta%%/*}"
+   local newcontents
+   local line
+   local ext
+   local type
+   local vendor
+
+   newcontents="${new_meta};meta"
+
+   IFS=$'\n'; shell_disable_glob
+   for line in ${installed}
+   do
+      [ -z "${line}" ] && continue
+      ext="${line%;*}"
+      type="${line##*;}"
+      vendor="${ext%%/*}"
+
+      case "${type}" in
+         meta|runtime|buildtool)
+            # dropped: re-derived from the new meta by the upgrade
+            :
+         ;;
+
+         extra)
+            # keep user-added extras that aren't part of the old meta family
+            if [ "${vendor}" != "${old_vendor}" ]
+            then
+               r_add_line "${newcontents}" "${line}"
+               newcontents="${RVAL}"
+            fi
+         ;;
+
+         *)
+            log_warning "Keeping unrecognized installed line \"${line}\""
+            r_add_line "${newcontents}" "${line}"
+            newcontents="${RVAL}"
+         ;;
+      esac
+   done
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
+
+   local moves
+
+   moves="${old_meta} ${new_meta}"
+
+   log_info "Changing meta extension ${C_RESET_BOLD}${old_meta}${C_INFO} to ${C_RESET_BOLD}${new_meta}"
+
+   sde::extension::change_apply "${newcontents}" "${moves}"
+}
+
+
+sde::extension::change_extension_main()
+{
+   log_entry "sde::extension::change_extension_main" "$@"
+
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::extension::change_extension_usage
+         ;;
+
+         --dry-run)
+            OPTION_DRY_RUN='YES'
+         ;;
+
+         -*)
+            sde::extension::change_extension_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   [ $# -lt 2 ] && sde::extension::change_extension_usage "Missing <old> and/or <new> argument"
+   [ $# -gt 2 ] && sde::extension::change_extension_usage "Superfluous arguments \"$*\""
+
+   local old_ext="$1"
+   local new_ext="$2"
+
+   case "${old_ext}" in
+      */*) ;;
+      *)   sde::extension::change_extension_usage "<old> must be given as vendor/name" ;;
+   esac
+   case "${new_ext}" in
+      */*) ;;
+      *)   sde::extension::change_extension_usage "<new> must be given as vendor/name" ;;
+   esac
+
+   if [ "${old_ext}" = "${new_ext}" ]
+   then
+      log_info "Extension is already ${C_RESET_BOLD}${new_ext}"
+      return 0
+   fi
+
+   local new_vendor="${new_ext%%/*}"
+   local new_name="${new_ext##*/}"
+
+   local installed
+
+   if ! sde::extension::r_read_installed
+   then
+      fail "No extensions are installed (nothing to change)"
+   fi
+   installed="${RVAL}"
+
+   # find the installed line for old_ext (any type) and capture its type
+   local matched_type
+   local escaped
+
+   r_escaped_sed_pattern "${old_ext}"
+   escaped="${RVAL}"
+   matched_type="`printf "%s\n" "${installed}" \
+                  | rexekutor sed -n -e "s|^${escaped};\\(.*\\)\$|\\1|p" | head -1`"
+
+   if [ -z "${matched_type}" ]
+   then
+      fail "Extension ${C_RESET_BOLD}${old_ext}${C_ERROR} is not installed.
+${C_INFO}Installed extensions:
+${installed}"
+   fi
+
+   # validate the replacement exists
+   sde::extension::assert_available "${new_vendor}" "${new_name}" "${matched_type}"
+
+   # rewrite exactly the matching line, preserve the type
+   local newcontents
+   local line
+
+   newcontents=""
+   IFS=$'\n'; shell_disable_glob
+   for line in ${installed}
+   do
+      [ -z "${line}" ] && continue
+      if [ "${line}" = "${old_ext};${matched_type}" ]
+      then
+         r_add_line "${newcontents}" "${new_ext};${matched_type}"
+      else
+         r_add_line "${newcontents}" "${line}"
+      fi
+      newcontents="${RVAL}"
+   done
+   IFS="${DEFAULT_IFS}"; shell_enable_glob
+
+   local moves
+
+   moves="${old_ext} ${new_ext}"
+
+   log_info "Changing extension ${C_RESET_BOLD}${old_ext}${C_INFO} (${matched_type}) to ${C_RESET_BOLD}${new_ext}"
+
+   sde::extension::change_apply "${newcontents}" "${moves}"
+}
+
+
+sde::extension::change_main()
+{
+   log_entry "sde::extension::change_main" "$@"
+
+   local OPTION_DRY_RUN='NO'
+
+   # allow flags before the subcommand too
+   while [ $# -ne 0 ]
+   do
+      case "$1" in
+         -h*|--help|help)
+            sde::extension::change_usage
+         ;;
+
+         --dry-run)
+            OPTION_DRY_RUN='YES'
+         ;;
+
+         -*)
+            sde::extension::change_usage "Unknown option \"$1\""
+         ;;
+
+         *)
+            break
+         ;;
+      esac
+      shift
+   done
+
+   local subcmd="$1"
+
+   [ $# -ne 0 ] && shift
+
+   case "${subcmd}" in
+      meta)
+         sde::extension::change_meta_main "$@"
+      ;;
+
+      extension)
+         sde::extension::change_extension_main "$@"
+      ;;
+
+      ""|-h|--help|help)
+         sde::extension::change_usage
+      ;;
+
+      *)
+         sde::extension::change_usage "Unknown change command \"${subcmd}\""
+      ;;
+   esac
+}
+
+
 ###
 ### parameters and environment variables
 ###
@@ -2119,6 +2630,16 @@ sde::extension::main()
          sde::extension::${cmd}_main "$@"
       ;;
 
+      change)
+         # change only rewrites the installed extension list in
+         # .mulle/share/sde (needs MULLE_SDE_SHARE_DIR, resolved here via
+         # mulle-tool-env). It does not run upgrade - the user does that
+         # manually afterwards. Run at top level like "remove".
+         [ $# -eq 0 ] && sde::extension::change_usage
+
+         sde::extension::change_main "$@"
+      ;;
+
       pimp)
          [ $# -eq 0 ] && sde::extension::pimp_usage
 
@@ -2151,7 +2672,7 @@ sde::extension::main()
 
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            exekutor exec mulle-sde exec mulle-sde extension "${cmd}"
+            exekutor exec mulle-sde exec mulle-sde ${MULLE_TECHNICAL_FLAGS} extension "${cmd}"
          fi
 
          if [ -f "${MULLE_SDE_SHARE_DIR}/extension" ]
@@ -2172,7 +2693,7 @@ sde::extension::main()
 
          if [ -z "${MULLE_VIRTUAL_ROOT}" ]
          then
-            exekutor exec mulle-sde exec mulle-sde extension "${cmd}"
+            exekutor exec mulle-sde exec mulle-sde ${MULLE_TECHNICAL_FLAGS} extension "${cmd}"
          fi
 
          [ ! -z "${MULLE_SDE_SHARE_DIR}" ] || _internal_fail "MULLE_SDE_SHARE_DIR undefined"

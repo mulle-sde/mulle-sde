@@ -1,0 +1,30 @@
+on:
+  workflow_dispatch: {}
+  pull_request: {}
+  push:
+    branches:
+    - main
+    - master
+    paths:
+    - '**/*.sh'
+    - '.github/workflows/mulle-bash-lint.yml'
+
+name: mulle-bash-lint
+
+jobs:
+  log-checker:
+    name: log-checker
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install mulle-bashfunctions
+      run: |
+        curl -sL 'https://github.com/mulle-nat/mulle-bashfunctions/archive/latest.tar.gz' \
+          | tar xfz -
+        cd mulle-bashfunctions-latest && sudo ./bin/installer /usr/local
+
+    - name: Run log-checker on sources
+      run: |
+        mulle-bashfunctions log-checker mulle-sde src/*.sh

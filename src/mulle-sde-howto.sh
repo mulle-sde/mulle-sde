@@ -331,7 +331,7 @@ sde::howto::ensure_dependencies_crafted()
 }
 
 #
-# Howtos are installed by extensions into share/howto/
+# Howtos are installed by extensions into share/sde/howto/
 # local howtos are created in asset/howto/
 # howtos are also available via dependencies as ${DEPENDENCY_DIR}/.../share/${name}/howto
 # similiar to how dependency toc works
@@ -388,9 +388,9 @@ sde::howto::r_collect_howto_roots()
       roots="${RVAL}"
    fi
 
-   if [ "${global_use_etc}" = 'NO' ] && [ -d "${HOME}/.mulle/share/howto" ]
+   if [ "${global_use_etc}" = 'NO' ] && [ -d "${HOME}/.mulle/share/sde/howto" ]
    then
-      r_colon_concat "${roots}" "${HOME}/.mulle/share/howto"
+      r_colon_concat "${roots}" "${HOME}/.mulle/share/sde/howto"
       roots="${RVAL}"
    fi
 
@@ -401,9 +401,9 @@ sde::howto::r_collect_howto_roots()
       roots="${RVAL}"
    fi
 
-   if [ "${use_etc}" = 'NO' ] && [ -d ".mulle/share/howto" ]
+   if [ "${use_etc}" = 'NO' ] && [ -d ".mulle/share/sde/howto" ]
    then
-      r_colon_concat "${roots}" ".mulle/share/howto"
+      r_colon_concat "${roots}" ".mulle/share/sde/howto"
       roots="${RVAL}"
    fi
 
@@ -429,9 +429,9 @@ sde::howto::r_collect_howto_roots()
          roots="${RVAL}"
       fi
 
-      if [ -d "${subdir}/.mulle/share/howto" ]
+      if [ -d "${subdir}/.mulle/share/sde/howto" ]
       then
-         r_colon_concat "${roots}" "${subdir}/.mulle/share/howto"
+         r_colon_concat "${roots}" "${subdir}/.mulle/share/sde/howto"
          roots="${RVAL}"
       fi
 
@@ -480,7 +480,6 @@ sde::howto::r_collect_howto_roots()
                shell_enable_nullglob
                for repo in "${search_dir}"/*
                do
-                  shell_disable_nullglob
                   [ -e "${repo}" ] || continue
                   if [ -d "${repo}/howto" ]
                   then
@@ -488,6 +487,7 @@ sde::howto::r_collect_howto_roots()
                      roots="${RVAL}"
                   fi
                done
+               shell_disable_nullglob
                .break
             fi
          .done
@@ -500,7 +500,7 @@ sde::howto::r_collect_howto_roots()
 
 #
 # Collect bundle entries as newline-separated records:
-#   role;topic;member;path
+#   role;topic;member;filepath
 #
 sde::howto::r_collect_bundle_entries()
 {
@@ -571,7 +571,7 @@ EOF
 #
 # Collect resolved bundle members for a role/topic in precedence order.
 # Returns newline-separated records:
-#   member;path
+#   member;filepath
 #
 sde::howto::r_collect_bundle_member_map()
 {
@@ -585,7 +585,7 @@ sde::howto::r_collect_bundle_member_map()
    local line_role
    local line_topic
    local member
-   local path
+   local filepath
 
    [ -z "${role}" ] && fail "Missing role"
    [ -z "${topic}" ] && fail "Missing topic"
@@ -602,14 +602,14 @@ sde::howto::r_collect_bundle_member_map()
       line_topic="${line%%;*}"
       line="${line#*;}"
       member="${line%%;*}"
-      path="${line#*;}"
+      filepath="${line#*;}"
 
       [ "${line_role}" = "${role}" ] || continue
       [ "${line_topic}" = "${topic}" ] || continue
 
       if ! grep -q "^${member};" <<< "${map}"
       then
-         r_add_line "${map}" "${member};${path}"
+         r_add_line "${map}" "${member};${filepath}"
          map="${RVAL}"
       fi
    done <<EOF
@@ -622,7 +622,7 @@ EOF
 
 #
 # Resolve a specific bundle member. If member is empty, defaults to "index".
-# Returns the path in RVAL.
+# Returns the filepath in RVAL.
 #
 sde::howto::r_resolve_bundle_member()
 {
@@ -634,7 +634,7 @@ sde::howto::r_resolve_bundle_member()
    local map
    local line
    local line_member
-   local path
+   local filepath
 
    sde::howto::r_collect_bundle_member_map "${role}" "${topic}"
    map="${RVAL}"
@@ -643,10 +643,10 @@ sde::howto::r_resolve_bundle_member()
    do
       [ -z "${line}" ] && continue
       line_member="${line%%;*}"
-      path="${line#*;}"
+      filepath="${line#*;}"
       if [ "${line_member}" = "${member}" ]
       then
-         RVAL="${path}"
+         RVAL="${filepath}"
          return 0
       fi
    done <<EOF
@@ -676,10 +676,10 @@ sde::howto::r_resolve_bundle_shortcut()
 
 sde::howto::emit_howto_file()
 {
-   local path="$1"
+   local filepath="$1"
 
-   log_verbose "Showing howto from ${path}"
-   rexekutor grep -v '^<!--' "${path}"
+   log_verbose "Showing howto from ${filepath}"
+   rexekutor grep -v '^<!--' "${filepath}"
 }
 
 
@@ -692,7 +692,7 @@ sde::howto::_emit_bundle_map()
    local map="$1"
    local line
    local member
-   local path
+   local filepath
    local remainder=""
 
    for member in index quirks patterns
@@ -702,8 +702,8 @@ sde::howto::_emit_bundle_map()
          [ -z "${line}" ] && continue
          if [ "${line%%;*}" = "${member}" ]
          then
-            path="${line#*;}"
-            sde::howto::emit_howto_file "${path}"
+            filepath="${line#*;}"
+            sde::howto::emit_howto_file "${filepath}"
             echo ""
          fi
       done <<EOF
@@ -733,8 +733,8 @@ EOF
       while IFS= read -r line
       do
          [ -z "${line}" ] && continue
-         path="${line#*;}"
-         sde::howto::emit_howto_file "${path}"
+         filepath="${line#*;}"
+         sde::howto::emit_howto_file "${filepath}"
          echo ""
       done <<EOF
 ${remainder}
@@ -1307,10 +1307,10 @@ sde::howto::show_keyword_matches()
 
 sde::howto::r_howto_role_from_path()
 {
-   local path="$1"
+   local filepath="$1"
    local relpath
 
-   relpath="${path##*howto/}"
+   relpath="${filepath##*howto/}"
 
    case "${relpath}" in
       */*)
@@ -1326,12 +1326,12 @@ sde::howto::r_howto_role_from_path()
 
 sde::howto::r_dependency_reponame_from_howto_path()
 {
-   local path="$1"
+   local filepath="$1"
    local repo_path
 
-   case "${path}" in
+   case "${filepath}" in
       /*/share/*/howto/*)
-         repo_path="${path%/howto/*}"
+         repo_path="${filepath%/howto/*}"
          r_basename "${repo_path}"
          return 0
       ;;
@@ -1344,18 +1344,18 @@ sde::howto::r_dependency_reponame_from_howto_path()
 
 sde::howto::r_howto_source_key()
 {
-   local path="$1"
+   local filepath="$1"
    local subdir_path
 
-   case "${path}" in
-      "${HOME}/.mulle/etc/howto/"*|"${HOME}/.mulle/share/howto/"*)
+   case "${filepath}" in
+      "${HOME}/.mulle/etc/howto/"*|"${HOME}/.mulle/share/sde/howto/"*)
          RVAL="user"
       ;;
-      .mulle/etc/howto/*|.mulle/share/howto/*|asset/howto/*)
+      .mulle/etc/howto/*|.mulle/share/sde/howto/*|asset/howto/*)
          RVAL="project"
       ;;
       /*)
-         if sde::howto::r_dependency_reponame_from_howto_path "${path}"
+         if sde::howto::r_dependency_reponame_from_howto_path "${filepath}"
          then
             RVAL="dependency:${RVAL}"
          else
@@ -1363,7 +1363,7 @@ sde::howto::r_howto_source_key()
          fi
       ;;
       */.mulle/*/howto/*)
-         subdir_path="${path%%/.mulle/*}"
+         subdir_path="${filepath%%/.mulle/*}"
          r_basename "${subdir_path}"
          RVAL="subdir:${RVAL}"
       ;;
@@ -1376,7 +1376,7 @@ sde::howto::r_howto_source_key()
 
 sde::howto::r_howto_display_name()
 {
-   local path="$1"
+   local filepath="$1"
    local relpath
    local name
    local role
@@ -1384,7 +1384,7 @@ sde::howto::r_howto_display_name()
    local member
    local subdir_path
 
-   relpath="${path##*howto/}"
+   relpath="${filepath##*howto/}"
 
    case "${relpath}" in
       */*/*.md)
@@ -1409,7 +1409,7 @@ sde::howto::r_howto_display_name()
       ;;
 
       *.md)
-         r_basename "${path}"
+         r_basename "${filepath}"
          r_extensionless_basename "${RVAL}"
          name="${RVAL}"
       ;;
@@ -1419,11 +1419,11 @@ sde::howto::r_howto_display_name()
       ;;
    esac
 
-   case "${path}" in
+   case "${filepath}" in
       /*)
       ;;
       */.mulle/*/howto/*)
-         subdir_path="${path%%/.mulle/*}"
+         subdir_path="${filepath%%/.mulle/*}"
          r_basename "${subdir_path}"
          name="${RVAL}/${name}"
       ;;
@@ -1435,14 +1435,14 @@ sde::howto::r_howto_display_name()
 
 sde::howto::r_howto_topic_display_name()
 {
-   local path="$1"
+   local filepath="$1"
    local relpath
    local name
    local role
    local topic
    local subdir_path
 
-   relpath="${path##*howto/}"
+   relpath="${filepath##*howto/}"
 
    case "${relpath}" in
       */*/*.md)
@@ -1460,7 +1460,7 @@ sde::howto::r_howto_topic_display_name()
       ;;
 
       *.md)
-         r_basename "${path}"
+         r_basename "${filepath}"
          r_extensionless_basename "${RVAL}"
          name="${RVAL}"
       ;;
@@ -1470,11 +1470,11 @@ sde::howto::r_howto_topic_display_name()
       ;;
    esac
 
-   case "${path}" in
+   case "${filepath}" in
       /*)
       ;;
       */.mulle/*/howto/*)
-         subdir_path="${path%%/.mulle/*}"
+         subdir_path="${filepath%%/.mulle/*}"
          r_basename "${subdir_path}"
          name="${RVAL}/${name}"
       ;;
@@ -1489,13 +1489,13 @@ sde::howto::r_howto_display_label()
    local howto="$1"
 
    case "${howto}" in
-      "${HOME}/.mulle/etc/howto/"*|"${HOME}/.mulle/share/howto/"*)
+      "${HOME}/.mulle/etc/howto/"*|"${HOME}/.mulle/share/sde/howto/"*)
          RVAL="(user)"
       ;;
       .mulle/etc/howto/*)
          RVAL="(local)"
       ;;
-      .mulle/share/howto/*)
+      .mulle/share/sde/howto/*)
          RVAL=""
       ;;
       asset/howto/*)
@@ -1645,13 +1645,13 @@ sde::howto::r_collect_howtos()
       log_debug "~/.mulle/etc/howto does not exist"
    fi
    
-   # Collect from global ~/.mulle/share/howto (global installed)
+   # Collect from global ~/.mulle/share/sde/howto (global installed)
    log_debug "global_use_etc=${global_use_etc}"
-   log_debug "Checking ~/.mulle/share/howto"
-   if [ "${global_use_etc}" = 'NO' ] && [ -d "${HOME}/.mulle/share/howto" ]
+   log_debug "Checking ~/.mulle/share/sde/howto"
+   if [ "${global_use_etc}" = 'NO' ] && [ -d "${HOME}/.mulle/share/sde/howto" ]
    then
-      log_debug "Found ~/.mulle/share/howto"
-      for howto in "${HOME}"/.mulle/share/howto/*.md
+      log_debug "Found ~/.mulle/share/sde/howto"
+      for howto in "${HOME}"/.mulle/share/sde/howto/*.md
       do
          log_debug "Checking file: ${howto}"
          if [ -f "${howto}" ]
@@ -1664,7 +1664,7 @@ sde::howto::r_collect_howtos()
          fi
       done
    else
-      log_debug "~/.mulle/share/howto does not exist or global_use_etc='YES'"
+      log_debug "~/.mulle/share/sde/howto does not exist or global_use_etc='YES'"
    fi
    
    # Collect from .mulle/etc/howto (local overrides)
@@ -1689,13 +1689,13 @@ sde::howto::r_collect_howtos()
       log_debug ".mulle/etc/howto does not exist"
    fi
    
-   # Collect from .mulle/share/howto (installed by extensions)
+   # Collect from .mulle/share/sde/howto (installed by extensions)
    log_debug "use_etc=${use_etc}"
-   log_debug "Checking .mulle/share/howto"
-   if [ "${use_etc}" = 'NO' ] && [ -d ".mulle/share/howto" ]
+   log_debug "Checking .mulle/share/sde/howto"
+   if [ "${use_etc}" = 'NO' ] && [ -d ".mulle/share/sde/howto" ]
    then
-      log_debug "Found .mulle/share/howto"
-      for howto in .mulle/share/howto/*.md
+      log_debug "Found .mulle/share/sde/howto"
+      for howto in .mulle/share/sde/howto/*.md
       do
          log_debug "Checking file: ${howto}"
          if [ -f "${howto}" ]
@@ -1708,7 +1708,7 @@ sde::howto::r_collect_howtos()
          fi
       done
    else
-      log_debug ".mulle/share/howto does not exist or use_etc='YES'"
+      log_debug ".mulle/share/sde/howto does not exist or use_etc='YES'"
    fi
    
    # Collect from asset/howto/ (local project)
@@ -1778,9 +1778,9 @@ sde::howto::r_collect_howtos()
       then
          log_debug "Found ${subdir}"
          # Check each directory separately to avoid zsh glob errors
-         if [ -d "${subdir}/.mulle/share/howto" ]
+         if [ -d "${subdir}/.mulle/share/sde/howto" ]
          then
-            for howto in "${subdir}"/.mulle/share/howto/*.md
+            for howto in "${subdir}"/.mulle/share/sde/howto/*.md
             do
                log_debug "Checking file: ${howto}"
                if [ -f "${howto}" ]
@@ -1901,7 +1901,6 @@ sde::howto::r_collect_howtos()
                shell_enable_nullglob
                for repo in "${search_dir}"/*
                do
-                  shell_disable_nullglob
                   [ -e "${repo}" ] || continue
                   log_debug "Checking repo: ${repo}"
                   if [ -d "${repo}/howto" ]
@@ -1986,7 +1985,7 @@ sde::howto::r_collect_bundle_entries_filtered()
    local entries
    local filtered=""
    local line
-   local path
+   local filepath
    local repo
    local toplevel_deps=""
 
@@ -2004,10 +2003,10 @@ sde::howto::r_collect_bundle_entries_filtered()
 
       if [ "${filter_toplevel}" = 'YES' ]
       then
-         path="${line##*;}"
-         case "${path}" in
+         filepath="${line##*;}"
+         case "${filepath}" in
             /*)
-               if sde::howto::r_dependency_reponame_from_howto_path "${path}"
+               if sde::howto::r_dependency_reponame_from_howto_path "${filepath}"
                then
                   repo="${RVAL}"
                   if ! printf "%s\n" "${toplevel_deps}" | grep -F -x -q "${repo}"
@@ -2037,7 +2036,7 @@ sde::howto::r_collect_bundle_topic_howtos()
    local entries
    local map=""
    local line
-   local path
+   local filepath
    local role
    local topic
    local member
@@ -2064,9 +2063,9 @@ sde::howto::r_collect_bundle_topic_howtos()
       topic="${tmp%%;*}"
       tmp="${tmp#*;}"
       member="${tmp%%;*}"
-      path="${tmp#*;}"
+      filepath="${tmp#*;}"
 
-      sde::howto::r_howto_source_key "${path}"
+      sde::howto::r_howto_source_key "${filepath}"
       source_key="${RVAL}"
       existing_line=""
       existing_member=""
@@ -2096,7 +2095,7 @@ EOF
 
       if [ -z "${existing_line}" ]
       then
-         r_add_line "${map}" "${source_key};${role};${topic};${member};${path}"
+         r_add_line "${map}" "${source_key};${role};${topic};${member};${filepath}"
          map="${RVAL}"
       else
          if [ "${existing_member}" != 'index' ] && [ "${member}" = 'index' ]
@@ -2112,7 +2111,7 @@ EOF
 ${map}
 EOF
             map="${tmp}"
-            r_add_line "${map}" "${source_key};${role};${topic};${member};${path}"
+            r_add_line "${map}" "${source_key};${role};${topic};${member};${filepath}"
             map="${RVAL}"
          fi
       fi
@@ -2123,9 +2122,9 @@ EOF
    while IFS= read -r line
    do
       [ -z "${line}" ] && continue
-      path="${line##*;}"
+      filepath="${line##*;}"
       count=$((count + 1))
-      r_colon_concat "${howtos}" "${path}"
+      r_colon_concat "${howtos}" "${filepath}"
       howtos="${RVAL}"
    done <<EOF
 ${map}
@@ -2149,7 +2148,7 @@ sde::howto::r_collect_display_howtos()
    local filter_toplevel="${1:-NO}"
    local howtos
    local bundle_howtos
-   local path
+   local filepath
    local seen_paths=""
    local count
    local sorted_howtos=""
@@ -2158,23 +2157,23 @@ sde::howto::r_collect_display_howtos()
    count=$?
    howtos="${RVAL}"
 
-   .foreachpath path in ${howtos}
+   .foreachpath filepath in ${howtos}
    .do
-      r_add_line "${seen_paths}" "${path}"
+      r_add_line "${seen_paths}" "${filepath}"
       seen_paths="${RVAL}"
    .done
 
    sde::howto::r_collect_bundle_topic_howtos "${filter_toplevel}"
    bundle_howtos="${RVAL}"
 
-   .foreachpath path in ${bundle_howtos}
+   .foreachpath filepath in ${bundle_howtos}
    .do
-      if ! find_line "${seen_paths}" "${path}"
+      if ! find_line "${seen_paths}" "${filepath}"
       then
          count=$((count + 1))
-         r_add_line "${seen_paths}" "${path}"
+         r_add_line "${seen_paths}" "${filepath}"
          seen_paths="${RVAL}"
-         r_colon_concat "${howtos}" "${path}"
+         r_colon_concat "${howtos}" "${filepath}"
          howtos="${RVAL}"
       fi
    .done
@@ -2198,7 +2197,7 @@ sde::howto::r_collect_search_howtos()
    local howtos
    local entries
    local line
-   local path
+   local filepath
    local role
    local topic
    local member
@@ -2214,9 +2213,9 @@ sde::howto::r_collect_search_howtos()
    count=$?
    howtos="${RVAL}"
 
-   .foreachpath path in ${howtos}
+   .foreachpath filepath in ${howtos}
    .do
-      r_add_line "${seen_paths}" "${path}"
+      r_add_line "${seen_paths}" "${filepath}"
       seen_paths="${RVAL}"
    .done
 
@@ -2232,9 +2231,9 @@ sde::howto::r_collect_search_howtos()
       topic="${tmp%%;*}"
       tmp="${tmp#*;}"
       member="${tmp%%;*}"
-      path="${tmp#*;}"
+      filepath="${tmp#*;}"
 
-      sde::howto::r_howto_source_key "${path}"
+      sde::howto::r_howto_source_key "${filepath}"
       source_key="${RVAL}"
       key="${source_key};${role};${topic};${member}"
 
@@ -2243,12 +2242,12 @@ sde::howto::r_collect_search_howtos()
          r_add_line "${seen_keys}" "${key}"
          seen_keys="${RVAL}"
 
-         if ! find_line "${seen_paths}" "${path}"
+         if ! find_line "${seen_paths}" "${filepath}"
          then
             count=$((count + 1))
-            r_add_line "${seen_paths}" "${path}"
+            r_add_line "${seen_paths}" "${filepath}"
             seen_paths="${RVAL}"
-            r_colon_concat "${howtos}" "${path}"
+            r_colon_concat "${howtos}" "${filepath}"
             howtos="${RVAL}"
          fi
       fi
@@ -2730,6 +2729,15 @@ sde::howto::show()
    local OPTION_ROLE
    local OPTION_TOPIC
    local OPTION_FILE
+   local option_name
+   local role
+   local topic
+   local member
+   local bundle_path
+   local coder_bundle_path
+   local shortcut_role
+   local shortcut_topic
+   local shortcut_map
 
    while [ $# -ne 0 ]
    do
@@ -2758,7 +2766,7 @@ sde::howto::show()
          ;;
 
          --file|--member)
-            local option_name="$1"
+            option_name="$1"
             shift
             [ $# -eq 0 ] && sde::howto::show_usage "Missing value for ${option_name}"
             OPTION_FILE="$1"
@@ -2797,10 +2805,9 @@ sde::howto::show()
 
    if [ -z "${OPTION_KEYWORDS}" ] && [ "${using_selector}" = 'YES' ]
    then
-     local bundle_path
-     local topic="${OPTION_TOPIC}"
-      local role="${OPTION_ROLE}"
-      local member="${OPTION_FILE:-index}"
+     topic="${OPTION_TOPIC}"
+      role="${OPTION_ROLE}"
+      member="${OPTION_FILE:-index}"
 
       [ $# -ne 0 ] && sde::howto::show_usage "Unexpected argument $1"
 
@@ -2848,10 +2855,6 @@ sde::howto::show()
            sde::howto::emit_howto_file "${bundle_path}"
            return 0
          fi
-         local shortcut_role
-         local shortcut_topic
-         local shortcut_map
-
          if sde::howto::r_resolve_bundle_shortcut "${topic}"
          then
             shortcut_role="${RVAL%%;*}"
@@ -2870,10 +2873,9 @@ sde::howto::show()
       fi
    elif [ -z "${OPTION_KEYWORDS}" ] && [ $# -ge 2 ]
    then
-      local role="$1"
-      local topic="$2"
-      local member="${3:-index}"
-      local bundle_path
+      role="$1"
+      topic="$2"
+      member="${3:-index}"
 
       [ $# -gt 3 ] && sde::howto::show_usage "Too many arguments"
 
@@ -2887,11 +2889,6 @@ sde::howto::show()
 
    if [ -z "${OPTION_KEYWORDS}" ] && [ $# -eq 1 ]
    then
-     local coder_bundle_path
-     local shortcut_role
-     local shortcut_topic
-     local shortcut_map
-
      if sde::howto::r_resolve_bundle_member 'coder' "${identifier}" 'index'
      then
         coder_bundle_path="${RVAL}"

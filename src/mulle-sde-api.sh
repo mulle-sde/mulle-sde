@@ -40,7 +40,7 @@ sde::api::usage()
 Usage:
    ${MULLE_USAGE_NAME} api <cmd>
 
-   Show API documentation (TOC.md files) from dependencies. AI friendly!
+   Show API documentation (api/toc/index.md files) from dependencies. AI friendly!
 
 Examples:
       mulle-sde api list
@@ -77,7 +77,7 @@ sde::api::apropos_usage()
 Usage:
    ${MULLE_USAGE_NAME} api apropos [options] <question>
 
-   Search through dependency API docs (TOC.md files) for relevant APIs using
+   Search through dependency API docs (api/toc/index.md files) for relevant APIs using
    keyword matching. If MULLE_SDE_AI_LOCAL is set, the question is passed to
    an AI wrapper with API docs as context instead.
 
@@ -115,7 +115,7 @@ sde::api::ensure_dependencies_crafted()
 
 #
 # Collect API documentation from dependencies
-# API docs are in share/<name>/dox/TOC.md or share/<name>/TOC.md
+# API docs are in share/<name>/dox/api/toc/index.md or share/<name>/dox/TOC.md (legacy)
 # Returns list of paths in RVAL and count as return code
 #
 sde::api::r_extract_keywords()
@@ -241,7 +241,31 @@ sde::api::r_collect_apis()
                      r_add_line "${seen_repos}" "${reponame}"
                      seen_repos="${RVAL}"
 
-                     # Try share/<name>/dox/TOC.md first
+                     # Try share/<name>/dox/api/toc/index.md first
+                     api="${repo}/dox/api/toc/index.md"
+                     if [ -f "${api}" ]
+                     then
+                        count=$((count + 1))
+                        log_debug "Found ${api}, count=${count}"
+
+                        if [ "${display}" = 'YES' ]
+                        then
+                           sde::api::r_extract_keywords "${api}"
+                           keywords_str="${RVAL}"
+                           if [ ! -z "${keywords_str}" ]
+                           then
+                              printf "%2d. %-30s [%s]\n" "${count}" "${reponame}" "${keywords_str}"
+                           else
+                              printf "%2d. %-30s\n" "${count}" "${reponame}"
+                           fi
+                        fi
+
+                        r_colon_concat "${apis}" "${api}"
+                        apis="${RVAL}"
+                        continue
+                     fi
+
+                     # Try share/<name>/dox/TOC.md (legacy)
                      api="${repo}/dox/TOC.md"
                      if [ -f "${api}" ]
                      then
@@ -507,13 +531,19 @@ sde::api::cat()
       
       *)
          # It's a name - search by dependency name
+         local _tmp
          .foreachpath api in ${apis}
          .do
             # Extract dependency name from path
-            # api is like: /path/to/dependency/Release/share/mulle-core/dox/TOC.md
-            dir="$(dirname "${api}")"  # .../mulle-core/dox or .../mulle-core
-            dir="$(dirname "${dir}")"  # .../mulle-core
-            r_basename "${dir}"
+            # api is like: /path/to/share/mulle-core/dox/api/toc/index.md (new)
+            #          or: /path/to/share/mulle-core/dox/TOC.md (legacy)
+            #          or: /path/to/share/mulle-core/TOC.md (legacy)
+            _tmp="${api%%/dox/*}"       # strip from /dox/ onwards
+            if [ "${_tmp}" = "${api}" ]
+            then
+               _tmp="${api%%/TOC.md}"    # legacy: strip /TOC.md
+            fi
+            r_basename "${_tmp}"
             name="${RVAL}"
             
             if [ "${name}" = "${identifier}" ]
@@ -866,6 +896,9 @@ sde::api::apropos()
 
    local question
    local output_json='NO'
+   local api
+   local reponame
+   local content
 
    # Default to JSON in vibecoding mode
    if [ "${MULLE_VIBECODING}" = 'YES' ]
@@ -937,9 +970,6 @@ sde::api::apropos()
 
       local max_context_chars=131072  # 128K
       local current_chars=0
-      local api
-      local content
-      local reponame
       local keywords_str
 
       log_info "Building prioritized context from ${count} API docs..."
@@ -1094,7 +1124,6 @@ Question: ${question}"
       fi
 
       local all_matches=""
-      local reponame
       local cnt
       local matches
 
@@ -1102,7 +1131,6 @@ Question: ${question}"
       local counts_file
       r_make_tmp_file
       counts_file="${RVAL}"
-      local api
       .foreachpath api in ${apis}
       .do
          cnt="$(rexekutor grep -c -i -E "${pattern}" "${api}" 2>/dev/null)"
@@ -1138,25 +1166,25 @@ Question: ${question}"
             log_info "No matches found in API docs"
          else
             local prev_file="" first_file='YES' first_line='YES'
-            local path lineno content
+            local filepath lineno
             printf '['
             while IFS= read -r line
             do
                [ -z "${line}" ] && continue
-               path="${line%%:*}"
+               filepath="${line%%:*}"
                line="${line#*:}"
                lineno="${line%%:*}"
                content="${line#*:}"
                content="${content//\\/\\\\}"
                content="${content//\"/\\\"}"
-               if [ "${path}" != "${prev_file}" ]
+               if [ "${filepath}" != "${prev_file}" ]
                then
                   [ "${first_file}" = 'NO' ] && printf ']},'
                   first_file='NO'
                   printf '{"filename":"%s","location":"%s","lines":[' \
-                     "${path##*/}" "${path}"
+                     "${filepath##*/}" "${filepath}"
                   first_line='YES'
-                  prev_file="${path}"
+                  prev_file="${filepath}"
                fi
                [ "${first_line}" = 'NO' ] && printf ','
                first_line='NO'
@@ -1180,7 +1208,7 @@ sde::api::context_usage()
 Usage:
    ${MULLE_USAGE_NAME} api context [options]
 
-   Output all API documentation (TOC.md files) from dependencies to stdout,
+   Output all API documentation (api/toc/index.md files) from dependencies to stdout,
    suitable for piping to an AI tool. Content is prioritized and truncated
    to fit within the context size limit.
 

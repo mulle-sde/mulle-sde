@@ -307,13 +307,25 @@ sde::clean::dependencydir()
 {
    log_entry "sde::clean::dependencydir" "$@"
 
-   if [ ! -z "${DEPENDENCY_DIR}" ]
+   local dependency_dir
+
+   dependency_dir="${DEPENDENCY_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR}}"
+   if [ -z "${dependency_dir}" ]
    then
-      log_verbose "Removing the \"dependency\" directory"
-      rmdir_safer "${DEPENDENCY_DIR}"
-   else
-      log_fluff "DEPENDENCY_DIR unknown, so don't clean"
+      log_fluff "Dependency directory unknown, so don't clean"
+      return
    fi
+
+   #
+   # Let mulle-craft own dependency-store cleanup. DEPENDENCY_DIR is
+   # contextual and may already name a qualified child such as dependency/Debug,
+   # so request the explicit store operation instead of deleting it here.
+   #
+   log_verbose "mulle-craft cleans the global dependency store"
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean \
+                  dependency-store
 }
 
 
@@ -865,7 +877,7 @@ sde::clean::main()
    log_debug "DEPENDENCY_DIR='${DEPENDENCY_DIR}'"
    log_debug "KITCHEN_DIR='${KITCHEN_DIR}'"
 
-   DEPENDENCY_DIR="${DEPENDENCY_DIR:-$(mulle-craft ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)}"
+   DEPENDENCY_DIR="${DEPENDENCY_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR}}"
    KITCHEN_DIR="${KITCHEN_DIR:-$(mulle-craft ${MULLE_TECHNICAL_FLAGS} kitchen-dir 2>/dev/null)}"
 
    log_debug "DEPENDENCY_DIR='${DEPENDENCY_DIR}'"

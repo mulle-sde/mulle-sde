@@ -34,7 +34,7 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.8.0
+MULLE_EXECUTABLE_VERSION=3.9.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 
 #
@@ -714,6 +714,7 @@ sde::main()
 
    local defines
    local arg
+   local directory
    # Track current command for vibecoding help
    local MULLE_SDE_CURRENT_CMD=""
 
@@ -955,10 +956,10 @@ sde::main()
 code|\
 craft-status|definition|dep|dependency|doctor|donefile|export|\
 fetch|file|files|filename|find|headerorder|howto|ignore|json|library|\
-link-args|list|log|mark|match|migrate|monitor|move|\
+link-args|list|log|logstatus|mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
 platform|product|project|protect|reflect|recraft|searchpath|sourcetree|\
-subproject|style|\
+subproject|style|verify|\
 sweatcoding|symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
 lib|pat|sub|unveil|view|vibecoding)
                if ! sde::is_non_environment_commandline "$@"
@@ -1127,7 +1128,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
 
    case "${cmd}" in
       *'::'*)   # eval
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1142,7 +1142,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
       ;;
 
       *':'*)   # exec
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1159,7 +1158,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
 
 
       *-eval)
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1172,7 +1170,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
 
 
       *-exec)
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1184,7 +1181,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
       ;;
 
       *-ls)
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1216,7 +1212,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
             ;;
          esac
 
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1234,7 +1229,6 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
             fail "Need \"tree\" command in PATH"
          fi
 
-         local directory
 
          directory="`rexekutor "${MULLE_SDE:-mulle-sde}" \
                                              ${MULLE_TECHNICAL_FLAGS} \
@@ -1373,6 +1367,7 @@ library-path - show library search paths (help: yes)
 link-args - show linker arguments for dependencies and libraries (help: yes)
 list - list project files (files matching patternfiles) (help: yes)
 log - show craft results (help: yes)
+logstatus - alias for log status (help: yes)
 mark - mark files with attributes (help: yes)
 match - experiment with patternfiles (help: yes)
 migrate - migrate project to newer mulle-sde version (help: yes)
@@ -1425,6 +1420,7 @@ uname - the simplified uname(1) (help: no)
 unprotect - unprotect files (help: yes)
 unveil - produce sandbox CSV (help: yes)
 update - update dependencies (help: yes)
+verify - verify the main project product against its sources (help: yes)
 upgrade - upgrade mulle-sde project (help: yes)
 username - print username (help: no)
 version - show mulle-sde version (help: no)
@@ -1643,7 +1639,6 @@ EOF
 
          local editors
          local row
-         local topic
 
          editors="\
 definition  - set compiler and linker flags and more
@@ -1674,9 +1669,6 @@ tool        - available binaries in mulle-sde subshell"
             [ -z "${RVAL}" ] && return 1
             topic="${RVAL%% *}"
          fi
-
-         local executable
-         local executable_name
 
          executable_name="mulle-${topic}-editor"
          executable="$(mudo which "${executable_name}" 2>/dev/null)"
@@ -1728,7 +1720,6 @@ tool        - available binaries in mulle-sde subshell"
       'exec'|'execute')
          local quote
          local args
-         local arg
 
          # why is it important that we eval here ? We want to use
          # local environment variables
@@ -1951,9 +1942,9 @@ tool        - available binaries in mulle-sde subshell"
          sde::list::main "$@"
       ;;
 
-      'log')
+      'log'|'logstatus')
          # Save MULLE_VIBECODING before environment setup potentially overrides it
-         local SAVED_MULLE_VIBECODING="${MULLE_VIBECODING}"
+         SAVED_MULLE_VIBECODING="${MULLE_VIBECODING}"
 
          if ! sde::is_non_environment_commandline "$@"
          then
@@ -1968,6 +1959,12 @@ tool        - available binaries in mulle-sde subshell"
             include "sde::vibecoding"
 
             sde::vibecoding::check_log_vs_test_log "$@"
+         fi
+
+         # logstatus is a shortcut for "log status"
+         if [ "${cmd}" = 'logstatus' ]
+         then
+            set -- "status" "$@"
          fi
 
          MULLE_USAGE_NAME="${MULLE_USAGE_NAME}" \
@@ -2170,7 +2167,6 @@ tool        - available binaries in mulle-sde subshell"
       ;;
 
       'source-dir')
-         local directory
          local subdir
 
          if ! sde::r_determine_project_dir "${PWD}"
@@ -2196,6 +2192,18 @@ tool        - available binaries in mulle-sde subshell"
          include "sde::status"
 
          sde::status::main "$@"
+      ;;
+
+      'verify')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}" 'NO'
+         fi
+
+         # shellcheck source=src/mulle-sde-verify.sh
+         include "sde::verify"
+
+         sde::verify::main "$@"
       ;;
 
       'steal')

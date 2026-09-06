@@ -333,6 +333,8 @@ sde::library::add_main()
 
    known_platforms="`mulle-bashfunctions common-unames`"
 
+   local line
+
    while [ $# -ne 0 ]
    do
       case "$1" in
@@ -509,8 +511,6 @@ sde::library::add_main()
          ;;
 
          *)
-            local line
-
             .foreachline line in ${included_platforms}
             .do
                sourcetree::marks::r_add "${marks}" "only-platform-${line}"
@@ -908,7 +908,7 @@ sde::library::main()
          return $rc
       ;;
 
-      move)
+      move|mv)
          include "sde::dependency"
 
          if sde::dependency::contains_numeric_arguments "$@"
