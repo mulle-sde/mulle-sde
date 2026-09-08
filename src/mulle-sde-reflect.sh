@@ -66,7 +66,7 @@ Return value:
    2 : OK, but sourcetree has changed
 
 Environment:
-   MULLE_SDE_REFLECT_CALLBACKS   : callbacks used for reflect
+   MULLE_SDE_REFLECT_CALLBACKS   : callbacks used for reflect (NONE to disable)
    MULLE_SDE_REFLECT_CONFIGS     : colon-separated configs to reflect (empty=legacy)
 EOF
    exit 1
@@ -516,6 +516,20 @@ sde::reflect::main()
    local tasks
 
    tasks="${MULLE_SDE_REFLECT_CALLBACKS:-}"
+
+   #
+   # A literal "NONE" (any case) explicitly disables reflect callbacks. This
+   # is useful for projects that ship without the generated
+   # .mulle/share/monitor callbacks (e.g. a fresh CI checkout), where running
+   # the callbacks would fail with "callback not found".
+   #
+   case "${tasks}" in
+      NONE|none|None)
+         log_fluff "Reflect callbacks explicitly disabled by MULLE_SDE_REFLECT_CALLBACKS=NONE"
+         return 0
+      ;;
+   esac
+
    tasks="${tasks//:/ }"
    if [ -z "${tasks}" ]
    then
