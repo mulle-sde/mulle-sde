@@ -1,0 +1,153 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+TEST_DIR="`dirname "$0"`"
+PROJECT_DIR="$( cd "${TEST_DIR}/../.." ; pwd -P)"
+
+. "${PROJECT_DIR}/src/mulle-sde-platform.sh" || exit 1
+
+
+main()
+{
+   _options_mini_main "$@" && set -x
+
+   MULLE_UNAME="linux"
+
+   #
+   # No MULLE_SDE_SUPPORTED_PLATFORMS configured: everything builds
+   #
+   unset MULLE_SDE_SUPPORTED_PLATFORMS
+   OPTION_PLATFORM=""
+   MULLE_CRAFT_PLATFORMS=""
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "unset MULLE_SDE_SUPPORTED_PLATFORMS should be supported"
+   fi
+
+   #
+   # A darwin-only project must not build on linux
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS="darwin"
+
+   if sde::platform::r_native_supported
+   then
+      fail "darwin-only project should not be supported on linux"
+   fi
+
+   #
+   # An explicit --platform bypasses the guard
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS="darwin"
+   OPTION_PLATFORM="darwin"
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "explicit --platform darwin should bypass the guard"
+   fi
+
+   #
+   # The host name may be listed literally
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS="darwin:linux"
+   OPTION_PLATFORM=""
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "linux in MULLE_SDE_SUPPORTED_PLATFORMS should be supported"
+   fi
+
+   #
+   # ... or as the ${MULLE_UNAME} token
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS='darwin:${MULLE_UNAME}'
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "\${MULLE_UNAME} token should resolve to linux"
+   fi
+
+   #
+   # Configured cross-compile platforms bypass the guard
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS="darwin"
+   MULLE_CRAFT_PLATFORMS='${MULLE_UNAME}'
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "configured MULLE_CRAFT_PLATFORMS should bypass the guard"
+   fi
+
+   #
+   # MULLE_SDE_UNSUPPORTED_PLATFORMS is a deny list
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS=""
+   MULLE_CRAFT_PLATFORMS=""
+   OPTION_PLATFORM=""
+   MULLE_SDE_UNSUPPORTED_PLATFORMS="linux"
+
+   if sde::platform::r_native_supported
+   then
+      fail "linux in MULLE_SDE_UNSUPPORTED_PLATFORMS should not be supported"
+   fi
+
+   MULLE_SDE_UNSUPPORTED_PLATFORMS="windows"
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "windows in MULLE_SDE_UNSUPPORTED_PLATFORMS should still allow linux"
+   fi
+
+   #
+   # ... and supports the ${MULLE_UNAME} token
+   #
+   MULLE_SDE_UNSUPPORTED_PLATFORMS='windows:${MULLE_UNAME}'
+
+   if sde::platform::r_native_supported
+   then
+      fail "\${MULLE_UNAME} in MULLE_SDE_UNSUPPORTED_PLATFORMS should not be supported"
+   fi
+
+   #
+   # The deny list wins over the allow list
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS="darwin:linux"
+   MULLE_SDE_UNSUPPORTED_PLATFORMS="linux"
+
+   if sde::platform::r_native_supported
+   then
+      fail "the deny list should win over the allow list"
+   fi
+
+   #
+   # Explicit platforms still bypass the deny list
+   #
+   MULLE_SDE_SUPPORTED_PLATFORMS=""
+   MULLE_SDE_UNSUPPORTED_PLATFORMS="linux"
+   OPTION_PLATFORM="darwin"
+
+   if ! sde::platform::r_native_supported
+   then
+      fail "explicit --platform should bypass MULLE_SDE_UNSUPPORTED_PLATFORMS"
+   fi
+
+   log_info "----- ALL PASSED -----"
+}
+
+
+init()
+{
+   :
+}
+
+
+init "$@"
+main "$@"

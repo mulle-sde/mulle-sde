@@ -1,0 +1,106 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_config_fragment()
+{
+   local address="$1"
+   local fragment="$2"
+   local line
+
+   line="`grep "${address}" "${directory}/.mulle/etc/sourcetree/config"`" \
+      || fail "No sourcetree entry for ${address}"
+
+   printf '%s\n' "${line}" | grep -F "${fragment}" >/dev/null \
+      || fail "Unexpected sourcetree entry for ${address}: ${line}"
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL:-/tmp/exekutor}"
+
+   run_mulle_sde -s init --no-post-init \
+                    -d "${directory}" \
+                    --project-name "TestProject" \
+                    --style mulle/wild \
+                    none \
+      || fail "init failed"
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde -s dependency add \
+                        --amalgamated \
+                        'clib:example/pkg'
+   ) || fail "amalgamated clib add failed"
+
+   expect_config_fragment src/pkg \
+      '${PKG_URL:-clib:example/pkg@${MULLE_BRANCH:-*}};${PKG_BRANCH};${PKG_TAG};clibmode=copy;'
+   log_verbose "----- amalgamated copy PASSED -----"
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde -s dependency add \
+                        --amalgamated \
+                        --clibmode deep-copy \
+                        'clib:example/deep'
+   ) || fail "amalgamated deep-copy add failed"
+
+   expect_config_fragment src/deep \
+      '${DEEP_URL:-clib:example/deep@${MULLE_BRANCH:-*}};${DEEP_BRANCH};${DEEP_TAG};clibmode=deep-copy;'
+   log_verbose "----- explicit deep-copy PASSED -----"
+
+   (
+      cd "${directory}" &&
+      run_mulle_sde -s dependency add \
+                        --address src/ordinary \
+                        'clib:example/ordinary'
+   ) || fail "ordinary clib add failed"
+
+   expect_config_fragment src/ordinary \
+      '${SRC_ORDINARY_URL:-clib:example/ordinary@${MULLE_BRANCH:-*}};${SRC_ORDINARY_BRANCH};${SRC_ORDINARY_TAG};clibmode=hardlink;'
+   log_info "----- ALL PASSED -----"
+
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

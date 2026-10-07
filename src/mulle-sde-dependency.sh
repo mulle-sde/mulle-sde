@@ -160,8 +160,10 @@ Examples:
 
 Options:
    --address <dst> : specify place in project for an embedded dependency
+   --amalgamated   : embed dependency with amalgamated source marks
    --c             : used for C dependencies (default)
    --clean         : delete all previous dependencies and libraries
+   --clibmode <m>  : clib fetch mode [copy, deep-copy, hardlink, symlink]
    --domain <name> : create an URL for a known domain, e.g. github
    --embedded      : the dependency becomes part of the local project
    --fetchoptions  : options for mulle-fetch --options
@@ -178,7 +180,7 @@ Options:
    --plain         : do not enhance URLs with environment variables
    --private       : headers are not visible to API consumers
    --repo <name>   : used in conjunction with --domain to specify an url
-   --scm <name>    : specify remote format [git, svn, tar, zip, file]
+   --scm <name>    : specify remote format [clib, git, svn, tar, zip, file]
    --singlephase   : the dependency must be crafted in one phase
    --startup       : dependency is a ObjC startup library
    --tag <name>    : used in conjunction with --domain to specify an url
@@ -1414,6 +1416,7 @@ sde::dependency::add_main()
    local OPTION_HOST
    local OPTION_NODETYPE
    local OPTION_FETCHOPTIONS
+   local OPTION_CLIBMODE
    local OPTION_REPO
    local OPTION_TAG
    local OPTION_TAG_SET
@@ -1502,6 +1505,21 @@ sde::dependency::add_main()
             shift
 
             OPTION_FETCHOPTIONS="$1"
+         ;;
+
+         --clibmode)
+            [ "$#" -eq 1 ] && sde::dependency::add_usage "Missing argument to \"$1\""
+            shift
+
+            case "$1" in
+               copy|deep-copy|hardlink|symlink)
+                  OPTION_CLIBMODE="$1"
+               ;;
+
+               *)
+                  sde::dependency::add_usage "Unknown clib mode \"$1\""
+               ;;
+            esac
          ;;
 
          --json|--raw-json|--json-raw)
@@ -1964,10 +1982,27 @@ mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
                                               "${address}" \
                                               "${marks}"
 
-               url="${_url/\}/@\$\{MULLE_BRANCH\}\}}"
+               #
+               # Insert "@${MULLE_BRANCH:-*}" before the closing brace of the
+               # wrapped url, e.g.
+               #    ${PKG_URL:-clib:example/pkg}
+               # becomes
+               #    ${PKG_URL:-clib:example/pkg@${MULLE_BRANCH:-*}}
+               #
+               # Do NOT use the ${var/pat/repl} form here: the escaping rules
+               # for backslashes in the replacement half differ between bash and
+               # zsh, which leaks literal backslashes into the stored config
+               # (e.g. "@$\{MULLE_BRANCH:-\*}"). Strip the trailing brace and
+               # append a single-quoted literal suffix instead, which is
+               # portable across both shells.
+               #
+               local _branch_suffix
+
+               _branch_suffix='@${MULLE_BRANCH:-*}}'
+               url="${_url%\}}${_branch_suffix}"
                if [ "${OPTION_BRANCH_SET}" != 'YES' ]
                then
-                  branch="${_branch/\}/:-*\}}"
+                  branch="${_branch}"
                fi
                if [ "${OPTION_TAG_SET}" != 'YES' ]
                then
@@ -1975,7 +2010,25 @@ mulle-concurrent|MulleEOF|MulleWeb|MulleFoundation|MulleUI)
                fi
                nodetype="${_nodetype}"
                address="${_address}"
-               fetchoptions="${fetchoptions:-clibmode=hardlink}"
+               if [ "${OPTION_AMALGAMATED}" = 'YES' -a \
+                    -z "${OPTION_ADDRESS}" ]
+               then
+                  address="${PROJECT_SOURCE_DIR:-src}/${address}"
+               fi
+               if [ ! -z "${OPTION_CLIBMODE}" ]
+               then
+                  [ ! -z "${fetchoptions}" ] && \
+                     fail "--clibmode cannot be combined with --fetchoptions"
+                  fetchoptions="clibmode=${OPTION_CLIBMODE}"
+               elif [ -z "${fetchoptions}" ]
+               then
+                  if [ "${OPTION_AMALGAMATED}" = 'YES' ]
+                  then
+                     fetchoptions='clibmode=copy'
+                  else
+                     fetchoptions='clibmode=hardlink'
+                  fi
+               fi
                # copied from an existing entry <ahem>
                marks="${_marks},no-clobber,no-share-shirk"
             ;;
@@ -2228,7 +2281,7 @@ ${C_RESET_BOLD}   mulle-sde dependency set ${name} include ${name#lib}/${name#li
                      _log_warning "MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE is set to DISABLE.
 ${C_INFO}The library header of ${dependency} may not be available automatically.
 To enable:
-${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE ON"
+${C_RESET_BOLD}mulle-sde environment --global set MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FILE ON"
                   ;;
                esac
             else
@@ -2237,7 +2290,7 @@ ${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_PRIVATEINCLUDE_FI
                      _log_warning "MULLE_SOURCETREE_TO_C_INCLUDE_FILE is set to DISABLE.
 ${C_INFO}The library header of ${dependency} may not be available automatically.
 To enable:
-${C_RESET_BOLD}mulle-sde environment set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
+${C_RESET_BOLD}mulle-sde environment --global set MULLE_SOURCETREE_TO_C_INCLUDE_FILE ON"
                   ;;
                esac
             fi
@@ -2810,7 +2863,12 @@ sde::dependency::headers_main()
       return
    fi
 
-   eval_rexekutor tree -I '*.cmake' --prune --noreport "${directories}" "$@"
+   # Note: the exclude pattern must be double-quoted ("'*.cmake'") so that it
+   # survives eval_rexekutor as a quoted literal and reaches `tree` verbatim.
+   # Writing it as '*.cmake' lets eval glob-expand it, which aborts with
+   # "no matches found" under zsh (and bash via mulle-bashfunctions options)
+   # when no *.cmake file happens to exist in the current directory.
+   eval_rexekutor tree -I "'*.cmake'" --prune --noreport "${directories}" "$@"
 }
 
 
@@ -2840,7 +2898,10 @@ sde::dependency::libraries_main()
       return
    fi
 
-   eval_rexekutor tree -I '*.cmake' --prune --noreport "${directories}"
+   # See the note in sde::dependency::headers_main: double-quote the exclude
+   # pattern so eval_rexekutor passes it to `tree` literally instead of
+   # glob-expanding it.
+   eval_rexekutor tree -I "'*.cmake'" --prune --noreport "${directories}"
 }
 
 

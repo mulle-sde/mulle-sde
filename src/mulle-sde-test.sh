@@ -722,7 +722,12 @@ sde::test::r_validate_test_run_paths()
 
       include "test::options"
 
-      test::options::r_parse "$@"
+      if ! test::options::r_parse "$@"
+      then
+         mulle-test run --help
+         exit 1
+      fi
+
       shifts="${RVAL}"
 
       # Shift away all flags
@@ -1011,7 +1016,7 @@ exekutor_mulle_env()
                   -E \
                   ${MULLE_ENV_FLAGS:-} \
                   ${MULLE_FWD_FLAGS:-} \
-                  --defines "${MULLE_DEFINE_FLAGS:-}" \
+                  "${MULLE_DEFINE_ARGUMENTS[@]}" \
                   exec \
                     "$@"
 }
@@ -1033,7 +1038,7 @@ exekutor_mulle_sde()
                   ${MULLE_SDE_FLAGS:-} \
                   ${MULLE_ENV_FLAGS:-} \
                   ${MULLE_FWD_FLAGS:-} \
-                  --defines "${MULLE_DEFINE_FLAGS:-}" \
+                  "${MULLE_DEFINE_ARGUMENTS[@]}" \
                   "$@"
 }
 
@@ -1099,7 +1104,11 @@ sde::test::auto_clean()
    (
       include "test::options"
 
-      test::options::r_parse "$@"
+      if ! test::options::r_parse "$@"
+      then
+         mulle-test run --help  # guess
+         exit 1
+      fi
 
       if [ "${OPTION_CLEAN}" = 'NO' ]
       then
@@ -1170,7 +1179,8 @@ sde::test::craft()
 
       include "test::options"
 
-      test::options::r_parse "$@"
+      test::options::r_parse "mulle-test craft --help" "$@"
+      # rest of the optios will be ignored anyway
 
       # Check if cross-compiling without proper toolchain support
       if [ ! -z "${OPTION_PLATFORM}" -a "${OPTION_PLATFORM}" != "${MULLE_UNAME}" ]
@@ -1250,6 +1260,34 @@ Either install the cross-compilation toolchain or remove '${OPTION_PLATFORM}' fr
          r_add_line "${craft_args}" "${OPTION_CONFIGURATION}"
          craft_args="${RVAL}"
       fi
+
+      #
+      # The sanitizer requested for the test run is parsed into
+      # MULLE_TEST_FLAGS by the wrapping `mulle-sde test` option handling,
+      # which happens before the subcommand is dispatched. If the flag was
+      # given after the subcommand instead, test::options::r_parse has already
+      # populated OPTION_SANITIZER. Derive SANITIZER, so the dependency under
+      # test is crafted with the same instrumentation as the test executable.
+      #
+      local SANITIZER
+
+      SANITIZER="${OPTION_SANITIZER}"
+      if [ -z "${SANITIZER}" ]
+      then
+         case " ${MULLE_TEST_FLAGS} " in
+            *" --sanitize-undefined "*|*" --sanitizer undefined "*|*" --add-sanitizer undefined "*)
+               SANITIZER="undefined"
+            ;;
+            *" --sanitize-address "*|*" --sanitizer address "*|*" --add-sanitizer address "*)
+               SANITIZER="address"
+            ;;
+            *" --sanitize-thread "*|*" --sanitizer thread "*|*" --add-sanitizer thread "*)
+               SANITIZER="thread"
+            ;;
+         esac
+      fi
+
+      log_setting "sanitizer for dependency craft: '${SANITIZER}'"
 
       local make_args=""
 
@@ -2159,31 +2197,33 @@ sde::test::main()
             OPTION_PLATFORM="$1"
             shift
          ;;
+
          --sdk)
             [ $# -lt 2 ] && sde::test::usage "Missing argument to \"$1\""
             shift
             OPTION_SDK="$1"
             shift
          ;;
+
          --configuration)
             [ $# -lt 2 ] && sde::test::usage "Missing argument to \"$1\""
             shift
             OPTION_CONFIGURATION="$1"
             shift
          ;;
+
          --release)
             OPTION_CONFIGURATION='Release'
             _filtered_args+=( "$1" )
             shift
          ;;
+
          --debug)
             OPTION_CONFIGURATION='Debug'
             _filtered_args+=( "$1" )
             shift
          ;;
-         -h|--help|help)
-            sde::test::usage
-         ;;
+
          *)
             _filtered_args+=( "$1" )
             shift
@@ -2296,6 +2336,13 @@ sde::test::main()
 
 
       coverage)
+         include "sde::platform"
+
+         if ! sde::platform::r_native_supported
+         then
+            return 0
+         fi
+
          sde::test::coverage "$@"
          return $?
       ;;
@@ -2369,6 +2416,13 @@ sde::test::main()
       ;;
 
       verify|stale-check)
+         include "sde::platform"
+
+         if ! sde::platform::r_native_supported
+         then
+            return 0
+         fi
+
          local verify_directory
          local verify_requested
          local verify_directories
@@ -2454,8 +2508,21 @@ sde::test::main()
       ;;
    esac
 
-   include "test::options"
+   #
+   # if the project is not meant to be built/run on this host, do nothing
+   #
+   case ":${cmdchain}:" in
+      *:craft:*|*:run:*|*:rerun:*)
+         include "sde::platform"
 
+         if ! sde::platform::r_native_supported
+         then
+            return 0
+         fi
+      ;;
+   esac
+
+   include "test::options"
 
    local test_directories
 
@@ -2738,9 +2805,15 @@ sde::test::main()
 
                         if [ ! -z "${run_directory}" ]
                         then
-                           exekutor_mulle_test "${run_directory}" --platform "${platform_part}" "${cmd_part}" "$@"
+                           if ! exekutor_mulle_test "${run_directory}" --platform "${platform_part}" --configuration "${configuration_part}" "${cmd_part}" "$@"
+                           then
+                              if [ "${OPTION_LENIENT}" != 'YES' ]
+                              then
+                                 exit 1
+                              fi
+                           fi
                         else
-                           if ! exekutor_mulle_test "${test_dir_for_platform}" --platform "${platform_part}" "${cmd_part}" "$@"
+                           if ! exekutor_mulle_test "${test_dir_for_platform}" --platform "${platform_part}" --configuration "${configuration_part}" "${cmd_part}" "$@"
                            then
                               if [ "${OPTION_LENIENT}" != 'YES' ]
                               then
@@ -2888,7 +2961,7 @@ sde::test::main()
                         ;;
                      esac
                   else
-                     if ! exekutor_mulle_test "${directory}" --platform "${platform_part}" "${cmd_part}" "$@"
+                     if ! exekutor_mulle_test "${directory}" --platform "${platform_part}" --configuration "${configuration_part}" "${cmd_part}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then

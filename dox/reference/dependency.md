@@ -103,6 +103,28 @@ Manage project dependencies including third-party libraries, frameworks, and rem
 - `${PROJECTNAME}_BRANCH`: Override dependency branch
 - `${PROJECTNAME}_NODETYPE`: Override SCM type (git/tar/zip)
 
+#### Amalgamated clib dependencies
+```bash
+# Add an embedded clib dependency using manifest-src-only copying.
+mulle-sde dependency add --amalgamated \
+   clib:owner/repository
+
+# Select recursive clib installation explicitly when needed.
+mulle-sde dependency add --amalgamated \
+   --clibmode deep-copy \
+   clib:owner/repository
+```
+
+`--amalgamated` applies the embedded/amalgamated marks and defaults clib
+fetching to `clibmode=copy`. If no `--address` is supplied, the dependency
+is added below the expanded `${PROJECT_SOURCE_DIR:-src}/` directory while
+its environment identifiers remain based on the dependency name. This copies
+only the files listed in the package's `clib.json` `src` array. Use
+`--clibmode deep-copy` to invoke recursive `clib install` behavior instead.
+The generated clib URL wraps the `*` default as `@${MULLE_BRANCH:-*}`; the
+separate per-dependency branch variable can override it without carrying a
+redundant `:-*` fallback.
+
 ## Hidden Behaviors Explained
 
 ### Automatic URL Construction

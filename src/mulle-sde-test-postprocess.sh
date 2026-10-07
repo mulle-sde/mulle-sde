@@ -134,6 +134,7 @@ sde::test::emit_include_h()
    local root_hdr
    local dir
    local depname
+   local sentinel
 
    for dir in $(find "$INC_ROOT" -maxdepth 1 -mindepth 1 -type d | sort)
    do
@@ -168,7 +169,16 @@ sde::test::emit_include_h()
       # for <mulle-time/mulle-time.h> ....
       if [ -f "$root_hdr" ]
       then
-         if [ ! -e "${dir}/.no-mulle-test" ]
+         sentinel=""
+         if [ -e "${dir}/.no-mulle-test" ]
+         then
+            sentinel=".no-mulle-test"
+         elif [ -e "${dir}/no-mulle-test" ]
+         then
+            sentinel="no-mulle-test"
+         fi
+
+         if [ -z "${sentinel}" ]
          then
             if [[ "${depname:0:1}" =~ [A-Z] ]]
             then
@@ -178,7 +188,7 @@ sde::test::emit_include_h()
             fi
          else
             log_debug "Skip \"${depname}\""
-            printf "%s\n" "// skipped \"${depname}/${depname}.h\" due to .no-mulle-test"
+            printf "%s\n" "// skipped \"${depname}/${depname}.h\" due to ${sentinel}"
          fi
          continue
       fi

@@ -49,6 +49,10 @@ sde::symbol::print_flags()
    echo "   --sources            : scan sources for ctags"
    echo "   --headers            : scan all headers for ctags"
    echo "   --public-headers     : scan public headers for ctags (default)"
+   echo "   --dependencies       : scan all crafted dependency headers for ctags"
+   echo "   --dependency <name>  : scan one crafted dependency's headers for ctags"
+   echo "   --classes            : ctags kind i (Objective-C class interfaces)"
+   echo "   --scope <name>       : only show symbols whose scope/class is <name>"
    echo "   --ctags-xformat <s>  : ctags xformat"
    echo "   --csv-separator <s>  : separator character for CSV ('${OPTION_SEPARATOR}')"
    echo "   --keep-tmp           : keep temporary created files (for debugging)"
@@ -360,6 +364,22 @@ sde::symbol::copy_and_preprocess_c_sources()
 
 
 
+sde::symbol::dependency_header_files()
+{
+   log_entry "sde::symbol::dependency_header_files" "$@"
+
+   local name="$1"
+
+   if [ -z "${name}" ]
+   then
+      find include -name '*.h' -print
+   else
+      find "include/${name}" -name '*.h' -print
+   fi
+}
+
+
+
 sde::symbol::ctags()
 {
    log_entry "sde::symbol::ctags" "$@"
@@ -372,8 +392,10 @@ sde::symbol::ctags()
    local kinds="$6"
    local xformat="$7"
    local keep_tmp="$8"
+   local dependency_name="$9"
+   local scope="${10}"
 
-   shift 8
+   shift 10
 
    local directory
 
@@ -388,18 +410,41 @@ sde::symbol::ctags()
 
          local options
 
-         if [ ! -z "${type}" ]
+         if [ "${type}" = 'dependency' ]
          then
-            options="--type-matches '${type}'"
-         fi
-         if [ ! -z "${category}" ]
-         then
-            r_concat "${options}" "--category-matches '${category}'"
-            options="${RVAL}"
+            local dependency_dir
+
+            dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
+
+            if [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}/include" ]
+            then
+               log_error "No dependency include directory found (run 'mulle-sde craft' first?)"
+               [ "${keep_tmp}" = 'NO' ] && rmdir_safer "${tmp_dir}"
+               return 1
+            fi
+
+            if ! ( cd "${dependency_dir}" && \
+                   sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
+                      <( sde::symbol::dependency_header_files "${dependency_name}" ) )
+            then
+               [ "${keep_tmp}" = 'NO' ] && rmdir_safer "${tmp_dir}"
+               return 1
+            fi
+         else
+            if [ ! -z "${type}" ]
+            then
+               options="--type-matches '${type}'"
+            fi
+            if [ ! -z "${category}" ]
+            then
+               r_concat "${options}" "--category-matches '${category}'"
+               options="${RVAL}"
+            fi
+
+            sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
+               <( eval_rexekutor mulle-match list "${options}" ) || exit 1
          fi
 
-         sde::symbol::copy_and_preprocess_c_sources "${tmp_dir}" < \
-            <( eval_rexekutor mulle-match list "${options}" ) || exit 1
          directory="${tmp_dir}"
       ;;
    esac
@@ -423,11 +468,28 @@ sde::symbol::ctags()
                         "--kinds-${language}=${kinds}" \
                         "$@" \
       | (
+           local sed_script
+
            if [ "${language}" = "ObjectiveC" ]
            then
-              rexekutor sed 's/^method /-/;s/^class /+/'
-           else
+              sed_script='s/^method /-/;s/^class /+/'
+           fi
+
+           if [ "${type}" = 'dependency' ] && [ ! -z "${dependency_dir}" ]
+           then
+              sed_script="${sed_script:+${sed_script};}s#\./include/#${dependency_dir}/include/#"
+           fi
+
+           if [ ! -z "${scope}" ]
+           then
+              sed_script="${sed_script:+${sed_script};}/\\[${scope} /!d"
+           fi
+
+           if [ -z "${sed_script}" ]
+           then
               cat
+           else
+              rexekutor sed "${sed_script}"
            fi
         )
    )
@@ -536,6 +598,8 @@ sde::symbol::main()
    #
    local OPTION_LANGUAGE
    local OPTION_CATEGORY='public-headers'
+   local OPTION_DEPENDENCY
+   local OPTION_SCOPE
    local OPTION_KINDS
    local OPTION_OUTPUT_FORMAT  # u-ctags|e-ctags|etags|xref|json
    local OPTION_XFORMAT
@@ -573,6 +637,27 @@ sde::symbol::main()
          --public-headers)
             OPTION_CATEGORY='public*'
             OPTION_TYPE='header'
+         ;;
+
+         --dependencies|--dependency-headers)
+            OPTION_TYPE='dependency'
+            OPTION_CATEGORY=''
+         ;;
+
+         --dependency)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            OPTION_DEPENDENCY="$1"
+            OPTION_TYPE='dependency'
+            OPTION_CATEGORY=''
+         ;;
+
+         --scope|--class)
+            [ $# -eq 1 ] && sde::symbol::usage "missing argument to $1"
+            shift
+
+            OPTION_SCOPE="$1"
          ;;
 
          --headers)
@@ -704,6 +789,10 @@ sde::symbol::main()
 
          --categories)
             OPTION_KINDS="${OPTION_KINDS}C"
+         ;;
+
+         --classes)
+            OPTION_KINDS="${OPTION_KINDS}i"
          ;;
 
          --class-methods)
@@ -873,6 +962,8 @@ sde::symbol::main()
                       "${OPTION_KINDS}"         \
                       "${OPTION_XFORMAT}"       \
                       "${OPTION_KEEP_TMP}"      \
+                      "${OPTION_DEPENDENCY}"    \
+                      "${OPTION_SCOPE}"         \
                       "$@"
    return $?
 #

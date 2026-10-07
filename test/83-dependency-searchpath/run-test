@@ -57,10 +57,21 @@ main()
    tree_log="${directory}/tree.log"
 
    mkdir_if_missing "${fakebin}"
-   mkdir_if_missing "${header_dir}" "${library_dir}" "${binary_dir}" \
-      "${etc_dir}" "${share_dir}" \
-      "${release_qualified_dir}/etc" "${release_qualified_dir}/share" \
-      "${directory}/stash"
+   #
+   # mkdir_if_missing only ever operates on its first argument ($1); it does
+   # NOT create additional paths passed as $2, $3, ... Create each directory
+   # with its own call, otherwise only "${header_dir}" would be made and the
+   # subsequent `printf > "${library_dir}/..."` redirections would silently
+   # fail because their parent directory does not exist.
+   #
+   mkdir_if_missing "${header_dir}"
+   mkdir_if_missing "${library_dir}"
+   mkdir_if_missing "${binary_dir}"
+   mkdir_if_missing "${etc_dir}"
+   mkdir_if_missing "${share_dir}"
+   mkdir_if_missing "${release_qualified_dir}/etc"
+   mkdir_if_missing "${release_qualified_dir}/share"
+   mkdir_if_missing "${directory}/stash"
    printf '%s\n' 'header' > "${header_dir}/needle.h"
    printf '%s\n' 'library' > "${library_dir}/libneedle.a"
    printf '%s\n' 'binary' > "${binary_dir}/needle"

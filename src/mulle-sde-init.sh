@@ -4418,14 +4418,22 @@ PROJECT_SOURCE_DIR value during init (rename to it later)"
       if [ $rc -eq 0 ]
       then
       (
-         if [ "${OPTION_UPGRADE}" = 'YES' -a "${oldversion}" != "${MULLE_EXECUTABLE_VERSION}" ]
+         if [ "${OPTION_UPGRADE}" = 'YES' ]
          then
             # shellcheck source=src/mulle-sde-migrate.sh
             include "sde::migrate"
 
-            _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
+            if [ "${oldversion}" != "${MULLE_EXECUTABLE_VERSION}" ]
+            then
+               _log_info "Migrating from ${C_MAGENTA}${C_BOLD}${oldversion}${C_INFO} to \
 ${C_MAGENTA}${C_BOLD}${MULLE_EXECUTABLE_VERSION}${C_INFO}"
-            sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 22
+               sde::migrate::do "${oldversion}" "${MULLE_EXECUTABLE_VERSION}"  || exit 22
+            fi
+
+            #
+            # data driven and idempotent, so run it on every upgrade
+            #
+            sde::migrate::dependency_renames || exit 22
          fi
 
          if [ "${OPTION_UPGRADE}" != 'YES' -a "${OPTION_ADD}" != 'YES' ]

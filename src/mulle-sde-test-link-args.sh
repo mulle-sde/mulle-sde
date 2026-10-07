@@ -85,7 +85,7 @@ sde::test::link_args_get_link_command()
                ${MULLE_ENV_FLAGS:-} \
                ${MULLE_SDE_FLAGS:-} \
                ${MULLE_FWD_FLAGS:-} \
-               --defines "${MULLE_DEFINE_FLAGS:-}" \
+               "${MULLE_DEFINE_ARGUMENTS[@]}" \
                -DMULLE_VIBECODING=NO \
             link-args \
                --output-format ld \

@@ -877,17 +877,27 @@ sde::add::main()
                && flag="--amalgamated" \
                || flag="--embedded"
 
-             rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS}      \
-                        dependency add --scm "${scm}"          \
-                                       --address "src/${repo}" \
-                                       ${flag}                 \
-                                       "${filename}" &&
+             if [ "${OPTION_ALMAGAMATED}" = 'YES' ]
+             then
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                          dependency add --scm "${scm}" \
+                                         ${flag} \
+                                         "${filename}" ||
+               return 1
+             else
+               rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} \
+                          dependency add --scm "${scm}" \
+                                         --address "${PROJECT_SOURCE_DIR:-src}/${repo}" \
+                                         ${flag} \
+                                         "${filename}" ||
+               return 1
+             fi
             if [ "${OPTION_QUICK}" != 'YES' ]
             then
                if ! rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} fetch
                then
                   rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} -s \
-                               dependency remove "src/${repo}"
+                               dependency remove "${PROJECT_SOURCE_DIR:-src}/${repo}"
                   return 1
                fi
                rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} reflect || return $?

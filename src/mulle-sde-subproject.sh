@@ -703,28 +703,17 @@ list"
          [ -z "${SUBPROJECT}" ] && fail "Command \"${cmd}\" requires -s <subproject> option"
 
          local cmdline
-         local arg
 
-         cmdline="mulle-sde"
+         shell_disable_glob # keep it
 
-         for arg in ${MULLE_TECHNICAL_FLAGS}
-         do
-            cmdline="${cmdline}
-${arg}"
-         done
+         r_escaped_eval_arguments "mulle-sde" \
+                                  ${MULLE_TECHNICAL_FLAGS} \
+                                  "${cmd}" \
+                                  "$@"
+         cmdline="${RVAL}"
 
-         cmdline="${cmdline}
-${cmd}"
-
-         while [ $# -ne 0 ]
-         do
-            cmdline="${cmdline}
-$1"
-            shift
-         done
-
-         log_fluff "Run command with ${MULLE_ENV:-mulle-env}: -C \"${cmdline}\""
-         exekutor exec "${MULLE_ENV:-mulle-env}" -C "${cmdline}" subenv "${SUBPROJECT}"
+         log_fluff "Run command with ${MULLE_ENV:-mulle-env}: -c \"${cmdline}\""
+         exekutor exec "${MULLE_ENV:-mulle-env}" -c "${cmdline}" subenv "${SUBPROJECT}"
       ;;
 
       get)

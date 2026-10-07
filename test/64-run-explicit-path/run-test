@@ -1,0 +1,117 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+#
+# Verify that `mulle-sde run <absolute-path>` honors an explicit, executable
+# path argument (the `[ -x "${OPTION_NAME}" ]` branch in sde::run::main) instead
+# of falling back to product auto-discovery.
+#
+# This test deliberately uses a trivial native shell-script "executable" so it
+# does not depend on any cross-platform tooling (compilers, emulators) being
+# installed. We only want to prove the explicit-path contract.
+#
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local exefile
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   (
+      cd "${directory}" || exit 1
+
+      #
+      # Fabricate a native executable with a recognizable output and hand its
+      # absolute path to `run`.
+      #
+      exefile="${PWD}/explicit-path-exe"
+      cat <<EOF > "${exefile}"
+#! /bin/sh
+echo "RAN_EXPLICIT_PATH"
+EOF
+      exekutor chmod +x "${exefile}"
+
+      output="`run_mulle_sde -s run "${exefile}" 2>&1`" \
+      || fail "run of explicit path failed:
+${output}"
+
+      expect_line "RAN_EXPLICIT_PATH" "${output}"
+
+      #
+      # A non-executable path must NOT be treated as an explicit executable;
+      # it falls through to product lookup, which cannot resolve it.
+      #
+      exekutor printf "not an executable\n" > "${PWD}/not-exec"
+
+      if output="`run_mulle_sde -s run "${PWD}/not-exec" 2>&1`"
+      then
+         fail "run of a non-executable path unexpectedly succeeded"
+      fi
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

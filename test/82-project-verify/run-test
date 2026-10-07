@@ -93,7 +93,19 @@ EOF
    MULLE_SDE_LIBEXEC_DIR="${repo_dir}/src"
    MULLE_USER_PWD="${PWD}"
    MULLE_USAGE_NAME="mulle-sde"
-   MULLE_UNAME="linux"
+   #
+   # MULLE_UNAME must stay the *real* host OS: mulle-bashfunctions'
+   # modification_timestamp/file_size_in_bytes switch on it to pick the right
+   # `stat` flavour (BSD `stat -f` vs GNU `stat --printf`). Forcing a fake value
+   # like "linux" here makes those calls invoke GNU stat on a BSD/macOS host,
+   # which fails and yields empty mtimes/sizes - so the freshness comparison
+   # degenerates to "0 -gt 0" and nothing is ever detected as stale.
+   #
+   # The *target* platform being verified is passed explicitly as the `platform`
+   # argument to sde::verify::verify (e.g. "linux" below), which is what the
+   # platform-specific assertions rely on - independent of the host MULLE_UNAME.
+   #
+   MULLE_UNAME="${MULLE_UNAME:-$(PATH=/bin:/usr/bin uname -s 2> /dev/null | tr '[:upper:]' '[:lower:]')}"
    MULLE_CRAFT_SDK="Default"
    PROJECT_NAME="main"
    PROJECT_TYPE="library"

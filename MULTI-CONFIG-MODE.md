@@ -282,7 +282,7 @@ In `mulle-sourcetree`:
 - `mulle-sourcetree-to-c` — line 894 format fix
 
 In `mulle-objc`:
-- `mulle-objc-list/mulle-objc-deps-tool` — chmod fix
+- `mulle-objc-tools/mulle-objc-deps-tool` — chmod fix
 - `mulle-objc-developer/.../CreateDepsIncObjC.cmake` — MULLE_SDE_REFLECT_DIR
 
 

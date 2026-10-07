@@ -32,14 +32,136 @@
 MULLE_SDE_PLATFORM_SH='included'
 
 
-# Expand platform name for creating environment variable names
-# Expands ${MULLE_UNAME} and other shell variables
-sde::platform::r_expanded_platform()
+#
+# Resolve a stored platform token to the name shown to the user.
+# The token ${MULLE_UNAME} (or $MULLE_UNAME) resolves to the host OS name,
+# e.g. "linux". All other names are returned unchanged.
+#
+sde::platform::r_resolved_name()
 {
-   local value="$1"
-   
-   # Expand shell variables like ${MULLE_UNAME}
-   eval RVAL=\"${value}\"
+   local platform="$1"
+
+   case "${platform}" in
+      '${MULLE_UNAME}'|'$MULLE_UNAME')
+         RVAL="${MULLE_UNAME}"
+      ;;
+
+      *)
+         RVAL="${platform}"
+      ;;
+   esac
+}
+
+
+#
+# Find the token in a colon separated platform list that matches the given
+# (user visible) platform name. This makes "linux" and "${MULLE_UNAME}"
+# interchangeable. Returns 0 and RVAL=<token> on a match, 1 and RVAL=""
+# otherwise.
+#
+sde::platform::r_matching_token()
+{
+   local list="$1"
+   local platform="$2"
+   local token
+
+   .foreachpath token in ${list}
+   .do
+      sde::platform::r_resolved_name "${token}"
+      if [ "${RVAL}" = "${platform}" ]
+      then
+         RVAL="${token}"
+         return 0
+      fi
+   .done
+
+   RVAL=""
+   return 1
+}
+
+
+#
+# Resolve every token in a colon separated platform list and return the
+# colon separated result in RVAL.
+#
+sde::platform::r_resolved_list()
+{
+   local list="$1"
+   local platform
+   local result=""
+
+   .foreachpath platform in ${list}
+   .do
+      sde::platform::r_resolved_name "${platform}"
+      r_colon_concat_if_missing "${result}" "${RVAL}"
+      result="${RVAL}"
+   .done
+
+   RVAL="${result}"
+}
+
+
+#
+# Check whether the project may be built natively on the current host.
+#
+# MULLE_SDE_SUPPORTED_PLATFORMS is an allow list: if set, MULLE_UNAME must be
+# listed in it. MULLE_SDE_UNSUPPORTED_PLATFORMS is a deny list: if set and
+# MULLE_UNAME is listed in it, the host is rejected. The deny list wins.
+#
+# An explicitly requested platform (OPTION_PLATFORM) or configured
+# cross-compile platforms (MULLE_CRAFT_PLATFORMS) bypass the guard, since the
+# user asked for those on purpose.
+#
+# Returns 0 if the native build may proceed, 1 if the project does not
+# support the current host. In the latter case an explanation is printed and
+# the caller should stop quietly.
+#
+sde::platform::r_native_supported()
+{
+   log_entry "sde::platform::r_native_supported"
+
+   local supported
+   local unsupported
+
+   supported="${MULLE_SDE_SUPPORTED_PLATFORMS:-}"
+   unsupported="${MULLE_SDE_UNSUPPORTED_PLATFORMS:-}"
+
+   if [ -z "${supported}" -a -z "${unsupported}" ]
+   then
+      return 0
+   fi
+
+   if [ ! -z "${unsupported}" ] && sde::platform::r_matching_token "${unsupported}" "${MULLE_UNAME}"
+   then
+      :
+   elif [ ! -z "${supported}" ] && ! sde::platform::r_matching_token "${supported}" "${MULLE_UNAME}"
+   then
+      :
+   else
+      return 0
+   fi
+
+   if [ ! -z "${OPTION_PLATFORM}" ] || [ ! -z "${MULLE_CRAFT_PLATFORMS}" ]
+   then
+      return 0
+   fi
+
+   log_info "This project does not support building on ${C_RESET_BOLD}${MULLE_UNAME}${C_INFO}."
+
+   if [ ! -z "${supported}" ]
+   then
+      sde::platform::r_resolved_list "${supported}"
+      log_info "Supported platforms: ${C_RESET_BOLD}${RVAL}${C_INFO}"
+   fi
+
+   if [ ! -z "${unsupported}" ]
+   then
+      sde::platform::r_resolved_list "${unsupported}"
+      log_info "Unsupported platforms: ${C_RESET_BOLD}${RVAL}${C_INFO}"
+   fi
+
+   log_info "Nothing to be done."
+   return 1
 }
 
 
@@ -75,6 +197,8 @@ Commands:
    remove              : remove a platform
 
 Environment:
+   MULLE_SDE_SUPPORTED_PLATFORMS : hosts this project can be built on
+   MULLE_SDE_UNSUPPORTED_PLATFORMS : hosts this project must not be built on
    MULLE_CRAFT_PLATFORMS      :
    MULLE_SOURCETREE_PLATFORMS :
    MULLE_EMULATOR__<PLATFORM>  :
@@ -340,73 +464,86 @@ sde::platform::list_active()
 {
    log_entry "sde::platform::list_active"
 
+   local platform
+   local toolchain
+   local resolved
+   local implicit_native='NO'
+
    if [ -z "${MULLE_CRAFT_PLATFORMS}" ]
    then
-      log_info "Current platform active (${MULLE_UNAME})"
-      return 0
+      implicit_native='YES'
    fi
 
-   log_info "Active platforms (building):"
+   log_info "Building:"
 
-   local toolchain
-   local varname
-   local platform_expanded
-   local unexpanded
-   local has_enabled='NO'
+   if [ "${implicit_native}" = 'YES' ]
+   then
+      printf "  %s (native, implicit)\n" "${MULLE_UNAME}"
+   else
+      .foreachpath platform in ${MULLE_CRAFT_PLATFORMS}
+      .do
+         sde::platform::r_resolved_name "${platform}"
+         resolved="${RVAL}"
 
-   .foreachpath platform in ${MULLE_CRAFT_PLATFORMS}
-   .do
-      printf "  %s" "${platform}"
-      if [ "${platform}" != "${MULLE_UNAME}" ]
-      then
-         # Convert platform to uppercase for variable name
-         r_uppercase "${platform}"
-         r_shell_indirect_expand "MULLE_CRAFT_TOOLCHAIN__${RVAL}"
-         toolchain="${RVAL}"
+         printf "  %s" "${resolved}"
 
-         if [ ! -z "${toolchain}" ]
+         if [ "${resolved}" = "${MULLE_UNAME}" ]
          then
-            printf " (%s)" "${toolchain}"
+            printf " (native)"
+         else
+            r_uppercase "${resolved}"
+            r_shell_indirect_expand "MULLE_CRAFT_TOOLCHAIN__${RVAL}"
+            toolchain="${RVAL}"
+
+            if [ ! -z "${toolchain}" ]
+            then
+               printf " (toolchain: %s)" "${toolchain}"
+            fi
          fi
-         has_enabled='YES'
-      fi
-      printf "\n"
-   .done
+         printf "\n"
+      .done
+   fi
 
    local has_disabled='NO'
 
-   # Show disabled platforms (in sourcetree but not in craft)
+   # Show disabled platforms (in sourcetree but not being built)
    .foreachpath platform in ${MULLE_SOURCETREE_PLATFORMS}
    .do
-      if find_item "${MULLE_CRAFT_PLATFORMS}" "${platform}" ':'
+      sde::platform::r_resolved_name "${platform}"
+      resolved="${RVAL}"
+
+      # the native platform is built implicitly when the craft list is empty
+      if [ "${implicit_native}" = 'YES' ] && [ "${resolved}" = "${MULLE_UNAME}" ]
+      then
+         .continue
+      fi
+
+      if sde::platform::r_matching_token "${MULLE_CRAFT_PLATFORMS}" "${resolved}"
       then
          .continue
       fi
 
       if [ "${has_disabled}" = 'NO' ]
       then
-         if [ "${has_enabled}" = 'YES' ]
-         then
-            log_info ""
-         fi
-         log_info "Disabled platforms:"
+         log_info ""
+         log_info "Disabled:"
          has_disabled='YES'
       fi
 
-      if [ "${platform}" != "${MULLE_UNAME}" ]
+      printf "  %s" "${resolved}"
+
+      if [ "${resolved}" != "${MULLE_UNAME}" ]
       then
-         # Convert platform to uppercase for variable name
-         r_uppercase "${platform}"
+         r_uppercase "${resolved}"
          r_shell_indirect_expand "MULLE_CRAFT_TOOLCHAIN__${RVAL}"
          toolchain="${RVAL}"
 
          if [ ! -z "${toolchain}" ]
          then
-            printf " (%s)" "${toolchain}"
+            printf " (toolchain: %s)" "${toolchain}"
          fi
-         has_enabled='YES'
       fi
-      printf "[disabled] \n"
+      printf "\n"
    .done
 }
 
@@ -611,7 +748,7 @@ sde::platform::platform_setup()
    local write_scope_flags="${2:---this-user-host}"
 
    # If host and platform are the same, no toolchain needed (native build)
-   [ "${platform}" = "'${MULLE_UNAME}'" ] && _internal_fail "wrong platform"
+   [ "${platform}" = "${MULLE_UNAME}" ] && _internal_fail "wrong platform"
    [ -z "${platform}" ] && _internal_fail "empty platform"
 
    local toolchain_file
@@ -651,6 +788,20 @@ sde::platform::platform_setup()
    exekutor mulle-sde environment ${write_scope_flags} set "MULLE_CRAFT_TOOLCHAIN__${RVAL}" "${toolchain_name}"
 
    log_fluff "Toolchain: ${toolchain_name}"
+
+   # Extract triplet from toolchain--<build>-<host>--<triplet>--<compiler>
+   local triplet
+
+   triplet="${toolchain_name#toolchain--}"   # <build>-<host>--<triplet>--<compiler>
+   triplet="${triplet#*--}"                  # <triplet>--<compiler>
+   triplet="${triplet%%--*}"                 # <triplet>
+
+   if [ ! -z "${triplet}" ] && [ "${triplet}" != "${toolchain_name}" ]
+   then
+      r_uppercase "${platform}"
+      exekutor mulle-sde environment ${write_scope_flags} set "MULLE_SDE_PLATFORM_TRIPLET__${RVAL}" "${triplet}"
+      log_fluff "Triplet: ${triplet}"
+   fi
    
    # Extract compiler from toolchain name
    # Format: toolchain--<build>-<host>--<triplet>--<compiler>
@@ -694,6 +845,14 @@ sde::platform::add()
       platform="${MULLE_UNAME}"
       need_uname='NO'  # Already setting it
    else
+      # treat the native host OS name as the templated native token, so
+      # "platform add linux" and "platform add --uname" are equivalent
+      sde::platform::r_resolved_name "${value}"
+      if [ "${RVAL}" = "${MULLE_UNAME}" ]
+      then
+         value='${MULLE_UNAME}'
+      fi
+
       if [ "${use_uname}" != 'NO' ]
       then
          # Check if ${MULLE_UNAME} is already in the list
@@ -862,27 +1021,48 @@ sde::platform::remove()
          sde::platform::remove_usage "Missing platform name"
       fi
       platform='${MULLE_UNAME}'
-   else
-      key="${platform}"
    fi
 
-   local varname
+   sde::platform::r_resolved_name "${platform}"
 
-   # Check if platform exists in sourcetree
-   if ! find_item "${sourcetree_platforms}" "${platform}" ":"
+   local resolved_platform
+   local craft_token
+   local sourcetree_token
+   local found='NO'
+
+   resolved_platform="${RVAL}"
+   key="${resolved_platform}"
+
+   # Check if platform exists, matching "linux" and "${MULLE_UNAME}"
+   if sde::platform::r_matching_token "${sourcetree_platforms}" "${resolved_platform}"
    then
-      if ! find_item "${craft_platforms}" "${platform}" ":"
-      then
-         log_warning "Platform \"${platform}\" is not in platform lists, cleaning up remnants"
-      fi
+      found='YES'
+      sourcetree_token="${RVAL}"
+   fi
+
+   if sde::platform::r_matching_token "${craft_platforms}" "${resolved_platform}"
+   then
+      found='YES'
+      craft_token="${RVAL}"
+   fi
+
+   if [ "${found}" = 'NO' ]
+   then
+      log_warning "Platform \"${platform}\" is not in platform lists, cleaning up remnants"
    fi
 
    # Remove from platforms (best effort, even if not found)
-   r_colon_remove "${craft_platforms}" "${platform}"
-   craft_platforms="${RVAL}"
+   if [ ! -z "${craft_token}" ]
+   then
+      r_colon_remove "${craft_platforms}" "${craft_token}"
+      craft_platforms="${RVAL}"
+   fi
 
-   r_colon_remove "${sourcetree_platforms}" "${platform}"
-   sourcetree_platforms="${RVAL}"
+   if [ ! -z "${sourcetree_token}" ]
+   then
+      r_colon_remove "${sourcetree_platforms}" "${sourcetree_token}"
+      sourcetree_platforms="${RVAL}"
+   fi
 
    if [ -z "${craft_platforms}" ]
    then
@@ -918,6 +1098,7 @@ sde::platform::remove()
 
       exekutor mulle-sde environment ${machine_scope_flags} remove "MULLE_CRAFT_TOOLCHAIN__${upperkey}"
       exekutor mulle-sde environment ${machine_scope_flags} remove "MULLE_CRAFT_CROSS_COMPILER_ROOT__${upperkey}"
+      exekutor mulle-sde environment ${machine_scope_flags} remove "MULLE_SDE_PLATFORM_TRIPLET__${upperkey}"
       exekutor mulle-sde environment ${machine_scope_flags} remove "MULLE_EMULATOR__${upperkey}"
    fi
 
@@ -1207,14 +1388,18 @@ sde::platform::enable()
       return
    fi
 
-   # Check platform exists in sourcetree
-   if ! find_item "${sourcetree_platforms}" "${platform}" ":"
+   # Check platform exists in sourcetree, matching "linux" and "${MULLE_UNAME}"
+   if ! sde::platform::r_matching_token "${sourcetree_platforms}" "${platform}"
    then
       fail "Platform '${platform}' is not configured. Use 'mulle-sde platform add ${platform}' first."
    fi
 
+   local craft_token
+
+   craft_token="${RVAL}"
+
    # Add to craft platforms using mulle-bashfunctions
-   r_colon_concat_if_missing "${craft_platforms}" "${platform}"
+   r_colon_concat_if_missing "${craft_platforms}" "${craft_token}"
    craft_platforms="${RVAL}"
    rexekutor mulle-sde environment ${write_scope_flags} set MULLE_CRAFT_PLATFORMS "${craft_platforms}"
 
@@ -1330,20 +1515,51 @@ sde::platform::disable()
    local shadow_empty="${4:-NO}"
 
    local craft_platforms
+   local craft_token
 
    # Read literal value from environment (not expanded)
    craft_platforms="`rexekutor mulle-sde environment ${read_scope_flags} get MULLE_CRAFT_PLATFORMS`"
 
-   # Check if platform is in craft platforms
-   if ! find_item "${craft_platforms}" "${platform}" ":"
+   # An empty craft list means the native platform is built implicitly. That
+   # is the only platform, so it cannot be disabled.
+   if [ -z "${craft_platforms}" ]
+   then
+      if [ "${platform}" = "${MULLE_UNAME}" ]
+      then
+         log_warning "The native platform '${platform}' is the only platform being built."
+         log_warning "Add a cross-compile platform first, then disable '${platform}'."
+         return 1
+      fi
+
+      log_warning "Platform '${platform}' is not enabled"
+      return 0
+   fi
+
+   # Check if platform is in craft platforms, matching "linux" and
+   # "${MULLE_UNAME}"
+   if ! sde::platform::r_matching_token "${craft_platforms}" "${platform}"
    then
       log_warning "Platform '${platform}' is not enabled"
       return 0
    fi
 
+   craft_token="${RVAL}"
+
    # Remove platform from craft platforms using mulle-bashfunctions
-   r_colon_remove "${craft_platforms}" "${platform}"
+   r_colon_remove "${craft_platforms}" "${craft_token}"
    craft_platforms="${RVAL}"
+
+   # Disabling the last remaining native platform would fall back to the
+   # implicit native build, which is not what the user asked for.
+   if [ "${craft_token}" = '${MULLE_UNAME}' ] || [ "${craft_token}" = '$MULLE_UNAME' ]
+   then
+      if [ -z "${craft_platforms}" ]
+      then
+         log_warning "The native platform '${platform}' is the only platform being built."
+         log_warning "Add a cross-compile platform first, then disable '${platform}'."
+         return 1
+      fi
+   fi
 
    # Update environment (if empty after removal, remove the variable)
    if [ -z "${craft_platforms}" ]

@@ -51,9 +51,7 @@ Examples:
       mulle-sde howto list              # List howtos in current directory
       cd test && mulle-sde howto list   # List test-specific howtos
       mulle-sde howto testing           # Load the full testing guidance bundle
-      mulle-sde howto test              # Alias for the testing bundle
       mulle-sde howto show leaks
-      mulle-sde howto show 2
       mulle-sde howto show --keyword leak --keyword sanitizer
       mulle-sde howto roles
       mulle-sde howto topics --role coder
@@ -65,15 +63,15 @@ Examples:
       mulle-sde howto apropos "how do I debug memory leaks?"
 
 Commands:
-      list       : list available howto topics (default)
-      show       : show howto file by number, name, or explicit role/topic selection
-      roles      : list discovered role buckets
-      topics     : list discovered topics for a role
-      files      : list files in a role/topic bundle
-      load       : load a role/topic bundle in stable order
-      keywords   : list all keywords from all howto files
-      grep       : search for pattern in howto files with local context
       apropos    : fuzzy topic search through howto content
+      files      : list files in a role/topic bundle
+      grep       : search for pattern in howto files with local context
+      keywords   : list all keywords from all howto files
+      list       : list available howto topics (default)
+      load       : load a role/topic bundle in stable order
+      roles      : list discovered role buckets
+      show       : show howto file by number, name, or explicit role/topic selection
+      topics     : list discovered topics for a role
 
    Use 'mulle-sde howto <cmd> --help' for command-specific help.
 
@@ -1111,35 +1109,88 @@ sde::howto::load()
 
 
 #
-# Helper function to check if file matches keyword
-# Checks filename, title (first line), and keywords comment (second line)
+# Fold a keyword onto a canonical token. Common spellings of a dialect
+# should select the same howtos, e.g. "obj" and "objc" (and the long
+# "objective-c" form) are all aliases for Objective-C.
+#
+sde::howto::r_canonical_keyword()
+{
+   local keyword="$1"
+
+   keyword="$(printf '%s' "${keyword}" | tr '[:upper:]' '[:lower:]')"
+
+   case "${keyword}" in
+      obj|objective-c|objectivec|objective_c)
+         keyword="objc"
+      ;;
+      c++|cxx|cc|cpp|cplusplus)
+         keyword="cpp"
+      ;;
+   esac
+
+   RVAL="${keyword}"
+}
+
+
+#
+# Helper function to check if file matches keyword.
+# Checks the display name, the title (first line) and the parsed keyword
+# list (wherever the "Keywords:" comment happens to live in the file).
 #
 sde::howto::r_matches_keyword()
 {
    local file="$1"
    local keyword="$2"
    local display_name
+   local first_line
+   local keywords
+   local canonical_keyword
+   local token
+   local saved_IFS
 
    if [ -z "${keyword}" ]
    then
       return 0  # No keyword means match all
    fi
 
+   sde::howto::r_canonical_keyword "${keyword}"
+   canonical_keyword="${RVAL}"
+
    # Check display name
    sde::howto::r_howto_display_name "${file}"
    display_name="${RVAL}"
-   if rexekutor grep -q -i "${keyword}" <<< "${display_name}"
+   if rexekutor grep -q -i -- "${keyword}" <<< "${display_name}"
    then
       return 0
    fi
 
-   # Check first two lines (title and keywords comment)
-   local first_two_lines
-   first_two_lines="$(head -n 2 "${file}" 2>/dev/null)"
-
-   if rexekutor grep -q -i "${keyword}" <<< "${first_two_lines}"
+   # Check the title (first line)
+   first_line="$(head -n 1 "${file}" 2>/dev/null)"
+   if rexekutor grep -q -i -- "${keyword}" <<< "${first_line}"
    then
       return 0
+   fi
+
+   # Check the parsed keyword list token by token. Use the same parser as
+   # `mulle-sde howto keywords`, so keywords are found no matter which line
+   # the comment is on and "obj"/"objc" compare equal.
+   sde::howto::r_extract_keywords "${file}"
+   keywords="${RVAL}"
+
+   if [ ! -z "${keywords}" ]
+   then
+      saved_IFS="${IFS}"
+      IFS=', '
+      for token in ${keywords}
+      do
+         sde::howto::r_canonical_keyword "${token}"
+         if [ "${RVAL}" = "${canonical_keyword}" ]
+         then
+            IFS="${saved_IFS}"
+            return 0
+         fi
+      done
+      IFS="${saved_IFS}"
    fi
 
    return 1
@@ -1246,7 +1297,6 @@ sde::howto::show_keyword_matches()
    local howto
    local keyword
    local all_match
-   local first_two_lines
    local matches=""
    local preferred_matches=""
 
@@ -1256,16 +1306,10 @@ sde::howto::show_keyword_matches()
 
       .foreachitem keyword in ${keywords}
       .do
-         sde::howto::r_howto_display_name "${howto}"
-         if ! grep -q -i "${keyword}" <<< "${RVAL}"
+         if ! sde::howto::r_matches_keyword "${howto}" "${keyword}"
          then
-            first_two_lines="$(head -n 2 "${howto}" 2>/dev/null)"
-
-            if ! grep -q -i "${keyword}" <<< "${first_two_lines}"
-            then
-               all_match='NO'
-               .break
-            fi
+            all_match='NO'
+            .break
          fi
       .done
 
@@ -2640,7 +2684,7 @@ sde::howto::apropos()
    .foreachpath howto in ${howtos}
    .do
       score=0
-      .foreachitem word in ${keywords}
+      .foreachword word in ${keywords}
       .do
          if sde::howto::r_matches_apropos_word "${howto}" "${word}"
          then

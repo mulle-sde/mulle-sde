@@ -86,6 +86,8 @@ Environment: (see \`mulle-craft build -h\` for more)
    MULLE_SCAN_BUILD               : tool to use for --analyze (mulle-scan-build)
    MULLE_SCAN_BUILD_DIR           : output directory (${KITCHEN_DIR:-kitchen}/analyzer)
    MULLE_SDE_MAKE_FLAGS           : flags to pass to mulle-make via mulle-craft
+   MULLE_SDE_SUPPORTED_PLATFORMS  : hosts this project can be built on (all)
+   MULLE_SDE_UNSUPPORTED_PLATFORMS : hosts this project must not be built on
    MULLE_SDE_TARGET               : default target (all)
    MULLE_SDE_CRAFT_STYLE          : configuration to build (Debug)
    MULLE_SDE_CRAFTORDER_STYLE     : configuration to build for dependencies
@@ -771,6 +773,25 @@ sde::craft::run_tests()
 }
 
 
+sde::craft::check_usage()
+{
+   [ "$#" -ne 0 ] && log_error "$1"
+
+   cat <<EOF >&2
+Usage:
+   ${MULLE_USAGE_NAME} check
+
+   Configure and compile the project sources with -fsyntax-only, without
+   linking. This is a fast syntax and type check after edits. It is also
+   available as \`${MULLE_USAGE_NAME} craft --check\`.
+
+Options:
+   -h                      : show this usage
+EOF
+   exit 1
+}
+
+
 #
 # Dont't make it too complicated, mulle-sde craft builds 'all' or the desired
 # user selected style.
@@ -778,6 +799,19 @@ sde::craft::run_tests()
 sde::craft::check()
 {
    log_entry "sde::craft::check" "$@"
+
+   if [ "$#" -ne 0 ]
+   then
+      case "$1" in
+         -h|--help|help)
+            sde::craft::check_usage
+         ;;
+
+         -*)
+            sde::craft::check_usage "Unknown option \"$1\""
+         ;;
+      esac
+   fi
 
    local dependency_dir
 
@@ -1008,6 +1042,20 @@ sde::craft::main()
    fi
 
    target="${target:-all}"
+
+   #
+   # if the project is not meant to be built on this host, do nothing. An
+   # explicitly requested platform or configured cross platforms bypass this.
+   #
+   if [ "${target}" != "craftorder" ]
+   then
+      include "sde::platform"
+
+      if ! sde::platform::r_native_supported
+      then
+         return 0
+      fi
+   fi
 
    #
    # Lock to prevent parallel craft/fetch collisions (e.g. AI running

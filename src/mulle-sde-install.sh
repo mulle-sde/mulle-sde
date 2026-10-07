@@ -619,7 +619,7 @@ pass through)"
    #
    # What we want to achieve is running in a "clean" room environment
    #
-   sde::set_custom_environment "${MULLE_DEFINE_FLAGS}"
+   sde::set_custom_environment "${MULLE_DEFINE_ARGUMENTS[@]}"
 
    if [ "${OPTION_LANGUAGE}" = 'DEFAULT' ]
    then

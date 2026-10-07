@@ -46,10 +46,10 @@ sde::migrate::from_v0_41_to_v42()
 
    if [ ! -z "${PROJECT_SOURCE_DIR}" ]
    then
-      log_info "Removing duplicates of headers now residing in \"${PROJECT_SOURCE_DIR}/reflect\""
+      log_info "Removing duplicates of headers now residing in \"${PROJECT_SOURCE_DIR}/${MULLE_SDE_REFLECT_DIR:-reflect}\""
       # remove old headers
       shell_enable_extglob
-      for i in "${PROJECT_SOURCE_DIR}"/reflect/*
+      for i in "${PROJECT_SOURCE_DIR}"/${MULLE_SDE_REFLECT_DIR:-reflect}/*
       do
          r_basename "$i"
          remove_file_if_present "${PROJECT_SOURCE_DIR}/${RVAL}"
@@ -360,6 +360,365 @@ sde::migrate::from_v3_7_to_v3_8()
 }
 
 
+sde::migrate::from_v3_9_to_v3_10()
+{
+   log_entry "sde::migrate::from_v3_9_to_v3_10" "$@"
+
+   if [ ! -f "CMakeLists.txt" ]
+   then
+      return
+   fi
+
+   log_info "Renaming cmake includes in CMakeLists.txt"
+
+   #
+   # These cmake modules install nothing and were renamed. The old names
+   # still exist as forwarding stubs, but migrate to the new names.
+   #
+   #   InstallCMakeInclude -> AddSubdirectorySupport
+   #   InstallCMakePackage -> FindPackageSupport
+   #   InstallRpath        -> Rpath
+   #
+   inplace_sed CMakeLists.txt \
+      -e 's/InstallCMakeInclude/AddSubdirectorySupport/g' \
+      -e 's/InstallCMakePackage/FindPackageSupport/g' \
+      -e 's/InstallRpath/Rpath/g'
+}
+
+
+#
+# Dependency renames
+#
+# Extensions install rename files into ".mulle/share/sde/renames" and a
+# project may add its own in ".mulle/etc/sde/renames". Each file describes
+# the rename of one dependency in key=value style:
+#
+#    address=mulle-objc-list
+#    newaddress=mulle-objc-tools
+#    url=https://github.com/mulle-objc/mulle-objc-list
+#    newurl=https://github.com/mulle-objc/mulle-objc-tools
+#    env=MULLE__OBJC__LIST:MULLE__OBJC__TOOLS
+#
+# "url" and "newurl" are optional, if the URL can be derived by replacing
+# the address. "env" can be repeated. The pass is data driven and
+# idempotent: if the old address is not present, nothing happens.
+#
+sde::migrate::r_get_rename_files()
+{
+   log_entry "sde::migrate::r_get_rename_files" "$@"
+
+   local directory
+   local filename
+   local files
+
+   files=""
+
+   shell_enable_nullglob
+   for directory in .mulle/share/sde/renames .mulle/etc/sde/renames
+   do
+      for filename in "${directory}"/*
+      do
+         if [ -f "${filename}" ]
+         then
+            r_add_line "${files}" "${filename}"
+            files="${RVAL}"
+         fi
+      done
+   done
+   shell_disable_nullglob
+
+   RVAL="${files}"
+}
+
+
+# sde::migrate::get_word_boundaries
+#
+#    figure out how the local sed/grep spell word boundaries and store them
+#    in SDE_MIGRATE_BOUNDARY_PREFIX and SDE_MIGRATE_BOUNDARY_SUFFIX.
+#
+sde::migrate::get_word_boundaries()
+{
+   log_entry "sde::migrate::get_word_boundaries" "$@"
+
+   if [ "${SDE_MIGRATE_BOUNDARIES_DETECTED:-NO}" = 'YES' ]
+   then
+      return
+   fi
+
+   local check
+
+   check="`sed 's/[[:<:]]old[[:>:]]/new/g' <<< "old moldy" 2> /dev/null`"
+   if [ "${check}" = "new moldy" ]
+   then
+      SDE_MIGRATE_BOUNDARY_PREFIX='[[:<:]]'
+      SDE_MIGRATE_BOUNDARY_SUFFIX='[[:>:]]'
+   else
+      check="`sed 's/\<old\>/new/g' <<< "old moldy" 2> /dev/null`"
+      if [ "${check}" = "new moldy" ]
+      then
+         SDE_MIGRATE_BOUNDARY_PREFIX='\<'
+         SDE_MIGRATE_BOUNDARY_SUFFIX='\>'
+      else
+         SDE_MIGRATE_BOUNDARY_PREFIX=''
+         SDE_MIGRATE_BOUNDARY_SUFFIX=''
+      fi
+   fi
+
+   SDE_MIGRATE_BOUNDARIES_DETECTED='YES'
+   export SDE_MIGRATE_BOUNDARY_PREFIX
+   export SDE_MIGRATE_BOUNDARY_SUFFIX
+   export SDE_MIGRATE_BOUNDARIES_DETECTED
+}
+
+
+# r_boundary_sed_expression <escaped-old> <escaped-new>
+#
+#    return a sed "s///g" expression, that respects word boundaries if the
+#    local sed supports them.
+#
+sde::migrate::r_boundary_sed_expression()
+{
+   log_entry "sde::migrate::r_boundary_sed_expression" "$@"
+
+   local old="$1"
+   local new="$2"
+
+   sde::migrate::get_word_boundaries
+
+   RVAL="s/${SDE_MIGRATE_BOUNDARY_PREFIX}${old}${SDE_MIGRATE_BOUNDARY_SUFFIX}/${new}/g"
+}
+
+
+sde::migrate::rename_dependency()
+{
+   log_entry "sde::migrate::rename_dependency" "$@"
+
+   local filename="$1"
+
+   local address
+   local newaddress
+   local url
+   local newurl
+
+   local envs
+
+   local key
+   local value
+
+   address=""
+   newaddress=""
+   url=""
+   newurl=""
+   envs=""
+
+   while IFS='=' read -r key value
+   do
+      r_trim_whitespace "${key}"
+      key="${RVAL}"
+      r_trim_whitespace "${value}"
+      value="${RVAL}"
+
+      case "${key}" in
+         address)
+            address="${value}"
+         ;;
+
+         newaddress)
+            newaddress="${value}"
+         ;;
+
+         url)
+            url="${value}"
+         ;;
+
+         newurl)
+            newurl="${value}"
+         ;;
+
+         env)
+            r_add_line "${envs}" "${value}"
+            envs="${RVAL}"
+         ;;
+      esac
+   done < "${filename}"
+
+   if [ -z "${address}" -o -z "${newaddress}" ]
+   then
+      log_warning "\"${filename}\" needs both address and newaddress, skipping"
+      return 0
+   fi
+
+   local escaped_address
+   local escaped_newaddress
+
+   r_escaped_sed_pattern "${address}"
+   escaped_address="${RVAL}"
+   r_escaped_sed_replacement "${newaddress}"
+   escaped_newaddress="${RVAL}"
+
+   #
+   # sed program to rewrite a single sourcetree config line
+   #
+   local program
+
+   program="/^${escaped_address};/ { s/^${escaped_address};/${escaped_newaddress};/; s/${escaped_address}/${escaped_newaddress}/g"
+
+   if [ ! -z "${url}" -a ! -z "${newurl}" ]
+   then
+      local escaped_url
+      local escaped_newurl
+
+      r_escaped_sed_pattern "${url}"
+      escaped_url="${RVAL}"
+      r_escaped_sed_replacement "${newurl}"
+      escaped_newurl="${RVAL}"
+
+      program="${program}; s/${escaped_url}/${escaped_newurl}/g"
+   fi
+
+   #
+   # sed program and grep expression to rewrite environment files
+   #
+   local envprogram
+   local envgrep
+   local envpair
+   local envname
+   local newenvname
+   local escaped_envname
+   local escaped_newenvname
+
+   envprogram=""
+   envgrep=""
+
+   .foreachline envpair in ${envs}
+   .do
+      envname="${envpair%%:*}"
+      newenvname="${envpair#*:}"
+
+      if [ -z "${envname}" -o -z "${newenvname}" ]
+      then
+         .continue
+      fi
+
+      r_escaped_sed_pattern "${envname}"
+      escaped_envname="${RVAL}"
+      r_escaped_sed_replacement "${newenvname}"
+      escaped_newenvname="${RVAL}"
+
+      program="${program}; s/${escaped_envname}/${escaped_newenvname}/g"
+
+      r_concat "${envprogram}" "s/${escaped_envname}/${escaped_newenvname}/g" "; "
+      envprogram="${RVAL}"
+
+      r_concat "${envgrep}" "${envname}" "|"
+      envgrep="${RVAL}"
+   .done
+
+   program="${program}; }"
+
+   sde::migrate::get_word_boundaries
+
+   r_concat "${envgrep}" \
+            "${SDE_MIGRATE_BOUNDARY_PREFIX}${address}${SDE_MIGRATE_BOUNDARY_SUFFIX}" \
+            "|"
+   envgrep="${RVAL}"
+
+   #
+   # rewrite the sourcetree configs
+   #
+   # A sourcetree may have multiple configs (see "mulle-sourcetree config").
+   # The default one is called "config", but "mulle-sde config switch" creates
+   # arbitrarily named ones like "glfw" or "sdl". All of them must be rewritten,
+   # so don't restrict the glob to "config*".
+   #
+   local config
+   local directory
+
+   shell_enable_nullglob
+   for directory in .mulle/etc/sourcetree .mulle/share/sourcetree
+   do
+      for config in "${directory}"/*
+      do
+         if [ ! -f "${config}" ]
+         then
+            continue
+         fi
+
+         if ! grep -q -s -e "^${address};" "${config}"
+         then
+            continue
+         fi
+
+         log_info "Renaming ${C_RESET_BOLD}${address}${C_INFO} to \
+${C_RESET_BOLD}${newaddress}${C_INFO} in \"${config}\""
+         inplace_sed -e "${program}" "${config}" || return 1
+      done
+   done
+   shell_disable_nullglob
+
+   if [ -z "${envprogram}" ]
+   then
+      return 0
+   fi
+
+   #
+   # rewrite the environment files
+   #
+   sde::migrate::r_boundary_sed_expression "${escaped_address}" \
+                                           "${escaped_newaddress}"
+   envprogram="${RVAL}; ${envprogram}"
+
+   shell_enable_nullglob
+   for directory in .mulle/etc/env .mulle/share/env
+   do
+      for config in "${directory}"/*
+      do
+         if [ ! -f "${config}" ]
+         then
+            continue
+         fi
+
+         if ! grep -q -s -E -e "${envgrep}" "${config}"
+         then
+            continue
+         fi
+
+         log_info "Renaming ${C_RESET_BOLD}${address}${C_INFO} references \
+in \"${config}\""
+         inplace_sed -e "${envprogram}" "${config}" || return 1
+      done
+   done
+   shell_disable_nullglob
+
+   return 0
+}
+
+
+sde::migrate::dependency_renames()
+{
+   log_entry "sde::migrate::dependency_renames" "$@"
+
+   local files
+   local filename
+
+   files=""
+
+   sde::migrate::r_get_rename_files
+   files="${RVAL}"
+
+   if [ -z "${files}" ]
+   then
+      log_fluff "No dependency rename files found"
+      return 0
+   fi
+
+   .foreachline filename in ${files}
+   .do
+      sde::migrate::rename_dependency "${filename}" || return 1
+   .done
+}
+
+
 sde::migrate::do()
 {
    log_entry "sde::migrate::do" "$@"
@@ -456,6 +815,15 @@ sde::migrate::do()
       oldminor=8
    fi
 
+   if [ "${oldmajor}" -lt 3 ] || [ "${oldmajor}" -eq 3 -a "${oldminor}" -lt 10 ]
+   then
+      (
+         sde::migrate::from_v3_9_to_v3_10
+      ) || exit 1
+      oldmajor=3
+      oldminor=10
+   fi
+
    #
    # if craft etc is same as share now, we can remove etc
    #
@@ -522,7 +890,8 @@ sde::migrate::main()
    sde::init::protect_unprotect "Unprotect" "ug+w"
    (
       MULLE_VIBECODING=NO
-      sde::migrate::do "${oldversion}" "${newversion}"
+      sde::migrate::do "${oldversion}" "${newversion}" || exit 1
+      sde::migrate::dependency_renames || exit 1
    )
    rc=$?
 

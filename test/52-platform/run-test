@@ -57,6 +57,7 @@ main()
 
    local directory
    local host
+   local output
 
    r_make_tmp_directory || exit 1
    directory="${RVAL}"
@@ -208,6 +209,29 @@ EOF
    result="`run_mulle_sde environment get MULLE_CRAFT_PLATFORMS`"
    log_info "After removing testplatform2: '${result}'"
    [ "${result}" = "\${MULLE_UNAME}" ] || [ "${result}" = "linux" ] || [ "${result}" = "" ] || fail "After removing testplatform2, expected '\${MULLE_UNAME}' or 'linux' or empty, got: '${result}'"
+
+   log_verbose "----- #10 Test disable native platform by resolved name -----"
+
+   run_mulle_sde -s environment --scope project \
+      set MULLE_CRAFT_PLATFORMS "\${MULLE_UNAME}:testplatform" \
+   || fail "setting MULLE_CRAFT_PLATFORMS failed"
+
+   run_mulle_sde -s platform disable --scope project "${host}" || fail "platform disable ${host} failed"
+
+   result="`run_mulle_sde environment --scope project get MULLE_CRAFT_PLATFORMS`"
+   [ "${result}" = "testplatform" ] || fail "Expected 'testplatform' after disabling ${host}, got: '${result}'"
+
+   log_verbose "----- #11 Test disable native platform when it is the only one -----"
+
+   run_mulle_sde -s environment --scope project \
+      set MULLE_CRAFT_PLATFORMS "\${MULLE_UNAME}" \
+   || fail "setting MULLE_CRAFT_PLATFORMS failed"
+
+   output="`run_mulle_sde platform disable --scope project ${host} 2>&1`"
+   expect_line "only platform being built" "${output}"
+
+   result="`run_mulle_sde environment --scope project get MULLE_CRAFT_PLATFORMS`"
+   [ "${result}" = "\${MULLE_UNAME}" ] || fail "Native platform should be unchanged, got: '${result}'"
 
    log_info "----- ALL PASSED -----"
    cd ..

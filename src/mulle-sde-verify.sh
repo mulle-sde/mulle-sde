@@ -483,6 +483,16 @@ sde::verify::main()
    fi
    projectdir="${RVAL}"
 
+   #
+   # if the project is not meant to be built on this host, do nothing
+   #
+   include "sde::platform"
+
+   if ! sde::platform::r_native_supported
+   then
+      return 0
+   fi
+
    local platforms
    local sdks
    local configurations

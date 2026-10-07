@@ -66,6 +66,7 @@ Examples:
    ${MULLE_USAGE_NAME} code grep --declarations "allocator"
    ${MULLE_USAGE_NAME} code search mulle_malloc
    ${MULLE_USAGE_NAME} code callers mulle_malloc
+   ${MULLE_USAGE_NAME} code symbol --dependencies --methods
    ${MULLE_USAGE_NAME} code map
    ${MULLE_USAGE_NAME} code cs --only-declarations "malloc"
    ${MULLE_USAGE_NAME} code roam health

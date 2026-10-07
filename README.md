@@ -51,7 +51,7 @@ cd myproject
 
 ``` sh
 tree .
-mulle-sde file
+mulle-sde files
 mulle-sde view
 mulle-sde dependency
 mulle-sde library
@@ -73,9 +73,10 @@ You don't have to use `mulle-sde edit` though, it's a mere convenience.
 
 ``` sh
 mulle-sde add src/MyClass.m
-mulle-sde file
-mulle-sde ignore src/MyClass.m src/MyClass.h
-mulle-sde file --unmatched
+mulle-sde files
+mulle-sde ignore src/MyClass.m
+mulle-sde ignore src/MyClass.h
+mulle-sde files --unmatched-files
 mulle-sde reflect
 ```
 
@@ -83,6 +84,7 @@ mulle-sde reflect
 
 ``` sh
 mulle-sde definition set CFLAGS "-DFOO=1"
+mulle-sde check
 mulle-sde craft
 mulle-sde log
 mulle-sde product
@@ -107,10 +109,10 @@ mulle-sde status
 ### Add a third party dependency
 
 ``` sh
-mulle-sde add github:madler/zlib.tar
-mulle-sde dependency move zlib to top
+mulle-sde add zlib
+mulle-sde dependency move zlib top
 mulle-sde dependency list
-mulle-sde craftinfo zlib CFLAGS "-DBAR=1"
+mulle-sde dependency craftinfo set zlib CFLAGS "-DBAR=1"
 mulle-sde craft
 mulle-sde dependency headers
 mulle-sde dependency libraries
@@ -118,6 +120,21 @@ mulle-sde dependency libraries
 
 `mulle-sde clean tidy` and the somewhat less safe `mulle-sde clean gravetidy`
 will become important, when doing lots of dependency manipulations.
+
+
+### Explore dependencies and code
+
+`mulle-sde api` shows the API documentation that ships with your dependencies,
+`mulle-sde code` searches and navigates their source:
+
+``` sh
+mulle-sde api list
+mulle-sde api cat mulle-core
+mulle-sde api apropos "how do I allocate memory?"
+mulle-sde code grep "mulle_allocator"
+mulle-sde code search mulle_malloc
+mulle-sde code symbol
+```
 
 
 ### Test project
@@ -137,9 +154,10 @@ mulle-sde -vv craft
 mulle-sde craftorder
 mulle-sde craftstatus
 mulle-sde environment
-mulle-sde patternfile --cat
+mulle-sde patternfile cat
 mulle-sde style
 mulle-sde tool
+mulle-sde howto
 ```
 
 ### Going deep
@@ -148,9 +166,12 @@ mulle-sde tool
 mulle-sde callback
 mulle-sde config
 mulle-sde donefile
+mulle-sde doctor
 mulle-sde headerorder
-mulle-sde linkorder
-mulle-sde task
+mulle-sde json
+mulle-sde link-args
+mulle-sde symbol
+mulle-sde task list
 mulle-sde -ld -ls -lx treestatus
 ```
 

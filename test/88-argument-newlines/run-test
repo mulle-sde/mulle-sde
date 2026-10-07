@@ -1,0 +1,111 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_text()
+{
+   local expected="$1"
+   local text="$2"
+
+   if [ "${text}" != "${expected}" ]
+   then
+      fail "Expected output:
+${expected}
+but got:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+   local showargs
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   showargs="${directory}/showargs"
+   cat > "${showargs}" <<'EOF'
+#!/bin/sh
+i=0
+for a in "$@"; do i=$((i+1)); printf 'arg%d=<%s>\n' "$i" "$a"; done
+EOF
+   chmod +x "${showargs}" || fail "could not create \"${showargs}\""
+
+   (
+      cd "${directory}" || exit 1
+
+      #
+      # an argv element containing a newline must not be split in two by
+      # the mulle-env re-exec (BUGREPORT: argument with newline)
+      #
+      output="`run_mulle_sde -N exec "${showargs}" one "$(printf 'two\nlines')" three 2>/dev/null`" \
+         || fail "exec with newline argument failed"
+
+      expect_text "arg1=<one>
+arg2=<two
+lines>
+arg3=<three>" "${output}"
+
+      #
+      # a -D value containing a newline must survive as well
+      #
+      output="`run_mulle_sde -N -DX="$(printf 'a\nb')" exec printenv X 2>/dev/null`" \
+         || fail "exec with newline -D value failed"
+
+      expect_text "a
+b" "${output}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

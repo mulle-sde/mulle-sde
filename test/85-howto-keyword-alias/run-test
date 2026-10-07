@@ -1,0 +1,123 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@"
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_contains()
+{
+   local label="$1"
+   local needle="$2"
+   local text="$3"
+
+   if ! echo "${text}" | grep -q "${needle}"
+   then
+      fail "${label}: expected pattern '${needle}' not found in:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init \
+                    -d "${directory}" \
+                    -m mulle-sde/c-developer \
+                    executable \
+   || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   export MULLE_VIBECODING=NO
+
+   #
+   # legacy flat howto, keywords comment on line 2, uses the old "obj" tag
+   #
+   mkdir -p "asset/howto"
+   cat > "asset/howto/legacy-styleguide.md" <<'EOF'
+# Coding Style Guide
+<!-- Keywords: c, obj, styleguide -->
+SENTINEL_LEGACY_STYLEGUIDE
+EOF
+
+   #
+   # bundle howto whose keywords comment is on line 3 (title, blank line),
+   # using the canonical "objc" tag
+   #
+   mkdir -p "asset/howto/coder/objc-bundle"
+   cat > "asset/howto/coder/objc-bundle/index.md" <<'EOF'
+# Objective-C Style Guide
+
+<!-- Keywords: syntax, edit, objc, styleguide -->
+SENTINEL_OBJC_BUNDLE
+EOF
+
+   #
+   # query "objc" must find the howto that is only tagged "obj"
+   #
+   output="`run_mulle_sde howto show --keyword styleguide --keyword objc 2>&1`" \
+      || fail "howto show --keyword styleguide --keyword objc failed"
+   expect_contains "objc matches legacy obj tag" "SENTINEL_LEGACY_STYLEGUIDE" "${output}"
+
+   #
+   # and "obj" must find the howto that is only tagged "objc"
+   #
+   output="`run_mulle_sde howto show --keyword styleguide --keyword obj 2>&1`" \
+      || fail "howto show --keyword styleguide --keyword obj failed"
+   expect_contains "obj matches objc tag" "SENTINEL_OBJC_BUNDLE" "${output}"
+
+   #
+   # keywords that live on line 3 must be matchable
+   #
+   output="`run_mulle_sde howto show --keyword syntax --keyword edit 2>&1`" \
+      || fail "howto show --keyword syntax --keyword edit failed"
+   expect_contains "line 3 keywords are matched" "SENTINEL_OBJC_BUNDLE" "${output}"
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

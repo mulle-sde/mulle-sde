@@ -195,7 +195,7 @@ sde::run::r_emulator_for_platform()
    r_uppercase "${platform}"
    varname="MULLE_EMULATOR__${RVAL}"
    
-   RVAL="${!varname}"
+   r_shell_indirect_expand "${varname}"
    
    if [ -z "${RVAL}" ]
    then

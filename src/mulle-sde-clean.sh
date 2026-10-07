@@ -83,6 +83,7 @@ sde::clean::domains_usage()
    gravetidy   : clean everything and graveyards (tidy + graveyard)
    mirror      : clean the repository mirror
    project     : clean project, keep dependencies
+   shared      : clean the opt-in shared dependency store (NOT part of tidy/gravetidy)
    subprojects : clean subprojects
    test        : clean tests
    tidy        : clean everything (except archive and graveyard). It's slow!
@@ -326,6 +327,30 @@ sde::clean::dependencydir()
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
                   dependency-store
+}
+
+
+#
+# The shared dependency store lives outside of the projects and is
+# deliberately NOT part of "tidy"/"gravetidy". This is the explicit
+# opt-in to remove it.
+#
+sde::clean::shareddependencydir()
+{
+   log_entry "sde::clean::shareddependencydir" "$@"
+
+   if [ -z "${MULLE_CRAFT_SHARED_DEPENDENCY_DIR:-}" ]
+   then
+      log_verbose "No shared dependency store is configured"
+      return 0
+   fi
+
+   log_verbose "mulle-craft cleans the shared dependency store"
+   rexekutor "${MULLE_CRAFT:-mulle-craft}" \
+                  ${MULLE_TECHNICAL_FLAGS} \
+               clean \
+                  "$@" \
+                  shared-dependency-store
 }
 
 
@@ -908,6 +933,8 @@ graveyard
 gravetidy
 mirror
 project
+shared
+shared-dependency-store
 subprojects
 tidy
 test"
@@ -966,6 +993,14 @@ test"
       # used by mulle-craft implicitly via error message
       dependency)
          domains="dependencydir"
+      ;;
+
+      #
+      # explicitly NOT in tidy/gravetidy: the shared store is meant to
+      # survive those
+      #
+      shared|shared-dependency-store|shared-dependencydir)
+         domains="shareddependencydir"
       ;;
 
       demo)

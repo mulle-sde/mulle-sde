@@ -31,7 +31,9 @@ main()
    qualified_dir="${store_dir}/SDK_A-platform_a/Release/lib"
    craft_log="${directory}/mulle-craft.log"
 
-   mkdir_if_missing "${fakebin}" "${qualified_dir}"
+   # mkdir_if_missing only operates on its first argument; call it per directory.
+   mkdir_if_missing "${fakebin}"
+   mkdir_if_missing "${qualified_dir}"
 
    cat > "${fakebin}/mulle-craft" <<'EOF'
 #! /bin/sh

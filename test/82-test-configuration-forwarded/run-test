@@ -38,19 +38,6 @@ ${text}"
 }
 
 
-create_pe32plus_executable()
-{
-   local filename="$1"
-
-   exekutor dd if=/dev/zero of="${filename}" bs=1 count=512 > /dev/null 2>&1
-   exekutor printf '\x4d\x5a' | dd of="${filename}" bs=1 seek=0 conv=notrunc > /dev/null 2>&1
-   exekutor printf '\x80\x00\x00\x00' | dd of="${filename}" bs=1 seek=60 conv=notrunc > /dev/null 2>&1
-   exekutor printf '\x50\x45\x00\x00' | dd of="${filename}" bs=1 seek=128 conv=notrunc > /dev/null 2>&1
-   exekutor printf '\x0b\x02' | dd of="${filename}" bs=1 seek=152 conv=notrunc > /dev/null 2>&1
-   exekutor chmod +x "${filename}"
-}
-
-
 main()
 {
    MULLE_SDE_FLAGS="$@"
@@ -58,9 +45,8 @@ main()
    _options_mini_main "$@" && set -x
 
    local directory
-   local exefile
-   local stubdir
    local output
+   local testfile
 
    r_make_tmp_directory || exit 1
    directory="${RVAL}"
@@ -75,28 +61,21 @@ main()
    (
       cd "${directory}" || exit 1
 
-      exefile="${PWD}/kitchen/windows/Debug/fake-test.exe"
-      exekutor mkdir -p "${PWD}/kitchen/windows/Debug"
-      create_pe32plus_executable "${exefile}" || fail "could not create PE32+ executable fixture"
+      run_mulle_sde -s test init || fail "test init failed"
+      testfile="${PWD}/test/10-first/hello.args"
 
-      stubdir="${PWD}/stubbin"
-      exekutor mkdir -p "${stubdir}"
-      cat <<EOF > "${stubdir}/wine32"
-#!/bin/sh
-exit 99
-EOF
-      exekutor chmod +x "${stubdir}/wine32"
+      # craft the dependency in Release, so the link-args file exists
+      run_mulle_sde -s test --configuration Release craft \
+         || fail "Release craft failed"
 
-      run_mulle_sde -s environment --scope project set MULLE_EMULATOR__WINDOWS wine32 \
-      || fail "could not set emulator"
-
-      if output="`PATH="${stubdir}:${PATH}" run_mulle_sde -s run "${exefile}" 2>&1`"
-      then
-         fail "run unexpectedly succeeded"
-      fi
-
-      expect_line "Cannot run 64-bit Windows test" "${output}"
-      expect_line "configured emulator is wine32" "${output}"
+      #
+      # The run step is executed by the external mulle-test executable, so
+      # the configuration must be forwarded on the command line. Without it
+      # mulle-test silently falls back to Debug.
+      #
+      output="`MULLE_FLAG_LOG_EXEKUTOR=YES \
+                  run_mulle_sde -s test --configuration Release nrun "${testfile}" 2>&1`"
+      expect_line "mulle-test .*--configuration Release .*run" "${output}"
    ) || exit 1
 
    log_info "----- ALL PASSED -----"

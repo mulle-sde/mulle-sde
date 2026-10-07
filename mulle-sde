@@ -34,8 +34,14 @@
 [ "${MULLE_SDE_DUMP_ENV:-}" = 'YES' ] && env | sort >&2
 
 
-MULLE_EXECUTABLE_VERSION=3.9.1
+MULLE_EXECUTABLE_VERSION=3.10.0
 MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
+
+#
+# Defines are kept as individual arguments (not newline separated), so that
+# values containing newlines survive the re-exec through mulle-env.
+#
+MULLE_DEFINE_ARGUMENTS=()
 
 #
 # Determine location of own libexec directory. Which is `src` in development
@@ -275,14 +281,13 @@ sde::set_custom_environment()
 {
    log_entry "sde::set_custom_environment" "$@"
 
-   local defines="$1"
-
    local i
 
-   .foreachline i in ${defines}
-   .do
+   for i in "$@"
+   do
+      [ -z "${i}" ] && continue
       sde::set_custom_define "${i#-D}"
-   .done
+   done
 }
 
 
@@ -376,7 +381,7 @@ sde::run_mulle_env()
                         ${MULLE_TECHNICAL_FLAGS:-} \
                         ${MULLE_ENV_FLAGS:-} \
                         ${MULLE_FWD_FLAGS:-} \
-                        --defines "${MULLE_DEFINE_FLAGS:-}" \
+                        "${MULLE_DEFINE_ARGUMENTS[@]}" \
                         "$@"
       return $?
    fi
@@ -385,7 +390,7 @@ sde::run_mulle_env()
                   ${MULLE_TECHNICAL_FLAGS:-} \
                   ${MULLE_ENV_FLAGS:-} \
                   ${MULLE_FWD_FLAGS:-} \
-                  --defines "${MULLE_DEFINE_FLAGS:-}" \
+                  "${MULLE_DEFINE_ARGUMENTS[@]}" \
                   "$@"
 }
 
@@ -411,7 +416,7 @@ sde::exec_mulle_env()
                             ${MULLE_TECHNICAL_FLAGS:-} \
                             ${MULLE_ENV_FLAGS:-} \
                             ${MULLE_FWD_FLAGS:-} \
-                            --defines "${MULLE_DEFINE_FLAGS:-}" \
+                            "${MULLE_DEFINE_ARGUMENTS[@]}" \
                             "$@"
       return $?
    fi
@@ -420,7 +425,7 @@ sde::exec_mulle_env()
                        ${MULLE_TECHNICAL_FLAGS:-} \
                        ${MULLE_ENV_FLAGS:-} \
                        ${MULLE_FWD_FLAGS:-} \
-                       --defines "${MULLE_DEFINE_FLAGS:-}" \
+                       "${MULLE_DEFINE_ARGUMENTS[@]}" \
                        "$@"
 }
 
@@ -469,24 +474,18 @@ ${C_RESET_BOLD}   mulle-sde init"
    # These flags are eventually passed to mulle-sde again, they aren't
    # picked up by MULLE_ENV
    #
-   local flag
+   # Each argument is %q-escaped and passed as a single line via -c, so that
+   # arguments containing newlines survive the mulle-env re-exec.
+   #
    local cmdline
 
-   cmdline="${MULLE_EXECUTABLE}"
-
    shell_disable_glob # keep it
-   for flag in ${MULLE_TECHNICAL_FLAGS:-} ${MULLE_FWD_FLAGS:-}
-   do
-      cmdline="${cmdline}
-${flag}"
-   done
 
-   while [ $# -ne 0 ]
-   do
-      cmdline="${cmdline}
-$1"
-      shift
-   done
+   r_escaped_eval_arguments "${MULLE_EXECUTABLE}" \
+                            ${MULLE_TECHNICAL_FLAGS:-} \
+                            ${MULLE_FWD_FLAGS:-} \
+                            "$@"
+   cmdline="${RVAL}"
 
    #
    # here we are just bouncing through mulle-env, we don't want
@@ -501,8 +500,8 @@ $1"
                         "${MULLE_ENV:-mulle-env}" \
                            ${MULLE_ENV_FLAGS:-} \
                            ${MULLE_FWD_FLAGS:-} \
-                           --defines "${MULLE_DEFINE_FLAGS:-}" \
-                           -C "${cmdline}"
+                           "${MULLE_DEFINE_ARGUMENTS[@]}" \
+                           -c "${cmdline}"
       return $?
    fi
 
@@ -510,8 +509,8 @@ $1"
       rexekutor exec "${MULLE_ENV:-mulle-env}" \
                         ${MULLE_ENV_FLAGS:-} \
                         ${MULLE_FWD_FLAGS:-} \
-                        --defines "${MULLE_DEFINE_FLAGS:-}" \
-                        -C "${cmdline}"
+                        "${MULLE_DEFINE_ARGUMENTS[@]}" \
+                        -c "${cmdline}"
 }
 
 
@@ -712,7 +711,6 @@ sde::main()
    local FLAG_OUTSIDE_ENV='NO'
    local FLAG_CHANGE_ENVIRONMENT='NO'
 
-   local defines
    local arg
    local directory
    # Track current command for vibecoding help
@@ -758,8 +756,7 @@ sde::main()
             r_add_line "${MULLE_DEFINE_FLAGS}" "-DMULLE_SDE_TEST_CHECK=NO"
             MULLE_DEFINE_FLAGS="${RVAL}"
 
-            r_add_line "${defines}" "-DMULLE_SDE_TEST_CHECK=NO"
-            defines="${RVAL}"
+            MULLE_DEFINE_ARGUMENTS+=( "-DMULLE_SDE_TEST_CHECK=NO" )
          ;;
 
          -f|--force)
@@ -839,11 +836,12 @@ sde::main()
 
             while read -r arg
             do
-               r_add_line "${MULLE_DEFINE_FLAGS}" "$1"
+               [ -z "${arg}" ] && continue
+
+               r_add_line "${MULLE_DEFINE_FLAGS}" "${arg}"
                MULLE_DEFINE_FLAGS="${RVAL}"
 
-               r_add_line "${defines}" "$1"
-               defines="${RVAL}"
+               MULLE_DEFINE_ARGUMENTS+=( "${arg}" )
             done <<< "$1"
          ;;
 
@@ -851,8 +849,7 @@ sde::main()
             r_add_line "${MULLE_DEFINE_FLAGS}" "$1"
             MULLE_DEFINE_FLAGS="${RVAL}"
 
-            r_add_line "${defines}" "$1"
-            defines="${RVAL}"
+            MULLE_DEFINE_ARGUMENTS+=( "$1" )
          ;;
 
          -d)
@@ -955,7 +952,7 @@ sde::main()
             api|callback|check|clean|config|craft|craftinfo|craftorder|craftstatus|\
 code|\
 craft-status|definition|dep|dependency|doctor|donefile|export|\
-fetch|file|files|filename|find|headerorder|howto|ignore|json|library|\
+fetch|file|files|filename|headerorder|howto|ignore|json|library|\
 link-args|list|log|logstatus|mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
 platform|product|project|protect|reflect|recraft|searchpath|sourcetree|\
@@ -1092,9 +1089,9 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
             fi
          fi
 
-         if [ ! -z "${defines:-}" ]
+         if [ ${#MULLE_DEFINE_ARGUMENTS[@]} -ne 0 ]
          then
-            sde::set_custom_environment "${defines}"
+            sde::set_custom_environment "${MULLE_DEFINE_ARGUMENTS[@]}"
          fi
 
          local hook
@@ -1348,7 +1345,6 @@ extension - manage language and buildtool extensions (help: yes)
 fetch - fetch the sourcetree (help: yes)
 file - alias for files (help: yes)
 files - alias for list (help: yes)
-find - find files in project (help: yes)
 get - get environment variable value (help: yes)
 headerorder - show header includes for dependencies and libraries (help: yes)
 hostname - print hostname (help: no)

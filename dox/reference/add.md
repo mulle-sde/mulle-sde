@@ -45,8 +45,9 @@ Add files to your project or create new files from templates, or add dependencie
   - **Example**: `mulle-sde add --embedded clib:user/repo`
 
 - `--amalgamated`: Add dependency as embedded and amalgamated
-  - **When to use**: For creating single-header libraries
+  - For clib URLs, defaults to manifest-src-only `clibmode=copy`
   - **Example**: `mulle-sde add --amalgamated clib:user/repo`
+  - Use `mulle-sde dependency add --amalgamated --clibmode deep-copy clib:user/repo` for recursive clib dependencies
 
 #### Workflow Control Options
 - `--quick`: Skip automatic fetch/reflect/craft after adding

@@ -1,0 +1,52 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+expect_reponame()
+{
+   local api="$1"
+   local expected="$2"
+
+   sde::api::r_reponame_for_api_path "${api}"
+
+   if [ "${RVAL}" != "${expected}" ]
+   then
+      fail "reponame for \"${api}\" was \"${RVAL}\", expected \"${expected}\""
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   # shellcheck source=src/mulle-sde-api.sh
+   . "${PWD}/../../src/mulle-sde-api.sh" || fail "could not source mulle-sde-api.sh"
+
+   expect_reponame "/cache/dependency/Debug/share/mulle-core/dox/api/toc/index.md" "mulle-core"
+   expect_reponame "/cache/dependency/Debug/share/MulleObjC-startup/dox/api/toc/index.md" "MulleObjC-startup"
+   expect_reponame "/cache/dependency/Debug/share/mulle-core/dox/TOC.md" "mulle-core"
+   expect_reponame "/cache/dependency/Debug/share/mulle-core/TOC.md" "mulle-core"
+
+   log_info "----- ALL PASSED -----"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

@@ -50,10 +50,11 @@ Examples:
 Commands:
       list               : list available API documentation from dependencies
       cat <name>         : show API doc by number or dependency name
-      symbols <lib>      : list all symbols from a library's headers
-      functions <lib>    : list C functions from a library's headers
-      methods <lib>      : list ObjC methods from a library's headers
-      factories <lib>    : list ObjC class (+) methods from a library's headers
+      symbols [lib]      : list all symbols from crafted dependency headers
+      functions [lib]    : list C functions from crafted dependency headers
+      methods [class]    : list ObjC methods, optionally filtered by class
+      classes [lib]      : list ObjC class interfaces from crafted dependency headers
+      factories [class]  : list ObjC class (+) methods, optionally by class
       grep <pattern>     : search symbols across all dependency headers
       context            : dump all API docs to stdout (pipe to AI tool)
       apropos <question> : keyword search through API docs
@@ -137,6 +138,43 @@ sde::api::r_extract_keywords()
       # Trim whitespace
       RVAL="$(echo "${keywords_line}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
    fi
+}
+
+
+#
+# Map an API doc path back to the dependency (repo) name it belongs to.
+# Paths are one of:
+#    <...>/share/<name>/dox/api/toc/index.md
+#    <...>/share/<name>/dox/TOC.md
+#    <...>/share/<name>/TOC.md
+#
+sde::api::r_reponame_for_api_path()
+{
+   log_entry "sde::api::r_reponame_for_api_path" "$@"
+
+   local api="$1"
+   local repo_path
+
+   case "${api}" in
+      */dox/api/toc/index.md)
+         repo_path="${api%/dox/api/toc/index.md}"
+      ;;
+
+      */dox/TOC.md)
+         repo_path="${api%/dox/TOC.md}"
+      ;;
+
+      */TOC.md)
+         repo_path="${api%/TOC.md}"
+      ;;
+
+      *)
+         r_dirname "${api}"
+         repo_path="${RVAL}"
+      ;;
+   esac
+
+   r_basename "${repo_path}"
 }
 
 
@@ -430,7 +468,7 @@ sde::api::list()
    .foreachpath api in ${apis}
    .do
       # Extract repo name from path
-      r_basename "$(dirname "$(dirname "${api}")")"
+      sde::api::r_reponame_for_api_path "${api}"
       reponame="${RVAL}"
       
       log_debug "Processing API: ${reponame}"
@@ -576,23 +614,33 @@ sde::api::symbols_usage()
 
     cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} api symbols [options] <library>
-   ${MULLE_USAGE_NAME} api functions [options] <library>
-   ${MULLE_USAGE_NAME} api methods [options] <library>
+   ${MULLE_USAGE_NAME} api symbols [options] [library]
+   ${MULLE_USAGE_NAME} api functions [options] [library]
+   ${MULLE_USAGE_NAME} api methods [options] [class]
+   ${MULLE_USAGE_NAME} api classes [options] [library]
 
-   List symbols from a dependency's installed headers using ctags.
+   List API names from crafted dependency headers using ctags.
 
    symbols   : all symbol kinds (functions, methods, types, macros)
    functions : C functions only
-   methods   : Objective-C methods only
+   methods   : Objective-C methods only (positional arg is a class)
+   classes   : Objective-C class interfaces only
+
+   For methods/factories the optional positional argument is a class name.
+   For the others it is a dependency/library name. Omit it to scan all
+   crafted dependencies.
 
 Options:
    --grep <pattern>   : filter output by symbol name pattern
+   --class <name>     : only methods/factories whose class is <name>
+   --library <name>   : restrict to one crafted dependency
 
 Examples:
-   ${MULLE_USAGE_NAME} api functions MulleCG
+   ${MULLE_USAGE_NAME} api methods
+   ${MULLE_USAGE_NAME} api methods NSObject
+   ${MULLE_USAGE_NAME} api methods --library MulleObjC
+   ${MULLE_USAGE_NAME} api classes MulleObjC
    ${MULLE_USAGE_NAME} api functions --grep Fill MulleCG
-   ${MULLE_USAGE_NAME} api methods MulleUIWindow
    ${MULLE_USAGE_NAME} api symbols MulleCG
 
 EOF
@@ -609,8 +657,14 @@ sde::api::_list_symbols()
 
    local kinds="$1"
    shift
+   local xformat="$1"
+   shift
+   local positional="${1:-library}"
+   shift
 
    local OPTION_GREP=""
+   local OPTION_CLASS=""
+   local OPTION_LIBRARY=""
 
    while [ $# -ne 0 ]
    do
@@ -622,6 +676,14 @@ sde::api::_list_symbols()
             shift
             OPTION_GREP="${1}"
          ;;
+         --class|--scope)
+            shift
+            OPTION_CLASS="${1}"
+         ;;
+         --library|--dependency)
+            shift
+            OPTION_LIBRARY="${1}"
+         ;;
          -*)
             sde::api::symbols_usage "Unknown option $1"
          ;;
@@ -632,9 +694,17 @@ sde::api::_list_symbols()
       shift
    done
 
-   local library="$1"
+   local argument="${1:-}"
 
-   [ -z "${library}" ] && sde::api::symbols_usage "Missing library name"
+   if [ ! -z "${argument}" ]
+   then
+      if [ "${positional}" = 'class' ]
+      then
+         OPTION_CLASS="${argument}"
+      else
+         OPTION_LIBRARY="${argument}"
+      fi
+   fi
 
    if ! command -v ctags >/dev/null 2>&1
    then
@@ -643,62 +713,34 @@ sde::api::_list_symbols()
 
    sde::api::ensure_dependencies_crafted "API symbols"
 
-   local dependency_dir
-   dependency_dir="$(rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} dependency-dir 2>/dev/null)" || true
+   include "sde::symbol"
 
-   [ -z "${dependency_dir}" ] || [ ! -d "${dependency_dir}" ] && \
-      fail "No dependency directory found (run 'mulle-sde craft' first)"
+   set -- --dependencies --ctags-kinds "${kinds}"
 
-   # Search for the include directory matching the library name
-   local include_dir=""
-   local subdir
-
-   # dependency-dir may already contain the build type, check directly first
-   if [ -d "${dependency_dir}/include/${library}" ]
+   if [ ! -z "${xformat}" ]
    then
-      include_dir="${dependency_dir}/include/${library}"
-   else
-      # Try parent with explicit build types
-      local parent_dir
-      r_dirname "${dependency_dir}"
-      parent_dir="${RVAL}"
-
-      local searchpath="Debug:Release:"
-      .foreachpath subdir in ${searchpath}
-      .do
-         if [ -d "${parent_dir}/${subdir}/include/${library}" ]
-         then
-            include_dir="${parent_dir}/${subdir}/include/${library}"
-            .break
-         fi
-      .done
+      set -- "$@" --ctags-xformat "${xformat}"
    fi
 
-   if [ -z "${include_dir}" ]
+   if [ ! -z "${OPTION_CLASS}" ]
    then
-      # Try case-insensitive match
-      local candidate
-      candidate="$(find "${dependency_dir}/include" -maxdepth 1 -iname "${library}" -type d 2>/dev/null | head -1)"
-      [ ! -z "${candidate}" ] && include_dir="${candidate}"
+      set -- "$@" --scope "${OPTION_CLASS}"
    fi
 
-   [ -z "${include_dir}" ] && fail "No include directory found for '${library}'"
+   if [ ! -z "${OPTION_LIBRARY}" ]
+   then
+      set -- "$@" --dependency "${OPTION_LIBRARY}"
+   fi
 
-   # Run ctags on all headers
    local output
-   output="$(ctags -x --language-force=ObjectiveC --kinds-ObjectiveC="${kinds}" "${include_dir}"/*.h 2>/dev/null)"
 
-   if [ -z "${output}" ]
-   then
-      log_info "No symbols found in ${library} headers"
-      return 0
-   fi
+   output="$(sde::symbol::main "$@" 2>/dev/null)" || return $?
 
    # Apply grep filter if specified
    if [ ! -z "${OPTION_GREP}" ]
    then
       output="$(printf '%s\n' "${output}" | grep -i "${OPTION_GREP}")"
-      [ -z "${output}" ] && { log_info "No symbols matching '${OPTION_GREP}' in ${library}"; return 0; }
+      [ -z "${output}" ] && { log_info "No symbols matching '${OPTION_GREP}'"; return 0; }
    fi
 
    printf '%s\n' "${output}"
@@ -707,19 +749,25 @@ sde::api::_list_symbols()
 
 sde::api::symbols()
 {
-   sde::api::_list_symbols "fpmicsteCeM" "$@"
+   sde::api::_list_symbols "fpmicsteCeM" "%K %N" "library" "$@"
 }
 
 
 sde::api::functions()
 {
-   sde::api::_list_symbols "fp" "$@"
+   sde::api::_list_symbols "fp" "%K %N" "library" "$@"
 }
 
 
 sde::api::methods()
 {
-   sde::api::_list_symbols "mc" "$@"
+   sde::api::_list_symbols "mc" "%K [%s %N]" "class" "$@"
+}
+
+
+sde::api::classes()
+{
+   sde::api::_list_symbols "i" "%N" "library" "$@"
 }
 
 
@@ -730,19 +778,26 @@ sde::api::factories()
    [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "help" ] && {
       cat <<EOF >&2
 Usage:
-   ${MULLE_USAGE_NAME} api factories <library>
+   ${MULLE_USAGE_NAME} api factories [options] [class]
 
-   List class factory methods (+ methods) from a library's headers.
+   List class factory methods (+ methods) from crafted dependency headers.
+   Without a class name, all crafted dependencies are scanned.
+
+Options:
+   --class <name>     : only methods whose class is <name>
+   --library <name>   : restrict to one crafted dependency
+   --grep <pattern>   : filter output by method name pattern
 
 Examples:
-   ${MULLE_USAGE_NAME} api factories MulleAudio
-   ${MULLE_USAGE_NAME} api factories MulleUIWindow
+   ${MULLE_USAGE_NAME} api factories
+   ${MULLE_USAGE_NAME} api factories NSObject
+   ${MULLE_USAGE_NAME} api factories --library MulleObjC
 
 EOF
       exit 1
    }
 
-   sde::api::_list_symbols "c" "$@"
+   sde::api::_list_symbols "c" "%K [%s %N]" "class" "$@"
 }
 
 
@@ -988,8 +1043,7 @@ sde::api::apropos()
             # Check if adding this file would exceed limit
             if [ $((current_chars + content_length + 200)) -lt ${max_context_chars} ]
             then
-               r_dirname "${api_file}"
-               r_basename "${RVAL}"
+               sde::api::r_reponame_for_api_path "${api_file}"
                reponame="${RVAL}"
 
                {
@@ -1013,8 +1067,7 @@ sde::api::apropos()
       log_debug "Adding top-level dependencies..."
       .foreachpath api in ${apis}
       .do
-         r_dirname "${api}"
-         r_basename "${RVAL}"
+         sde::api::r_reponame_for_api_path "${api}"
          reponame="${RVAL}"
 
          if echo "${toplevel_deps}" | grep -q "^${reponame}$"
@@ -1033,8 +1086,7 @@ sde::api::apropos()
          .foreachpath api in ${apis}
          .do
             # Check if already added (top-level)
-            r_dirname "${api}"
-            r_basename "${RVAL}"
+            sde::api::r_reponame_for_api_path "${api}"
             reponame="${RVAL}"
 
             if echo "${toplevel_deps}" | grep -q "^${reponame}$"
@@ -1062,8 +1114,7 @@ sde::api::apropos()
          log_debug "Adding remaining dependencies..."
          .foreachpath api in ${apis}
          .do
-            r_dirname "${api}"
-            r_basename "${RVAL}"
+            sde::api::r_reponame_for_api_path "${api}"
             reponame="${RVAL}"
 
             # Skip if already added
@@ -1150,8 +1201,7 @@ Question: ${question}"
          then
             all_matches="${all_matches}${matches}"$'\n'
          else
-            r_dirname "${api}"
-            r_basename "${RVAL}"
+            sde::api::r_reponame_for_api_path "${api}"
             reponame="${RVAL}"
             echo "--- ${reponame} ---"
             echo "${matches}"
@@ -1280,7 +1330,7 @@ sde::api::context()
          log_debug "Context size limit reached at ${current_chars} chars"
          return 1
       fi
-      r_dirname "${api_file}"; r_basename "${RVAL}"; reponame="${RVAL}"
+      sde::api::r_reponame_for_api_path "${api_file}"; reponame="${RVAL}"
       printf '\n--- %s ---\n%s\n' "${reponame}" "${content}"
       current_chars=$((current_chars + len + 200))
       return 0
@@ -1289,7 +1339,7 @@ sde::api::context()
    # Pass 1: top-level deps
    .foreachpath api in ${apis}
    .do
-      r_dirname "${api}"; r_basename "${RVAL}"; reponame="${RVAL}"
+      sde::api::r_reponame_for_api_path "${api}"; reponame="${RVAL}"
       echo "${toplevel_deps}" | grep -q "^${reponame}$" || .continue
       _emit_api "${api}" || .break
    .done
@@ -1298,7 +1348,7 @@ sde::api::context()
    [ ${current_chars} -lt ${max_chars} ] &&
    .foreachpath api in ${apis}
    .do
-      r_dirname "${api}"; r_basename "${RVAL}"; reponame="${RVAL}"
+      sde::api::r_reponame_for_api_path "${api}"; reponame="${RVAL}"
       echo "${toplevel_deps}" | grep -q "^${reponame}$" && .continue
       sde::api::r_extract_keywords "${api}"
       echo "${RVAL}" | grep -q -i "amalgamated" || .continue
@@ -1369,6 +1419,10 @@ sde::api::main()
 
       'methods')
          sde::api::methods "$@"
+      ;;
+
+      'classes')
+         sde::api::classes "$@"
       ;;
 
       'factories')
