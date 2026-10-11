@@ -464,7 +464,7 @@ sde::test::coverage()
       if [ "${OPTION_CLEAN}" = 'YES' ]
       then
          log_info "${C_BR_BLUE}${C_BOLD}* Build dependencies without coverage"
-         exekutor_mulle_sde "${testdir}" clean all   || exit 1
+         sde::test::clean "${testdir}" all   || exit 1
          OPTION_CRAFT='YES'
       fi
 
@@ -1136,7 +1136,10 @@ sde::test::auto_clean()
 
       log_fluff "Cleaning in ${directory}"
 
-      exekutor_mulle_sde "${directory}" clean "$@" ${target}
+      if ! sde::test::clean "${directory}" "$@" ${target}
+      then
+         return 1
+      fi
    )
 }
 
@@ -1377,6 +1380,32 @@ sde::test::generic()
       log_fluff "Executing ${cmd} in ${directory}"
 
       exekutor_mulle_sde "${directory}" "${cmd}" "$@"
+   )
+}
+
+
+sde::test::clean()
+{
+   log_entry "sde::test::clean" "$@"
+
+   local directory="$1"
+   shift
+
+   [ -z "${directory}" ] && _internal_fail "directory is empty"
+
+   (
+      log_fluff "Cleaning test project in ${directory}"
+
+      if ! exekutor_mulle_sde "${directory}" clean "$@"
+      then
+         return 1
+      fi
+
+      #
+      # mulle-sde clean does not remove the per-suite kitchen directories
+      # (e.g. test/80-package/kitchen). That is mulle-test's job.
+      #
+      exekutor_mulle_test "${directory}" clean
    )
 }
 
@@ -2754,7 +2783,7 @@ sde::test::main()
                   ;;
 
                   'clean')
-                     if ! sde::test::generic "${test_dir_for_platform}" "${cmd_part}" --platform "${platform_part}" "$@"
+                     if ! sde::test::clean "${test_dir_for_platform}" --platform "${platform_part}" "$@"
                      then
                         if [ "${OPTION_LENIENT}" != 'YES' ]
                         then
@@ -2919,7 +2948,7 @@ sde::test::main()
                ;;
 
                'clean')
-                  if ! sde::test::generic "${directory}" "${cmd_part}" --platform "${platform_part}" "$@"
+                  if ! sde::test::clean "${directory}" --platform "${platform_part}" "$@"
                   then
                      if [ "${OPTION_LENIENT}" != 'YES' ]
                      then
