@@ -98,7 +98,7 @@ __mulle_sde_global_flags() {
     local flags
     flags="$(mulle-sde --list-flags 2>/dev/null)"
     if [ -z "$flags" ]; then
-      flags="--environment-override --force --git-terminal-prompt --no-search --no-test-check --style --version"
+      flags="--allow-nested-env --environment-override --force --git-terminal-prompt --hermetic --keep-pwd --keep-tmp --no-motd --no-mudo --no-search --no-test-check --sandbox --style --version"
     fi
     # Always merge in the mulle-bash technical flag set so completion is
     # useful even when --list-flags misbehaves / is missing.
@@ -109,6 +109,7 @@ __mulle_sde_global_flags() {
 -tpwd --trace-pwd -tfpwd --trace-full-pwd -l- -t-
 --mulle-no-color --mulle-no-error --mulle-list-technical-flags
 -N --search-nearest --search-as-is --search-here --search-none
+--allow-nested-env --hermetic --keep-pwd --keep-tmp --no-motd --no-mudo --sandbox
 --defines -D -d -h --help"
     __mulle_sde_static_cache_set "__mulle_sde_cached_global_flags" "$(__mulle_sde_unique $flags)"
   fi
@@ -414,7 +415,7 @@ __mulle_sde_complete_extensions() {
 
 __mulle_sde_opt_needs_value() {
   case "$1" in
-    -D*|-d|--directory|--dir|--project-dir|--source-dir|--kitchen-dir|--dependency-dir|--stash-dir|--addiction-dir|--definition-dir|--tool|--vendor|--vendorpath|--vendor-path|--name|--oneshot-name|--oneshot-class|--oneshot-category|--file-extension|--extension|--type|--style|--build-type|--build-style|--c-build-type|--c-build-style|--craftorder-build-style|--config|--config-name|--configuration|--platform|--os|--scope|--sdk|--language|--dialect|--project-language|--project-dialect|--scm|--domain|--host|--user|--repo|--tag|--branch|--address|--url|--key|--value|--format|--output-format|--csv-separator|--cat|--ctags-*|--ctags-output|--ctags-output-format|--ctags-language|--ctags-kinds|--category|--marks|--nodetype|--subproject|--git-terminal-prompt|--env-name|--env-scope|--include|--qualifier)
+    -D*|-d|--directory|--dir|--project-dir|--source-dir|--kitchen-dir|--dependency-dir|--stash-dir|--addiction-dir|--definition-dir|--tool|--vendor|--vendorpath|--vendor-path|--name|--oneshot-name|--oneshot-class|--oneshot-category|--file-extension|--extension|--type|--style|--sandbox|--build-type|--build-style|--c-build-type|--c-build-style|--craftorder-build-style|--config|--config-name|--configuration|--platform|--os|--scope|--sdk|--language|--dialect|--project-language|--project-dialect|--scm|--domain|--host|--user|--repo|--tag|--branch|--address|--url|--key|--value|--format|--output-format|--csv-separator|--cat|--ctags-*|--ctags-output|--ctags-output-format|--ctags-language|--ctags-kinds|--category|--marks|--nodetype|--subproject|--git-terminal-prompt|--env-name|--env-scope|--include|--qualifier)
       return 0
     ;;
   esac
