@@ -1,0 +1,130 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_equal()
+{
+   local expected="$1"
+   local value="$2"
+   local name="$3"
+
+   if [ "${value}" != "${expected}" ]
+   then
+      fail "Expected ${name}='${expected}', got '${value}'"
+   fi
+}
+
+
+expect_line()
+{
+   local pattern="$1"
+   local text="$2"
+
+   if ! printf "%s\n" "${text}" | grep -q -- "${pattern}"
+   then
+      fail "Expected pattern \"${pattern}\" not found in output:
+${text}"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local hook
+   local result
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable \
+      || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   #
+   # -D (before and after), -DB (before only) and -DE (after only) all define
+   # the variable in the subshell. printenv is an external command, so this
+   # also checks that the define is exported.
+   #
+   result="`run_mulle_sde -s -DMULLE_TEST_D=one exec printenv MULLE_TEST_D`"
+   expect_equal "one" "${result}" "-D define"
+
+   result="`run_mulle_sde -s -DBMULLE_TEST_B=two exec printenv MULLE_TEST_B`"
+   expect_equal "two" "${result}" "-DB define"
+
+   result="`run_mulle_sde -s -DEMULLE_TEST_E=three exec printenv MULLE_TEST_E`"
+   expect_equal "three" "${result}" "-DE define"
+
+   #
+   # a -DE define is applied after the environment files, so the local
+   # environment can not clobber it
+   #
+   run_mulle_sde -s environment --scope project set MULLE_TEST_CLOBBER filevalue \
+      || fail "could not set project environment variable"
+
+   result="`run_mulle_sde -s -DEMULLE_TEST_CLOBBER=cmdline exec printenv MULLE_TEST_CLOBBER`"
+   expect_equal "cmdline" "${result}" "-DE overrides environment file"
+
+   result="`run_mulle_sde -s exec printenv MULLE_TEST_CLOBBER`"
+   expect_equal "filevalue" "${result}" "environment file without -DE"
+
+   #
+   # commands that do not bounce through mulle-env apply the define
+   # themselves, -DB and -DE must not mangle the key into B... or E...
+   #
+   if [ -n "${BASH_VERSION}" ]
+   then
+      hook="${directory}/hook.sh"
+
+      cat <<EOF > "${hook}" || fail "could not create hook"
+#! /bin/sh
+printf "FOO=[%s] EFOO=[%s] BAR=[%s] BBAR=[%s]\n" "\${FOO}" "\${EFOO}" "\${BAR}" "\${BBAR}"
+EOF
+      chmod +x "${hook}" || fail "could not chmod hook"
+
+      result="`run_mulle_sde -s -DEFOO=bar -DBBAR=baz \
+                              -DMULLE_SDE_STATUS_PRELUDE="${hook}" status 2>&1`"
+      expect_line "FOO=\[bar\] EFOO=\[\] BAR=\[baz\] BBAR=\[\]" "${result}"
+   fi
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

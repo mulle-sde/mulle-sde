@@ -1,0 +1,120 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_equal()
+{
+   local expected="$1"
+   local value="$2"
+   local name="$3"
+
+   if [ "${value}" != "${expected}" ]
+   then
+      fail "Expected ${name}='${expected}', got '${value}'"
+   fi
+}
+
+
+#
+# A nested environment entry re-sources the environment files. Only a -DE
+# define (applied after them) survives that; a plain inherited variable does
+# not. mulle-sde relies on this to forward -D/-DE into nested environments
+# (e.g. mulle-sde test). Since mulle-sde's -D/-DE live in a process-local
+# array, an `mulle-sde ... exec mulle-sde ...` wrapper would lose them unless
+# they are exported and re-imported. This test pins both halves down.
+#
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local result
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable \
+      || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   run_mulle_sde -s environment --scope project set MULLE_TEST_SENTINEL repo-value \
+      || fail "could not set project environment variable"
+
+   #
+   # a nested environment entry overwrites the variable with the env file
+   # value, unless -DE re-applies it afterwards
+   #
+   result="`mulle-env -d . -E exec printenv MULLE_TEST_SENTINEL`"
+   expect_equal "repo-value" "${result}" "environment file on nested entry"
+
+   result="`mulle-env -d . -E -DE'MULLE_TEST_SENTINEL=override' exec printenv MULLE_TEST_SENTINEL`"
+   expect_equal "override" "${result}" "-DE after nested entry"
+
+   #
+   # the defines are exported as MULLE_SDE_DEFINES, so a mulle-sde wrapped
+   # with `exec` (fetch_aware style) still carries them ...
+   #
+   result="`run_mulle_sde --style mulle/wild -DE'MULLE_TEST_SENTINEL=one' \
+                            exec printenv MULLE_SDE_DEFINES`"
+   case "${result}" in
+      *MULLE_TEST_SENTINEL=one*)
+      ;;
+
+      *)
+         fail "defines did not survive an exec wrapper: '${result}'"
+      ;;
+   esac
+
+   #
+   # ... and a grandchild too, so nested tools re-apply them on entry
+   #
+   result="`run_mulle_sde --style mulle/wild -DE'MULLE_TEST_SENTINEL=one' \
+                            exec mulle-sde exec printenv MULLE_SDE_DEFINES`"
+   case "${result}" in
+      *MULLE_TEST_SENTINEL=one*)
+      ;;
+
+      *)
+         fail "defines did not survive a nested exec wrapper: '${result}'"
+      ;;
+   esac
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

@@ -44,6 +44,17 @@ MULLE_EXECUTABLE_BASHFUNCTIONS="6.2"
 MULLE_DEFINE_ARGUMENTS=()
 
 #
+# An enclosing mulle-sde may have exported its defines as a shell-quoted
+# argument list (see sde::export_custom_defines). Pick them up, so that
+# -D/-DE survive being wrapped with `mulle-sde ... exec mulle-sde ...` and
+# get re-applied on every nested environment entry.
+#
+if [ ! -z "${MULLE_SDE_DEFINES:-}" ]
+then
+   eval "MULLE_DEFINE_ARGUMENTS=( ${MULLE_SDE_DEFINES} )"
+fi
+
+#
 # Determine location of own libexec directory. Which is `src` in development
 # and ../libexec when deployed. MULLE_EXECUTABLE needs to be defined for this.
 #
@@ -286,8 +297,41 @@ sde::set_custom_environment()
    for i in "$@"
    do
       [ -z "${i}" ] && continue
-      sde::set_custom_define "${i#-D}"
+
+      #
+      # mirror mulle-env's parsing: -DKEY=VALUE defines the key both before
+      # and after the environment files, -DBKEY=VALUE only before and
+      # -DEKEY=VALUE only after (at the end)
+      #
+      case "${i}" in
+         -DB*|-DE*)
+            sde::set_custom_define "${i#-D?}"
+         ;;
+
+         *)
+            sde::set_custom_define "${i#-D}"
+         ;;
+      esac
    done
+}
+
+
+#
+# Export the collected defines as a shell-quoted argument list, so that any
+# re-exec'd or nested mulle-sde process picks them up again (see the
+# MULLE_SDE_DEFINES handling at the top of this file). Shell-quoting keeps
+# values with spaces and newlines intact.
+#
+sde::export_custom_defines()
+{
+   if [ ${#MULLE_DEFINE_ARGUMENTS[@]} -eq 0 ]
+   then
+      return 0
+   fi
+
+   r_escaped_eval_arguments "${MULLE_DEFINE_ARGUMENTS[@]}"
+   MULLE_SDE_DEFINES="${RVAL}"
+   export MULLE_SDE_DEFINES
 }
 
 
@@ -871,6 +915,13 @@ sde::main()
 
       shift
    done
+
+   #
+   # make the collected -D/-DE defines inheritable, so that they survive an
+   # `mulle-sde ... exec mulle-sde ...` wrapper and are re-applied by nested
+   # mulle-env invocations (which is what lets them outlive environment files)
+   #
+   sde::export_custom_defines
 
    options_setup_trace "${MULLE_TRACE:-}" && set -x
 
