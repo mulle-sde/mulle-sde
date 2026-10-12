@@ -1,0 +1,141 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_directory()
+{
+   if [ ! -d "$1" ]
+   then
+      fail "Expected directory \"$1\" to exist"
+   fi
+}
+
+
+expect_no_directory()
+{
+   if [ -d "$1" ]
+   then
+      fail "Expected directory \"$1\" to not exist"
+   fi
+}
+
+
+#
+# "clean stash" removes the stash without walking the sourcetree database.
+# This test pins down that a subsequent fetch still refetches, so the
+# missing walk does not leave the database thinking everything is fetched.
+#
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local dependency_dir
+   local directory
+   local repo
+   local stash_dir
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   #
+   # a local git repository to fetch from
+   #
+   repo="${directory}-repo"
+
+   rexekutor mkdir -p "${repo}/src" || fail "could not create repository"
+   redirect_exekutor "${repo}/VERSION" printf "1.0.0\n" || fail "could not create VERSION"
+   redirect_exekutor "${repo}/src/mydep.c" \
+      printf "int mydep(void) { return 0; }\n" || fail "could not create source"
+
+   (
+      cd "${repo}" || exit 1
+      exekutor git init --initial-branch=master -q &&
+      exekutor git add VERSION src/mydep.c &&
+      exekutor git -c user.email=test@example.com -c user.name=test \
+                  commit -qm "initial"
+   ) || fail "could not create git repository"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable \
+      || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   #
+   # adding a file:// URL makes mulle-domain grumble, which is harmless here
+   #
+   run_mulle_sde -s dependency add \
+                     --nodetype git \
+                     --address mydep \
+                     "file://${repo}" 2> /dev/null \
+      || fail "dependency add failed"
+
+   stash_dir="`run_mulle_sde -s exec printenv MULLE_SOURCETREE_STASH_DIR`"
+   [ ! -z "${stash_dir}" ] || fail "could not determine stash directory"
+
+   dependency_dir="`run_mulle_sde -s exec printenv DEPENDENCY_DIR`"
+   [ ! -z "${dependency_dir}" ] || fail "could not determine dependency directory"
+
+   #
+   # fetch once, so the stash is populated
+   #
+   run_mulle_sde -s fetch || fail "first fetch failed"
+
+   expect_directory "${stash_dir}/mydep"
+
+   #
+   # clean stash must take the stash and the dependency store away
+   #
+   run_mulle_sde -s clean stash || fail "clean stash failed"
+
+   expect_no_directory "${stash_dir}/mydep"
+   expect_no_directory "${dependency_dir}"
+
+   #
+   # ... and a fetch must bring it back, even though the sourcetree
+   # database was not walked
+   #
+   run_mulle_sde -s fetch || fail "second fetch failed"
+
+   expect_directory "${stash_dir}/mydep"
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" "${repo}" 2>/dev/null
+   rmdir_safer "${directory}"
+   rmdir_safer "${repo}"
+   rmdir_safer "${stash_dir}"
+   rmdir_safer "${dependency_dir}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

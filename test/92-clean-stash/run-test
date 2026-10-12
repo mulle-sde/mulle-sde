@@ -1,0 +1,122 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_directory()
+{
+   if [ ! -d "$1" ]
+   then
+      fail "Expected directory \"$1\" to exist"
+   fi
+}
+
+
+expect_no_directory()
+{
+   if [ -d "$1" ]
+   then
+      fail "Expected directory \"$1\" to not exist"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local dependency_dir
+   local directory
+   local embedded
+   local stash_dir
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable \
+      || fail "init failed"
+
+   cd "${directory}" || exit 1
+
+   stash_dir="`run_mulle_sde -s exec printenv MULLE_SOURCETREE_STASH_DIR`"
+   [ ! -z "${stash_dir}" ] || fail "could not determine stash directory"
+
+   dependency_dir="`run_mulle_sde -s exec printenv DEPENDENCY_DIR`"
+   [ ! -z "${dependency_dir}" ] || fail "could not determine dependency directory"
+
+   #
+   # fake a fetched dependency in the stash and the built dependency store,
+   # plus an embedded dependency in the project tree
+   #
+   rexekutor mkdir -p "${stash_dir}/fetched" || fail "could not create stash"
+   : > "${stash_dir}/fetched/file"
+
+   rexekutor mkdir -p "${dependency_dir}/fetched" || fail "could not create dependency store"
+   : > "${dependency_dir}/fetched/file"
+
+   embedded="${directory}/src/embedded"
+   rexekutor mkdir -p "${embedded}" || fail "could not create embedded directory"
+   : > "${embedded}/foo.c"
+
+   #
+   # "clean stash" removes the stash and the dependency store, but not the
+   # embedded dependency in the project tree
+   #
+   run_mulle_sde -s clean stash || fail "clean stash failed"
+
+   expect_no_directory "${stash_dir}"
+   expect_no_directory "${dependency_dir}"
+
+   expect_directory "${embedded}"
+   if [ ! -f "${embedded}/foo.c" ]
+   then
+      fail "clean stash removed the embedded dependency"
+   fi
+
+   #
+   # the domain is discoverable
+   #
+   if ! run_mulle_sde -s clean domains | grep -q '^stash$'
+   then
+      fail "clean domains does not list stash"
+   fi
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+   rmdir_safer "${stash_dir}"
+   rmdir_safer "${dependency_dir}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

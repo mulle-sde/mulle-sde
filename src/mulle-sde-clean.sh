@@ -84,6 +84,7 @@ sde::clean::domains_usage()
    mirror      : clean the repository mirror
    project     : clean project, keep dependencies
    shared      : clean the opt-in shared dependency store (NOT part of tidy/gravetidy)
+   stash       : clean the stash (fetched dependencies) and dependency store, keep embedded dependencies
    subprojects : clean subprojects
    test        : clean tests
    tidy        : clean everything (except archive and graveyard). It's slow!
@@ -327,6 +328,27 @@ sde::clean::dependencydir()
                   ${MULLE_TECHNICAL_FLAGS} \
                clean \
                   dependency-store
+}
+
+
+#
+# Remove only the stash, where fetched (non-embedded) dependencies live.
+# Unlike "tidy"/"fetch" this does not walk the sourcetree, so nothing that
+# was placed into the project tree (notably embedded dependencies) is
+# touched. Combined with the dependency store this is a cheap refetch.
+#
+sde::clean::stash()
+{
+   log_entry "sde::clean::stash" "$@"
+
+   if [ -z "${MULLE_SOURCETREE_STASH_DIR}" ]
+   then
+      log_fluff "Stash directory unknown, so don't clean"
+      return 0
+   fi
+
+   log_verbose "Removing \"${MULLE_SOURCETREE_STASH_DIR}\" directory"
+   rmdir_safer "${MULLE_SOURCETREE_STASH_DIR}"
 }
 
 
@@ -935,6 +957,7 @@ mirror
 project
 shared
 shared-dependency-store
+stash
 subprojects
 tidy
 test"
@@ -1001,6 +1024,14 @@ test"
       #
       shared|shared-dependency-store|shared-dependencydir)
          domains="shareddependencydir"
+      ;;
+
+      #
+      # removes only the stash and the dependency store, leaving embedded
+      # dependencies (which live in the project tree) alone
+      #
+      stash|stashes)
+         domains="stash:dependencydir"
       ;;
 
       demo)

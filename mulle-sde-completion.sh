@@ -502,7 +502,7 @@ __mulle_sde_complete_value_for_opt() {
     ;;
     --domain)
       case "$cmd" in
-        clean) __mulle_sde_complete_enums "$cur" "all alltestall archive cache craftinfos craftorder default fetch graveyard gravetidy mirror project subprojects test tidy"; return ;;
+        clean) __mulle_sde_complete_enums "$cur" "all alltestall archive cache craftinfos craftorder default fetch graveyard gravetidy mirror project shared shared-dependency-store stash subprojects test tidy"; return ;;
       esac
     ;;
   esac
@@ -567,7 +567,7 @@ __mulle_sde_complete_positional() {
     ;;
     clean:*)
       local domains
-      domains="all alltestall archive cache craftinfos craftorder default fetch graveyard gravetidy mirror project subprojects test tidy $(__mulle_sde_subcommand_fallback clean)"
+      domains="all alltestall archive cache craftinfos craftorder default fetch graveyard gravetidy mirror project shared shared-dependency-store stash subprojects test tidy $(__mulle_sde_subcommand_fallback clean)"
       __mulle_sde_complete_enums "$cur" $domains
       return
     ;;
