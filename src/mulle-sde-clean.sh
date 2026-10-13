@@ -311,7 +311,11 @@ sde::clean::dependencydir()
 
    local dependency_dir
 
-   dependency_dir="${DEPENDENCY_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR}}"
+   #
+   # DEPENDENCY_DIR is normally undefined, fall back to the default
+   # dependency directory (same as mulle-craft's dependency-store cleanup)
+   #
+   dependency_dir="${DEPENDENCY_DIR:-${MULLE_CRAFT_DEPENDENCY_DIR:-${MULLE_VIRTUAL_ROOT}/${MULLE_CRAFT_DEPENDENCY_DIRNAME:-dependency}}}"
    if [ -z "${dependency_dir}" ]
    then
       log_fluff "Dependency directory unknown, so don't clean"
@@ -341,14 +345,27 @@ sde::clean::stash()
 {
    log_entry "sde::clean::stash" "$@"
 
-   if [ -z "${MULLE_SOURCETREE_STASH_DIR}" ]
+   local stash_dir
+
+   #
+   # MULLE_SOURCETREE_STASH_DIR is normally undefined, fall back to the
+   # default stash directory (same as
+   # sourcetree::environment::set_share_dir does)
+   #
+   stash_dir="${MULLE_SOURCETREE_STASH_DIR}"
+   if [ -z "${stash_dir}" ]
    then
-      log_fluff "Stash directory unknown, so don't clean"
-      return 0
+      if [ -z "${MULLE_VIRTUAL_ROOT}" ]
+      then
+         log_fluff "Stash directory unknown, so don't clean"
+         return 0
+      fi
+
+      stash_dir="${MULLE_VIRTUAL_ROOT}/${MULLE_SOURCETREE_STASH_DIRNAME:-stash}"
    fi
 
-   log_verbose "Removing \"${MULLE_SOURCETREE_STASH_DIR}\" directory"
-   rmdir_safer "${MULLE_SOURCETREE_STASH_DIR}"
+   log_verbose "Removing \"${stash_dir}\" directory"
+   rmdir_safer "${stash_dir}"
 }
 
 

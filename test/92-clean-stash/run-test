@@ -59,11 +59,15 @@ main()
 
    cd "${directory}" || exit 1
 
+   #
+   # MULLE_SOURCETREE_STASH_DIR and DEPENDENCY_DIR are normally undefined,
+   # in which case they default to ${MULLE_VIRTUAL_ROOT}/stash and .../dependency
+   #
    stash_dir="`run_mulle_sde -s exec printenv MULLE_SOURCETREE_STASH_DIR`"
-   [ ! -z "${stash_dir}" ] || fail "could not determine stash directory"
+   stash_dir="${stash_dir:-${directory}/stash}"
 
    dependency_dir="`run_mulle_sde -s exec printenv DEPENDENCY_DIR`"
-   [ ! -z "${dependency_dir}" ] || fail "could not determine dependency directory"
+   dependency_dir="${dependency_dir:-${directory}/dependency}"
 
    #
    # fake a fetched dependency in the stash and the built dependency store,
