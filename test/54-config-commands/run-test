@@ -134,17 +134,19 @@ main()
 
       #-----------------------------------------------------------
       # Set up a fake multi-config dependency in stash
+      #
+      # Use the stash the project actually sees. MULLE_SOURCETREE_STASH_DIR
+      # is normally undefined, in which case the stash defaults to
+      # ${MULLE_VIRTUAL_ROOT}/stash.
       #-----------------------------------------------------------
       local stash_dir
 
       stash_dir="`run_mulle_sde exec sh -c 'echo ${MULLE_SOURCETREE_STASH_DIR}'`"
-
-      # If stash_dir uses variables, evaluate it
       if [ -z "${stash_dir}" ]
       then
-         # fallback: create a stash dir manually
-         stash_dir="${directory}/.mulle/var/stash"
+         stash_dir="${directory}/stash"
       fi
+
       mkdir_if_missing "${stash_dir}/FakeDep/.mulle/etc/sde"
       printf "x11:wayland\n" > "${stash_dir}/FakeDep/.mulle/etc/sde/reflect-configs"
 
