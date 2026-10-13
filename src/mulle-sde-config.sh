@@ -504,7 +504,12 @@ sde::config::list_dependencies()
    local env_var
    local found
 
-   stash_dir="${MULLE_SOURCETREE_STASH_DIR}"
+   #
+   # MULLE_SOURCETREE_STASH_DIR is normally undefined, fall back to the
+   # default stash directory (same as
+   # sourcetree::environment::set_share_dir does)
+   #
+   stash_dir="${MULLE_SOURCETREE_STASH_DIR:-${MULLE_VIRTUAL_ROOT}/${MULLE_SOURCETREE_STASH_DIRNAME:-stash}}"
    if [ -z "${stash_dir}" ]
    then
       return 0
