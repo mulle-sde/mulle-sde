@@ -1338,6 +1338,7 @@ project-tree|*-tree|*-editor|*-open|*-ls|*-exec|*-eval|*:*|*::*)
       'addiction-dir'|'craftorder-kitchen-dir'|'dependency-dir'|'kitchen-dir')
          rexekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
+                        "$@" \
                      "${cmd}"
       ;;
 
