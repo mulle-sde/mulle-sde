@@ -1,0 +1,128 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   log_fluff "####################################" >&2
+   log_fluff ${MULLE_SDE} ${MULLE_SDE_FLAGS} "$@" >&2
+   log_fluff "####################################" >&2
+
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_craft_line()
+{
+   local expected="$1"
+   local craft_log="$2"
+
+   if ! grep -F -x -- "${expected}" "${craft_log}" >/dev/null
+   then
+      fail "mulle-craft was not invoked as \"${expected}\":
+
+`cat "${craft_log}"`"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local directory
+   local fakebin
+   local craft_log
+   local output
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   #
+   # a "none" project is enough, dependency-dir only needs a project root
+   #
+   run_mulle_sde -s init -d "${directory}" none || fail "init failed"
+
+   fakebin="${directory}/fakebin"
+   craft_log="${directory}/mulle-craft.log"
+
+   mkdir_if_missing "${fakebin}"
+
+   #
+   # mock mulle-craft: record the exact invocation and print a directory, so
+   # we can observe what mulle-sde forwards without crafting anything
+   #
+   cat > "${fakebin}/mulle-craft" <<'EOF'
+#! /bin/sh
+printf '%s\n' "$*" >> "${VERIFY_CRAFT_LOG}"
+printf '%s\n' "${VERIFY_DEPENDENCY_DIR}"
+EOF
+   chmod +x "${fakebin}/mulle-craft"
+
+   (
+      cd "${directory}" || exit 1
+
+      MULLE_CRAFT="${fakebin}/mulle-craft"
+      VERIFY_CRAFT_LOG="${craft_log}"
+      VERIFY_DEPENDENCY_DIR="${directory}/dependency/Release"
+      export MULLE_CRAFT VERIFY_CRAFT_LOG VERIFY_DEPENDENCY_DIR
+
+      #
+      # regression: mulle-sde must forward the configuration to mulle-craft.
+      # mulle-craft parses its options *before* the command, so the
+      # configuration has to come first (it used to be dropped entirely,
+      # which made mulle-craft silently fall back to Debug)
+      #
+      : > "${craft_log}"
+
+      output="`run_mulle_sde dependency-dir --configuration Release`" \
+         || fail "dependency-dir --configuration Release failed"
+
+      [ "${output}" = "${directory}/dependency/Release" ] \
+         || fail "dependency-dir did not return mulle-craft output, got \"${output}\""
+
+      expect_craft_line "--configuration Release dependency-dir" "${craft_log}"
+
+      #
+      # and the debug configuration must be forwarded the same way
+      #
+      : > "${craft_log}"
+
+      output="`run_mulle_sde dependency-dir --configuration Debug`" \
+         || fail "dependency-dir --configuration Debug failed"
+
+      expect_craft_line "--configuration Debug dependency-dir" "${craft_log}"
+   ) || exit 1
+
+   log_info "----- ALL PASSED -----"
+
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"
