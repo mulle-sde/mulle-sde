@@ -1,5 +1,18 @@
 ## 3.10.0
 
+* a new shared command allows reuse of dependency build products across repositories, reducing craft times
+* help AI to prevent common -D passing mistakes in vibecode mode
+
+
+
+
+
+
+
+
+
+
+
 
 * dependency-dir (and other *-dir commands) now pass their options through to mulle-craft, so `--configuration` is honored instead of being dropped and silently falling back to Debug
 
