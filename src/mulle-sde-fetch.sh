@@ -139,6 +139,7 @@ sde::fetch::main()
 
    local OPTION_SERIAL='NO'
    local OPTION_QUICK_CHECK='NO'
+   local OPTION_REFLECT='YES'
 
    while [ $# -ne 0 ]
    do
@@ -157,6 +158,14 @@ sde::fetch::main()
 
          --no-quick-check)
             OPTION_QUICK_CHECK='NO'
+         ;;
+
+         --reflect)
+            OPTION_REFLECT='YES'
+         ;;
+
+         --no-reflect)
+            OPTION_REFLECT='NO'
          ;;
 
          --)
@@ -236,9 +245,12 @@ sde::fetch::main()
       rc=$?
       if [ $rc -eq 0 ]
       then
-         include 'sde::reflect'
+         if [ "${OPTION_REFLECT}" = 'YES' ]
+         then
+            include 'sde::reflect'
 
-         sde::reflect::main || rc=$?
+            sde::reflect::main || rc=$?
+         fi
       fi
       lock::release "${_lockdir}"
       return ${rc}

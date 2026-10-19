@@ -56,6 +56,11 @@ Usage:
       mulle-sde definition set CFLAGS '-DNO_REMORSE=1848'
       mulle-sde definition set --clobber CC mulle-clang
 
+   > Shell assignments are not inherited: \`CC=tcc mulle-sde craft\` has no
+   > effect, because mulle-sde rebuilds its environment. For a one-time
+   > override use \`mulle-sde -DCC=tcc craft\`, for a permanent one use the
+   > \`definition set\` form above.
+
    > To change settings of a dependency use \`mulle-sde dependency craftinfo\`
    > instead.
 

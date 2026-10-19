@@ -1,0 +1,269 @@
+#! /bin/sh
+
+[ "${TRACE}" = 'YES' ] && set -x && : "$0" "$@"
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+MULLE_BASHFUNCTIONS_LIBEXEC_DIR="`mulle-bashfunctions libexec-dir`" || exit 1
+export MULLE_BASHFUNCTIONS_LIBEXEC_DIR
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-boot.sh" || exit 1
+. "${MULLE_BASHFUNCTIONS_LIBEXEC_DIR}/mulle-bashfunctions.sh" || exit 1
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+
+
+run_mulle_sde()
+{
+   (
+      MULLE_EXECUTABLE="${MULLE_SDE}"
+      MULLE_SDE_LIBEXEC_DIR="`${MULLE_SDE} libexec-dir`"
+
+      . "${MULLE_SDE}" ${MULLE_SDE_FLAGS} "$@"
+   )
+}
+
+
+expect_equal()
+{
+   local expected="$1"
+   local value="$2"
+   local name="$3"
+
+   if [ "${value}" != "${expected}" ]
+   then
+      fail "Expected ${name}='${expected}', got '${value}'"
+   fi
+}
+
+
+expect_empty()
+{
+   local value="$1"
+   local name="$2"
+
+   if [ ! -z "${value}" ]
+   then
+      fail "Expected ${name} to be empty, got '${value}'"
+   fi
+}
+
+
+expect_directory()
+{
+   if [ ! -d "$1" ]
+   then
+      fail "Expected directory \"$1\" to exist"
+   fi
+}
+
+
+expect_no_directory()
+{
+   if [ -d "$1" ]
+   then
+      fail "Expected directory \"$1\" to not exist"
+   fi
+}
+
+
+main()
+{
+   MULLE_SDE_FLAGS="$@"
+
+   _options_mini_main "$@" && set -x
+
+   local base
+   local directory
+   local result
+   local scratch
+
+   r_make_tmp_directory || exit 1
+   directory="${RVAL}"
+   directory="${directory:-/tmp/build}"
+
+   run_mulle_sde -s init -d "${directory}" -m mulle-sde/c-developer executable || fail "init failed"
+   cd "${directory}" || exit 1
+
+   run_mulle_sde -s test init || fail "test init failed"
+
+   #
+   # a value that exists before the first "on" has to survive an "off"
+   #
+   run_mulle_sde -s environment --this-user-host set \
+      MULLE_CRAFT_SHARED_DEPENDENCY_PATH '/pre:value' || fail "preset failed"
+
+   run_mulle_sde -s shared on /a:/b || fail "shared on failed"
+
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_SHARED_DEPENDENCY_PATH`"
+   expect_equal "/a:/b" "${result}" "PATH (project, on)"
+
+   result="`run_mulle_sde -d test environment --this-user-host get MULLE_CRAFT_SHARED_DEPENDENCY_PATH`"
+   expect_equal "/a:/b" "${result}" "PATH (test, on)"
+
+   result="`run_mulle_sde -s shared path`"
+   expect_equal "/b" "${result}" "writable layer"
+
+   #
+   # a repeated "on" must not overwrite the backup with its own value,
+   # otherwise "off" could not put the original value back
+   #
+   run_mulle_sde -s shared on /c:/d || fail "second shared on failed"
+
+   result="`run_mulle_sde environment --this-user-host get MULLE_SDE_SHARED_BACKUP__MULLE_CRAFT_SHARED_DEPENDENCY_PATH`"
+   expect_equal "/pre:value" "${result}" "backup after repeated on"
+
+   result="`run_mulle_sde -s shared path`"
+   expect_equal "/d" "${result}" "writable layer after repeated on"
+
+   #
+   # "layers" marks the last one writable
+   #
+   result="`run_mulle_sde -s shared layers`"
+   case "${result}" in
+      *"(writable"*)
+      ;;
+
+      *)
+         fail "layers did not mark a writable layer: ${result}"
+      ;;
+   esac
+
+   run_mulle_sde -s shared off || fail "shared off failed"
+
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_SHARED_DEPENDENCY_PATH`"
+   expect_equal "/pre:value" "${result}" "PATH (project, off)"
+
+   #
+   # a test directory is an environment of its own, so "off" has to take the
+   # setting away there too
+   #
+   result="`run_mulle_sde -d test environment get MULLE_CRAFT_SHARED_DEPENDENCY_PATH`"
+   expect_empty "${result}" "PATH (test, resolved, off)"
+
+   expect_empty "`run_mulle_sde environment --this-user-host get MULLE_SDE_SHARED_BACKUP__MARKER`" \
+                "marker cleanup (project)"
+   expect_empty "`run_mulle_sde -d test environment --this-user-host get MULLE_SDE_SHARED_BACKUP__MARKER`" \
+                "marker cleanup (test)"
+
+   #
+   # the default scope is per-user, per-host: where a cache lives is machine
+   # specific and must not be committed to the repository
+   #
+   run_mulle_sde -s environment --this-user-host remove \
+      MULLE_CRAFT_SHARED_DEPENDENCY_PATH || fail "could not remove preset"
+
+   run_mulle_sde -s shared on || fail "default shared on failed"
+
+   result="`run_mulle_sde environment --this-user-host get MULLE_CRAFT_SHARED_DEPENDENCY_PATH`"
+   expect_equal "${HOME}/.mulle/var/cache/sde/shared" "${result}" "default layer (user-host scope)"
+
+   expect_empty "`run_mulle_sde environment --this-user-host get MULLE_CRAFT_SHARED_DEPENDENCY_DIR`" \
+                "single layer setting is cleared"
+
+   run_mulle_sde -s shared off || fail "final shared off failed"
+
+   expect_empty "`run_mulle_sde environment --this-user-host get MULLE_CRAFT_SHARED_DEPENDENCY_PATH`" \
+                "PATH (after off, no previous value)"
+
+   #
+   # clean removes the writable layer only, a read-only one is kept
+   #
+   base="${directory}/layers/base"
+   scratch="${directory}/layers/scratch"
+
+   rexekutor mkdir -p "${base}" "${scratch}" || fail "could not create the layers"
+   redirect_exekutor "${base}/.read-only" printf "%s\n" 'read-only' || fail "could not mark the base"
+   : > "${base}/keep"
+   : > "${scratch}/drop"
+
+   run_mulle_sde -s shared on "${base}:${scratch}" || fail "shared on (layers) failed"
+
+   result="`run_mulle_sde -s shared layers`"
+   case "${result}" in
+      *".read-only"*)
+      ;;
+
+      *)
+         fail "layers did not detect the read-only marker: ${result}"
+      ;;
+   esac
+
+   #
+   # invalidate forgets a node, so that the next craft rebuilds it. The store
+   # layout is <layer>/<name>/<key>.tgz, so a node directory is all that is
+   # needed to make the point. mulle-craft owns the store and is environment
+   # driven, so this also pins down that the request reaches it.
+   #
+   rexekutor mkdir -p "${scratch}/foo" "${scratch}/bar" || fail "could not create node dirs"
+   : > "${scratch}/foo/dep-Debug-12345678.tgz"
+   : > "${scratch}/bar/dep-Debug-12345678.tgz"
+
+   #
+   # without names it lists what could be invalidated, which is also how a
+   # typo is spotted
+   #
+   result="`run_mulle_sde -s shared invalidate`"
+
+   printf "%s\n" "${result}" | grep -q 'foo' || \
+      fail "invalidate did not list the stored node foo: ${result}"
+   printf "%s\n" "${result}" | grep -q 'bar' || \
+      fail "invalidate did not list the stored node bar: ${result}"
+
+   run_mulle_sde -s shared invalidate foo || fail "shared invalidate failed"
+
+   expect_no_directory "${scratch}/foo"
+   expect_directory "${scratch}/bar"
+
+   #
+   # a node that is not there can not be invalidated and that has to fail,
+   # otherwise the caller believes the next craft will rebuild it
+   #
+   if run_mulle_sde -s shared invalidate nosuchnode
+   then
+      fail "invalidating an unknown node did not fail"
+   fi
+
+   #
+   # a dry run reports without forgetting
+   #
+   run_mulle_sde -s shared invalidate --dry-run bar || fail "shared invalidate --dry-run failed"
+
+   expect_directory "${scratch}/bar"
+
+   #
+   # a read-only layer is left alone, unless it is forced explicitly
+   #
+   rexekutor mkdir -p "${base}/baz" || fail "could not create the node dir in the base"
+   : > "${base}/baz/dep-Debug-12345678.tgz"
+
+   if run_mulle_sde -s shared invalidate baz
+   then
+      fail "invalidating in a read-only layer did not fail"
+   fi
+
+   expect_directory "${base}/baz"
+
+   run_mulle_sde -s shared invalidate --force baz || fail "forced shared invalidate failed"
+
+   expect_no_directory "${base}/baz"
+
+   run_mulle_sde -s shared clean || fail "shared clean failed"
+
+   expect_no_directory "${scratch}"
+   expect_directory "${base}"
+
+   run_mulle_sde -s shared off || fail "cleanup off failed"
+
+   log_info "----- ALL PASSED -----"
+   cd ..
+   chmod -R u+w "${directory}" 2>/dev/null
+   rmdir_safer "${directory}"
+}
+
+
+init()
+{
+   MULLE_SDE="${MULLE_SDE:-${PWD}/../../mulle-sde}"
+}
+
+
+init "$@"
+main "$@"

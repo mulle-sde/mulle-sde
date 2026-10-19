@@ -378,7 +378,8 @@ sde::clean::shareddependencydir()
 {
    log_entry "sde::clean::shareddependencydir" "$@"
 
-   if [ -z "${MULLE_CRAFT_SHARED_DEPENDENCY_DIR:-}" ]
+   if [ -z "${MULLE_CRAFT_SHARED_DEPENDENCY_PATH:-}" -a \
+        -z "${MULLE_CRAFT_SHARED_DEPENDENCY_DIR:-}" ]
    then
       log_verbose "No shared dependency store is configured"
       return 0

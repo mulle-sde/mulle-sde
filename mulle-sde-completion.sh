@@ -124,7 +124,7 @@ __mulle_sde_commands() {
     local out
     out="$(mulle-sde commands 2>&1 | awk '{print $1}' | grep -v '^-' | tr '\n' ' ')"
     if [ -z "$out" ]; then
-      out="add addiction-dir api bash-completion callback cd check clean commands common-unames config craft craftinfo craftinfos craftorder craftorders craft-status craftstatus crun debug def definition definition-editor definitions dep dependency dependency-dir dependency-eval dependency-exec dependency-ls dependency-open dependency-tree doctor donefile donefiles edit editor enter env env-identifier environment environment-editor exec execute export ext extension fetch file files filename find get headerorder hostname howto ignore init init-and-enter install json kitchen-dir lib libexec-dir libraries library library-path link-args linkorder list log logstatus mark match migrate monitor monitor-editor move pat patterncheck patternenv patternfile patternfile-editor patternfiles patternmatch platform product project project-dir protect recraft reflect reinit remove retest run searchpath set show source-dir sourcetree sourcetree-editor stash-dir status steal style sub subproject subprojects sweatcoding symbol symbols symlink task test todo tool tool-editor tool-env treestatus uname unprotect unveil update upgrade username version vibecoding view"
+      out="add addiction-dir api bash-completion callback cd check clean commands common-unames config craft craftinfo craftinfos craftorder craftorders craft-status craftstatus crun debug def definition definition-editor definitions dep dependency dependency-dir dependency-eval dependency-exec dependency-ls dependency-open dependency-tree doctor donefile donefiles edit editor enter env env-identifier environment environment-editor exec execute export ext extension fetch file files filename find get headerorder hostname howto ignore init init-and-enter install json kitchen-dir lib libexec-dir libraries library library-path link-args linkorder list log logstatus mark match migrate monitor monitor-editor move pat patterncheck patternenv patternfile patternfile-editor patternfiles patternmatch platform product project project-dir protect recraft reflect reinit remove retest run searchpath set shared show source-dir sourcetree sourcetree-editor stash-dir status steal style sub subproject subprojects sweatcoding symbol symbols symlink task test todo tool tool-editor tool-env treestatus uname unprotect unveil update upgrade username version vibecoding view"
     fi
     __mulle_sde_static_cache_set "__mulle_sde_cached_commands" "$(__mulle_sde_unique $out)"
   fi
@@ -659,6 +659,16 @@ __mulle_sde_complete_positional() {
     vibecoding|sweatcoding|vibecode|sweatcode)
       if [ -z "$sub" ] && [[ "$cur" != -* ]]; then
         __mulle_sde_complete_enums "$cur" "on off yes no"
+        return
+      fi
+    ;;
+  esac
+
+  # shared on/off/layers/status/path/clean/invalidate
+  case "$cmd" in
+    shared)
+      if [ -z "$sub" ] && [[ "$cur" != -* ]]; then
+        __mulle_sde_complete_enums "$cur" "on off layers status path clean invalidate"
         return
       fi
     ;;

@@ -57,6 +57,7 @@ Usage:
 Options:
    --platform <name> : run tests for this platform only (use 'all' to reset)
    --sdk <name>      : use this SDK
+   --cc <name>       : use <name> as C compiler for \`craft\` (after the command)
    --configuration   : use this configuration (default: Debug)
    --valgrind        : use valgrind to run
    --sanitize-address   : use address sanitizer
@@ -69,6 +70,12 @@ Options:
    Note: --platform, --sdk, --configuration must be placed BEFORE the command.
    e.g.: ${MULLE_USAGE_NAME} test --platform windows craft
    e.g.: ${MULLE_USAGE_NAME} test --valgrind run
+
+   Note: \`CC=tcc ${MULLE_USAGE_NAME} test\` does NOT change the compiler, because
+   mulle-sde rebuilds its environment and drops inherited variables. Use a
+   definition instead:
+      ${MULLE_USAGE_NAME} -DCC=tcc test craft
+      ${MULLE_USAGE_NAME} test craft --cc tcc
 
 Command:
    clean      : clean tests and or dependencies

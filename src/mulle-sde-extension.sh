@@ -591,6 +591,13 @@ sde::extension::get_installed_extension_by_name()
 
    local name="$1"
 
+   if [ ! -f "${MULLE_SDE_SHARE_DIR}/extension" ]
+   then
+      log_fluff "No extensions are installed (\"${MULLE_SDE_SHARE_DIR}/extension\" is missing)"
+      RVAL=
+      return 1
+   fi
+
    r_escaped_sed_pattern "${name}"
 
    # interesting that the 'p' inside {} doesn't reference the 's' but

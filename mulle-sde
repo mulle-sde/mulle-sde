@@ -112,6 +112,7 @@ function sde::print_commands()
    platform       : manage cross-compilation platforms
    reflect        : update project makefiles and sources
    run            : run executable product
+   shared         : manage the opt-in shared dependency store
    status         : show information about the current project state
    view           : give an overview over the project settings"
 
@@ -182,7 +183,7 @@ sde::print_flags()
       echo "   --sandbox <f>  : run subshell/command within sandbox executable \"f\""
    fi
 
-      echo "   -DKEY=VALUE    : define one-time environment variable"
+      echo "   -DKEY=VALUE    : define one-time environment variable (e.g. -DCC=tcc)"
 
    if [ -z "${MULLE_VIRTUAL_ROOT}" ]
    then
@@ -342,11 +343,186 @@ sde::export_custom_defines()
 }
 
 
+#
+# Build variables that are inherited from the calling shell are discarded
+# when mulle-env rebuilds the environment (it uses `env -i` and only keeps
+# the project scope keys). So `CC=tcc mulle-sde test` silently does *not*
+# change the compiler. Collect these variables while they are still visible.
+#
+sde::r_inherited_build_variables()
+{
+   log_entry "sde::r_inherited_build_variables" "$@"
+
+   local key
+   local value
+   local define
+   local variables
+   local handled
+
+   for key in CC CXX OBJC COBJC CFLAGS CXXFLAGS OBJCFLAGS CPPFLAGS LDFLAGS
+   do
+      r_shell_indirect_expand "${key}"
+      value="${RVAL}"
+      [ -z "${value}" ] && continue
+
+      #
+      # a matching -D (or -DB/-DE) means the user did it right, so the
+      # inherited value is irrelevant and must not be warned about
+      #
+      handled='NO'
+      for define in "${MULLE_DEFINE_ARGUMENTS[@]}"
+      do
+         case "${define}" in
+            -D"${key}"=*|-DB"${key}"=*|-DE"${key}"=*)
+               handled='YES'
+               break
+            ;;
+         esac
+      done
+
+      [ "${handled}" = 'YES' ] && continue
+
+      r_add_line "${variables}" "${key}=${value}"
+      variables="${RVAL}"
+   done
+
+   RVAL="${variables}"
+   [ ! -z "${RVAL}" ]
+}
+
+
+#
+# In vibecoding mode, complain about build variables that the calling shell
+# set for a craft/test command. Without this, the assignment is dropped
+# without any feedback and both humans and AI agents keep believing that
+# `CC=tcc mulle-sde test` changed the compiler.
+#
+# Wild environments do not rebuild the environment, so inherited values do
+# reach the compiler there and no warning is appropriate.
+#
+sde::warn_about_inherited_build_environment()
+{
+   log_entry "sde::warn_about_inherited_build_environment" "$@"
+
+   local cmd="$1"
+   local variables
+   local vibecoding
+   local style
+   local suggestions
+   local joined
+   local line
+   local key
+   local value
+   local first_key
+   local first_value
+   local assignments
+   local definitions
+   local example_assignment
+
+   case "${cmd}" in
+      craft|recraft|test|retest|crun|crerun|recrun|debug)
+      ;;
+
+      *)
+         return 0
+      ;;
+   esac
+
+   #
+   # Only the outer invocation still sees the variables of the calling shell.
+   # Once the environment is entered, CC & friends come from -D definitions
+   # or from the project scope and are legitimate.
+   #
+   if [ ! -z "${MULLE_VIRTUAL_ROOT:-}" ]
+   then
+      return 0
+   fi
+
+   sde::r_inherited_build_variables || return 0
+   variables="${RVAL}"
+
+   case " ${MULLE_ENV_FLAGS:-} " in
+      *" --style wild "*)
+         return 0
+      ;;
+   esac
+
+   style="`"${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} style get 2>/dev/null`"
+
+   case "${style}" in
+      */wild)
+         return 0
+      ;;
+   esac
+
+   vibecoding="${MULLE_VIBECODING:-}"
+   if [ -z "${vibecoding}" ]
+   then
+      vibecoding="`"${MULLE_ENV:-mulle-env}" -s ${MULLE_ENV_FLAGS} get --output-eval MULLE_VIBECODING 2>/dev/null`"
+   fi
+
+   [ "${vibecoding}" = 'YES' ] || return 0
+
+   assignments=()
+   definitions=()
+
+   while IFS= read -r line
+   do
+      [ -z "${line}" ] && continue
+
+      key="${line%%=*}"
+      value="${line#*=}"
+
+      if [ -z "${first_key}" ]
+      then
+         first_key="${key}"
+         first_value="${value}"
+      fi
+
+      assignments+=( "${key}=${value}" )
+      definitions+=( "-D${key}=${value}" )
+   done <<< "${variables}"
+
+   #
+   # shell-quote, so that values with spaces can be copied and pasted
+   #
+   r_escaped_eval_arguments "${assignments[@]}"
+   joined="${RVAL}"
+
+   r_escaped_eval_arguments "${definitions[@]}"
+   suggestions="${RVAL}"
+
+   case "${first_value}" in
+      *[[:space:]]*)
+         example_assignment="${first_key}='${first_value}'"
+      ;;
+
+      *)
+         example_assignment="${first_key}=${first_value}"
+      ;;
+   esac
+
+   log_warning "Ignoring build variables from the calling shell: ${joined}
+${C_INFO}mulle-sde rebuilds its environment, so \`${example_assignment} mulle-sde ${cmd}\` never reaches the compiler.
+${C_RESET_BOLD}Use definitions instead:
+${C_INFO}   mulle-sde ${suggestions} ${cmd}
+${C_INFO}or make the override permanent:
+${C_INFO}   mulle-sde definition set --clobber ${first_key} '${first_value}'"
+}
+
+
 sde::r_determine_project_dir()
 {
    local directory="$1"
 
-   RVAL="`( cd "${directory:-$PWD}" && sde::run_mulle_env --search-nearest project-dir )`"
+   directory="${1:-$PWD}"
+   if [ -z "${directory}" ]
+   then
+      RVAL=
+      return 1
+   fi
+
+   RVAL="`( cd "${directory}" && sde::run_mulle_env --search-nearest project-dir )`"
 }
 
 
@@ -489,7 +665,7 @@ sde::exec_command_in_subshell()
 
    local current
 
-   current="`pwd -P`"
+   current="$(pwd -P)"  # can fail
 
    if ! sde::r_determine_project_dir "${current}"
    then
@@ -1010,6 +1186,13 @@ sde::main()
       ;;
    esac
 
+   #
+   # We are still in the outer invocation here, so the environment of the
+   # calling shell is visible. Warn now, because once the environment is
+   # rebuilt the inherited build variables are gone without a trace.
+   #
+   sde::warn_about_inherited_build_environment "${cmd}"
+
    if [ "${FLAG_OUTSIDE_ENV}" = 'YES' ]
    then
       MULLE_VIRTUAL_ROOT="`pwd -P`"
@@ -1038,7 +1221,7 @@ craft-status|definition|dep|dependency|doctor|donefile|export|\
 fetch|file|files|filename|headerorder|howto|ignore|json|library|\
 link-args|list|log|logstatus|mark|match|migrate|monitor|move|\
 patterncheck|patternenv|patternfile|patternfiles|\
-platform|product|project|protect|reflect|recraft|searchpath|sourcetree|\
+platform|product|project|protect|reflect|recraft|searchpath|shared|sourcetree|\
 subproject|style|verify|\
 sweatcoding|symbol|symbols|task|tool|treestatus|unmark|unprotect|update|\
 lib|pat|sub|unveil|view|vibecoding)
@@ -1474,6 +1657,7 @@ retest - retest using mulle-test (help: yes)
 run - run executable product (help: yes)
 searchpath - show search path for build products (help: yes)
 set - set environment variable value (help: yes)
+shared - manage the opt-in shared dependency store (help: yes)
 show - show available meta extensions (help: yes)
 source-dir - print project source directory (help: no)
 sourcetree - alias for config (help: yes)
@@ -2232,6 +2416,18 @@ tool        - available binaries in mulle-sde subshell"
          exekutor "${MULLE_CRAFT:-mulle-craft}" \
                         ${MULLE_TECHNICAL_FLAGS} \
                      searchpath "$@"
+      ;;
+
+      'shared')
+         if ! sde::is_non_environment_commandline "$@"
+         then
+            sde::cd_virtual_root_assert_mulle_sde "${cmd}"
+         fi
+
+         # shellcheck source=src/mulle-sde-shared.sh
+         include "sde::shared"
+
+         sde::shared::main "${cmd}" "$@"
       ;;
 
       'show')

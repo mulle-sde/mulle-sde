@@ -293,7 +293,12 @@ EOF
    if [ ! -z "${MULLE_VIRTUAL_ROOT}" ]
    then
       PROJECT_TYPE="`rexekutor mulle-sde ${MULLE_TECHNICAL_FLAGS} env get PROJECT_TYPE`"
-      if [ "${PROJECT_TYPE}" = "none" ]
+      #
+      # If the project has no extension registry (yet), a bare extension name
+      # can not be resolved to a vendor. Fall back to the builtin mulle-sde
+      # vendor in that case (and for "none" projects).
+      #
+      if [ "${PROJECT_TYPE}" = "none" -o ! -f "${MULLE_VIRTUAL_ROOT}/.mulle/share/sde/extension" ]
       then
          vendorprefix="mulle-sde/"
       fi
