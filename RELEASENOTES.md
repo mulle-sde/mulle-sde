@@ -1,4 +1,4 @@
-## 3.10.0
+## 3.10.1
 
 * a new shared command allows reuse of dependency build products across repositories, reducing craft times
 * help AI to prevent common -D passing mistakes in vibecode mode
